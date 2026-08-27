@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExpertPlex 论文分析 | arXiv:2607.18002</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+
+    a { color: var(--navy); }
+
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 28px 80px;
+    }
+
+    header.hero {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 42px 48px 36px;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    header.hero::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: #f5f5f4;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+
+    h1 {
+      font-size: 30px;
+      line-height: 1.35;
+      margin: 0 0 10px;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: var(--muted);
+      margin: 0 0 18px;
+    }
+
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px;
+      color: var(--muted);
+    }
+
+    .meta strong { color: var(--ink); }
+
+    nav.toc {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      padding: 22px 28px;
+      margin-bottom: 28px;
+    }
+
+    nav.toc h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    nav.toc ol {
+      margin: 0;
+      padding-left: 22px;
+      columns: 2;
+      font-size: 14.5px;
+    }
+
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+
+    section.card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 34px 42px 38px;
+      margin-bottom: 22px;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 23px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+
+    h3 {
+      margin: 26px 0 10px;
+      font-size: 18px;
+      color: var(--navy);
+    }
+
+    h4 {
+      margin: 18px 0 8px;
+      font-size: 16px;
+    }
+
+    p { margin: 0 0 14px; }
+
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+
+    .lead {
+      font-size: 17.5px;
+      color: #292524;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .tile {
+      background: #faf7f2;
+      border: 1px solid var(--line);
+      padding: 16px 16px 14px;
+    }
+
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: #fff7ed;
+      padding: 12px 16px;
+      margin: 16px 0 18px;
+      font-size: 15px;
+    }
+
+    .callout.teal {
+      border-left-color: var(--teal);
+      background: #f0fdfa;
+    }
+
+    .callout.navy {
+      border-left-color: var(--navy);
+      background: #f0f4f8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f5f0e6;
+      font-weight: 650;
+    }
+
+    tr:nth-child(even) td { background: #faf8f4; }
+
+    .num {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .eq {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      padding: 12px 16px;
+      margin: 12px 0 16px;
+      overflow-x: auto;
+      font-family: "Cambria Math", "Times New Roman", serif;
+      text-align: center;
+    }
+
+    .arch {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1fr;
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .arch .box {
+      border: 1px solid var(--line);
+      padding: 14px;
+      min-height: 140px;
+    }
+
+    .arch .prefill { background: #fff7ed; }
+    .arch .moe { background: #f0fdfa; }
+    .arch .decode { background: #eff6ff; }
+
+    .arch .label {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    footer {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .kpi {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 16px 0 8px;
+    }
+
+    .kpi .n {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: "Segoe UI", sans-serif;
+      line-height: 1.15;
+    }
+
+    .kpi .k {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .kpi > div {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      padding: 12px 12px 10px;
+    }
+
+    .fig {
+      margin: 22px 0 6px;
+      background: #faf8f4;
+      border: 1px solid var(--line);
+      padding: 18px 14px 10px;
+      overflow-x: auto;
+    }
+
+    .fig svg {
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      margin: 6px 0 20px;
+      line-height: 1.55;
+    }
+
+    .fig-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 16px 0 6px;
+    }
+
+    .fig-row .fig { margin: 0; }
+
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .arch, .kpi, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv:2607.18002v2</span>
+        <span class="badge">cs.DC · 系统 / 分布式</span>
+        <span class="badge">2026-07-21</span>
+        <span class="badge ok">MoE Serving</span>
+        <span class="badge ok">PD Disaggregation</span>
+      </div>
+      <h1>ExpertPlex：面向 MoE 大模型的高 Goodput 分离式服务系统</h1>
+      <p class="subtitle">A High-Goodput Disaggregated Serving System for MoE LLMs with Adaptive Persistent Kernels</p>
+      <p class="meta">
+        <strong>作者：</strong>Bingyang Wu, Yinmin Zhong, Chao Jin, Ruidong Zhu, Zili Zhang, Chengxu Yang, Xinming Wei, Xin Jin, Yuliang Liu<br />
+        <strong>单位：</strong>北京大学 + Independent Researcher<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2607.18002" target="_blank" rel="noopener">https://arxiv.org/abs/2607.18002</a>
+        · PDF <a href="https://arxiv.org/pdf/2607.18002" target="_blank" rel="noopener">2607.18002</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">问题背景：MoE 服务为何难</a></li>
+        <li><a href="#s3">现有路线的结构性缺陷</a></li>
+        <li><a href="#s4">核心洞察与系统架构</a></li>
+        <li><a href="#s5">技术一：自适应持久化内核 APK</a></li>
+        <li><a href="#s6">技术二：Attention 发起的单边通信</a></li>
+        <li><a href="#s7">技术三：跨栈放置优化器</a></li>
+        <li><a href="#s8">实验设置与主要结果</a></li>
+        <li><a href="#s9">贡献、局限与后续方向</a></li>
+        <li><a href="#s10">对后续研究的启发</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        ExpertPlex 的核心主张是：<strong>不要在 Prefill / Decode 两阶段各复制一份完整 MoE 模型，也不要在每张 GPU 上用 Green Context 把两阶段“切死”；而应共享占参数 95% 以上的 Expert，只把轻量 Attention 按阶段分离</strong>。再配合 tile 级可抢占的自适应持久化内核、Attention 发起的单边通信，以及 tile-to-cluster 联合优化，把 goodput 相对实例级 PD 分离最高提升 <span class="num">2.01×</span>，相对 Green Context 共置最高提升 <span class="num">1.66×</span>。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">95%+</div>
+          <div class="k">MoE 权重占比；共享后消除跨阶段重复</div>
+        </div>
+        <div>
+          <div class="n">2.01×</div>
+          <div class="k">相对实例级 PDD 的 goodput 上限</div>
+        </div>
+        <div>
+          <div class="n">1.66×</div>
+          <div class="k">相对 Green Context 共置的 goodput 上限</div>
+        </div>
+        <div>
+          <div class="n">&lt;25.3μs</div>
+          <div class="k">tile 级抢占间隔，与序列长度无关</div>
+        </div>
+      </div>
+      <div class="callout">
+        这不是又一篇“把 Prefill 和 Decode 拆开”的工作。它针对的是 <strong>MoE 权重膨胀之后，实例级 PDD 部署粒度变得过粗</strong> 这一新瓶颈：DeepSeek-V3 一类部署单元可达 32P+320D=352 GPU，小集群配不出目标 P:D 比，大集群又弹性差、故障爆炸半径大。
+      </div>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三种服务架构对比">
+          <defs>
+            <style>
+              .t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}
+            </style>
+          </defs>
+          <!-- PDD -->
+          <rect x="18" y="18" width="300" height="300" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="168" y="44" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">实例级 PDD</text>
+          <text class="t" x="168" y="64" text-anchor="middle" font-size="11" fill="#78716c">两阶段各持完整副本</text>
+          <rect x="38" y="80" width="120" height="150" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="98" y="102" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">Prefill 实例</text>
+          <rect x="50" y="114" width="96" height="28" rx="3" fill="#fff" stroke="#c2410c"/>
+          <text class="t" x="98" y="133" text-anchor="middle" font-size="11" fill="#9a3412">Attention</text>
+          <rect x="50" y="150" width="96" height="60" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="98" y="175" text-anchor="middle" font-size="11" fill="#115e59">完整 MoE</text>
+          <text class="t" x="98" y="192" text-anchor="middle" font-size="10" fill="#0f766e">权重 ×1</text>
+          <rect x="178" y="80" width="120" height="150" rx="6" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="238" y="102" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">Decode 实例</text>
+          <rect x="190" y="114" width="96" height="28" rx="3" fill="#fff" stroke="#1e3a5f"/>
+          <text class="t" x="238" y="133" text-anchor="middle" font-size="11" fill="#1e3a5f">Attention</text>
+          <rect x="190" y="150" width="96" height="60" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="238" y="175" text-anchor="middle" font-size="11" fill="#115e59">完整 MoE</text>
+          <text class="t" x="238" y="192" text-anchor="middle" font-size="10" fill="#0f766e">权重再 ×1</text>
+          <text class="t" x="168" y="256" text-anchor="middle" font-size="12" fill="#9a3412">MoE 复制 ≈ 95%+ 内存浪费</text>
+          <text class="t" x="168" y="276" text-anchor="middle" font-size="12" fill="#78716c">部署单元粗：32P + 320D</text>
+          <text class="t" x="168" y="296" text-anchor="middle" font-size="12" fill="#78716c">隔离干净，弹性差</text>
+
+          <!-- Colocation -->
+          <rect x="340" y="18" width="300" height="300" rx="8" fill="#f5f5f4" stroke="#d6d3d1"/>
+          <text class="t" x="490" y="44" text-anchor="middle" font-size="15" font-weight="700" fill="#44403c">Green Context 共置</text>
+          <text class="t" x="490" y="64" text-anchor="middle" font-size="11" fill="#78716c">一张卡切成两半，权重共享</text>
+          <rect x="368" y="80" width="244" height="150" rx="6" fill="#fff" stroke="#78716c"/>
+          <text class="t" x="490" y="100" text-anchor="middle" font-size="12" font-weight="700" fill="#44403c">同一 GPU / 同一 MoE 副本</text>
+          <rect x="380" y="114" width="108" height="96" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="434" y="148" text-anchor="middle" font-size="12" fill="#9a3412">Prefill SM</text>
+          <text class="t" x="434" y="166" text-anchor="middle" font-size="10" fill="#9a3412">固定配额</text>
+          <rect x="492" y="114" width="108" height="96" rx="4" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="546" y="148" text-anchor="middle" font-size="12" fill="#1e3a5f">Decode SM</text>
+          <text class="t" x="546" y="166" text-anchor="middle" font-size="10" fill="#1e3a5f">固定配额</text>
+          <line x1="490" y1="114" x2="490" y2="210" stroke="#78716c" stroke-width="2" stroke-dasharray="3 3"/>
+          <text class="t" x="490" y="256" text-anchor="middle" font-size="12" fill="#9a3412">队头阻塞 或 资源气泡</text>
+          <text class="t" x="490" y="276" text-anchor="middle" font-size="12" fill="#78716c">跟不上层间 expert 变化</text>
+          <text class="t" x="490" y="296" text-anchor="middle" font-size="12" fill="#78716c">网络也不隔离</text>
+
+          <!-- ExpertPlex -->
+          <rect x="662" y="18" width="300" height="300" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="812" y="44" text-anchor="middle" font-size="15" font-weight="700" fill="#0f766e">ExpertPlex</text>
+          <text class="t" x="812" y="64" text-anchor="middle" font-size="11" fill="#0f766e">共享 Expert，分离 Attention</text>
+          <rect x="678" y="80" width="78" height="150" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="717" y="130" text-anchor="middle" font-size="11" font-weight="700" fill="#9a3412">P-Attn</text>
+          <text class="t" x="717" y="148" text-anchor="middle" font-size="10" fill="#9a3412">整卡</text>
+          <rect x="766" y="80" width="92" height="150" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="812" y="122" text-anchor="middle" font-size="11" font-weight="700" fill="#115e59">共享 MoE</text>
+          <text class="t" x="812" y="140" text-anchor="middle" font-size="10" fill="#0f766e">一份权重</text>
+          <text class="t" x="812" y="158" text-anchor="middle" font-size="10" fill="#0f766e">+ APK</text>
+          <rect x="868" y="80" width="78" height="150" rx="6" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="907" y="130" text-anchor="middle" font-size="11" font-weight="700" fill="#1e3a5f">D-Attn</text>
+          <text class="t" x="907" y="148" text-anchor="middle" font-size="10" fill="#1e3a5f">整卡</text>
+          <path d="M756 140 L766 140" stroke="#c2410c" stroke-width="1.5"/>
+          <path d="M858 155 L868 155" stroke="#1e3a5f" stroke-width="1.5"/>
+          <text class="t" x="812" y="256" text-anchor="middle" font-size="12" fill="#0f766e">去重 95%+ 权重</text>
+          <text class="t" x="812" y="276" text-anchor="middle" font-size="12" fill="#78716c">tile 级隔离 + 单边通信</text>
+          <text class="t" x="812" y="296" text-anchor="middle" font-size="12" fill="#78716c">配比细、故障域小</text>
+        </svg>
+      </div>
+      <p class="figcap">图 1　三条路线一眼对比：PDD 复制整模，共置把卡切死，ExpertPlex 只拆 Attention、共享 Expert。</p>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题背景：MoE 服务为何难</h2>
+      <h3>2.1 MoE 把“容量”和“算力”解耦，却把“内存”和“动态性”绑死</h3>
+      <p>
+        Transformer 层由 Attention + FFN 组成。前沿模型用稀疏 Mixture-of-Experts 替换稠密 FFN：router 为每个 token 选 top-k 个 routed experts，再加少量 shared experts。这样可以大幅增加参数量，而不按比例增加每 token 计算。
+      </p>
+      <p>论文给出的权重占比非常极端：</p>
+      <table>
+        <thead>
+          <tr><th>模型</th><th>MoE 权重占比</th><th>含义</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>DeepSeek-V4-Pro</td><td class="num">95%</td><td>几乎整模都是 Expert</td></tr>
+          <tr><td>GLM-5.1-FP8</td><td class="num">96%</td><td>Attention 只占约 4%</td></tr>
+          <tr><td>MiniMax-M2.7</td><td class="num">98%</td><td>跨阶段复制 Expert 代价极大</td></tr>
+        </tbody>
+      </table>
+      <p>
+        因此，服务系统必须同时面对两件事：<strong>专家权重大到必须用 Expert Parallelism（EP）切开</strong>；以及 <strong>路由随 token / layer / rank 变化，计算与通信都高度动态</strong>。
+      </p>
+
+      <div class="fig-row">
+        <div class="fig">
+          <svg viewBox="0 0 460 250" xmlns="http://www.w3.org/2000/svg">
+            <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+            <text class="t" x="230" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#1c1917">一层 MoE 的数据路径</text>
+            <rect x="16" y="46" width="70" height="44" rx="6" fill="#e7e5e4" stroke="#78716c"/>
+            <text class="t" x="51" y="73" text-anchor="middle" font-size="12" fill="#44403c">Token</text>
+            <path d="M86 68 L108 68" stroke="#57534e" stroke-width="1.6"/>
+            <polygon points="108,64 118,68 108,72" fill="#57534e"/>
+            <rect x="120" y="46" width="70" height="44" rx="6" fill="#fde68a" stroke="#b45309"/>
+            <text class="t" x="155" y="73" text-anchor="middle" font-size="12" fill="#92400e">Router</text>
+            <path d="M190 68 L212 68" stroke="#57534e" stroke-width="1.6"/>
+            <polygon points="212,64 222,68 212,72" fill="#57534e"/>
+            <text class="t" x="230" y="40" text-anchor="middle" font-size="10" fill="#78716c">top-k = 8 / 256</text>
+            <rect x="224" y="38" width="58" height="28" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text class="t" x="253" y="57" text-anchor="middle" font-size="10" fill="#115e59">E3</text>
+            <rect x="224" y="72" width="58" height="28" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text class="t" x="253" y="91" text-anchor="middle" font-size="10" fill="#115e59">E17</text>
+            <rect x="224" y="106" width="58" height="28" rx="4" fill="#d6d3d1" stroke="#a8a29e"/>
+            <text class="t" x="253" y="125" text-anchor="middle" font-size="10" fill="#78716c">其余空闲</text>
+            <rect x="292" y="46" width="58" height="28" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text class="t" x="321" y="65" text-anchor="middle" font-size="10" fill="#115e59">E81</text>
+            <path d="M282 52 L292 58" stroke="#0f766e" stroke-width="1.2"/>
+            <path d="M282 86 L350 120" stroke="#57534e" stroke-width="1.4"/>
+            <rect x="352" y="100" width="90" height="44" rx="6" fill="#bfdbfe" stroke="#1e3a5f"/>
+            <text class="t" x="397" y="127" text-anchor="middle" font-size="12" fill="#1e3a5f">Combine</text>
+            <text class="t" x="230" y="168" text-anchor="middle" font-size="11" fill="#57534e">dispatch（激活发到持有该 expert 的 GPU）</text>
+            <text class="t" x="230" y="190" text-anchor="middle" font-size="11" fill="#57534e">combine（把 expert 输出收回并加权）</text>
+            <text class="t" x="230" y="220" text-anchor="middle" font-size="12" fill="#0f766e">容量↑  每 token 算力不按比例↑  通信与负载却动态</text>
+          </svg>
+        </div>
+        <div class="fig">
+          <svg viewBox="0 0 460 250" xmlns="http://www.w3.org/2000/svg">
+            <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+            <text class="t" x="230" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#1c1917">参数几乎都在 Expert 上</text>
+            <text class="t" x="40" y="58" font-size="12" fill="#44403c">DeepSeek-V4-Pro</text>
+            <rect x="170" y="42" width="266" height="22" rx="3" fill="#e7e5e4"/>
+            <rect x="170" y="42" width="253" height="22" rx="3" fill="#0f766e"/>
+            <rect x="423" y="42" width="13" height="22" rx="2" fill="#c2410c"/>
+            <text class="t" x="296" y="58" text-anchor="middle" font-size="11" fill="#fff">MoE 95%</text>
+            <text class="t" x="40" y="100" font-size="12" fill="#44403c">GLM-5.1-FP8</text>
+            <rect x="170" y="84" width="266" height="22" rx="3" fill="#e7e5e4"/>
+            <rect x="170" y="84" width="255" height="22" rx="3" fill="#0f766e"/>
+            <rect x="425" y="84" width="11" height="22" rx="2" fill="#c2410c"/>
+            <text class="t" x="296" y="100" text-anchor="middle" font-size="11" fill="#fff">MoE 96%</text>
+            <text class="t" x="40" y="142" font-size="12" fill="#44403c">MiniMax-M2.7</text>
+            <rect x="170" y="126" width="266" height="22" rx="3" fill="#e7e5e4"/>
+            <rect x="170" y="126" width="261" height="22" rx="3" fill="#0f766e"/>
+            <rect x="431" y="126" width="5" height="22" rx="2" fill="#c2410c"/>
+            <text class="t" x="296" y="142" text-anchor="middle" font-size="11" fill="#fff">MoE 98%</text>
+            <rect x="40" y="178" width="14" height="14" rx="2" fill="#0f766e"/>
+            <text class="t" x="60" y="190" font-size="12" fill="#44403c">Expert 权重（必须 EP 切开）</text>
+            <rect x="40" y="202" width="14" height="14" rx="2" fill="#c2410c"/>
+            <text class="t" x="60" y="214" font-size="12" fill="#44403c">Attention 权重（&lt;5%，可按阶段复制）</text>
+            <text class="t" x="230" y="238" text-anchor="middle" font-size="11" fill="#9a3412">跨阶段复制 MoE ≈ 再买一套几乎整模的显存</text>
+          </svg>
+        </div>
+      </div>
+      <p class="figcap">图 2　左：稀疏路由只激活少数 expert，但 all-to-all 仍随 token 变。右：权重质量比决定“该共享什么、该分离什么”。</p>
+
+      <h3>2.2 Prefill 与 Decode 目标天然冲突</h3>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>Prefill（吞吐导向）</h4>
+          <p>一次处理全部输入 token，构建 KV cache，产出首 token。计算密集、激活量大，适合层次化 dispatch/combine 与连续内存布局。</p>
+        </div>
+        <div class="tile">
+          <h4>Decode（时延导向）</h4>
+          <p>每轮只生成 1 个 token，用户可感知。时延比 Prefill 低数个数量级。数据量小，更适合直达通信与 masked 布局，避免 packing 拷贝。</p>
+        </div>
+      </div>
+      <p>
+        以 MiniMax-M2.7、EP4 为例：8 个活跃 expert 的 decode grouped GEMM 仅 <strong>17.7–34.7 μs</strong>；16K token 的对应 prefill GEMM 却要 <strong>1.8–2.9 ms</strong>，约 <strong>84–101×</strong>。每一层都会再触发一次 MoE，阻塞会在层间累积成端到端 TPOT 恶化。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 220" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="480" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">同一层 MoE GEMM：Prefill 比 Decode 长两个数量级</text>
+          <text class="t" x="40" y="58" font-size="12" fill="#9a3412">Prefill · 16K token</text>
+          <rect x="180" y="40" width="740" height="28" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="550" y="59" text-anchor="middle" font-size="12" fill="#9a3412">1.8 – 2.9 ms（不可抢占时，decode 只能在队尾等）</text>
+          <text class="t" x="40" y="108" font-size="12" fill="#1e3a5f">Decode · 8 experts</text>
+          <rect x="180" y="90" width="14" height="28" rx="3" fill="#60a5fa" stroke="#1e3a5f"/>
+          <text class="t" x="202" y="109" font-size="12" fill="#1e3a5f">17.7 – 34.7 μs</text>
+          <text class="t" x="40" y="158" font-size="12" fill="#44403c">一层内的比例</text>
+          <text class="t" x="180" y="158" font-size="22" font-weight="700" fill="#c2410c">≈ 84× – 101×</text>
+          <text class="t" x="40" y="196" font-size="12" fill="#57534e">若每层都阻塞一次，TPOT 会按层数累加。调度粒度必须短于 decode 本身，而不是短于 prefill。</text>
+        </svg>
+      </div>
+      <p class="figcap">图 3　MiniMax-M2.7、EP4 上 grouped GEMM 的时长差。这是 APK 必须做 tile 级抢占，而不是等整个 prefill kernel 结束的直接原因。</p>
+
+      <h3>2.3 Attention 与 MoE 的最佳并行也不一样</h3>
+      <ul>
+        <li><strong>MoE</strong>：权重大，必须 EP；dispatch/combine 通常是 all-to-all。可用 TBO（跨 microbatch 重叠）或 SBO（同 microbatch 内与 shared expert 重叠）隐藏通信。</li>
+        <li><strong>Attention</strong>：权重小。DP 利于吞吐和 KV 容量；TP 利于单请求时延，但增加通信，还可能因复制 KV 降低有效缓存。</li>
+      </ul>
+      <p>所以“整实例一套并行配置”往往同时委屈 Attention 和 MoE。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 230" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="20" y="20" width="440" height="190" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="240" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">Attention：权重小，并行看 KV 与时延</text>
+          <rect x="40" y="70" width="180" height="70" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="130" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">DP 复制</text>
+          <text class="t" x="130" y="118" text-anchor="middle" font-size="11" fill="#9a3412">吞吐高 · KV 容量大</text>
+          <rect x="240" y="70" width="180" height="70" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+          <text class="t" x="330" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">TP 切开</text>
+          <text class="t" x="330" y="118" text-anchor="middle" font-size="11" fill="#9a3412">单请求更快 · 通信↑</text>
+          <text class="t" x="240" y="172" text-anchor="middle" font-size="12" fill="#78716c">通信少、可整卡给一个阶段</text>
+          <text class="t" x="240" y="192" text-anchor="middle" font-size="12" fill="#78716c">适合按 Prefill / Decode 分离</text>
+
+          <rect x="500" y="20" width="440" height="190" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="720" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#0f766e">MoE：权重大，必须 EP，通信是 all-to-all</text>
+          <rect x="530" y="70" width="70" height="50" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="565" y="100" text-anchor="middle" font-size="11" fill="#115e59">GPU0</text>
+          <rect x="620" y="70" width="70" height="50" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="655" y="100" text-anchor="middle" font-size="11" fill="#115e59">GPU1</text>
+          <rect x="710" y="70" width="70" height="50" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="745" y="100" text-anchor="middle" font-size="11" fill="#115e59">GPU2</text>
+          <rect x="800" y="70" width="70" height="50" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="835" y="100" text-anchor="middle" font-size="11" fill="#115e59">GPU3</text>
+          <path d="M565 120 C565 150, 655 150, 655 120" fill="none" stroke="#0f766e" stroke-width="1.2"/>
+          <path d="M655 120 C655 160, 745 160, 745 120" fill="none" stroke="#0f766e" stroke-width="1.2"/>
+          <path d="M565 120 C565 175, 835 175, 835 120" fill="none" stroke="#0f766e" stroke-width="1.2"/>
+          <text class="t" x="720" y="192" text-anchor="middle" font-size="12" fill="#0f766e">dispatch / combine 随路由变 · 适合两阶段共享同一池</text>
+        </svg>
+      </div>
+      <p class="figcap">图 4　Attention 与 MoE 的最佳并行本来就不同。强行“整实例一套配置”，两边都会被委屈。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 现有路线的结构性缺陷</h2>
+      <h3>3.1 实例级 Prefill-Decode Disaggregation（PDD）</h3>
+      <p>
+        DistServe / Splitwise / Mooncake 一类系统把两阶段放到不同 GPU 实例，隔离干扰，并为两阶段特化通信与 kernel。这对稠密模型很有效，但 MoE 会把部署粒度“放大”：
+      </p>
+      <ul>
+        <li>每个阶段实例都必须持有<strong>完整模型副本</strong>，Expert 权重直接决定最小 GPU 数。</li>
+        <li>重复权重挤占 KV cache。</li>
+        <li>要匹配不对称的 P:D 资源比，最小部署单元变成“两阶段实例的笛卡尔积”。论文引用：DeepSeek-V3 一个单元 32 prefill + 320 decode GPU；另一负载用 176 GPU 作为一个单元；Kimi-K2 部署在 128 张 H200 上。</li>
+        <li>小集群配不出目标比例 → 一阶段过载、另一阶段空转。</li>
+        <li>大集群每次扩缩都以百卡为单位，跟不上中等流量波动。</li>
+        <li>层次化通信把大量 rank 绑成一组，单 rank 故障可卡住整个单元，故障爆炸半径大。</li>
+      </ul>
+      <div class="callout navy">
+        PDD 用隔离换来了内存效率、弹性和故障隔离的三重损失。随着 Expert 变大，这个代价不再是边角料，而是主矛盾。
+      </div>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="480" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">实例级 PDD：部署单元随 MoE 变“一整块”</text>
+          <rect x="30" y="48" width="200" height="150" rx="8" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="130" y="78" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">Prefill 实例</text>
+          <text class="t" x="130" y="104" text-anchor="middle" font-size="22" font-weight="700" fill="#c2410c">32</text>
+          <text class="t" x="130" y="128" text-anchor="middle" font-size="12" fill="#9a3412">GPU · 完整 MoE</text>
+          <text class="t" x="130" y="168" text-anchor="middle" font-size="11" fill="#78716c">DeepSeek-V3 一例</text>
+          <text class="t" x="248" y="128" font-size="28" fill="#78716c">+</text>
+          <rect x="280" y="48" width="280" height="150" rx="8" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="420" y="78" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">Decode 实例</text>
+          <text class="t" x="420" y="104" text-anchor="middle" font-size="22" font-weight="700" fill="#1e3a5f">320</text>
+          <text class="t" x="420" y="128" text-anchor="middle" font-size="12" fill="#1e3a5f">GPU · 再一份完整 MoE</text>
+          <text class="t" x="420" y="168" text-anchor="middle" font-size="11" fill="#78716c">为了配出目标 P:D 比</text>
+          <text class="t" x="578" y="128" font-size="28" fill="#78716c">=</text>
+          <rect x="610" y="48" width="320" height="150" rx="8" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="770" y="78" text-anchor="middle" font-size="13" font-weight="700" fill="#991b1b">最小部署单元</text>
+          <text class="t" x="770" y="104" text-anchor="middle" font-size="22" font-weight="700" fill="#b91c1c">352 GPU</text>
+          <text class="t" x="770" y="128" text-anchor="middle" font-size="12" fill="#991b1b">扩缩、故障都按这一整块</text>
+          <text class="t" x="770" y="168" text-anchor="middle" font-size="11" fill="#78716c">层次化通信把 rank 绑死</text>
+          <text class="t" x="180" y="230" text-anchor="middle" font-size="12" fill="#44403c">小集群：配不出这个比</text>
+          <text class="t" x="480" y="230" text-anchor="middle" font-size="12" fill="#44403c">中等流量：一次加减上百卡</text>
+          <text class="t" x="780" y="230" text-anchor="middle" font-size="12" fill="#44403c">单 rank 故障：整单元可能停</text>
+          <text class="t" x="480" y="262" text-anchor="middle" font-size="12" fill="#9a3412">Kimi-K2 128×H200、另一 DeepSeek 负载 176 GPU/单元，是同一逻辑的不同数字</text>
+        </svg>
+      </div>
+      <p class="figcap">图 5　PDD 的隔离是“整模复制 × 阶段数”。MoE 越大，能独立扩缩的最小砖块就越笨重。</p>
+
+      <h3>3.2 Prefill-Decode Colocation（共置）</h3>
+      <p>共置避免复制整模。两条主流路：</p>
+      <ol>
+        <li><strong>Chunked Prefill</strong>：把长输入切块，与 decode 交错。但要反复读前缀 KV 和模型权重，通信也重复。</li>
+        <li><strong>Green Context / 空间划分</strong>（PDMux、Nexus、semi-PD 等）：给两阶段预留不同 SM，既去重又隔离计算。</li>
+      </ol>
+      <p>Green Context 路线在 MoE 上会在三个时间尺度上失效：</p>
+      <table>
+        <thead>
+          <tr><th>变化维度</th><th>发生位置</th><th>固定划分的后果</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>EP 负载随层变化</td><td>rank × layer</td><td>某卡 expert 突然变多/变少，SM 配比跟不上</td></tr>
+          <tr><td>同层 Attention vs MoE 需求不同</td><td>模块级</td><td>一阶段算 Attention、另一阶段算 MoE 时资源错配</td></tr>
+          <tr><td>MoE 内部 dispatch / compute / combine 交替</td><td>算子级</td><td>通信阶段占着 SM 却算不了，计算阶段又缺 SM</td></tr>
+        </tbody>
+      </table>
+      <p>
+        重配资源需要 CPU 介入，且要等 kernel 结束，所以现有系统最多在 <strong>prefill 层边界</strong> 调整。结果只有两种失败模式：
+      </p>
+      <ul>
+        <li><strong>队头阻塞（HOL）</strong>：decode 就绪时 prefill kernel 还占着 SM，后者可能跑几十到几百毫秒，前者只要几百微秒。</li>
+        <li><strong>资源气泡</strong>：decode 没活，预留给它的 SM 也不能借给 prefill。</li>
+      </ul>
+      <p>此外，共置还留下三个通信问题：</p>
+      <ul>
+        <li>两阶段的 dispatch/combine 抢同一套 NIC/链路，大 prefill 突发会压死 decode。</li>
+        <li>传统双边通信需要收发双方同时推进；不同 MoE rank 可能分别卡在不同阶段，形成<strong>跨阶段死锁</strong>。</li>
+        <li>每张卡都被切开后，单阶段本地算力变少，为达 SLO 必须加大并行度 → 通信更多 → 干扰更重。</li>
+      </ul>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 310" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="240" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">失败模式 A：队头阻塞 HOL</text>
+          <text class="t" x="720" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">失败模式 B：资源气泡</text>
+
+          <text class="t" x="28" y="58" font-size="11" fill="#78716c">Prefill SM</text>
+          <rect x="100" y="42" width="320" height="26" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="260" y="60" text-anchor="middle" font-size="11" fill="#9a3412">长 prefill kernel 几十～几百 ms，不可抢占</text>
+          <text class="t" x="28" y="98" font-size="11" fill="#78716c">Decode</text>
+          <rect x="100" y="82" width="70" height="26" rx="3" fill="#e7e5e4" stroke="#a8a29e"/>
+          <text class="t" x="135" y="100" text-anchor="middle" font-size="10" fill="#78716c">等待</text>
+          <rect x="172" y="82" width="70" height="26" rx="3" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="207" y="100" text-anchor="middle" font-size="10" fill="#991b1b">就绪却堵住</text>
+          <rect x="350" y="82" width="70" height="26" rx="3" fill="#60a5fa" stroke="#1e3a5f"/>
+          <text class="t" x="385" y="100" text-anchor="middle" font-size="10" fill="#1e3a5f">终于执行</text>
+          <text class="t" x="240" y="130" text-anchor="middle" font-size="11" fill="#b91c1c">decode 只要几百 μs，却排在毫秒级 kernel 后面</text>
+
+          <text class="t" x="508" y="58" font-size="11" fill="#78716c">Prefill SM</text>
+          <rect x="580" y="42" width="160" height="26" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+          <rect x="748" y="42" width="170" height="26" rx="3" fill="#e7e5e4" stroke="#a8a29e"/>
+          <text class="t" x="833" y="60" text-anchor="middle" font-size="10" fill="#78716c">想借 SM，借不到</text>
+          <text class="t" x="508" y="98" font-size="11" fill="#78716c">Decode SM</text>
+          <rect x="580" y="82" width="90" height="26" rx="3" fill="#60a5fa" stroke="#1e3a5f"/>
+          <rect x="678" y="82" width="240" height="26" rx="3" fill="#fde68a" stroke="#b45309"/>
+          <text class="t" x="798" y="100" text-anchor="middle" font-size="10" fill="#92400e">预留着，但当前没 decode 活</text>
+          <text class="t" x="720" y="130" text-anchor="middle" font-size="11" fill="#b45309">固定划分把空闲 SM 锁给“可能到来”的另一阶段</text>
+
+          <rect x="30" y="160" width="900" height="128" rx="8" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="480" y="184" text-anchor="middle" font-size="13" font-weight="700" fill="#1c1917">固定划分还对不上 MoE 的三个时间尺度</text>
+          <rect x="50" y="200" width="270" height="68" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="185" y="226" text-anchor="middle" font-size="12" font-weight="700" fill="#0f766e">层 × rank</text>
+          <text class="t" x="185" y="246" text-anchor="middle" font-size="11" fill="#0f766e">活跃 expert 数在变</text>
+          <rect x="345" y="200" width="270" height="68" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="480" y="226" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">同层模块</text>
+          <text class="t" x="480" y="246" text-anchor="middle" font-size="11" fill="#9a3412">Attention ≠ MoE 资源需求</text>
+          <rect x="640" y="200" width="270" height="68" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="775" y="226" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">算子内部</text>
+          <text class="t" x="775" y="246" text-anchor="middle" font-size="11" fill="#1e3a5f">dispatch / compute / combine 轮转</text>
+        </svg>
+      </div>
+      <p class="figcap">图 6　Green Context 的两种典型失败，以及它跟不上的三层动态性。现有系统最多在 prefill 层边界重配，仍然太粗。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 核心洞察与系统架构</h2>
+      <h3>4.1 混合“分离 + 共置”边界</h3>
+      <p>论文的关键 insight 可以拆成三句：</p>
+      <ol>
+        <li><strong>共享 Expert</strong>：消灭 95%+ 的跨阶段权重重复，并让两阶段的稀疏计算互相填气泡。</li>
+        <li><strong>分离 Attention</strong>：Attention 只占 &lt;5% 参数，可以按阶段独立分配，且以整卡为单位，而不是 intra-GPU 切片。</li>
+        <li><strong>边界与 MoE 权重解耦</strong>：扩缩、配比、故障域都以“几张 Attention 卡 + 共享 MoE 池”为单位，而不是“再复制一整份 MoE”。</li>
+      </ol>
+
+      <div class="arch">
+        <div class="box prefill">
+          <div class="label">Prefill Servers</div>
+          <strong>只跑 Prefill Attention</strong>
+          <p style="margin:8px 0 0;font-size:14px;color:#57534e;">可按节点配置，甚至可以为空。整卡算力留给长序列 Attention，减少并行度与通信。</p>
+        </div>
+        <div class="box moe">
+          <div class="label">Shared MoE Servers</div>
+          <strong>两阶段共享 Expert + APK</strong>
+          <p style="margin:8px 0 0;font-size:14px;color:#57534e;">每张 MoE GPU 常驻一个 Adaptive Persistent Kernel，tile 级调度、抢占、重分配，兼容 CUDA Graph。</p>
+        </div>
+        <div class="box decode">
+          <div class="label">Decode Servers</div>
+          <strong>只跑 Decode Attention</strong>
+          <p style="margin:8px 0 0;font-size:14px;color:#57534e;">独立 KV、独立网络路径。Decode 尽量直连 MoE；Prefill 尽量走 Attention 之间的层次化路径。</p>
+        </div>
+      </div>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 360" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="490" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">一个节点内的 ExpertPlex 数据面</text>
+          <rect x="20" y="44" width="940" height="300" rx="10" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="490" y="68" text-anchor="middle" font-size="12" fill="#78716c">Node（8×H800 + NVLink；跨节点走 IB）</text>
+
+          <rect x="40" y="86" width="150" height="150" rx="8" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="115" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">Prefill Server</text>
+          <rect x="54" y="124" width="122" height="36" rx="4" fill="#fff7ed" stroke="#c2410c"/>
+          <text class="t" x="115" y="147" text-anchor="middle" font-size="11" fill="#9a3412">P-Attention + KV</text>
+          <rect x="54" y="168" width="122" height="50" rx="4" fill="#fff" stroke="#c2410c"/>
+          <text class="t" x="115" y="188" text-anchor="middle" font-size="10" fill="#9a3412">push dispatch</text>
+          <text class="t" x="115" y="204" text-anchor="middle" font-size="10" fill="#9a3412">pull combine</text>
+
+          <rect x="790" y="86" width="150" height="150" rx="8" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="865" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">Decode Server</text>
+          <rect x="804" y="124" width="122" height="36" rx="4" fill="#eff6ff" stroke="#1e3a5f"/>
+          <text class="t" x="865" y="147" text-anchor="middle" font-size="11" fill="#1e3a5f">D-Attention + KV</text>
+          <rect x="804" y="168" width="122" height="50" rx="4" fill="#fff" stroke="#1e3a5f"/>
+          <text class="t" x="865" y="188" text-anchor="middle" font-size="10" fill="#1e3a5f">直连 MoE</text>
+          <text class="t" x="865" y="204" text-anchor="middle" font-size="10" fill="#1e3a5f">低时延路径</text>
+
+          <rect x="250" y="80" width="480" height="162" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+          <text class="t" x="490" y="104" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">共享 MoE Server 池 · 每卡一个 APK</text>
+          <rect x="270" y="118" width="100" height="96" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="320" y="148" text-anchor="middle" font-size="11" fill="#115e59">Experts</text>
+          <text class="t" x="320" y="168" text-anchor="middle" font-size="10" fill="#0f766e">GPU 0</text>
+          <text class="t" x="320" y="186" text-anchor="middle" font-size="10" fill="#0f766e">APK</text>
+          <rect x="390" y="118" width="100" height="96" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="440" y="148" text-anchor="middle" font-size="11" fill="#115e59">Experts</text>
+          <text class="t" x="440" y="168" text-anchor="middle" font-size="10" fill="#0f766e">GPU 1</text>
+          <text class="t" x="440" y="186" text-anchor="middle" font-size="10" fill="#0f766e">APK</text>
+          <rect x="510" y="118" width="100" height="96" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="560" y="148" text-anchor="middle" font-size="11" fill="#115e59">Experts</text>
+          <text class="t" x="560" y="168" text-anchor="middle" font-size="10" fill="#0f766e">GPU 2</text>
+          <text class="t" x="560" y="186" text-anchor="middle" font-size="10" fill="#0f766e">APK</text>
+          <rect x="630" y="118" width="80" height="96" rx="6" fill="#ccfbf1" stroke="#0f766e" stroke-dasharray="4 3"/>
+          <text class="t" x="670" y="168" text-anchor="middle" font-size="16" fill="#0f766e">…</text>
+
+          <path d="M190 160 L250 160" stroke="#c2410c" stroke-width="2"/>
+          <polygon points="250,156 258,160 250,164" fill="#c2410c"/>
+          <path d="M730 175 L790 175" stroke="#1e3a5f" stroke-width="2"/>
+          <polygon points="790,171 798,175 790,179" fill="#1e3a5f"/>
+
+          <rect x="40" y="256" width="280" height="68" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="180" y="282" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">Prefill 路径</text>
+          <text class="t" x="180" y="302" text-anchor="middle" font-size="11" fill="#9a3412">尽量 Attention↔Attention 层次化</text>
+          <rect x="350" y="256" width="280" height="68" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="490" y="282" text-anchor="middle" font-size="12" font-weight="700" fill="#0f766e">计算平面</text>
+          <text class="t" x="490" y="302" text-anchor="middle" font-size="11" fill="#0f766e">一份 Expert，两阶段复用 tiles</text>
+          <rect x="660" y="256" width="280" height="68" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="800" y="282" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">Decode 路径</text>
+          <text class="t" x="800" y="302" text-anchor="middle" font-size="11" fill="#1e3a5f">尽量直连 MoE，保 TPOT</text>
+        </svg>
+      </div>
+      <p class="figcap">图 7　节点内三角色：P-Attn / 共享 MoE / D-Attn。某节点上 P 或 D 也可以为空，由放置优化器决定。</p>
+
+      <h3>4.2 为什么必须再发明两套机制</h3>
+      <p>共享 Expert 之后，现有 GPU 共享原语都不够用：</p>
+      <table>
+        <thead>
+          <tr>
+            <th>能力</th>
+            <th>API 拦截</th>
+            <th>CUDA Stream</th>
+            <th>MPS</th>
+            <th>Green Context</th>
+            <th>MIG</th>
+            <th>ExpertPlex</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>CUDA Graph 兼容</td><td></td><td>√</td><td>√</td><td>√</td><td>√</td><td>√</td></tr>
+          <tr><td>时间复用</td><td>√</td><td>√</td><td></td><td></td><td></td><td>√</td></tr>
+          <tr><td>空间复用</td><td></td><td></td><td>√</td><td>√</td><td>有限</td><td>√</td></tr>
+          <tr><td>有界快速抢占</td><td></td><td></td><td></td><td></td><td></td><td>√</td></tr>
+          <tr><td>有界快速重分配</td><td></td><td></td><td></td><td></td><td></td><td>√</td></tr>
+        </tbody>
+      </table>
+      <p>
+        同时，共享 MoE 把两阶段耦合到同一通信平面：双边协议在跨阶段调度下可能死锁；预留轮询 SM 又浪费算力。因此需要 <strong>Attention 发起、MoE 侧无进度依赖的单边通信</strong>。
+      </p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 技术一：自适应持久化内核 APK</h2>
+      <h3>5.1 设计目标</h3>
+      <p>有效的两阶段共享必须同时满足五点：Graph 兼容、空间复用、时间复用、有界抢占、有界重分配。Launch 级机制（拦截、优先级 stream）做不到 kernel 内切换；硬件划分（MPS / Green Context / MIG）做不到 tile 级时间复用。</p>
+
+      <h3>5.2 为什么调度单元是 tile，而不是 kernel / layer / warp</h3>
+      <ul>
+        <li>Tile 是高性能 GEMM 的最小可独立完成单元，尺寸由 register、shared memory、TMA、Tensor Core shape 决定。</li>
+        <li>输入变长只增加 tile 数量，<strong>不拉长单个调度间隔</strong>。论文 SM90 DeepGEMM 配置：CTA tile 至多 <span class="num">128×192</span> 输出块 + 128-wide reduction。</li>
+        <li>各 MoE 侧操作的 tile 边界落在 <strong>2.2–25.3 μs</strong>，与总操作长度无关。</li>
+        <li>只在 tile commit 后切换：accumulator、TMA、shared memory、通信状态都已落地，无需 checkpoint / restore / 重算。</li>
+      </ul>
+      <div class="callout teal">
+        更细的抢占要保存流水线状态；更粗的（kernel/层）会留下毫秒级阻塞。Tile 是“现代 MoE kernel 特征（TMA multicast、CTA cluster、warp specialization）还能保住”的最细安全边界。
+      </div>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 250" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="480" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">调度粒度决定 decode 要等多久</text>
+          <text class="t" x="70" y="70" font-size="12" fill="#44403c">层级 / kernel</text>
+          <rect x="180" y="52" width="720" height="28" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="540" y="71" text-anchor="middle" font-size="12" fill="#9a3412">整段 prefill MoE · 1.8–2.9 ms · decode 全程等待</text>
+          <text class="t" x="70" y="122" font-size="12" fill="#44403c">APK tile</text>
+          <rect x="180" y="104" width="36" height="28" rx="3" fill="#fdba74" stroke="#c2410c"/>
+          <rect x="220" y="104" width="36" height="28" rx="3" fill="#fdba74" stroke="#c2410c"/>
+          <rect x="260" y="104" width="36" height="28" rx="3" fill="#60a5fa" stroke="#1e3a5f"/>
+          <rect x="300" y="104" width="36" height="28" rx="3" fill="#fdba74" stroke="#c2410c"/>
+          <rect x="340" y="104" width="36" height="28" rx="3" fill="#fdba74" stroke="#c2410c"/>
+          <rect x="380" y="104" width="36" height="28" rx="3" fill="#fdba74" stroke="#c2410c"/>
+          <text class="t" x="278" y="123" text-anchor="middle" font-size="9" fill="#1e3a5f">D</text>
+          <text class="t" x="430" y="123" font-size="11" fill="#0f766e">切换点 2.2–25.3 μs，与序列长度无关</text>
+          <text class="t" x="70" y="174" font-size="12" fill="#44403c">更细（warp）</text>
+          <rect x="180" y="156" width="720" height="28" rx="4" fill="#fecaca" stroke="#b91c1c" stroke-dasharray="4 3"/>
+          <text class="t" x="540" y="175" text-anchor="middle" font-size="12" fill="#991b1b">要保存 TMA / accumulator / cluster barrier · 破坏高性能流水线</text>
+          <text class="t" x="480" y="220" text-anchor="middle" font-size="12" fill="#57534e">输入变长只增加 tile 数量（例如 128×192），不拉长单个安全切换间隔</text>
+        </svg>
+      </div>
+      <p class="figcap">图 8　Tile 是“够短、且不必 checkpoint”的调度单元。蓝色块表示 decode 插入，橙色块是未完成的 prefill tiles。</p>
+
+      <h3>5.3 运行时结构</h3>
+      <ol>
+        <li>启动前为每个 MoE 操作构建 template（buffer + TMA descriptor）。</li>
+        <li>Attention server 发出就绪信号。</li>
+        <li>CTA 0 把 template 实例化进 decode / prefill 队列，更新 layer、token 数、SM budget。</li>
+        <li>调度粒度为 <strong>CTA-cluster</strong>：被 TMA multicast 连在一起的 CTA 必须执行同一 tile。</li>
+        <li>不同 cluster 可同时跑不同阶段（空间复用）；同一 cluster 在 tile 边界换阶段（时间复用 + 快重分配）。</li>
+      </ol>
+      <p>全程 GPU 侧完成，无 CPU 介入、无 kernel relaunch，因此兼容 CUDA Graph replay。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="490" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">APK 运行时：一个长寿命 kernel 在 GPU 上自己调度</text>
+          <rect x="20" y="40" width="160" height="200" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="100" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">Attention 侧</text>
+          <rect x="36" y="84" width="128" height="44" rx="5" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="100" y="111" text-anchor="middle" font-size="11" fill="#9a3412">操作就绪信号</text>
+          <rect x="36" y="140" width="128" height="70" rx="5" fill="#fff" stroke="#c2410c"/>
+          <text class="t" x="100" y="168" text-anchor="middle" font-size="11" fill="#9a3412">启动前已建好</text>
+          <text class="t" x="100" y="186" text-anchor="middle" font-size="11" fill="#9a3412">buffer / TMA 模板</text>
+
+          <path d="M180 106 L220 106" stroke="#57534e" stroke-width="1.8"/>
+          <polygon points="220,102 228,106 220,110" fill="#57534e"/>
+
+          <rect x="236" y="40" width="200" height="200" rx="8" fill="#f5f5f4" stroke="#d6d3d1"/>
+          <text class="t" x="336" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#44403c">CTA 0 调度器</text>
+          <rect x="252" y="84" width="168" height="36" rx="4" fill="#fde68a" stroke="#b45309"/>
+          <text class="t" x="336" y="107" text-anchor="middle" font-size="11" fill="#92400e">实例化到 P / D 队列</text>
+          <rect x="252" y="132" width="168" height="36" rx="4" fill="#fff" stroke="#78716c"/>
+          <text class="t" x="336" y="155" text-anchor="middle" font-size="11" fill="#44403c">更新 layer / token / SM</text>
+          <rect x="252" y="180" width="168" height="40" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+          <text class="t" x="336" y="205" text-anchor="middle" font-size="11" fill="#0f766e">按 CTA-cluster 派 tile</text>
+
+          <path d="M436 200 L476 200" stroke="#57534e" stroke-width="1.8"/>
+          <polygon points="476,196 484,200 476,204" fill="#57534e"/>
+
+          <rect x="492" y="40" width="468" height="200" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="726" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#0f766e">多个 CTA cluster 并行（空间复用）</text>
+          <rect x="512" y="84" width="130" height="120" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="577" y="120" text-anchor="middle" font-size="12" fill="#9a3412">Cluster 0</text>
+          <text class="t" x="577" y="142" text-anchor="middle" font-size="11" fill="#9a3412">Prefill tiles</text>
+          <text class="t" x="577" y="164" text-anchor="middle" font-size="10" fill="#78716c">同 multicast 组</text>
+          <rect x="662" y="84" width="130" height="120" rx="6" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="727" y="120" text-anchor="middle" font-size="12" fill="#1e3a5f">Cluster 1</text>
+          <text class="t" x="727" y="142" text-anchor="middle" font-size="11" fill="#1e3a5f">Decode tiles</text>
+          <text class="t" x="727" y="164" text-anchor="middle" font-size="10" fill="#78716c">可同时跑</text>
+          <rect x="812" y="84" width="130" height="120" rx="6" fill="#fdba74" stroke="#c2410c"/>
+          <text class="t" x="877" y="112" text-anchor="middle" font-size="12" fill="#9a3412">Cluster 2</text>
+          <text class="t" x="877" y="134" text-anchor="middle" font-size="11" fill="#9a3412">P → 边界 → D</text>
+          <text class="t" x="877" y="156" text-anchor="middle" font-size="10" fill="#78716c">时间复用</text>
+          <text class="t" x="877" y="176" text-anchor="middle" font-size="10" fill="#78716c">快重分配</text>
+        </svg>
+      </div>
+      <p class="figcap">图 9　APK 不 relaunch kernel：CTA 0 管队列，cluster 内必须同 tile（TMA multicast），cluster 之间可以一个跑 P、一个跑 D。</p>
+
+      <h3>5.4 有界协作式抢占</h3>
+      <p>不能让各 warp / CTA 独立在 tile 边界检查——warp-specialized 流水线里，TMA warp 可能在装 tile k+1，math warp 还在算 tile k；cluster 内独立切换会卡在 TMA multicast / cluster barrier。每 tile 排空整个 cluster 又会毁掉微秒级流水线。</p>
+      <p>APK 沿存储层次传播<strong>一次协作决策</strong>：</p>
+      <ol>
+        <li>Attention 通过 system-scope 字 <em>P</em> 发出紧急 decode。</li>
+        <li>CTA 0 在当前操作的 tile 边界读 <em>P</em>，给每个 cluster 写 device-scope 字 <em>p<sub>i</sub></em>。</li>
+        <li>Cluster leader 只读自己的 <em>p<sub>i</sub></em>，经 DSMEM 广播，保证 multicast 同伴同操作。</li>
+        <li>CTA 内第一个 pipeline warp 读决策，warp 内广播，再用 mbarrier 通知后续 warp，避免它们再领取旧阶段 tile。</li>
+      </ol>
+      <p>
+        最慢的 CTA 最多再跑完当前 tile，cluster 就会收敛到新阶段。抢占上界 = <strong>一个 tile 时间 + 一次本地 cluster 检查周期</strong>，与被打断操作的总长度无关。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 270" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="490" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">协作式抢占：一次决策沿存储层次下推，而不是每个 warp 自己看</text>
+          <rect x="20" y="48" width="170" height="80" rx="8" fill="#eff6ff" stroke="#1e3a5f"/>
+          <text class="t" x="105" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">Attention</text>
+          <text class="t" x="105" y="100" text-anchor="middle" font-size="11" fill="#1e3a5f">写 system 字 P</text>
+          <path d="M190 88 L230 88" stroke="#1e3a5f" stroke-width="1.8"/>
+          <polygon points="230,84 238,88 230,92" fill="#1e3a5f"/>
+          <rect x="246" y="48" width="170" height="80" rx="8" fill="#fde68a" stroke="#b45309"/>
+          <text class="t" x="331" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">CTA 0</text>
+          <text class="t" x="331" y="100" text-anchor="middle" font-size="11" fill="#92400e">tile 边界读 P</text>
+          <path d="M416 88 L456 88" stroke="#b45309" stroke-width="1.8"/>
+          <polygon points="456,84 464,88 456,92" fill="#b45309"/>
+          <rect x="472" y="40" width="488" height="96" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+          <text class="t" x="716" y="64" text-anchor="middle" font-size="12" font-weight="700" fill="#0f766e">每个 cluster 只读自己的 device 字 pᵢ</text>
+          <rect x="492" y="76" width="140" height="44" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="562" y="103" text-anchor="middle" font-size="11" fill="#115e59">p₀ → Cluster 0</text>
+          <rect x="646" y="76" width="140" height="44" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="716" y="103" text-anchor="middle" font-size="11" fill="#115e59">p₁ → Cluster 1</text>
+          <rect x="800" y="76" width="140" height="44" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="870" y="103" text-anchor="middle" font-size="11" fill="#115e59">p₂ → Cluster 2</text>
+
+          <rect x="20" y="160" width="940" height="90" rx="8" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="80" y="188" font-size="12" fill="#44403c">cluster 内</text>
+          <text class="t" x="200" y="188" font-size="12" fill="#0f766e">leader 经 DSMEM 广播</text>
+          <text class="t" x="430" y="188" font-size="12" fill="#1e3a5f">→ 首个 pipeline warp 读决策</text>
+          <text class="t" x="680" y="188" font-size="12" fill="#9a3412">→ warp 广播 + mbarrier 通知后续 warp</text>
+          <text class="t" x="490" y="226" text-anchor="middle" font-size="12" fill="#57534e">同一检查周期内决策冻结：不能再领旧阶段 tile。最慢 CTA 最多再跑完当前 tile。上界与 prefill 总长度无关。</text>
+        </svg>
+      </div>
+      <p class="figcap">图 10　抢占信号从 system memory → device word → DSMEM → shared memory / warp，避免“半个 cluster 换阶段”造成的死锁。</p>
+
+      <h3>5.5 在线 SM 重分配策略</h3>
+      <p>离线优化器给出的 decode SM 预算 <em>q</em> 被解释为<strong>争用策略</strong>，而不是静态分区：</p>
+      <ul>
+        <li>只有一阶段就绪 → 占用全部 CTA cluster。</li>
+        <li>两阶段争用 → 按当前 decode 的 tile 足迹 <em>x<sub>moe</sub></em> 相对离线期望 <em>x<sub>moe</sub><sup>★</sup></em> 缩放 <em>q</em>，向上取整到 cluster 倍数，并设 <em>Q<sub>max</sub></em> 保护 prefill 进度。</li>
+        <li>优先保住 decode：已开始的输出比新请求的输入更时延敏感。</li>
+      </ul>
+      <div class="eq">
+        q′ = min( Q<sub>max</sub>, ⌈ q · x<sub>moe</sub> / x<sub>moe</sub><sup>★</sup> ⌉<sub>c</sub> )
+      </div>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 230" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="480" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">q 是争用策略，不是静态墙</text>
+          <rect x="20" y="40" width="450" height="170" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="245" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">只有一阶段就绪</text>
+          <rect x="50" y="88" width="390" height="44" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="245" y="116" text-anchor="middle" font-size="13" fill="#9a3412">全部 CTA cluster 给当前阶段</text>
+          <text class="t" x="245" y="168" text-anchor="middle" font-size="12" fill="#57534e">decode 做完立刻把 SM 还给 prefill</text>
+          <text class="t" x="245" y="188" text-anchor="middle" font-size="12" fill="#57534e">避免 Green Context 那种“空着也占着”</text>
+
+          <rect x="490" y="40" width="450" height="170" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="715" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">两阶段同时争用</text>
+          <rect x="520" y="88" width="160" height="44" rx="6" fill="#60a5fa" stroke="#1e3a5f"/>
+          <text class="t" x="600" y="116" text-anchor="middle" font-size="12" fill="#1e3a5f">q′ 给 decode</text>
+          <rect x="690" y="88" width="220" height="44" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="800" y="116" text-anchor="middle" font-size="12" fill="#9a3412">剩余给 prefill</text>
+          <text class="t" x="715" y="168" text-anchor="middle" font-size="12" fill="#57534e">q′ ∝ 当前 decode 的 tile 足迹 xₘₒₑ</text>
+          <text class="t" x="715" y="188" text-anchor="middle" font-size="12" fill="#57534e">向上取整到 cluster；Qₘₐₓ 保护 prefill 不饿死</text>
+        </svg>
+      </div>
+      <p class="figcap">图 11　在线重分配优先保住 decode（已开始的输出更时延敏感），但绝不把 GPU 切成两堵墙。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 技术二：Attention 发起的单边 MoE 通信</h2>
+      <h3>6.1 双边协议在共享 MoE 上为什么会出事</h3>
+      <p>
+        传统 MoE all-to-all：发送端写入有界 ring buffer，接收端轮询、scatter 到最终 tensor、回信用额度。进度依赖双方。共享 MoE 后，部分 rank 可能在跑 prefill kernel、部分在跑 decode kernel——每个阶段都在等被另一阶段占用的 rank 上的 receiver kernel，ring buffer 排不空、credit 回不来，发送端退不下来，形成跨阶段死锁。
+      </p>
+      <p>
+        预留轮询 SM 能保活性，但 MoE 流量突发，这些 SM 大部分时间空转；借给计算又不安全，因为 receiver 进度会再次取决于“每个 rank 当时是否腾得出 SM”。网络侧，H800 上 DeepSeek-V3 报告节点内 NVLink 160 GB/s、跨节点 IB 仅 50 GB/s（3.2× 差距），prefill 突发很容易饿死 decode。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 270" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="480" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">双边 MoE 通信在共享 Expert 上可能死锁</text>
+          <rect x="30" y="44" width="200" height="90" rx="8" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="130" y="78" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">Prefill 发送端</text>
+          <text class="t" x="130" y="100" text-anchor="middle" font-size="11" fill="#9a3412">等 credit / 等 drain</text>
+          <rect x="30" y="154" width="200" height="90" rx="8" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="130" y="188" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">Decode 发送端</text>
+          <text class="t" x="130" y="210" text-anchor="middle" font-size="11" fill="#1e3a5f">同样在等 receiver</text>
+
+          <path d="M230 89 L300 89" stroke="#c2410c" stroke-width="1.6"/>
+          <path d="M230 199 L300 199" stroke="#1e3a5f" stroke-width="1.6"/>
+
+          <rect x="300" y="44" width="220" height="200" rx="8" fill="#f5f5f4" stroke="#a8a29e"/>
+          <text class="t" x="410" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#44403c">MoE rank 不齐</text>
+          <rect x="318" y="86" width="184" height="60" rx="5" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="410" y="110" text-anchor="middle" font-size="12" fill="#991b1b">Rank A 在跑 Prefill</text>
+          <text class="t" x="410" y="128" text-anchor="middle" font-size="11" fill="#991b1b">没空 drain decode ring</text>
+          <rect x="318" y="158" width="184" height="60" rx="5" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="410" y="182" text-anchor="middle" font-size="12" fill="#991b1b">Rank B 在跑 Decode</text>
+          <text class="t" x="410" y="200" text-anchor="middle" font-size="11" fill="#991b1b">没空 drain prefill ring</text>
+
+          <path d="M520 144 L590 144" stroke="#b91c1c" stroke-width="1.8"/>
+          <polygon points="590,140 598,144 590,148" fill="#b91c1c"/>
+          <rect x="610" y="70" width="320" height="148" rx="8" fill="#fff1f2" stroke="#b91c1c"/>
+          <text class="t" x="770" y="110" text-anchor="middle" font-size="16" font-weight="700" fill="#b91c1c">跨阶段循环等待</text>
+          <text class="t" x="770" y="140" text-anchor="middle" font-size="12" fill="#991b1b">发送端退不下来</text>
+          <text class="t" x="770" y="162" text-anchor="middle" font-size="12" fill="#991b1b">receiver kernel 上不去</text>
+          <text class="t" x="770" y="184" text-anchor="middle" font-size="12" fill="#991b1b">credit 回不来 → 死锁</text>
+        </svg>
+      </div>
+      <p class="figcap">图 12　双边协议假设“每个 rank 上总有匹配的 receiver”。共享 MoE 后这个假设不成立。</p>
+
+      <h3>6.2 单边 Push / Pull</h3>
+      <p>APK 持久化要求操作 template、tensor 地址、通信描述符启动前固定，因此可以为最大 routed-token 量预分配最终 dispatch / combine buffer，并暴露给 Attention server，<strong>去掉中间 ring buffer</strong>。</p>
+      <ul>
+        <li><strong>Dispatch = Attention 侧 push</strong>：路由确定目的地和最终偏移后，经 NVLink peer store 或单边 RDMA write 直接写入；payload 可见后再发 ready。APK 不协调传输，只在 tile 边界看到信号后调度计算。</li>
+        <li><strong>Combine = Attention 侧 pull</strong>：Expert 写完最终 combine buffer 并发布 done；Attention GPU 上极轻的单线程 WaitDone 观察到完成，再 NVLink load / RDMA read 拉回。WaitDone 只挡依赖它的 pull，计算流可继续 TBO/SBO。</li>
+      </ul>
+      <p>
+        MoE 侧不再需要匹配通信 kernel，也不再预留轮询 SM。于是可以出现<strong>跨阶段算通重叠</strong>：decode 等 combine 时跑 prefill tile；prefill 传输在飞时插入紧急 decode tile。两阶段依赖链独立，不受单阶段 TBO/SBO 约束。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="490" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">单边通信：Attention 发起，MoE 只暴露最终 buffer</text>
+          <rect x="20" y="44" width="220" height="230" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="130" y="72" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">Attention GPU</text>
+          <rect x="40" y="90" width="180" height="50" rx="5" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="130" y="120" text-anchor="middle" font-size="12" fill="#9a3412">1. Push dispatch</text>
+          <rect x="40" y="154" width="180" height="50" rx="5" fill="#ffedd5" stroke="#c2410c"/>
+          <text class="t" x="130" y="176" text-anchor="middle" font-size="12" fill="#9a3412">3. WaitDone</text>
+          <text class="t" x="130" y="194" text-anchor="middle" font-size="10" fill="#9a3412">单线程，不挡计算流</text>
+          <rect x="40" y="214" width="180" height="40" rx="5" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="130" y="239" text-anchor="middle" font-size="12" fill="#9a3412">4. Pull combine</text>
+
+          <rect x="370" y="44" width="280" height="230" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+          <text class="t" x="510" y="72" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">MoE GPU · APK</text>
+          <rect x="392" y="90" width="236" height="50" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="510" y="112" text-anchor="middle" font-size="12" fill="#115e59">最终 dispatch buffer</text>
+          <text class="t" x="510" y="128" text-anchor="middle" font-size="10" fill="#0f766e">无 ring buffer · 无轮询 SM</text>
+          <rect x="392" y="154" width="236" height="50" rx="5" fill="#ccfbf1" stroke="#0f766e"/>
+          <text class="t" x="510" y="184" text-anchor="middle" font-size="12" fill="#115e59">2. 见 ready 后算 expert</text>
+          <rect x="392" y="214" width="236" height="40" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="510" y="239" text-anchor="middle" font-size="12" fill="#115e59">最终 combine buffer + done</text>
+
+          <path d="M240 115 L370 115" stroke="#c2410c" stroke-width="2"/>
+          <polygon points="370,111 378,115 370,119" fill="#c2410c"/>
+          <path d="M650 239 L720 239" stroke="#0f766e" stroke-width="1.5"/>
+          <path d="M240 239 L370 239" stroke="#1e3a5f" stroke-width="2"/>
+          <polygon points="240,235 232,239 240,243" fill="#1e3a5f"/>
+
+          <rect x="720" y="70" width="240" height="180" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="840" y="104" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">跨阶段重叠</text>
+          <text class="t" x="840" y="136" text-anchor="middle" font-size="12" fill="#1e3a5f">P 在传输时</text>
+          <text class="t" x="840" y="158" text-anchor="middle" font-size="12" fill="#1e3a5f">APK 可跑 D tiles</text>
+          <text class="t" x="840" y="188" text-anchor="middle" font-size="12" fill="#1e3a5f">D 等 combine 时</text>
+          <text class="t" x="840" y="210" text-anchor="middle" font-size="12" fill="#1e3a5f">APK 可跑 P tiles</text>
+        </svg>
+      </div>
+      <p class="figcap">图 13　Dispatch 是 Attention push，Combine 是 Attention pull。MoE 侧没有通信进度，两阶段依赖链因此可以交错。</p>
+
+      <h3>6.3 层次化 Prefill 路径与流量隔离</h3>
+      <p>单边消除了 MoE 侧协调，但 RDMA 仍可能被争用。策略是：</p>
+      <ul>
+        <li><strong>Decode</strong>：尽量 Attention ↔ MoE 直连（本地 NVLink 或远端 RDMA），保时延。</li>
+        <li><strong>Prefill</strong>：尽量把 scale-out 流量放在 Prefill Attention 之间。源端把激活经 RDMA 发到目标节点同 local rank 的 prefill server，再经 NVLink 按 chunk multicast 给该节点上被激活的 experts。Combine 反向：NVLink gather + Prefill-only RDMA 返回。同一远程节点上多个 expert 只过一次昂贵的 scale-out 链路。</li>
+        <li>目标节点没有 prefill server 时，才走直连 RDMA，但给 prefill 更低优先级的 IB virtual lane，保护 decode。</li>
+      </ul>
+      <p>放置优化器会尽量把 prefill server 铺开到各节点，让层次化路径成为常态。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="490" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">网络隔离：Prefill 走层次化，Decode 走直连</text>
+          <rect x="20" y="40" width="460" height="240" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="250" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">节点 A</text>
+          <rect x="40" y="84" width="120" height="54" rx="5" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="100" y="116" text-anchor="middle" font-size="12" fill="#9a3412">P-Attn</text>
+          <rect x="190" y="84" width="120" height="54" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="250" y="116" text-anchor="middle" font-size="12" fill="#115e59">MoE</text>
+          <rect x="340" y="84" width="120" height="54" rx="5" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="400" y="116" text-anchor="middle" font-size="12" fill="#1e3a5f">D-Attn</text>
+          <rect x="510" y="40" width="450" height="240" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="735" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">节点 B</text>
+          <rect x="530" y="84" width="120" height="54" rx="5" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="590" y="116" text-anchor="middle" font-size="12" fill="#9a3412">P-Attn</text>
+          <rect x="680" y="84" width="120" height="54" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="740" y="116" text-anchor="middle" font-size="12" fill="#115e59">MoE ×N</text>
+          <rect x="830" y="84" width="110" height="54" rx="5" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="885" y="116" text-anchor="middle" font-size="12" fill="#1e3a5f">D-Attn</text>
+
+          <path d="M160 111 C 260 40, 460 40, 530 111" fill="none" stroke="#c2410c" stroke-width="2.2"/>
+          <text class="t" x="360" y="48" font-size="11" fill="#c2410c">Prefill RDMA 一次</text>
+          <path d="M650 138 L680 138" stroke="#c2410c" stroke-width="1.6"/>
+          <path d="M650 148 L740 148" stroke="#c2410c" stroke-width="1.6"/>
+          <text class="t" x="735" y="172" text-anchor="middle" font-size="11" fill="#9a3412">NVLink multicast 给本节点多个 expert</text>
+
+          <path d="M400 138 C 520 220, 700 220, 740 138" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-dasharray="5 4"/>
+          <text class="t" x="560" y="230" font-size="11" fill="#1e3a5f">Decode 直连远端 MoE</text>
+          <text class="t" x="250" y="258" text-anchor="middle" font-size="11" fill="#78716c">同一远程节点多个 expert：scale-out 只过一次</text>
+          <text class="t" x="735" y="258" text-anchor="middle" font-size="11" fill="#78716c">若 B 没有 P-Attn：直连 RDMA + IB 低优先级给 Prefill</text>
+        </svg>
+      </div>
+      <p class="figcap">图 14　拓扑先隔离，QoS 做兜底。H800 上 NVLink 160 GB/s vs IB 50 GB/s，层次化是在省那条更窄的路。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 技术三：跨栈放置优化器</h2>
+      <h3>7.1 为什么必须联合搜索</h3>
+      <p>
+        改 prefill server 数量会同时改变并行度、KV 容量和通信路径。单独优化放置、重叠或 GPU 共享，都可能选出“局部高效、联合 SLO 不可行”的配置。优化器因此联合选择：Attention/MoE 并行、server 放置、P:D 配比、重叠策略（TBO/SBO）、APK 共享策略。
+      </p>
+
+      <h3>7.2 Goodput 目标</h3>
+      <p>配置表示为布局 <em>ℓ</em> 与争用下的 decode SM 预算 <em>q</em>。<em>B<sub>p</sub></em> / <em>B<sub>d</sub></em> 是满足各自 SLO 的最大 batch，<em>T<sub>p</sub></em> / <em>T<sub>d</sub></em> 为建模迭代时延，<em>Õ</em> 为平均输出长度：</p>
+      <div class="eq">
+        G(ℓ, q) = min( B<sub>p</sub> / T<sub>p</sub> ,&nbsp; B<sub>d</sub> / (T<sub>d</sub> · Õ) )
+      </div>
+      <p>
+        取 min 是因为一条请求消耗 1 次 prefill 迭代、约 <em>Õ</em> 次 decode 迭代，goodput 由更窄的那一端决定。只在两阶段 SLO 都可行的候选中最大化 G，避免单独把某一阶段堆满。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 210" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="480" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">Goodput 取短板：一条请求 = 1 次 Prefill + Õ 次 Decode</text>
+          <rect x="30" y="50" width="280" height="120" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="170" y="88" text-anchor="middle" font-size="13" fill="#9a3412">Prefill 吞吐</text>
+          <text class="t" x="170" y="118" text-anchor="middle" font-size="22" font-weight="700" fill="#c2410c">Bₚ / Tₚ</text>
+          <text class="t" x="170" y="146" text-anchor="middle" font-size="11" fill="#78716c">满足 TTFT 的最大 batch</text>
+          <text class="t" x="330" y="118" font-size="28" fill="#78716c">∧</text>
+          <rect x="360" y="50" width="280" height="120" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="500" y="88" text-anchor="middle" font-size="13" fill="#1e3a5f">Decode 吞吐</text>
+          <text class="t" x="500" y="118" text-anchor="middle" font-size="22" font-weight="700" fill="#1e3a5f">Bₐ / (Tₐ·Õ)</text>
+          <text class="t" x="500" y="146" text-anchor="middle" font-size="11" fill="#78716c">满足 TPOT 的最大 batch</text>
+          <text class="t" x="660" y="118" font-size="28" fill="#78716c">=</text>
+          <rect x="690" y="50" width="240" height="120" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+          <text class="t" x="810" y="88" text-anchor="middle" font-size="13" fill="#0f766e">请求级 goodput G</text>
+          <text class="t" x="810" y="124" text-anchor="middle" font-size="18" font-weight="700" fill="#0f766e">min(两端)</text>
+          <text class="t" x="810" y="150" text-anchor="middle" font-size="11" fill="#78716c">只在两阶段 SLO 都可行时</text>
+        </svg>
+      </div>
+      <p class="figcap">图 15　单独把 Prefill 或 Decode 堆满没有意义。流水线平衡才是目标。</p>
+
+      <h3>7.3 Tile-aware 时延模型</h3>
+      <p>全集群穷举实测不可行。做法是：在少量代表 GPU 上 profile Attention / MoE（含 APK 开销）并插值；网络时延用 routed bytes × 测得带宽 × 层次化路径直接算，不必占 GPU。</p>
+      <p>对组件 <em>c</em> 拟合：</p>
+      <div class="eq">
+        t̂<sub>c</sub>(x, s) = α<sub>c</sub> + β<sub>c</sub>x + γ<sub>c</sub>x s + δ<sub>c</sub>x s<sup>2</sup>
+      </div>
+      <p>
+        Attention：<em>x</em> 为本地 batch，<em>s</em> 为序列长度。MoE 的关键观察是：<strong>原始 routed-token 数不够</strong>，时延跟的是执行的 tile 数。Expert <em>e</em> 收到 <em>m<sub>e</sub></em> 行、tile 高 <em>M<sub>t</sub></em> 时：
+      </p>
+      <div class="eq">
+        x<sub>moe</sub> = Σ<sub>e | m<sub>e</sub> &gt; 0</sub> ⌈ m<sub>e</sub> / M<sub>t</sub> ⌉
+      </div>
+      <p>
+        再用 <em>x = x<sub>moe</sub>, s = 1</em> 代入拟合式。同 token 数、不同活跃 expert 数，时延可以差很多——每个活跃 expert 至少触发一个 tile 的 metadata、权重搬运和计算。这是 tiled MoE kernel 的一般性质，不是某一模型和 GPU 的特例。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 240" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="480" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">同是 128 个 token，活跃 expert 数不同，tile 数就不同</text>
+          <rect x="30" y="44" width="430" height="176" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="245" y="72" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">集中：2 个 expert × 64 token</text>
+          <rect x="60" y="96" width="160" height="36" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="140" y="119" text-anchor="middle" font-size="12" fill="#115e59">E1 · 1 tile</text>
+          <rect x="240" y="96" width="160" height="36" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="320" y="119" text-anchor="middle" font-size="12" fill="#115e59">E2 · 1 tile</text>
+          <text class="t" x="245" y="168" text-anchor="middle" font-size="16" font-weight="700" fill="#0f766e">xₘₒₑ = 2</text>
+          <text class="t" x="245" y="194" text-anchor="middle" font-size="11" fill="#78716c">假设 tile 高 Mₜ = 128</text>
+
+          <rect x="500" y="44" width="430" height="176" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="715" y="72" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">分散：8 个 expert × 16 token</text>
+          <rect x="520" y="90" width="90" height="28" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <rect x="618" y="90" width="90" height="28" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <rect x="716" y="90" width="90" height="28" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <rect x="814" y="90" width="90" height="28" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <rect x="520" y="124" width="90" height="28" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <rect x="618" y="124" width="90" height="28" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <rect x="716" y="124" width="90" height="28" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <rect x="814" y="124" width="90" height="28" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="715" y="180" text-anchor="middle" font-size="16" font-weight="700" fill="#1e3a5f">xₘₒₑ = 8</text>
+          <text class="t" x="715" y="202" text-anchor="middle" font-size="11" fill="#78716c">每个活跃 expert 至少 1 个 tile 的启动税</text>
+        </svg>
+      </div>
+      <p class="figcap">图 16　用 token 数估 MoE 时延会漏掉 per-expert tile 税。优化器因此对 xₘₒₑ 插值，而不是对 raw routed tokens。</p>
+
+      <h3>7.4 离线搜索</h3>
+      <p>Algorithm 1：枚举布局 → 内存/KV 不可行则丢弃 → 枚举 <em>q</em> → 对两阶段二分最大可行 batch → 用关键路径（TBO 取两条路径 max，SBO 取 routed/shared/通信 max 再加 Attention）估迭代时延 → 两阶段都可行则计算 G，保留最大者。选出的配置同时钉死并行、放置、重叠和期望 decode SM 预算。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 150" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="10" y="30" width="140" height="70" rx="6" fill="#f5f5f4" stroke="#a8a29e"/>
+          <text class="t" x="80" y="60" text-anchor="middle" font-size="12" fill="#44403c">枚举布局 ℓ</text>
+          <text class="t" x="80" y="80" text-anchor="middle" font-size="10" fill="#78716c">P/D/MoE 数与放置</text>
+          <path d="M150 65 L170 65" stroke="#57534e" stroke-width="1.5"/>
+          <polygon points="170,61 178,65 170,69" fill="#57534e"/>
+          <rect x="180" y="30" width="140" height="70" rx="6" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="250" y="60" text-anchor="middle" font-size="12" fill="#991b1b">内存 / KV</text>
+          <text class="t" x="250" y="80" text-anchor="middle" font-size="10" fill="#991b1b">装不下就丢</text>
+          <path d="M320 65 L340 65" stroke="#57534e" stroke-width="1.5"/>
+          <polygon points="340,61 348,65 340,69" fill="#57534e"/>
+          <rect x="350" y="30" width="140" height="70" rx="6" fill="#fde68a" stroke="#b45309"/>
+          <text class="t" x="420" y="60" text-anchor="middle" font-size="12" fill="#92400e">枚举 q</text>
+          <text class="t" x="420" y="80" text-anchor="middle" font-size="10" fill="#92400e">decode SM 预算</text>
+          <path d="M490 65 L510 65" stroke="#57534e" stroke-width="1.5"/>
+          <polygon points="510,61 518,65 510,69" fill="#57534e"/>
+          <rect x="520" y="30" width="160" height="70" rx="6" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="600" y="60" text-anchor="middle" font-size="12" fill="#1e3a5f">二分最大 batch</text>
+          <text class="t" x="600" y="80" text-anchor="middle" font-size="10" fill="#1e3a5f">tile 模型估 Tₚ Tₐ</text>
+          <path d="M680 65 L700 65" stroke="#57534e" stroke-width="1.5"/>
+          <polygon points="700,61 708,65 700,69" fill="#57534e"/>
+          <rect x="710" y="30" width="250" height="70" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="835" y="60" text-anchor="middle" font-size="12" fill="#115e59">两阶段都可行则算 G</text>
+          <text class="t" x="835" y="80" text-anchor="middle" font-size="10" fill="#0f766e">保留最大者：并行+放置+重叠+q</text>
+          <text class="t" x="490" y="130" text-anchor="middle" font-size="12" fill="#57534e">TBO：迭代时延 = max(Attention, 通信+MoE)；SBO：max(routed, shared, 通信) + Attention</text>
+        </svg>
+      </div>
+      <p class="figcap">图 17　离线搜索只在少量 GPU 上 profile，网络时延用带宽公式算，避免对每个集群布局做全量实测。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 实验设置与主要结果</h2>
+      <h3>8.1 实现与测试床</h3>
+      <ul>
+        <li><strong>实现</strong>：改 DeepGEMM、DeepEP v1、SGLang。把两个 grouped GEMM、激活、MoE 前后处理、CTA-cluster scheduler 融进 MoE GPU 上的长寿命 persistent kernel；host 启动时把 tile size JIT 成常量以降寄存器压力。DeepEP 的 receiver-driven all-to-all 换成 Attention 发起的 M-to-N 路径；IBGDA 定制 <code>nvshmemi_ibgda_get_nbi_warp</code> 做细粒度 remote pull。</li>
+        <li><strong>模型</strong>：单节点 MiniMax-M2.7（FP8 约 230 GB，每 token 激活约 7.0B routed 参数，Full Attention）；多节点 GLM-5.1-FP8（FP8 约 756 GB，routed 专家总参 724.8B，每 token 约 22.6B，DSA）。两者均为每层 256 routed experts、每 token top-8。</li>
+        <li><strong>硬件</strong>：NVIDIA H800，节点内 8 卡 NVLink；多节点最多 3 机，每机 8×200 Gbps IB。不同节点数时吞吐统一报 <strong>每节点 requests/s</strong>。</li>
+      </ul>
+
+      <h3>8.2 Baseline 与指标</h3>
+      <table>
+        <thead>
+          <tr><th>系统</th><th>要点</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>SGLang-Colocated</td><td>原生共置；Attention DP + MoE EP；内存允许则 TBO</td></tr>
+          <tr><td>SGLang-ChunkedPrefill</td><td>加上调过的最优 chunk size</td></tr>
+          <tr><td>SGLang-PDD</td><td>实例级分离。MiniMax 用 1P1D；GLM-5.1 在 24 卡上 PDD OOM，故无该数字</td></tr>
+          <tr><td>SGLang-PDMux</td><td>基于 MuxWise / Green Context，改为支持 MoE；Attention 只能 TP</td></tr>
+        </tbody>
+      </table>
+      <p>
+        主指标是 <strong>P90 goodput</strong>：至少 90% 请求同时满足 TTFT 与 TPOT SLO 的最高到达率。负载为 ShareGPT（短）与 LooGLE（长），到达为泊松过程。因 PDD 复制 MoE 后 KV 更小，采样序列长度被 cap 到 PDD 的 KV 容量。
+      </p>
+      <table>
+        <thead>
+          <tr><th>设置</th><th>TTFT SLO</th><th>TPOT SLO</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>MiniMax-M2.7 × ShareGPT</td><td>1 s</td><td>50 ms</td></tr>
+          <tr><td>MiniMax-M2.7 × LooGLE</td><td>10 s</td><td>100 ms</td></tr>
+          <tr><td>GLM-5.1-FP8 × ShareGPT</td><td>2 s</td><td>100 ms</td></tr>
+          <tr><td>GLM-5.1-FP8 × LooGLE</td><td>20 s</td><td>100 ms</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8.3 端到端 goodput</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>对比对象</th>
+            <th>MiniMax / ShareGPT</th>
+            <th>MiniMax / LooGLE</th>
+            <th>GLM / ShareGPT</th>
+            <th>GLM / LooGLE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ExpertPlex 绝对 goodput</td>
+            <td class="num">11.3 req/s/node</td>
+            <td>—</td>
+            <td class="num">约 1.5（与 PDMux 接近）</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>vs ChunkedPrefill</td>
+            <td class="num">5.65×</td>
+            <td>无法维持 SLO</td>
+            <td class="num">3.3×</td>
+            <td class="num">5.0×</td>
+          </tr>
+          <tr>
+            <td>vs Colocated</td>
+            <td class="num">2.72×</td>
+            <td class="num">4.12×</td>
+            <td class="num">1.5×</td>
+            <td class="num">2.5×</td>
+          </tr>
+          <tr>
+            <td>vs PDD</td>
+            <td class="num">2.01×</td>
+            <td>—</td>
+            <td>OOM，未报</td>
+            <td>OOM，未报</td>
+          </tr>
+          <tr>
+            <td>vs PDMux (Green Context)</td>
+            <td class="num">1.41×</td>
+            <td class="num">1.28×</td>
+            <td>接近</td>
+            <td class="num">1.66×</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="fig">
+        <svg viewBox="0 0 980 320" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="490" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">相对 ExpertPlex 的 goodput 倍数（原文端到端）</text>
+          <text class="t" x="40" y="300" font-size="11" fill="#78716c">0×</text>
+          <text class="t" x="40" y="70" font-size="11" fill="#78716c">6×</text>
+          <line x1="70" y1="54" x2="70" y2="280" stroke="#d6d3d1"/>
+          <line x1="70" y1="280" x2="950" y2="280" stroke="#d6d3d1"/>
+          <!-- MiniMax ShareGPT: 5.65, 2.72, 2.01, 1.41  vs ExpertPlex=1 as baseline we show ExpertPlex as 1 and others as inverse? -->
+          <!-- Better: show speedup of ExpertPlex over each baseline as bars grouped by setting -->
+          <!-- Group 1 MiniMax ShareGPT -->
+          <text class="t" x="180" y="300" text-anchor="middle" font-size="11" fill="#44403c">MiniMax / ShareGPT</text>
+          <rect x="90" y="68" width="28" height="212" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="104" y="60" text-anchor="middle" font-size="10" fill="#9a3412">5.65</text>
+          <rect x="124" y="178" width="28" height="102" fill="#e7e5e4" stroke="#78716c"/>
+          <text class="t" x="138" y="170" text-anchor="middle" font-size="10" fill="#44403c">2.72</text>
+          <rect x="158" y="204" width="28" height="76" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="172" y="196" text-anchor="middle" font-size="10" fill="#1e3a5f">2.01</text>
+          <rect x="192" y="227" width="28" height="53" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="206" y="219" text-anchor="middle" font-size="10" fill="#0f766e">1.41</text>
+          <!-- MiniMax LooGLE: chunked fail, coloc 4.12, pdd -, pdmux 1.28 -->
+          <text class="t" x="390" y="300" text-anchor="middle" font-size="11" fill="#44403c">MiniMax / LooGLE</text>
+          <rect x="300" y="54" width="28" height="226" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="314" y="46" text-anchor="middle" font-size="10" fill="#b91c1c">SLO×</text>
+          <rect x="334" y="125" width="28" height="155" fill="#e7e5e4" stroke="#78716c"/>
+          <text class="t" x="348" y="117" text-anchor="middle" font-size="10" fill="#44403c">4.12</text>
+          <rect x="368" y="240" width="28" height="40" fill="#d6d3d1" stroke="#a8a29e"/>
+          <text class="t" x="382" y="232" text-anchor="middle" font-size="10" fill="#78716c">—</text>
+          <rect x="402" y="232" width="28" height="48" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="416" y="224" text-anchor="middle" font-size="10" fill="#0f766e">1.28</text>
+          <!-- GLM ShareGPT: 3.3, 1.5, OOM, ~1 -->
+          <text class="t" x="600" y="300" text-anchor="middle" font-size="11" fill="#44403c">GLM / ShareGPT</text>
+          <rect x="510" y="156" width="28" height="124" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="524" y="148" text-anchor="middle" font-size="10" fill="#9a3412">3.3</text>
+          <rect x="544" y="224" width="28" height="56" fill="#e7e5e4" stroke="#78716c"/>
+          <text class="t" x="558" y="216" text-anchor="middle" font-size="10" fill="#44403c">1.5</text>
+          <rect x="578" y="240" width="28" height="40" fill="#d6d3d1" stroke="#a8a29e"/>
+          <text class="t" x="592" y="232" text-anchor="middle" font-size="10" fill="#78716c">OOM</text>
+          <rect x="612" y="242" width="28" height="38" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="626" y="234" text-anchor="middle" font-size="10" fill="#0f766e">≈1</text>
+          <!-- GLM LooGLE: 5.0, 2.5, OOM, 1.66 -->
+          <text class="t" x="810" y="300" text-anchor="middle" font-size="11" fill="#44403c">GLM / LooGLE</text>
+          <rect x="720" y="92" width="28" height="188" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="734" y="84" text-anchor="middle" font-size="10" fill="#9a3412">5.0</text>
+          <rect x="754" y="186" width="28" height="94" fill="#e7e5e4" stroke="#78716c"/>
+          <text class="t" x="768" y="178" text-anchor="middle" font-size="10" fill="#44403c">2.5</text>
+          <rect x="788" y="240" width="28" height="40" fill="#d6d3d1" stroke="#a8a29e"/>
+          <text class="t" x="802" y="232" text-anchor="middle" font-size="10" fill="#78716c">OOM</text>
+          <rect x="822" y="218" width="28" height="62" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="836" y="210" text-anchor="middle" font-size="10" fill="#0f766e">1.66</text>
+          <rect x="70" y="54" width="8" height="8" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="84" y="62" font-size="10" fill="#44403c">vs Chunked</text>
+          <rect x="170" y="54" width="8" height="8" fill="#e7e5e4" stroke="#78716c"/>
+          <text class="t" x="184" y="62" font-size="10" fill="#44403c">vs Colocated</text>
+          <rect x="280" y="54" width="8" height="8" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="294" y="62" font-size="10" fill="#44403c">vs PDD</text>
+          <rect x="360" y="54" width="8" height="8" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="374" y="62" font-size="10" fill="#44403c">vs PDMux</text>
+        </svg>
+      </div>
+      <p class="figcap">图 18　柱高是 ExpertPlex 相对各 baseline 的 goodput 倍数。灰色表示原文未报或 PDD OOM；红色 “SLO×” 表示 Chunked Prefill 在该负载上维持不了 SLO。</p>
+
+      <p>结果解读：</p>
+      <ul>
+        <li><strong>Chunked Prefill 最差</strong>：反复读权重/KV、重复 MoE 通信；大 chunk 仍干扰 decode，小 chunk 伤 prefill 效率。长请求上甚至无法维持 SLO。</li>
+        <li><strong>朴素共置</strong>：为做大 batch 激进跑 prefill，长 kernel 拖垮 decode。</li>
+        <li><strong>PDD</strong>：隔离干净，但复制 MoE、KV 变小、P:D 配比僵硬，prefill 侧即使 decode 不是瓶颈也用不满资源。更大的 GLM 在 24 卡上直接 OOM，反衬共享 Expert 的内存价值。</li>
+        <li><strong>PDMux</strong>：Green Context 好于共置，但跟不上每 rank 实际活跃 expert 数；网络未隔离；并行度被迫加大。短请求上 TP Attention 给 PDMux 一点 TTFT 优势，故 GLM×ShareGPT 与 ExpertPlex 接近；长请求上网络干扰和利用率问题暴露，ExpertPlex 拉开到 1.66×。</li>
+      </ul>
+
+      <h3>8.4 机制消融与开销</h3>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>APK vs 其他 GPU 共享</h4>
+          <p>Pareto 前沿上，只有 APK 同时进入 decode 低时延区并保持 prefill 高性能。优先级 stream 无法隔离已启动 kernel（decode 慢 13.79×）；MPS / Green Context 接近独占 decode，但把 prefill 拖慢 3.33× / 4.07×。APK 对 decode 仅 +8%，prefill 仅 1.12×。</p>
+        </div>
+        <div class="tile">
+          <h4>调度与通信开销</h4>
+          <p>Prefill 连续布局：调度相对 DeepGEMM &lt;12%。Decode masked 布局：调度 &lt;20 μs，多活跃 expert 时相对开销 &lt;10%。16 卡上单边通信正常模式与 DeepEP v1 差约 5%；低时延模式差约 45 μs 内。</p>
+        </div>
+      </div>
+      <p>
+        抢占间隔：MiniMax 全部 MoE 操作 &lt;25.3 μs，GEMM &lt;10.7 μs。对比 LithOS / Bless / GPreempt / PipeSwitch / REEF 等（它们并非面向 MoE，也不支持 TMA multicast 等现代特征）：REEF 最好报道约 35 μs 且要重算被抢占 kernel。APK 在自然 tile 边界切换，间隔内仍做有效计算，无 checkpoint/restore/重算。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 230" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="480" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">保护 decode 时延时，各共享机制对两阶段的伤害</text>
+          <text class="t" x="40" y="70" font-size="12" fill="#1e3a5f">Decode 变慢</text>
+          <rect x="160" y="54" width="300" height="22" rx="3" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="310" y="70" text-anchor="middle" font-size="11" fill="#991b1b">CUDA Stream  13.79×</text>
+          <rect x="160" y="82" width="28" height="22" rx="3" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="220" y="98" font-size="11" fill="#1e3a5f">MPS / Green Context ≈ 独占</text>
+          <rect x="160" y="110" width="22" height="22" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="190" y="126" font-size="11" fill="#0f766e">APK  +8%</text>
+
+          <text class="t" x="40" y="170" font-size="12" fill="#9a3412">Prefill 变慢</text>
+          <rect x="160" y="154" width="90" height="22" rx="3" fill="#e7e5e4" stroke="#78716c"/>
+          <text class="t" x="260" y="170" font-size="11" fill="#44403c">MPS  3.33×</text>
+          <rect x="160" y="182" width="110" height="22" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="280" y="198" font-size="11" fill="#9a3412">Green Context  4.07×</text>
+          <rect x="160" y="210" width="30" height="16" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="198" y="222" font-size="11" fill="#0f766e">APK  1.12×</text>
+
+          <rect x="620" y="50" width="310" height="160" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="775" y="80" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">APK 为何两端都轻</text>
+          <text class="t" x="775" y="112" text-anchor="middle" font-size="12" fill="#115e59">decode 短且间断</text>
+          <text class="t" x="775" y="136" text-anchor="middle" font-size="12" fill="#115e59">空闲 cluster 全部借给 prefill</text>
+          <text class="t" x="775" y="160" text-anchor="middle" font-size="12" fill="#115e59">只在到达时抢一个 tile</text>
+          <text class="t" x="775" y="184" text-anchor="middle" font-size="12" fill="#115e59">做完立刻还回去</text>
+        </svg>
+      </div>
+      <p class="figcap">图 19　微基准：优先级 stream 牺牲 decode，固定划分牺牲 prefill。APK 是唯一同时靠近“独占 decode + 高 prefill”的点。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 贡献、局限与后续方向</h2>
+      <h3>9.1 论文自称的三点贡献</h3>
+      <ol>
+        <li>混合架构：去重 MoE 权重、复用动态稀疏计算、分离 Attention 以降低每阶段并行度与通信，同时保留细粒度隔离。</li>
+        <li>APK 的 tile 级抢占/重分配 + Attention 发起的单边通信，减少网络干扰并实现跨阶段算通重叠。</li>
+        <li>跨栈联合优化，并在两个前沿 MoE 上验证 goodput。</li>
+      </ol>
+
+      <h3>9.2 我认为真正“新”的地方</h3>
+      <ul>
+        <li><strong>拆分边界选对了</strong>。Attention-Expert 分离（MegaScale-Infer、Janus、Step-3）已有，但它们多建在实例级 PDD 之上，会继承复制 Expert、放大部署单元、引入 pipeline bubble。ExpertPlex 把“阶段隔离”下沉到 Attention，把“权重共享”留在 MoE，这是针对 95%+ Expert 占比的结构解，而不只是调度技巧。</li>
+        <li><strong>调度单元与现代 GPU kernel 对齐</strong>。很多抢占系统在 kernel 边界或要 checkpoint。APK 承认 TMA multicast / CTA cluster / warp-specialized pipeline 的约束，把安全抢占点钉在 tile commit，这是工程上很“懂 kernel”的一刀。</li>
+        <li><strong>通信协议为共享 MoE 重写，而不是继续套 DeepEP 双边语义</strong>。死锁分析比“我们换了 RDMA write”更重要：共享计算平面必须同时改通信进度模型。</li>
+        <li><strong>时延模型用 tile 足迹而不是 token 数</strong>。这对所有 tiled grouped GEMM 都成立，可迁移到别的 MoE serving / 训练负载均衡工作。</li>
+      </ul>
+
+      <h3>9.3 局限与可质疑点</h3>
+      <table>
+        <thead>
+          <tr><th>点</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>硬件与实现绑定深</td>
+            <td>H800 + NVLink + IB + DeepGEMM/DeepEP/SGLang/IBGDA。Hopper 的 TMA、DSMEM、CTA cluster 是 APK 的前提；到 Blackwell / 其他厂商需要重做 kernel 与同步层次。</td>
+          </tr>
+          <tr>
+            <td>预分配最终 buffer</td>
+            <td>按最大 routed-token 量预留，去掉 ring buffer 换来协议简化，但内存占用更“硬”。高并发、高 top-k、或 EP 很宽时，buffer 本身可能成为新的容量税。</td>
+          </tr>
+          <tr>
+            <td>Baseline 不完全同构</td>
+            <td>PDMux 只能 TP Attention；若干 baseline 无法表达 24 卡细粒度布局，GLM 实验用 16 卡再按节点归一。方向正确，但部分倍数含“布局表达力”而不只是调度质量。</td>
+          </tr>
+          <tr>
+            <td>GLM 上没有 PDD 数字</td>
+            <td>24 卡 PDD OOM 本身能说明共享 Expert 的内存收益，却也让“相对 PDD 2.01×”只建立在较小的 MiniMax 单节点 1P1D 上，外推到百卡 DeepSeek 式部署仍是论证而非实测。</td>
+          </tr>
+          <tr>
+            <td>故障与弹性多为定性</td>
+            <td>引言强调更小 blast radius 和更细扩缩粒度，评估几乎全是 goodput / SLO / 微基准，缺少注入 rank 故障、在线扩缩的实验。</td>
+          </tr>
+          <tr>
+            <td>优化器是离线 + 平均负载</td>
+            <td>在线只自适应 SM 预算。突发流量、输入长度分布漂移、expert 热点漂移，仍依赖 APK 的局部 multiplex，没有闭环重搜布局。</td>
+          </tr>
+          <tr>
+            <td>相关系统对比偏“机制级”</td>
+            <td>与 LithOS / REEF 等比的是抢占间隔，不是端到端 MoE serving。与 MegaScale-Infer / Janus 的端到端对比缺失，而这恰恰是最近最接近的架构邻居。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>9.4 和相关工作的位置</h3>
+      <ul>
+        <li><strong>PDD</strong>（DistServe, Splitwise, Mooncake）：隔离对，粒度错。</li>
+        <li><strong>Chunked Prefill / POD-Attention</strong>：减轻干扰，引入重复访存。</li>
+        <li><strong>GPU 划分共置</strong>（PDMux, Nexus, semi-PD, Bullet）：去重对，时间适应性和网络隔离不够。</li>
+        <li><strong>Attention-Expert 分离</strong>（MegaScale-Infer, Janus, Step-3）：模块异构对，但若仍按阶段复制整条 Expert 流水线，PDD 的粗粒度会回来，并多一层 pipeline bubble。</li>
+        <li><strong>Megakernel / 算通重叠</strong>（NanoFlow, FLUX, Comet, SonicMoE）：多服务单阶段或单层流水；ExpertPlex 可与之兼容，并额外做跨阶段重叠。</li>
+        <li><strong>MoE 负载均衡 / Attention offload / 序列并行</strong>：正交，可叠加。</li>
+      </ul>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="490" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">相关工作坐标：阶段怎么拆 × 权重怎么放</text>
+          <text class="t" x="70" y="150" transform="rotate(-90 70 150)" font-size="12" fill="#57534e">权重：复制整模 → 共享 Expert</text>
+          <line x1="140" y1="240" x2="920" y2="240" stroke="#a8a29e"/>
+          <line x1="140" y1="40" x2="140" y2="240" stroke="#a8a29e"/>
+          <text class="t" x="530" y="268" text-anchor="middle" font-size="12" fill="#57534e">隔离边界：整实例 P/D  →  卡内切 SM  →  只拆 Attention</text>
+
+          <rect x="170" y="50" width="200" height="56" rx="6" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="270" y="74" text-anchor="middle" font-size="12" font-weight="700" fill="#991b1b">实例级 PDD</text>
+          <text class="t" x="270" y="92" text-anchor="middle" font-size="10" fill="#991b1b">DistServe / Mooncake</text>
+
+          <rect x="170" y="150" width="200" height="56" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="270" y="174" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">Attn-Expert 分离 + PDD</text>
+          <text class="t" x="270" y="192" text-anchor="middle" font-size="10" fill="#9a3412">MegaScale-Infer / Janus</text>
+
+          <rect x="430" y="150" width="200" height="56" rx="6" fill="#e7e5e4" stroke="#78716c"/>
+          <text class="t" x="530" y="174" text-anchor="middle" font-size="12" font-weight="700" fill="#44403c">Green Context 共置</text>
+          <text class="t" x="530" y="192" text-anchor="middle" font-size="10" fill="#44403c">PDMux / Nexus / semi-PD</text>
+
+          <rect x="700" y="50" width="200" height="70" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="800" y="78" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">ExpertPlex</text>
+          <text class="t" x="800" y="98" text-anchor="middle" font-size="10" fill="#0f766e">共享 MoE · 分离 Attention</text>
+
+          <path d="M370 78 L700 80" stroke="#0f766e" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <path d="M370 178 L700 100" stroke="#0f766e" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <path d="M630 178 L700 110" stroke="#0f766e" stroke-width="1.2" stroke-dasharray="4 3"/>
+        </svg>
+      </div>
+      <p class="figcap">图 20　ExpertPlex 的位置：吸收 PDD 的阶段隔离、共置的权重去重、Attn-Expert 分离的模块异构，但拒绝“再复制一份 Expert 池”。</p>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 对后续研究与工程的启发</h2>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>1. 先找“参数质量比”</h4>
+          <p>分离什么、共享什么，应看参数占比、计算密度、通信半径，而不是沿用稠密模型的实例边界。MoE 时代，默认共享 Expert、特化 Attention 是更自然的默认假设。</p>
+        </div>
+        <div class="tile">
+          <h4>2. 调度粒度要对齐硬件原语</h4>
+          <p>CTA cluster 和 TMA multicast 决定了“能安全抢占的最细点”。忽略这一点的抢占系统，要么破坏高性能 kernel，要么只能停在 kernel 边界。</p>
+        </div>
+        <div class="tile">
+          <h4>3. 共享计算必须重写通信进度</h4>
+          <p>计算平面一共享，双边 liveness 假设就破了。单边 + 最终 buffer + 发起方在 Attention，是一套可复用的协议模式。</p>
+        </div>
+        <div class="tile">
+          <h4>4. 用 tile 而不是 token 建模 MoE</h4>
+          <p>稀疏路由的代价有两项：token 体积，以及 per-expert 的 tile 启动税。负载均衡、批构造、SLO 估计都应显式用 x<sub>moe</sub>。</p>
+        </div>
+        <div class="tile">
+          <h4>5. Goodput 用短板而不是平均</h4>
+          <p>G = min(prefill 吞吐, decode 吞吐 / Õ) 强迫系统做流水线平衡，避免“某一阶段很好看、请求却卡在另一端”。</p>
+        </div>
+        <div class="tile">
+          <h4>6. 网络隔离可以靠拓扑而不只靠 QoS</h4>
+          <p>Prefill 层次化走 Attention–Attention，Decode 直连 MoE，比单纯 IB 优先级更干净；QoS 只做兜底。</p>
+        </div>
+      </div>
+
+      <h3>可做的后续工作</h3>
+      <ol>
+        <li>把同一套混合边界做到 DeepSeek-V3/V4 百卡单元，直接和官方 32P+320D 比弹性、故障恢复和 KV 容量。</li>
+        <li>与 MegaScale-Infer / Janus 做受控同模型对比，分离“Attention-Expert 分离”和“跨阶段共享 Expert”各自的贡献。</li>
+        <li>在线布局重配置：流量或长度分布漂移时，不只改 <em>q</em>，而是迁移 Attention/MoE server 角色。</li>
+        <li>Buffer 的动态租约或分层：热 expert 预分配最终 buffer，冷 expert 回退 ring buffer，减轻内存税。</li>
+        <li>把 APK 的 tile 调度抽象成可复用 runtime，服务不止 MoE FFN，也包括 MLA / DSA 等同样 tile 化的 Attention kernel。</li>
+      </ol>
+
+      <div class="callout">
+        <strong>一句话收束：</strong>ExpertPlex 把 MoE serving 的主矛盾从“Prefill 和 Decode 要不要拆开”推进到了“<em>在权重已经 95% 都是 Expert 的前提下，阶段隔离的最小充分边界在哪里</em>”。答案是：Attention 按阶段拆，Expert 跨阶段共享；再用 tile 级内核和单边通信，把共享重新做成可隔离、可重叠、可优化的。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 arXiv:2607.18002v2（2026-07-21）。文中示意图为讲解用重绘，实验数字摘自原文，未做复现。<br />
+      文件路径：d:\论文研究\ExpertPlex_论文分析.html
+    </footer>
+  </div>
+</body>
+</html>
