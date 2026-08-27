@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Approaching Shannon Bound 论文分析 | arXiv:2606.15789</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .num { font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; font-variant-numeric: tabular-nums; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 12px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 6px; }
+    .fig-row .fig { margin: 0; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv:2606.15789</span>
+        <span class="badge">cs.AR / 系统 · 压缩</span>
+        <span class="badge">2026-06</span>
+        <span class="badge ok">Lossless</span>
+        <span class="badge ok">ANS / rANS</span>
+        <span class="badge ok">SGLang</span>
+      </div>
+      <h1>逼近香农界的 LLM 权重无损压缩</h1>
+      <p class="subtitle">Approaching Shannon Bound with Lossless LLM Weight Compression</p>
+      <p class="meta">
+        <strong>作者：</strong>Hongshi Tan*、Yao Chen†、Gustavo Alonso§、Weng-Fai Wong*、Bingsheng He*<br />
+        <strong>单位：</strong>新加坡国立大学* · 华中科技大学† · ETH Zurich§<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2606.15789" target="_blank" rel="noopener">https://arxiv.org/abs/2606.15789</a>
+        · PDF <a href="https://arxiv.org/pdf/2606.15789" target="_blank" rel="noopener">2606.15789</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">问题：权重位宽远大于信息量</a></li>
+        <li><a href="#s3">熵分析：离香农界有多远</a></li>
+        <li><a href="#s4">为何选 ANS，而不是 Zstd / Huffman</a></li>
+        <li><a href="#s5">执行模型：瓦片级即时解压</a></li>
+        <li><a href="#s6">GPU 内核与流水重叠</a></li>
+        <li><a href="#s7">实验设置与主要数字</a></li>
+        <li><a href="#s8">和 NeuZip / DFloat11 / KTransformer</a></li>
+        <li><a href="#s9">贡献、局限与数字口径</a></li>
+        <li><a href="#s10">对近存芯片与 V4-Pro 部署的含义</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        这篇工作的主张是：<strong>LLM 权重大量位是统计冗余，不是数值信息</strong>。从 1.5B 到 405B、从 bf16 到 INT4/AWQ，经验熵往往只有存储位宽的 <span class="num">1/2–1/10</span>；用按 GEMM 瓦片切开的 ANS（非对称数字系统）做<strong>严格无损</strong>编码，码率可落到香农界附近 <span class="num">0.01–0.1 bit</span>。解压不先整层写回 HBM，而是在共享内存里按瓦片即时解码，再交给 Tensor Core。接到 SGLang 后，省下的权重空间让给 KV，批次变大，吞吐最高约 <span class="num">1.6×</span>；相对 NeuZip / DFloat11 的「先解压再算」路径，单层投影吞吐可高一个数量级。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">0.01–0.1</div>
+          <div class="k">距香农界的码率空隙（bit/权）</div>
+        </div>
+        <div>
+          <div class="n">47→75</div>
+          <div class="k">Qwen-14B 最大 batch（摘要口径）</div>
+        </div>
+        <div>
+          <div class="n">20→95</div>
+          <div class="k">Mixtral-176B 最大 batch（4.8×）</div>
+        </div>
+        <div>
+          <div class="n">1.6×</div>
+          <div class="k">端到端吞吐上限（Mixtral）</div>
+        </div>
+      </div>
+      <div class="callout">
+        它不是量化论文。量化、剪枝、低秩会改数值；这里<strong>一个权重值都不改</strong>，推理结果 bit-exact。因此可以叠在已经量化好的 FP8 / INT4 / AWQ 上面再压一层。对推理稳定性敏感的任务，这是和「再砍 1 bit」不同的路线。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：权重位宽远大于信息量</h2>
+      <p>参数量已到万亿、权重体积进 TB，而单卡显存只从 16 GB 量级慢爬到 192–288 GB。论文把瓶颈写成三句话：</p>
+      <ul>
+        <li>装不装得下，由<strong>权重体积</strong>决定；</li>
+        <li>一次能伺候多少请求，由<strong>权重吃掉之后剩多少给 KV</strong>决定；</li>
+        <li>所以减权重足迹，直接换更大 batch 和更高吞吐。</li>
+      </ul>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="模型规模与显存错位">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="20" y="18" width="450" height="244" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="245" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">参数量（示意）</text>
+          <rect x="70" y="200" width="44" height="28" fill="#fdba74"/><text class="t" x="92" y="248" text-anchor="middle" font-size="11" fill="#78716c">BERT</text>
+          <rect x="140" y="176" width="44" height="52" fill="#fb923c"/><text class="t" x="162" y="248" text-anchor="middle" font-size="11" fill="#78716c">GPT-2</text>
+          <rect x="210" y="132" width="44" height="96" fill="#f97316"/><text class="t" x="232" y="248" text-anchor="middle" font-size="11" fill="#78716c">GPT-3</text>
+          <rect x="280" y="88" width="44" height="140" fill="#ea580c"/><text class="t" x="302" y="248" text-anchor="middle" font-size="11" fill="#78716c">PaLM</text>
+          <rect x="350" y="48" width="44" height="180" fill="#c2410c"/><text class="t" x="372" y="248" text-anchor="middle" font-size="11" fill="#78716c">Llama 4</text>
+          <rect x="500" y="18" width="460" height="244" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="730" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="#0f766e">单卡显存（示意）</text>
+          <rect x="540" y="196" width="52" height="32" fill="#99f6e4"/><text class="t" x="566" y="248" text-anchor="middle" font-size="11" fill="#78716c">16</text>
+          <rect x="616" y="176" width="52" height="52" fill="#5eead4"/><text class="t" x="642" y="248" text-anchor="middle" font-size="11" fill="#78716c">32</text>
+          <rect x="692" y="148" width="52" height="80" fill="#2dd4bf"/><text class="t" x="718" y="248" text-anchor="middle" font-size="11" fill="#78716c">80</text>
+          <rect x="768" y="116" width="52" height="112" fill="#14b8a6"/><text class="t" x="794" y="248" text-anchor="middle" font-size="11" fill="#78716c">192</text>
+          <rect x="844" y="88" width="52" height="140" fill="#0f766e"/><text class="t" x="870" y="248" text-anchor="middle" font-size="11" fill="#fff">288</text>
+        </svg>
+      </div>
+      <p class="figcap">图 1　论文 Figure 1 的含义：模型体积指数涨，单卡容量线性涨。无损压缩要解决的是「同样数值、更少存放比特」，不是再做一次有损量化。</p>
+
+      <p>现有无损工作（NeuZip、DFloat11）主要对着浮点格式。部署侧已经大量使用 FP8、INT8、分组量化，这些码流它们吃得不好，冗余也就没挖干净。论文据此问两句：</p>
+      <ol>
+        <li>跨未量化和现代量化格式，<strong>理论上</strong>无损还能压多少？</li>
+        <li>若冗余真实存在，如何做成 GPU 上可跑的、与 GEMM 瓦片对齐的即时解压，且输出 bit-exact？</li>
+      </ol>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 熵分析：离香农界有多远</h2>
+      <p>对每一层权重矩阵 <em>W<sup>(l)</sup></em>，把存储格式里的码字（FP8 码、INT4 值、分组量化索引等）当成离散符号，做经验直方图，算香农熵：</p>
+      <div class="eq">ℋ<sup>(l)</sup> = − Σ<sub>i</sub> p<sub>i</sub><sup>(l)</sup> log<sub>2</sub> p<sub>i</sub><sup>(l)</sup></div>
+      <p>全模型再按元素数加权：</p>
+      <div class="eq">ℋ<sub>model</sub> = Σ<sub>l</sub> ℋ<sup>(l)</sup> |W<sup>(l)</sup>| &nbsp;/&nbsp; Σ<sub>l</sub> |W<sup>(l)</sup>|</div>
+      <p>这个 ℋ 就是「任何无损编码器」的每权平均比特下界，与硬件布局无关。</p>
+
+      <h3>3.1 覆盖范围</h3>
+      <table>
+        <thead>
+          <tr><th>维</th><th>覆盖</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>模型</td><td>Qwen-1.5B、Mistral-7B、Qwen-14B、DeepSeek-67B、Mixtral-176B、Llama-405B</td></tr>
+          <tr><td>架构</td><td>稠密 Transformer + Mixtral MoE</td></tr>
+          <tr><td>格式</td><td>bf16、FP8-E5M2、INT8、FP4-E2M1、INT4、SmoothQuant INT8、AWQ-4</td></tr>
+        </tbody>
+      </table>
+
+      <h3>3.2 经验结论（论文口径）</h3>
+      <table>
+        <thead>
+          <tr><th>格式</th><th>存储位宽</th><th>经验熵 / 冗余</th><th>理论缩小倍数（论文表述）</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>bf16</td><td>16</td><td>有效熵常在 10–12 bit；冗余约 4–5 bit</td><td>约 1.5×</td></tr>
+          <tr><td>INT8</td><td>8</td><td>常压到 4–5 bit</td><td>约 1.6–2×</td></tr>
+          <tr><td>INT4 / FP4</td><td>4</td><td>有效熵可低至 0.6–1.0 bit；分布极偏</td><td>熵比可达 6–10×</td></tr>
+          <tr><td>SQ8 / AWQ4</td><td>分组量化</td><td>仍高过熵界约 1.1–1.3×</td><td>空间小，但不是零</td></tr>
+        </tbody>
+      </table>
+      <div class="callout teal">
+        低比特反而「空隙最大」，原因是 LLM 权重重尾：量化后只有少数符号高频出现，4-bit 码本远没用满。分组量化用 scale 换精度，符号更均匀，无损空间被吃掉一截，只剩 1.1–1.3×。规划 V4-Pro 的 NVFP4 专家时，应更靠近 <strong>AWQ/分组量化</strong> 这一档，而不是 raw INT4 的 6–10×。
+      </div>
+      <p>引言另写「平均约 27% 存储位是冗余」。这和「最大 5× / 10×」不矛盾：27% 是跨格式平均口径，5×/10× 是大模型、低比特格式的上限口径。引用时要写清是哪一句。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="存储位宽与经验熵">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="490" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">存储位宽（实心）vs 经验熵（虚线框）</text>
+          <!-- bf16 -->
+          <text class="t" x="110" y="58" text-anchor="middle" font-size="12" fill="#57534e">bf16</text>
+          <rect x="40" y="70" width="140" height="36" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="110" y="93" text-anchor="middle" font-size="12" fill="#9a3412">16 bit 存放</text>
+          <rect x="40" y="118" width="98" height="36" fill="none" stroke="#0f766e" stroke-dasharray="4 3"/>
+          <text class="t" x="89" y="141" text-anchor="middle" font-size="12" fill="#0f766e">~11 bit 熵</text>
+          <text class="t" x="110" y="180" text-anchor="middle" font-size="11" fill="#9a3412">冗余 ~5 bit</text>
+          <!-- int8 -->
+          <text class="t" x="330" y="58" text-anchor="middle" font-size="12" fill="#57534e">INT8</text>
+          <rect x="260" y="70" width="140" height="36" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="330" y="93" text-anchor="middle" font-size="12" fill="#9a3412">8 bit 存放</text>
+          <rect x="260" y="118" width="80" height="36" fill="none" stroke="#0f766e" stroke-dasharray="4 3"/>
+          <text class="t" x="300" y="141" text-anchor="middle" font-size="12" fill="#0f766e">~4–5 bit</text>
+          <text class="t" x="330" y="180" text-anchor="middle" font-size="11" fill="#9a3412">约 2× 空间</text>
+          <!-- int4 -->
+          <text class="t" x="550" y="58" text-anchor="middle" font-size="12" fill="#57534e">INT4 / FP4</text>
+          <rect x="480" y="70" width="140" height="36" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="550" y="93" text-anchor="middle" font-size="12" fill="#9a3412">4 bit 存放</text>
+          <rect x="480" y="118" width="36" height="36" fill="none" stroke="#0f766e" stroke-dasharray="4 3"/>
+          <text class="t" x="498" y="141" text-anchor="middle" font-size="11" fill="#0f766e">0.6–1</text>
+          <text class="t" x="550" y="180" text-anchor="middle" font-size="11" fill="#9a3412">论文称 6–10×</text>
+          <!-- awq -->
+          <text class="t" x="780" y="58" text-anchor="middle" font-size="12" fill="#57534e">AWQ / SQ</text>
+          <rect x="710" y="70" width="140" height="36" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="780" y="93" text-anchor="middle" font-size="12" fill="#1e3a5f">分组量化</text>
+          <rect x="710" y="118" width="118" height="36" fill="none" stroke="#0f766e" stroke-dasharray="4 3"/>
+          <text class="t" x="769" y="141" text-anchor="middle" font-size="12" fill="#0f766e">仅 1.1–1.3×</text>
+          <text class="t" x="780" y="180" text-anchor="middle" font-size="11" fill="#1e3a5f">scale 已吃掉均匀性</text>
+          <text class="t" x="490" y="232" text-anchor="middle" font-size="12" fill="#57534e">瓦片级 ANS 实测码率通常贴在绿色虚线框上，距界 0.01–0.1 bit</text>
+        </svg>
+      </div>
+      <p class="figcap">图 2　重画论文 Figure 2 / 6 的结构：实心条是存放位宽，虚线框是经验熵。ANS 的卖点是几乎贴住虚线框，而不是再发明一种量化。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 为何选 ANS，而不是 Zstd / Huffman</h2>
+      <p>压缩进推理要同时满足三条，缺一条就只能「先整层解压再 GEMM」：</p>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>原则 1　贴香农界，且够快</h4>
+          <p>权重读取带宽极高。码率再好，解压跟不上 HBM/近存供给，就会变成新瓶颈。</p>
+        </div>
+        <div class="tile">
+          <h4>原则 2　瓦片可随机访问</h4>
+          <p>GEMM 按 128×32、256×64 这类瓦片跳跃取数。不能为读一个瓦片而解完整层。</p>
+        </div>
+        <div class="tile">
+          <h4>原则 3　解压写进共享内存</h4>
+          <p>解完写回全局内存再加载，等于白烧一趟带宽，也无法和 Tensor Core 重叠。</p>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>家族</th><th>熵效率</th><th>访问粒度</th><th>对 GEMM 的判决</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>gzip / LZ4 / Zstd</td><td>80–95%</td><td>顺序块 / 字典</td><td>不能跳瓦片；小瓦片上字典失效</td></tr>
+          <tr><td>Huffman</td><td>90–95%</td><td>符号级</td><td>整数码长，离界有缝</td></tr>
+          <tr><td>算术编码</td><td>98–99%</td><td>比特串行</td><td>难并行，吞吐只有数 GB/s</td></tr>
+          <tr><td>BWT / PPM</td><td>95–98%</td><td>文件级变换</td><td>全局依赖，不能瓦片解码</td></tr>
+          <tr><td><strong>rANS / tANS / FSE</strong></td><td><strong>&gt;99%</strong></td><td>字节流、可切流</td><td><strong>唯一同时贴界、可并行、可按瓦片独立解码</strong></td></tr>
+        </tbody>
+      </table>
+      <p>DietGPU 已有 warp 协作 rANS。本文把它改成<strong>瓦片可寻址 + 与 CUTLASS Tensor Core 流水融合</strong>。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 执行模型：瓦片级即时解压</h2>
+      <p>对照 ZipNN 一类「整层解压 → 同步 → GEMM」：解码在关键路径上，还要额外腾一块全局内存放展开后的权重。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="整层解压 vs 瓦片即时解压">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="18" y="16" width="460" height="268" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="248" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">现有：层级解压（NeuZip / DFloat11 / ZipNN）</text>
+          <rect x="48" y="64" width="400" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="248" y="87" text-anchor="middle" font-size="13" fill="#9a3412">解压整层 → 写入 HBM</text>
+          <rect x="48" y="118" width="400" height="28" rx="4" fill="#fecaca" stroke="#b91c1c"/>
+          <text class="t" x="248" y="137" text-anchor="middle" font-size="12" fill="#991b1b">层级栅栏 · 计算空转</text>
+          <rect x="48" y="164" width="400" height="36" rx="4" fill="#bfdbfe" stroke="#1e3a5f"/>
+          <text class="t" x="248" y="187" text-anchor="middle" font-size="13" fill="#1e3a5f">GEMM 再从 HBM 读展开权重</text>
+          <text class="t" x="248" y="236" text-anchor="middle" font-size="12" fill="#78716c">额外容量 + 双倍权重流量</text>
+          <text class="t" x="248" y="260" text-anchor="middle" font-size="12" fill="#78716c">小 batch 时解码完全暴露</text>
+
+          <rect x="502" y="16" width="460" height="268" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="732" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#0f766e">本文：瓦片 ANS + 共享内存消费</text>
+          <rect x="532" y="64" width="120" height="70" rx="4" fill="#fff" stroke="#0f766e"/>
+          <text class="t" x="592" y="92" text-anchor="middle" font-size="11" fill="#115e59">压缩瓦片 k</text>
+          <text class="t" x="592" y="110" text-anchor="middle" font-size="11" fill="#115e59">独立子流</text>
+          <rect x="672" y="64" width="120" height="70" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+          <text class="t" x="732" y="92" text-anchor="middle" font-size="11" fill="#115e59">rANS 解到</text>
+          <text class="t" x="732" y="110" text-anchor="middle" font-size="11" fill="#115e59">shared mem</text>
+          <rect x="812" y="64" width="120" height="70" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="872" y="92" text-anchor="middle" font-size="11" fill="#115e59">Tensor Core</text>
+          <text class="t" x="872" y="110" text-anchor="middle" font-size="11" fill="#115e59">立刻乘</text>
+          <text class="t" x="732" y="168" text-anchor="middle" font-size="12" fill="#0f766e">双缓冲：解 k+1 的同时算 k</text>
+          <text class="t" x="732" y="198" text-anchor="middle" font-size="12" fill="#57534e">同层共享一份 codebook</text>
+          <text class="t" x="732" y="226" text-anchor="middle" font-size="12" fill="#57534e">索引表记录每瓦片起始偏移</text>
+          <text class="t" x="732" y="254" text-anchor="middle" font-size="12" fill="#57534e">不把展开层写回全局内存</text>
+        </svg>
+      </div>
+      <p class="figcap">图 3　论文 Figure 3–4 的对照。压缩从「存储优化」变成 GEMM 的一等操作数。</p>
+
+      <h3>5.1 离线压缩</h3>
+      <ol>
+        <li>按下游 Tensor Core 几何切瓦片（128×32、256×64、128×128 等）；</li>
+        <li>用<strong>整层</strong>直方图建一份共享 ANS codebook（覆盖统计、摊薄元数据）；</li>
+        <li>每个瓦片独立初始化 ANS 状态、独立成流；</li>
+        <li>存压缩流 + 瓦片偏移表。加载时当普通权重的 drop-in。</li>
+      </ol>
+      <p>ANS 允许任意初态而不损码率，所以「瓦片独立」和「贴香农界」可以同时成立。</p>
+
+      <h3>5.2 元数据开销（Table III）</h3>
+      <p>每层：<code>4 B × 瓦片数</code> 的偏移表 + <code>2<sup>b</sup> × 4 B</code> 的共享码本（默认 <em>b</em>=12）。</p>
+      <table>
+        <thead>
+          <tr><th>平台 / 瓦片</th><th>占未压缩 fp16 比例</th><th>等效 bit/权</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>A100，32×128</td><td>0.052%–0.108%</td><td>0.0083–0.0173</td></tr>
+          <tr><td>H200，64×256</td><td>0.015%–0.072%</td><td>0.0024–0.0115</td></tr>
+        </tbody>
+      </table>
+      <p>大瓦片摊薄索引。Llama-405B 在 H200 上整层元数据约 80 KB、0.015%。端到端码率几乎仍由载荷熵决定。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. GPU 内核与流水重叠</h2>
+      <p>插件式内核，基于 CUTLASS 替换投影算子，PyTorch / SGLang 可直接调。解码后端改自 DietGPU。</p>
+
+      <h3>6.1 融合内核（Algorithm V.1–V.3）</h3>
+      <ul>
+        <li>Warp 0：从全局内存拉压缩瓦片，rANS 解到共享内存双缓冲 <em>A<sup>(0)</sup>/A<sup>(1)</sup></em>；</li>
+        <li>其余 warp：读共享内存里的权重瓦片，与激活瓦片做 Tensor Core GEMM；</li>
+        <li>块内 <code>cuda::atomic_ref</code> 做 ready 旗，生产者–消费者同步；</li>
+        <li>解码表拷进共享内存，查表不走 HBM。</li>
+      </ul>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="生产者消费者流水">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="80" y="36" font-size="12" fill="#57534e">时间 →</text>
+          <rect x="40" y="56" width="900" height="36" rx="3" fill="#f1f5f9" stroke="#cbd5e1"/>
+          <text class="t" x="70" y="79" font-size="12" fill="#334155">Warp0 解压</text>
+          <rect x="160" y="62" width="120" height="24" fill="#0f766e"/><text class="t" x="220" y="79" text-anchor="middle" font-size="11" fill="#fff">tile 0</text>
+          <rect x="300" y="62" width="120" height="24" fill="#0f766e"/><text class="t" x="360" y="79" text-anchor="middle" font-size="11" fill="#fff">tile 1</text>
+          <rect x="440" y="62" width="120" height="24" fill="#0f766e"/><text class="t" x="500" y="79" text-anchor="middle" font-size="11" fill="#fff">tile 2</text>
+          <rect x="580" y="62" width="120" height="24" fill="#0f766e"/><text class="t" x="640" y="79" text-anchor="middle" font-size="11" fill="#fff">tile 3</text>
+          <rect x="40" y="110" width="900" height="36" rx="3" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="70" y="133" font-size="12" fill="#1e3a5f">GEMM</text>
+          <rect x="300" y="116" width="120" height="24" fill="#1d4ed8"/><text class="t" x="360" y="133" text-anchor="middle" font-size="11" fill="#fff">用 tile 0</text>
+          <rect x="440" y="116" width="120" height="24" fill="#1d4ed8"/><text class="t" x="500" y="133" text-anchor="middle" font-size="11" fill="#fff">用 tile 1</text>
+          <rect x="580" y="116" width="120" height="24" fill="#1d4ed8"/><text class="t" x="640" y="133" text-anchor="middle" font-size="11" fill="#fff">用 tile 2</text>
+          <rect x="720" y="116" width="120" height="24" fill="#1d4ed8"/><text class="t" x="780" y="133" text-anchor="middle" font-size="11" fill="#fff">用 tile 3</text>
+          <text class="t" x="490" y="178" text-anchor="middle" font-size="13" fill="#0f766e">整数/访存管线 与 Tensor 管线 物理分离，同一周期可共发射</text>
+          <text class="t" x="490" y="204" text-anchor="middle" font-size="12" fill="#57534e">四级共享内存环形缓冲：解码超前若干子瓦片，消费时操作数已在片上</text>
+        </svg>
+      </div>
+      <p class="figcap">图 4　论文 Figure 5 与 §V-D：解码走整数与 load/store，GEMM 走 Tensor 管线。重叠是否藏得住，取决于 batch（M 维复用）。</p>
+
+      <h3>6.2 小 batch 解码绑定，大 batch 接近基线</h3>
+      <p>每个子瓦片的解码代价近似恒定（查表 + 重整化读流）；GEMM 代价随 M 增加——同一块解码后的权重被更多行复用。</p>
+      <ul>
+        <li><strong>小 batch</strong>：Tensor 管线先排空，内核解码绑定，退化为「先解再乘」；</li>
+        <li><strong>大 batch</strong>：乘性占满，消费者不饿，利用率回到未压缩 CUTLASS 附近，H200 上甚至可到约 1.2×。</li>
+      </ul>
+      <div class="callout">
+        这对 Decode 不友好。Decode 的 M 往往是 batch×1 token，正是「解码绑定」区。论文端到端收益主要来自<strong>权重变小 → KV 槽变多 → 吞吐型 serving 能堆更大 batch</strong>，不是单条延迟变好。Table II 里中位 TPOT 是上升的（Qwen 71→81 ms，Mixtral 110→170 ms）。
+      </div>
+
+      <h3>6.3 流量公式</h3>
+      <p>未压缩时，权重瓦片沿 M 维会反复从 HBM 重载：</p>
+      <div class="eq">V<sub>uncompressed</sub> = (M / M<sub>t</sub>) · KN</div>
+      <p>即时解压：压缩权重大体只取一次，再在共享内存复用（α 为少量再取）：</p>
+      <div class="eq">V<sub>on-the-fly</sub> = (M / M<sub>t</sub> + α − 1) · KN</div>
+      <p>瓦片按 swizzle 确定顺序淘汰；挤出共享内存的展开瓦片可暂存小缓冲，避免短时间重复解码。压缩副本始终留在全局内存。</p>
+
+      <h3>6.4 优化分解（Figure 9）</h3>
+      <p>相对「DietGPU ANS + 独立 CUTLASS」朴素串接：</p>
+      <ul>
+        <li>瓦片对齐流水：<strong>3.3–8.2×</strong>（Qwen-1.5B 3.66×，Llama-405B 8.20×）；</li>
+        <li>再加双缓冲：<strong>4.0–10.1×</strong>（DeepSeek-67B 6.71×，Llama-405B 10.06×）。</li>
+      </ul>
+      <p>矩阵越大，解码越容易被摊掉。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 实验设置与主要数字</h2>
+      <h3>7.1 环境</h3>
+      <ul>
+        <li>8×A100 80 GB（2 TB/s）以及 H200；</li>
+        <li>PyTorch 2.5.1、CUDA 12.1、CUTLASS 基线；</li>
+        <li>服务框架：改过的 SGLang，密集投影走 ANS-GEMM；</li>
+        <li>Mixtral-176B：四卡专家并行。</li>
+      </ul>
+
+      <h3>7.2 码率 vs 香农界（Figure 6）</h3>
+      <ul>
+        <li>绝大多数格式（含 int8、sq8、fp4、int4）ANS 码率距界 <strong>0.01–0.05 bit</strong>；</li>
+        <li>bf16 符号表大，有限精度归一化大约多 <strong>0.1–0.2 bit</strong>，仍是现有无损里最贴界的一档；</li>
+        <li>1.5B 到 405B 都呈现同一套重尾结构，不是小模型特例。</li>
+      </ul>
+
+      <h3>7.3 端到端（Table II，固定显存预算）</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>模型 / 预算</th><th>seq</th><th>方案</th><th>权重 GB</th><th>KV GB</th><th>最大 batch</th><th>吞吐 tok/s</th><th>中位 TPOT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td rowspan="4">Qwen-14B<br />单 A100 80 GB</td><td rowspan="2">1024</td><td>未压缩</td><td>27.5</td><td>44.1</td><td>47</td><td>1131</td><td>71 ms</td></tr>
+          <tr><td>本文</td><td>18.1</td><td>56.3</td><td>60（表）/ 75（摘要）</td><td>1217</td><td>81 ms</td></tr>
+          <tr><td rowspan="2">2048</td><td>未压缩</td><td>27.5</td><td>43.1</td><td>23</td><td>548</td><td>112 ms</td></tr>
+          <tr><td>本文</td><td>18.1</td><td>56.3</td><td>30（1.3×）</td><td>651</td><td>125 ms</td></tr>
+          <tr><td rowspan="4">Mixtral-176B<br />四 A100 320 GB</td><td rowspan="2">1024</td><td>未压缩</td><td>261.9</td><td>26.3</td><td>20</td><td>241</td><td>110 ms</td></tr>
+          <tr><td>本文</td><td>163.7</td><td>124.6</td><td>95（4.8×）</td><td>391（1.6×）</td><td>170 ms</td></tr>
+          <tr><td rowspan="2">2048</td><td>未压缩</td><td>261.9</td><td>26.3</td><td>10</td><td>190</td><td>213 ms</td></tr>
+          <tr><td>本文</td><td>163.7</td><td>123.4</td><td>47（4.7×）</td><td>257（1.4×）</td><td>318 ms</td></tr>
+        </tbody>
+      </table>
+      <div class="callout navy">
+        Qwen-14B 在 seq=1024 的最大 batch，<strong>摘要写 47→75，Table II 写 47→60</strong>，正文又重复 75。引用请同时注明两套数，或只报吞吐 1131→1217（约 1.08×）和 Mixtral 1.6× 这些表内一致的量。权重：Qwen 27.5→18.1 GB（约 1.52×，贴 bf16 的 1.5× 理论），Mixtral 261.9→163.7 GB（约 1.60×）。
+      </div>
+      <p>系统含义：压缩把瓶颈从「显存装不下 batch」推向「算力墙」。吞吐涨、单请求 TPOT 略增——典型的吞吐型 serving 交易。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 和 NeuZip / DFloat11 / KTransformer</h2>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>NeuZip / DFloat11</h4>
+          <p>对着 FP16/BF16，层级解压到全局内存再 GEMM。H200 上单层投影（4096 token，batch 1–64）：相对 NeuZip 最高约 <strong>10×</strong>，相对 DFloat11 约 <strong>6–7×</strong>。摘要写「最高 11×」。赢在融合，不在又一种熵编码器神话。</p>
+        </div>
+        <div class="tile">
+          <h4>CUTLASS 原版 GEMM</h4>
+          <p>A100 大 batch 约 1.0–1.1× 基线；H200 因片上容量更大，重叠更好，大 batch 可到约 <strong>1.2×</strong>。说明即时解压在高 M 时不是税，有时还因少打 HBM 而赚。</p>
+        </div>
+        <div class="tile">
+          <h4>KTransformer（CPU 卸载）</h4>
+          <p>基线层权重放不下 GPU，走 PCIe 流。压缩后整层常驻 GPU：Prefill 单层最高约 <strong>7.7×</strong>，Decode 最高约 <strong>18.1×</strong>。这是「别走 PCIe」的收益，不是和同卡未压缩 GEMM 的对比。</p>
+        </div>
+        <div class="tile">
+          <h4>相关工作里刻意区分的</h4>
+          <p>nvCOMP 只有主机侧粗粒度 API，不能在内核里解、不能融 GEMM。NVIDIA inline compression 是 cache line 硬件、无模型知识，与本文互补。LLM.265 用视频编码，带宽约 1 GB/s 且有损。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 贡献、局限与数字口径</h2>
+      <h3>9.1 论文自称的三点贡献</h3>
+      <ol>
+        <li>跨浮点与量化格式的信息论普查，大模型上无损足迹可到约 <strong>5×</strong>（摘要理论口径写到 10×）；</li>
+        <li>压缩权重执行模型：瓦片可寻址码流、warp 协作解码、共享内存重建，不解压物化到 HBM；</li>
+        <li>SGLang 可插拔内核，更大 batch，吞吐最高 1.6×，并优于现有无损系统。</li>
+      </ol>
+      <p>后续工作写明：把即时熵编码扩到 <strong>KV cache</strong>，服务长上下文。</p>
+
+      <h3>9.2 需要留在分析里的缝</h3>
+      <ul>
+        <li><strong>熵是直方图熵，不是算法熵。</strong>按层、按符号独立建模。跨层结构、通道相关、分块 scale 的联合信息没有进 ℋ。所以「10×」是该模型下的上界，不是保证能落地的压缩比。</li>
+        <li><strong>瓦片独立编码</strong>会比「整层一条流」略松；他们用整层共享码本把缝补回去，实测仍贴界，但小瓦片 + 高基数（bf16）仍有 0.1–0.2 bit 税。</li>
+        <li><strong>分组量化已经很匀</strong>，AWQ/SQ 只剩 1.1–1.3×。NVFP4 / MX 微缩放开后，真实空间可能更接近这一档。</li>
+        <li><strong>Decode / 小 batch 是解码绑定。</strong>延迟敏感、并发不高时，可能吞吐不涨、TPOT 还升。</li>
+        <li><strong>Qwen batch 数字前后不一致</strong>（60 vs 75），引用时要写来源。</li>
+        <li><strong>评测覆盖。</strong>端到端只有 Qwen-14B 与 Mixtral-176B 两档；405B 多在内核微基准。没有报告对 DeepSeek-V3/V4 一类超大 MoE 的整模型 serving。</li>
+        <li><strong>激活不压缩。</strong>只压静态权重。mHC 残差、中间激活、KV 仍按原格式占容量。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 对近存芯片与 V4-Pro 部署的含义</h2>
+      <p>和交底书「1 中央 + 8 MC、无中央主存、权重/KV 全在近存」以及现行假设（16 GB/MC、芯片 128 GB、中央 1P NVFP4）对读，有四条可直接用的，也有一条不要误用。</p>
+
+      <h3>10.1 可对齐的部分</h3>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>瓦片就是近存的调度单位</h4>
+          <p>论文要求码流按 GEMM 瓦片可随机访问。近存模块本来就按瓦片吃专家/FFN。压缩子流可以按 MC 的瓦片几何切，解码写进模块本地缓冲，不必先在中央展开。</p>
+        </div>
+        <div class="tile">
+          <h4>严格无损，和「不改推理数值」相容</h4>
+          <p>独权强调的是落点（Prefill 核心在中央、Decode 注意力在近存），不禁止权重的无损编码。bit-exact 不会把 CSA/HCA 或路由算漂。</p>
+        </div>
+        <div class="tile">
+          <h4>叠在已有 FP4 专家上</h4>
+          <p>正交性是这篇最硬的系统论点：量化之后仍有符号偏斜。V4-Pro 专家已是 FP4，无损是「再抠容量」而不是再做一次有损。</p>
+        </div>
+        <div class="tile">
+          <h4>省权重是为了给 KV 和层数</h4>
+          <p>128 GB/芯片装 840 GB 权重才被迫 PP≈12。若无损真实缩小权重，副本单元可以更短，或同 12 卡留下更宽的 1M 压缩 KV 槽。</p>
+        </div>
+      </div>
+
+      <h3>10.2 不要按 6–10× 去改集群砖</h3>
+      <p>V4-Pro 规划体积 ≈840 GB，其中约 95% 是专家 FP4。若误用 raw INT4 的「熵 0.6–1.0 bit」：</p>
+      <div class="eq">798 GB × (0.8 / 4) + 42 GB × (约 2/3) ≈ 160–200 GB</div>
+      <p>看起来 2 颗 128 GB 芯片就能装下权重。这大概率<strong>过乐观</strong>：</p>
+      <ol>
+        <li>NVFP4 / 分组微缩放更接近 AWQ 的 <strong>1.1–1.3×</strong>，不是 6–10×；</li>
+        <li>840 / 1.2 ≈ <strong>700 GB</strong> 量级，下限芯片数从 7 变成大约 6，<strong>PP 不会从 12 掉到 2</strong>；</li>
+        <li>每层专家 12.5 GB 若只缩 20%，单层仍塞得进一颗芯片，<strong>仍不必默认跨片 384-way EP</strong>；</li>
+        <li>元数据、codebook、瓦片对齐填充、工作区都还在 16 GB/MC 里。</li>
+      </ol>
+      <div class="callout teal">
+        规划口径建议：把无损当成 <strong>1.1–1.6× 的权重税减免</strong>（已量化用下限，bf16/FP8 残差用上限），用来加 KV 槽或略减 PP，而不是重写拓扑。真要改副本单元尺寸，先对 V4-Pro 的 FP4 专家做一层直方图熵，再决定。
+      </div>
+
+      <h3>10.3 和「组内 TP / 完整 PD」的关系</h3>
+      <ul>
+        <li>无损不改变并行语义，不引入跨卡通信。先前「2 组 8 卡、30+31 层、组内不要默认全 TP」的结论不受本文推翻。</li>
+        <li>它改变的是<strong>每卡能多塞多少权重或 KV</strong>。若实测 FP4 专家只有 1.2×，16 卡方案依然主要靠切层，不是靠压缩挤回单卡。</li>
+        <li>Decode 在近存上本来就是带宽墙 + 小 M。论文自己说这个区解码藏不住。近存逻辑若再跑 rANS，<strong>单 token 延迟可能变差</strong>。更稳的用法是：Prefill / 大 batch 投影走融合解压；Decode 若 TPOT 紧，宁可少压一点、或只压冷专家。</li>
+      </ul>
+
+      <h3>10.4 若要落到这颗芯片</h3>
+      <ol>
+        <li>离线：按 MC 瓦片几何切 ANS 子流，<strong>一层一份 codebook</strong>，索引表放模块本地或中央只读缓冲（不是「中央主存」）。</li>
+        <li>运行：MC 近存逻辑解到本地瓦片缓冲，立刻做张量乘；中央 Prefill Core 若吃 FP8 注意力权重，可对 QKV/O 单独压。</li>
+        <li>禁止：先在中央把整层展开再经 D2D 发给 8 个 MC——那正好是论文反对的层级物化，还会打满 896 GB/s D2D。</li>
+        <li>KV：论文 future work。1M 上下文已经靠 CSA/HCA 压缩；无损熵编码可以再叠，但 Decode 扫 KV 的路径更短，解码税更刺眼，要单独做瓦片与命中实验。</li>
+      </ol>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="近存芯片上的正确落点">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="20" y="16" width="940" height="70" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+          <text class="t" x="490" y="40" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">8×MC：压缩瓦片驻 3D-DRAM，rANS 解到模块本地缓冲，立刻 GEMM</text>
+          <text class="t" x="490" y="66" text-anchor="middle" font-size="12" fill="#115e59">MC0 … MC7 各持本模块专家 / 投影组的 ANS 子流 · 模块不互传展开权重</text>
+          <rect x="20" y="106" width="940" height="90" rx="6" fill="#eff6ff" stroke="#1d4ed8"/>
+          <text class="t" x="490" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#1d4ed8">中央：1P NVFP4 · Prefill Attn Core · 8 路归约</text>
+          <text class="t" x="490" y="166" text-anchor="middle" font-size="12" fill="#1e3a5f">不要在中央展开整层再经 D2D 下发 · codebook / 索引可只读缓存 · 不是系统主存</text>
+        </svg>
+      </div>
+      <p class="figcap">图 5　若借鉴本文，压缩码流应作为近存模块的一等操作数，而不是中央侧的「先解压插件」。</p>
+    </section>
+
+    <footer>
+      分析依据 arXiv:2606.15789 PDF 全文。端到端 batch 数字以 Table II 与摘要对照列出。<br />
+      文件：d:\论文研究\LLM无损权重压缩_Shannon界_论文分析.html
+    </footer>
+  </div>
+</body>
+</html>
