@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOM 论文分析 | ISCA 2016</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .num { font-variant-numeric: tabular-nums; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 6px; }
+    .fig-row .fig { margin: 0; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">ISCA 2016</span>
+        <span class="badge">GPU · 近存计算 · 编译器</span>
+        <span class="badge">3D-stacked DRAM / HMC</span>
+        <span class="badge ok">CMU + NVIDIA + KAIST + ETH</span>
+        <span class="badge ok">程序员透明</span>
+        <span class="badge ok">DOI 10.1109/ISCA.2016.27</span>
+      </div>
+      <h1>程序员透明的 GPU 近存：把卸载与映射从标注里拿走</h1>
+      <p class="subtitle">Transparent Offloading and Mapping (TOM): Enabling Programmer-Transparent Near-Data Processing in GPU Systems</p>
+      <p class="meta">
+        <strong>作者：</strong>Kevin Hsieh<sup>‡</sup>、Eiman Ebrahimi<sup>†</sup>、Gwangsun Kim<sup>∗</sup>、Niladrish Chatterjee<sup>†</sup>、Mike O’Connor<sup>†</sup>、Nandita Vijaykumar<sup>‡</sup>、Onur Mutlu<sup>§‡</sup>、Stephen W. Keckler<sup>†</sup><br />
+        <strong>单位：</strong>Carnegie Mellon University<sup>‡</sup> · NVIDIA<sup>†</sup> · KAIST<sup>∗</sup> · ETH Zürich<sup>§</sup><br />
+        <strong>原文：</strong><a href="https://doi.org/10.1109/isca.2016.27" target="_blank" rel="noopener">IEEE Xplore</a>
+        · PDF <a href="https://www.cs.utexas.edu/~skeckler/pubs/ISCA_2016.pdf" target="_blank" rel="noopener">UT Austin 副本</a>
+        · NVIDIA <a href="https://research.nvidia.com/publication/2016-06_transparent-offloading-and-mapping-tom-enabling-programmer-transparent-near" target="_blank" rel="noopener">Research 页</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">问题：片外引脚带宽与两个挑战</a></li>
+        <li><a href="#s3">系统形态：主 GPU + 多内存栈逻辑层 SM</a></li>
+        <li><a href="#s4">机制一：编译器选出卸载候选</a></li>
+        <li><a href="#s5">机制二：程序员透明的数据映射</a></li>
+        <li><a href="#s6">运行时：是否真卸载、卸到哪</a></li>
+        <li><a href="#s7">实现：流水线、一致性、虚地址</a></li>
+        <li><a href="#s8">评测：性能、流量、能耗与敏感性</a></li>
+        <li><a href="#s9">相关工作与边界</a></li>
+        <li><a href="#s10">对同封装近存推理芯片的含义</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        多栈三维存储器上的 GPU 近存，真正卡住落地的不是“逻辑层能不能放 SM”，而是<strong>谁来决定哪段代码下沉、数据落在哪一栈</strong>。TOM 的主张是：这两件事都可以对程序员透明——编译器用带宽收支选出候选块；运行时用少量观测学会栈映射，并把该映射只施于近存块会碰到的页。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">+30%</div>
+          <div class="k">相对不能卸载的基线 GPU，平均加速（最高 76%）</div>
+        </div>
+        <div>
+          <div class="n">−38%</div>
+          <div class="k">无控制全卸载时片外流量（有控制时 −13%）</div>
+        </div>
+        <div>
+          <div class="n">−11%</div>
+          <div class="k">系统能耗（最高 37%）；面积开销 0.018%</div>
+        </div>
+        <div>
+          <div class="n">85%</div>
+          <div class="k">卸载候选具有固定偏移访存，可用来选栈映射位</div>
+        </div>
+      </div>
+      <div class="callout">
+        这篇工作不发明新的近存微架构，也不要求改 CUDA 源码。它站在“主 GPU + 多个 3D 内存栈、每栈逻辑层各有 SM”这一已有形态上，补上<strong>自动卸载</strong>和<strong>自动共址</strong>两条系统软件/硬件路径。基线与近存配置的 SM 总数相同（68 对 64+4），加速来自把访存密集段挪到数据旁边，而不是多给算力。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：片外引脚带宽与两个挑战</h2>
+      <p>GPU 应用常被主存带宽卡住。三维堆叠把很宽、更省能的接口接到处理器，逻辑层还可以就近放计算，用 TSV 吃到比片外引脚更高的带宽，并砍掉芯片之间的长距离搬运。先前工作已经证明 GPU 近存有性能和能效空间，但落地时有两道必须同时解开的题；已有方案多半把这两道题甩给程序员。</p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>挑战 1：哪段代码该下沉</h4>
+          <p>访存密集块适合在持有数据的内存栈逻辑层执行；计算密集段应留在主 GPU。合适落点会随程序相位和输入集变化。让程序员给每一段指定执行引擎，负担过大，也容易把不该下沉的计算塞进逻辑层。</p>
+        </div>
+        <div class="tile">
+          <h4>挑战 2：数据如何映射到各栈</h4>
+          <p>多栈系统为了喂饱主 GPU，数据会打散到各栈。近存效率却取决于卸载代码访问的数据是否就在本栈。既要最大化近存共址，又不能牺牲主 GPU 代码的带宽利用率。不同代码块、不同线程在不同时刻碰不同结构，静态标注很难做对。</p>
+        </div>
+      </div>
+
+      <div class="callout teal">
+        动机实验把这两道题的上限先画出来：在无卸载开销、代码与数据完全共址的理想系统里，仅靠静态选出的候选就能平均加速 <strong>1.58×</strong>（最高 2.19×）。在近存已开启的前提下，只用最好的连续两地址位做栈映射，相对当时 GPU 的打散映射还能再加速 <strong>13%</strong>。空间足够大，值得做透明机制，而不是只写 API。
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 系统形态：主 GPU + 多内存栈逻辑层 SM</h2>
+      <p>TOM 假设的近存 GPU 不是“把整个 kernel 搬进内存”，而是异构双密度：主 GPU 保留大量 SM 做高算术强度段；每个 3D 内存栈的逻辑层放少量 SM，就近执行带宽密集块。栈与主 GPU 之间是类似 HMC 的单向高速链路；栈与栈之间另有交叉链路，供远程访存。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TOM 近存 GPU 系统示意">
+          <rect x="20" y="40" width="280" height="240" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+          <text x="160" y="68" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412" font-family="Segoe UI, sans-serif">主 GPU</text>
+          <rect x="44" y="88" width="72" height="44" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <rect x="124" y="88" width="72" height="44" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <rect x="204" y="88" width="72" height="44" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text x="160" y="114" text-anchor="middle" font-size="12" fill="#7c2d12" font-family="Segoe UI, sans-serif">64 个 SM</text>
+          <rect x="44" y="148" width="232" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+          <text x="160" y="171" text-anchor="middle" font-size="12" fill="#9a3412" font-family="Segoe UI, sans-serif">Offload Controller · Channel Monitor</text>
+          <rect x="44" y="196" width="232" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+          <text x="160" y="219" text-anchor="middle" font-size="12" fill="#9a3412" font-family="Segoe UI, sans-serif">Memory Map Analyzer（仅学习期）</text>
+          <text x="160" y="258" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">片外 GPU↔内存链路 80 GB/s × 4</text>
+
+          <line x1="300" y1="160" x2="360" y2="90" stroke="#0f766e" stroke-width="2"/>
+          <line x1="300" y1="160" x2="360" y2="230" stroke="#0f766e" stroke-width="2"/>
+          <text x="318" y="132" font-size="10" fill="#0f766e" font-family="Segoe UI, sans-serif">TX/RX</text>
+
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="370" y="28" width="240" height="122" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="490" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">内存栈 0 / 1</text>
+            <rect x="388" y="62" width="204" height="28" rx="3" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="490" y="81" text-anchor="middle" font-size="11" fill="#134e4a">DRAM 层 · 16 vault · TSV</text>
+            <rect x="388" y="98" width="204" height="38" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="490" y="122" text-anchor="middle" font-size="12" fill="#134e4a">逻辑层 SM × 1 · Vault Ctrl</text>
+
+            <rect x="370" y="170" width="240" height="122" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="490" y="192" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">内存栈 2 / 3</text>
+            <rect x="388" y="204" width="204" height="28" rx="3" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="490" y="223" text-anchor="middle" font-size="11" fill="#134e4a">DRAM 层 · 内部带宽 160 GB/s</text>
+            <rect x="388" y="240" width="204" height="38" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="490" y="264" text-anchor="middle" font-size="12" fill="#134e4a">逻辑层 SM × 1 · 交叉开关</text>
+          </g>
+
+          <rect x="640" y="70" width="256" height="180" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+          <text x="768" y="98" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f" font-family="Segoe UI, sans-serif">栈间交叉链路</text>
+          <text x="768" y="128" text-anchor="middle" font-size="12" fill="#334155" font-family="Segoe UI, sans-serif">40 GB/s / 链路 · 全互连</text>
+          <text x="768" y="156" text-anchor="middle" font-size="12" fill="#334155" font-family="Segoe UI, sans-serif">远程页表 / 未共址数据</text>
+          <text x="768" y="190" text-anchor="middle" font-size="12" fill="#334155" font-family="Segoe UI, sans-serif">目标：卸载块尽量不走这里</text>
+          <text x="768" y="222" text-anchor="middle" font-size="11" fill="#64748b" font-family="Segoe UI, sans-serif">共址越好，交叉流量越低</text>
+        </svg>
+      </div>
+      <p class="figcap">图 1. TOM 所针对的近存 GPU：主 GPU 做调度与高密度计算，四个 3D 内存栈的逻辑层各放一个 SM。片外链路吃引脚预算；栈内 TSV 提供更高内部带宽。</p>
+
+      <table>
+        <thead>
+          <tr><th>配置项</th><th>基线 GPU</th><th>TOM 近存系统</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>SM 数量</td><td>68 个主 GPU SM</td><td>64 个主 GPU SM + 每栈 1 个逻辑层 SM（共 4 个）</td></tr>
+          <tr><td>主频 / 并发</td><td colspan="2">1.4 GHz，48 warp/SM，32 线程/warp，32768 寄存器</td></tr>
+          <tr><td>GPU↔内存</td><td colspan="2">每链路 80 GB/s，合计 320 GB/s（对标当时 Maxwell 量级）</td></tr>
+          <tr><td>栈间链路</td><td>—</td><td>每链路 40 GB/s（默认 0.5× GPU 链路），全互连</td></tr>
+          <tr><td>栈内带宽</td><td>—</td><td>每栈 160 GB/s（默认 2× 外部链路；另评 1× 等带宽）</td></tr>
+          <tr><td>栈结构</td><td>—</td><td>4 栈 × 16 vault × 16 bank，64 TSV/vault</td></tr>
+        </tbody>
+      </table>
+      <p>仿真基于 GPGPU-Sim 3.2.0，片外链路用 BookSim 周期精确互联；能耗用 GPUWattch + Rambus 3D DRAM/TSV 模型。学习阶段的访存按实测 PCIe 延迟计入，没有把“延迟拷贝”当免费。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 机制一：编译器选出卸载候选</h2>
+      <p>目标不是估延迟，而是估<strong>片外带宽收支</strong>。卸载一块代码，收益是这块里的 load/store 不再走 GPU↔栈链路；代价是把 live-in 寄存器送进栈、把 live-out 送回主 GPU。编译器静态扫描指令块，若总带宽变化为负，就标成候选。</p>
+
+      <h3>4.1 先按线程、再按 warp 修正</h3>
+      <p>单向链路上，load 走 TX 发地址、RX 收回数据；store 走 TX 发地址加数据、RX 收回确认。设地址/数据/寄存器宽度是确认消息的 4 倍，单线程近似为：</p>
+      <div class="eq">
+        BW<sub>TX</sub> = REG<sub>TX</sub> − (N<sub>LD</sub> + 2 · N<sub>ST</sub>)<br />
+        BW<sub>RX</sub> = REG<sub>RX</sub> − (N<sub>LD</sub> + ¼ · N<sub>ST</sub>)
+      </div>
+      <p>GPU 以 warp 锁步执行，实际还会合并访存、按 cache line 取数。warp 粒度公式引入 warp 宽度 <em>S<sub>W</sub></em>（如 32）、cache line 相对地址的倍数 <em>S<sub>C</sub></em>（128B line / 4B 地址 = 32）、合并比 <em>Coal</em> 和 load 缺失率 <em>Miss<sub>LD</sub></em>：</p>
+      <div class="eq">
+        BW<sub>TX</sub> = (REG<sub>TX</sub> · S<sub>W</sub>) − [N<sub>LD</sub> · Coal<sub>LD</sub> · Miss<sub>LD</sub> + N<sub>ST</sub> · (S<sub>W</sub> + Coal<sub>ST</sub>)]<br />
+        BW<sub>RX</sub> = (REG<sub>RX</sub> · S<sub>W</sub>) − [N<sub>LD</sub> · Coal<sub>LD</sub> · S<sub>C</sub> · Miss<sub>LD</sub> + ¼ · N<sub>ST</sub> · Coal<sub>ST</sub>]
+      </div>
+      <p>依赖关系（REG<sub>TX</sub> / REG<sub>RX</sub>）编译器本来就要做寄存器分配，适合静态算。合并比和缺失率静态不知道，于是用保守估计：完美合并（Coal = 1）、缺失率 50%。宁可少选，也不把算不准的块硬塞进逻辑层。更激进的阈值能多找出候选，实验里看不到稳定收益。</p>
+
+      <h3>4.2 循环与条件候选</h3>
+      <p>循环的卸载代价几乎固定（live-in/out 一次），收益随迭代次数放大。编译器分三种情况：</p>
+      <ul>
+        <li><strong>静态可知迭代次数：</strong>直接代入公式，决定是否无条件候选。</li>
+        <li><strong>入环前可知：</strong>标成条件候选，把阈值（例如某寄存器大于 N）作为硬件提示。LIBOR 例子里，两段循环各 5 个 live-in、1 load、1 store；不算循环时收支为 +110.25，迭代 ≥4 次则变为 −39，于是变成条件候选。</li>
+        <li><strong>执行中才知道：</strong>保守按迭代 1 次，只根据循环体决定；体本身划算则仍标无条件候选。</li>
+      </ul>
+
+      <h3>4.3 候选块的三条硬限制</h3>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>禁止 shared memory</h4>
+          <p>逻辑层 SM 不能直接碰主 GPU 的 on-chip shared memory，除非再走片外链路，与近存目标相反。</p>
+        </div>
+        <div class="tile">
+          <h4>分歧必须在块内汇合</h4>
+          <p>SIMT 分歧若跨过卸载边界，控制栈要分布在主 GPU 与各栈之间。所有控制流目的地必须仍在候选块内。</p>
+        </div>
+        <div class="tile">
+          <h4>禁止屏障 / 同步 / 原子</h4>
+          <p>主 GPU 与逻辑层 SM 之间不提供同步原语。含 barrier、sync、atomic 的块不下沉。</p>
+        </div>
+      </div>
+      <p>实现上，工具在 CUDA 编译器产出的 PTX 上做分析（因为 GPGPU-Sim 吃 PTX）；同一套收支也可以直接做到 SASS。每个候选附一张元数据：起止 PC、live-in/out 位图、TX/RX 是否省带宽的 2-bit 标签、条件卸载谓词。表放在 shared memory，供 Offload Controller 读取。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 机制二：程序员透明的数据映射</h2>
+      <p>静态编译解不了映射：页落在哪一栈，由驱动、运行时、内存控制器在运行期决定。TOM 的观察是：<strong>85%</strong> 的卸载候选存在固定偏移访存；其中六个应用的候选几乎全是固定偏移。偏移若含 2 的幂因子，若干低位地址恒定，用连续地址位做栈索引就能把同一块访问钉在同一栈。</p>
+
+      <div class="callout navy">
+        四栈系统只需 2 bit 选栈。避开 cache line 内偏移位，以免伤链路效率和行缓冲局部性。设固定偏移公因子为 2<sup>M</sup>、line 为 2<sup>N</sup>，候选位在 <code>[M−1 : N]</code>。扫 7–16 位（128B line 到 64KB），最好的连续两位把“一次卸载实例只碰一栈”的概率从基线映射的 <strong>38%</strong> 提到 <strong>75%</strong>。
+      </div>
+
+      <h3>5.1 用开头 0.1% 实例预测映射</h3>
+      <p>执行中途再搬页，栈间拷贝很容易把近存收益吃光。好在 GPU 访存多由线程/线程块索引生成，模式在线程间高度一致。只看前 <strong>0.1%</strong> 卸载实例选出的映射，单栈命中率已达 72%，距全量先知的 75% 只差 3 个点。0.5%、1% 再看一点，收益递减。</p>
+
+      <h3>5.2 双轨映射：近存页一套，其余页另一套</h3>
+      <p>这是 TOM 相对 NUMA/NUCA 放置文献最关键的异构处理：近存单元要数据靠近计算；主 GPU 要数据打散以吃满带宽。同一套映射满足不了两边。做法是：</p>
+      <ol class="steps">
+        <li>驱动仍在 GPU 虚地址空间分配，但<strong>推迟</strong> CPU→GPU 物理拷贝，先把虚页映到 CPU 内存；记录分配表。</li>
+        <li>kernel 启动后进入短学习期：全部跑在主 SM 上，经 PCIe 访 CPU 内存。分析器对每种候选栈位组合统计“该卸载实例会碰几栈”，并给被候选块碰到的分配区间打标。</li>
+        <li>达到预定实例数（如 0.1%）后中断运行时，停掉所有 SM，选出共址最好的映射。</li>
+        <li>再做本来就会做的内存拷贝：打标区间用学到的近存友好映射；其余区间仍用 Chatterjee 式打散映射（连续 line 打到不同栈/vault，高位异或防冲突）。</li>
+        <li>此后常规执行：卸载块在逻辑层 SM 上跑，它所碰的数据已按共址映射落栈。没有额外重映射流量。</li>
+      </ol>
+      <p>BFS 是反例：图遍历不规则，前 0.1% 学到的映射不是全局最优，tmap 相对 bmap 从 +29% 掉到 +21%。若有先知映射，BFS 可达 +64%。机制赌的是“GPU 规则访存占大多数”，不是万能。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 运行时：是否真卸载、卸到哪</h2>
+      <p>编译器只提名。真卸载由硬件在发射前拍板。无控制地卸光候选会让系统变慢 3%–7%：逻辑层 SM 的 warp 槽先满，主 SM 空等，近存算力反而成新瓶颈。LIBOR 最极端，无控制 −64%，加上控制则 +52%。被卸载指令占比从 46.4% 降到 15.7%——少卸、卸对，比卸满更重要。</p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>过载闸门</h4>
+          <p>记录发往每一栈的未完成卸载请求。数量达到该栈 SM 可并发 warp 数就停止再卸，避免主 SM 与逻辑层互相卡住。</p>
+        </div>
+        <div class="tile">
+          <h4>链路不对称闸门</h4>
+          <p>Channel Busy Monitor 盯 TX/RX 利用率。候选的 2-bit 标签标明它会给哪条方向加流量。已经拥塞的方向不再接收会加码的块。</p>
+        </div>
+      </div>
+
+      <p>目的栈由<strong>块内第一条访存</strong>决定。若块开头不是访存，先在主 GPU 执行到第一条访存以确定栈，再从块首在目标栈重开。live-out 只在卸载完成后写回，这段冗余执行不污染程序状态。流水线卸载延迟按 10 周期建模，相对块内至少 200 周期的访存可以忽略；等待期间主 GPU 可调度其他 warp。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 实现：流水线、一致性、虚地址</h2>
+      <h3>7.1 三个新硬件件</h3>
+      <p>插在典型 GPU 流水线旁：<strong>Offload Controller</strong> 做最终决策、打包请求、收 ACK 后恢复 warp；<strong>Channel Busy Monitor</strong> 报 TX/RX 忙；<strong>Memory Map Analyzer</strong> 只在学习期工作。ISA 增加一条“候选块开始”指令；元数据表由编译器生成。</p>
+
+      <h3>7.2 不做全系统缓存一致性</h3>
+      <p>把传统一致性扩到主 GPU 与各栈缓存，状态和片外一致性流量可能比卸载省下的带宽还多。TOM 利用 GPU 编程模型：CTA 绑在特定 SM 上，CTA 之间无序、无一致性保证；CTA 内要靠程序员显式 barrier。卸载块不含同步指令，于是只需保证“请求者 SM 与代执行的栈 SM”这一对看到最新值：</p>
+      <ol>
+        <li>发出卸载前，请求者 SM 把自身写更新推到内存（write-through 缓存本来如此）。</li>
+        <li>栈 SM 在拉起新 warp 前作废私有缓存。</li>
+        <li>栈 SM 记录本块更新过的 cache line 地址，结束时随 ACK 送回；请求者作废这些行。</li>
+      </ol>
+      <p>CTA 内其他线程要等到卸载结束才能看到更新；没有 barrier 时 GPU 本来也不保证跨线程顺序。该机制平均性能开销 <strong>1.2%</strong>。</p>
+
+      <h3>7.3 虚地址在栈内翻译</h3>
+      <p>逻辑层 SM 自带小型 TLB/MMU（约 1–2K 触发器加少量逻辑，不到栈 SM 面积的 2%）。页表若不在本栈，走已有交叉链路。因为卸载发生在内存拷贝和页表更新完成之后，不需要栈侧 TLB shootdown。</p>
+
+      <h3>7.4 面积</h3>
+      <p>主要是存储：每 SM 的映射分析器 1920 bit（40 bit × 48 warp，覆盖 10 种四栈映射）、共享分配表约 9700 bit（最多 100 条）、每 SM 元数据表 10320 bit（40 项，按工作负载最大值的 2 倍）。40nm CACTI 合计 <strong>0.11 mm²</strong>，约所建模 GPU 面积的 0.018%。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 评测：性能、流量、能耗与敏感性</h2>
+      <p>工作负载取 Rodinia 3.0、GPGPU-Sim 科学核和 CUDA SDK 中带宽利用率 &gt;50% 的应用；计算密集型没有候选，性能不受影响。跑完或 20 亿指令取齐。主指标是相对无近存基线的 IPC。</p>
+
+      <table>
+        <thead>
+          <tr><th>缩写</th><th>应用</th><th>来源</th><th>对映射/控制的典型反应</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>BP</td><td>Back Propagation</td><td>Rodinia</td><td>近存整体有效</td></tr>
+          <tr><td>BFS</td><td>图遍历</td><td>Rodinia</td><td>不规则，学习映射可能次优</td></tr>
+          <tr><td>KM</td><td>K-means</td><td>Rodinia / Rogers 改</td><td>tmap 把加速从 3% 拉到 39%</td></tr>
+          <tr><td>CFD</td><td>CFD Solver</td><td>Rodinia</td><td>近存整体有效</td></tr>
+          <tr><td>HW</td><td>Heartwall</td><td>Rodinia</td><td>近存整体有效</td></tr>
+          <tr><td>LIB</td><td>LIBOR Monte Carlo</td><td>GPGPU-Sim</td><td>无控制 −64%，有控制 +52%</td></tr>
+          <tr><td>RAY</td><td>光线追踪</td><td>GPGPU-Sim</td><td>近存整体有效</td></tr>
+          <tr><td>FWT</td><td>Fast Walsh Transform</td><td>CUDA SDK</td><td>近存整体有效</td></tr>
+          <tr><td>SP</td><td>Scalar Product</td><td>CUDA SDK</td><td>近存整体有效</td></tr>
+          <tr><td>RD</td><td>Parallel Reduction</td><td>CUDA SDK</td><td>tmap 51%→76%；加 warp 槽后 ALU 反成瓶颈</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8.1 主结果：控制 + 透明映射必须一起开</h3>
+      <ul>
+        <li><strong>全套 TOM</strong>（动态控制 + tmap）：平均 +30%，全部应用正加速，最高 RD +76%。</li>
+        <li><strong>透明映射相对打散映射</strong>再贡献约 10 个点。KM、RD 对共址极敏感；部分应用学到的映射接近基线，增益小。</li>
+        <li><strong>无控制卸载</strong>平均变慢。逻辑层算力不够时，编译器“看起来省带宽”的块会把系统卡死。</li>
+        <li>流量：无控制 + tmap 降 38%（最高 99%）；有控制只降 13%，因为一部分访存密集块仍留在主 GPU。栈间流量在无控制时从基线的 55% 降到 22%（约 2.5×）。</li>
+        <li>能耗：全套 −11%（最高 37%）。SM 占比 77%→68%，片外链路 7%→5%。收益来自跑得更快（漏电下降）加链路翻转减少。缺映射或缺控制时总能耗反而 +8%：流量虽降，拉长的执行把漏电吃回去。</li>
+      </ul>
+
+      <h3>8.2 逻辑层算力：寄存器比完整 SM 更值钱</h3>
+      <p>卸载块最大 live 寄存器 26，整线程 49。逻辑层寄存器堆若做到与主 SM 同规模，理论上可跑约 2× warp。把 warp 容量提到 4×（ctrl-4×-warp）：平均仍约 +29% 加速，流量再多省约 20 个点，达到 −34%，接近无控制的 −38%。RD 是例外——卸载块里过半是 ALU，并行 warp 一多，逻辑层计算流水线先满。作者认为下一步应把 ALU 占比也纳入卸载闸门。</p>
+
+      <h3>8.3 并不依赖“TSV 内部带宽远大于引脚”</h3>
+      <p>许多 3D 近存论文默认栈内带宽远高于片外。TOM 在内部=外部（1×）时平均仍 +28%，相对 2× 内部带宽只差约 2 个点。原因是主 GPU 经常被 TX 或 RX <strong>单方向</strong>卡住；逻辑层 SM 经封装内互连直连内存控制器，能把另一方向空着的内部带宽用上。交叉链路扫到 0.125× / 0.25× / 1× GPU 链路时，平均加速分别为 17% / 29% / 31%。默认 0.5× 已经接近饱和。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 相关工作与边界</h2>
+      <p>作者自认是第一份在<strong>多栈 GPU 近存</strong>上同时做到：(1) 从未经修改的程序自动找出下沉指令块；(2) 把这些块访问的数据映射到同一栈。先前 PIM / 3D 近存（Tesseract、PEI、NDA、HRL、TOP-PIM 等）要么要程序员标、要么不管多芯片映射、要么不是 GPU。最接近的 Lee 等 FlexRAM 编译调度估的是<strong>延迟</strong>而非 GPU 的<strong>带宽</strong>，且假设单内存芯片。</p>
+      <p>数据靠近计算在 NUMA/NUCA 里研究很多。TOM 强调两点差异：执行引擎是异构的，映射目标互相冲突；近存 SM 上不跑系统软件，页在启动前分配完毕，复杂的运行期迁移不划算，所以用“短学习 + 推迟拷贝”这种一次性放置。</p>
+      <div class="callout">
+        <strong>边界要说清。</strong>候选粒度为指令块而非 kernel；不含同步与 shared memory，复杂协作 kernel 能下沉的比例有限。学习期走 PCIe，短 kernel 或高度不规则图应用可能学错。评测没有计算密集型，也没有现代 LLM 那种巨型权重/KV 工作集。仿真是 2016 年 Maxwell 量级，HBM 时代的绝对带宽数字不能直接外推，但“带宽收支编译 + 异构双映射 + 运行时闸门”三条结构仍然成立。
+      </div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 对同封装近存推理芯片的含义</h2>
+      <p>把 TOM 对照“中央通用处理器裸片 + 多个 3D-DRAM 近存张量模块、权重与 KV 驻留近存、预填充注意力核心留中央、译码注意力下沉近存”这条线，可抽出可迁移的原则，而不是照搬 2016 年的 SM 卸载。</p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>值得迁移</h4>
+          <p>双密度：高算术强度留中央，带宽密集留近存。共址决定近存效率，打散决定中央效率，映射必须分轨。编译/静态分析提名、运行时按队列深度和链路方向闸门，避免近存算力先饱和。一致性不要做成全芯片目录，用“代执行结束后作废/回写”这种 CTA 风格的作用域协议。</p>
+        </div>
+        <div class="tile">
+          <h4>不能照搬</h4>
+          <p>LLM 译码的 KV 扫描是结构化、跨步长的流，不是 LIBOR 那种小循环固定偏移；“开头 0.1% 学两位栈索引”对 KV 头所有权、专家分片不够用。权重是静态主副本，应在加载时按头/通道/专家固定下来，而不是 kernel 学习期再放。近存侧需要矩阵引擎和向量非线性，不是缩小版 CUDA SM。预填充的平方注意力核心必须强制留中央，不能让带宽公式把 QKᵀ/PV 误判为可卸载块。</p>
+        </div>
+      </div>
+
+      <h3>可写成设计约束的三条</h3>
+      <ol>
+        <li><strong>卸载判据要对阶段特化。</strong>TOM 用统一的 TX/RX 寄存器收支。推理芯片应按子层给出不同代价：预填充 QKV/输出投影可以双侧分担；注意力核心的算术强度高、且要全局 Softmax，默认禁止下沉；译码 KV 与历史键值同栈，默认强制下沉；FFN 扩展维中间激活禁止上送。</li>
+        <li><strong>映射是所有权，不是学来的 2 bit。</strong>KV 按头（或头组）绑定模块；专家按张量并行分片；中央只做归约与路由。这比 TOM 的“学习连续地址位”更硬、也更可验证。不规则会话/前缀缓存才需要 TOM 式的短观测。</li>
+        <li><strong>闸门要从 warp 槽升级为双资源。</strong>TOM 已证明无控制会让近存算力成为瓶颈；RD 又证明还要看 ALU 占比。近存模块应同时卡：本地矩阵阵列占用、本地向量通路占用、封装内链路 TX/RX、以及“该头的 KV 是否已在本模块”。译码注意力在近存打满时，应切到第二模式（局部 Softmax 统计量上送中央合并），而不是把历史 KV 拉回中央。</li>
+      </ol>
+
+      <div class="callout teal">
+        TOM 给近存系统软件定了一条至今仍少有人做到的标准：<strong>不改程序也能把“该不该靠近数据算”和“数据该放哪”分开优化。</strong>对同封装推理芯片，程序员透明可以降级为“框架透明”——模型图和 KV 布局由运行时/编译器处理，算子作者不必手写模块亲和。透明的对象从 CUDA kernel 换成 Transformer 图，机制从指令块收支换成子层落点与所有权，问题结构是同一张图。
+      </div>
+    </section>
+
+    <footer>
+      分析依据 ISCA 2016 论文全文 · 保存于工作区 <code>TOM_论文分析.html</code> · 2026-08-24
+    </footer>
+  </div>
+</body>
+</html>
