@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>T10 论文分析 | SOSP 2024</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .num { font-variant-numeric: tabular-nums; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 6px; }
+    .fig-row .fig { margin: 0; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    pre {
+      background: #1e293b; color: #e2e8f0; padding: 16px 18px; overflow-x: auto;
+      font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px; line-height: 1.55;
+      margin: 12px 0 16px;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">SOSP 2024</span>
+        <span class="badge">DL 编译器 · 核间互连 AI 芯片</span>
+        <span class="badge">Graphcore IPU MK2</span>
+        <span class="badge ok">UIUC + Microsoft Research</span>
+        <span class="badge ok">compute-shift / rTensor</span>
+        <span class="badge ok">DOI 10.1145/3694715.3695955</span>
+      </div>
+      <h1>把片上核间带宽编进编译器：T10 如何在 IPU 上丢掉虚拟全局内存</h1>
+      <p class="subtitle">Scaling Deep Learning Computation over the Inter-core Connected Intelligence Processor with T10</p>
+      <p class="meta">
+        <strong>作者：</strong>Yiqi Liu、Yuqi Xue、Yu Cheng、Lingxiao Ma、Ziming Miao、Jilong Xue、Jian Huang<br />
+        <strong>单位：</strong>UIUC · Microsoft Research · Peking University（Yu Cheng）<br />
+        <strong>原文：</strong><a href="https://doi.org/10.1145/3694715.3695955" target="_blank" rel="noopener">ACM DL</a>
+        · arXiv <a href="https://arxiv.org/abs/2408.04808" target="_blank" rel="noopener">2408.04808</a>
+        · 会议 <a href="https://sigops.org/s/conferences/sosp/2024/" target="_blank" rel="noopener">SOSP ’24</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">硬件背景：核间互连 vs 全局共享内存</a></li>
+        <li><a href="#s3">VGM 为何既费带宽又费容量</a></li>
+        <li><a href="#s4">核心思想：compute-shift 范式</a></li>
+        <li><a href="#s5">rTensor：分布式张量抽象</a></li>
+        <li><a href="#s6">算子内 / 算子间两级权衡</a></li>
+        <li><a href="#s7">映射到硬件：allocate / compute / shift</a></li>
+        <li><a href="#s8">实现细节：代码生成与伪 shift</a></li>
+        <li><a href="#s9">评测：延迟、规模、GPU 对照与 LLM</a></li>
+        <li><a href="#s10">相关工作、边界与可带走的判断</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        Graphcore IPU 这类芯片已经把核间全互连做成事实：每核可直读别核 scratchpad，全芯片聚合带宽远高于 HBM。现有 DL 编译器却仍用「虚拟全局内存」把这套硬件伪装成 GPU，于是核间通信乱、片上容量被复制吃掉。T10 的主张是：<strong>不要再假装有一块全局内存</strong>——用 rTensor 把张量切块、绕环旋转，把算子编成可预测的 compute-shift 计划，再在容量与通信之间做全局权衡。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">3.3×</div>
+          <div class="k">相对 Roller / Ansor 最高端到端加速（平均 1.69×）</div>
+        </div>
+        <div>
+          <div class="n">8–43%</div>
+          <div class="k">核间通信占比（VGM 基线为 50–74%）</div>
+        </div>
+        <div>
+          <div class="n">16.4×</div>
+          <div class="k">小 batch LLM 层相对 A100+TensorRT 最高加速</div>
+        </div>
+        <div>
+          <div class="n">8 TB/s</div>
+          <div class="k">IPU MK2 核间 all-to-all 聚合带宽（A100 HBM 1.94 TB/s）</div>
+        </div>
+      </div>
+      <div class="callout">
+        这不是又一篇 TVM/Ansor 式的共享内存 tiling 论文。它针对的是一类正在扩散的架构——IPU、SambaNova SN10、Cerebras WSE、Tenstorrent Grayskull，以及 GPU 上开始出现的 SM 簇互连（Hopper thread block clusters）。编译对象从「如何从全局内存取数」变成「如何在核间按环搬运 tile」。硬件 abstraction 只有三条：<code>allocate</code>、<code>compute</code>、<code>shift</code>。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 硬件背景：核间互连 vs 全局共享内存</h2>
+      <p>
+        为了跟上深度学习的算力需求，AI 芯片塞进大量并行核，每核带一小块 SRAM scratchpad。传统路径（TPU、GPU）靠一块全局共享内存（cache + HBM）做核间同步：编译器只负责把计算切到各核，数据一律从全局内存进出。问题是全局带宽增长赶不上算力。核间直连让核可以直接复用彼此本地内存里的数据，把片上复用从「经 HBM 绕一圈」变成「邻居直接给」。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TPU GPU IPU 架构对照">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="28" width="300" height="286" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="166" y="56" text-anchor="middle" font-size="16" font-weight="700" fill="#9a3412">TPU</text>
+            <rect x="44" y="76" width="244" height="52" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="166" y="107" text-anchor="middle" font-size="13" fill="#7c2d12">Global Shared Memory</text>
+            <rect x="44" y="148" width="110" height="72" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="99" y="180" text-anchor="middle" font-size="12" fill="#9a3412">Core</text>
+            <text x="99" y="198" text-anchor="middle" font-size="11" fill="#78716c">SRAM</text>
+            <rect x="178" y="148" width="110" height="72" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="233" y="180" text-anchor="middle" font-size="12" fill="#9a3412">Core</text>
+            <text x="233" y="198" text-anchor="middle" font-size="11" fill="#78716c">SRAM</text>
+            <text x="166" y="256" text-anchor="middle" font-size="12" fill="#78716c">核只跟全局内存说话</text>
+            <text x="166" y="278" text-anchor="middle" font-size="12" fill="#78716c">编译器只管切计算</text>
+
+            <rect x="340" y="28" width="300" height="286" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="490" y="56" text-anchor="middle" font-size="16" font-weight="700" fill="#1e3a5f">GPU</text>
+            <rect x="368" y="76" width="244" height="52" rx="4" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="490" y="107" text-anchor="middle" font-size="13" fill="#1e3a5f">Cache + HBM</text>
+            <rect x="368" y="148" width="110" height="72" rx="4" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="423" y="180" text-anchor="middle" font-size="12" fill="#1e3a5f">SM</text>
+            <text x="423" y="198" text-anchor="middle" font-size="11" fill="#64748b">Shared SRAM</text>
+            <rect x="502" y="148" width="110" height="72" rx="4" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="557" y="180" text-anchor="middle" font-size="12" fill="#1e3a5f">SM</text>
+            <text x="557" y="198" text-anchor="middle" font-size="11" fill="#64748b">Shared SRAM</text>
+            <text x="490" y="256" text-anchor="middle" font-size="12" fill="#64748b">仍是 load-compute-store</text>
+            <text x="490" y="278" text-anchor="middle" font-size="12" fill="#64748b">Hopper 才开始 SM 簇互连</text>
+
+            <rect x="664" y="28" width="300" height="286" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="814" y="56" text-anchor="middle" font-size="16" font-weight="700" fill="#115e59">IPU</text>
+            <rect x="688" y="72" width="80" height="70" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="728" y="100" text-anchor="middle" font-size="11" fill="#134e4a">Core</text>
+            <text x="728" y="118" text-anchor="middle" font-size="10" fill="#134e4a">624 KB</text>
+            <rect x="786" y="72" width="80" height="70" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="826" y="100" text-anchor="middle" font-size="11" fill="#134e4a">Core</text>
+            <text x="826" y="118" text-anchor="middle" font-size="10" fill="#134e4a">SRAM</text>
+            <rect x="864" y="72" width="80" height="70" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="904" y="100" text-anchor="middle" font-size="11" fill="#134e4a">Core</text>
+            <text x="904" y="118" text-anchor="middle" font-size="10" fill="#134e4a">SRAM</text>
+            <line x1="728" y1="142" x2="728" y2="168" stroke="#0f766e" stroke-width="2"/>
+            <line x1="826" y1="142" x2="826" y2="168" stroke="#0f766e" stroke-width="2"/>
+            <line x1="904" y1="142" x2="904" y2="168" stroke="#0f766e" stroke-width="2"/>
+            <rect x="688" y="168" width="256" height="42" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="816" y="194" text-anchor="middle" font-size="12" fill="#115e59">On-chip Interconnect · 8 TB/s</text>
+            <text x="816" y="236" text-anchor="middle" font-size="12" fill="#134e4a">1472 核 · 每核 5.5 GB/s 直读邻居</text>
+            <text x="816" y="258" text-anchor="middle" font-size="12" fill="#134e4a">合计 896 MB 片上分布式内存</text>
+            <text x="816" y="286" text-anchor="middle" font-size="12" fill="#0f766e">编译器必须同时切计算、放数据、排通信</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1. 论文 Figure 1 的结构对照。TPU / GPU 是全局共享内存；IPU 把每核 SRAM 经片上互连聚成一块分布式片上内存。</p>
+
+      <p>IPU MK2 的关键数字：1472 核，每核独立线程 + 私有 624 KB scratchpad，合计 896 MB 片上内存；每核访问另一核本地内存 5.5 GB/s，all-to-all 约 8 TB/s，远高于 A100 的 1.94 TB/s HBM。核可以单独访问别核数据，不必争抢一块全局总线。片上互连因此把「很多小 SRAM」聚成「一块大、而且带宽很高的分布式内存」。</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>A100 GPU</th>
+            <th>IPU MK2</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>本地缓存合计</td>
+            <td>20.25 MB</td>
+            <td class="num">896 MB</td>
+          </tr>
+          <tr>
+            <td>全局 cache</td>
+            <td>40 MB</td>
+            <td>无</td>
+          </tr>
+          <tr>
+            <td>片外带宽</td>
+            <td>2000 GB/s</td>
+            <td class="num">8 GB/s</td>
+          </tr>
+          <tr>
+            <td>核间带宽</td>
+            <td>无（当时）</td>
+            <td>每链路 6 GB/s 量级</td>
+          </tr>
+          <tr>
+            <td>核数</td>
+            <td>108 SM</td>
+            <td class="num">1472</td>
+          </tr>
+          <tr>
+            <td>FP16 峰值</td>
+            <td>312 TFLOPS</td>
+            <td>250 TFLOPS</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>IPU 几乎没有可用的片外带宽，模型必须尽量塞进片上；这也是为什么「容量浪费」会立刻变成「模型装不下 / batch 上不去」。同类架构还包括 SambaNova SN10、Cerebras WSE、Tenstorrent Grayskull。论文的论点是：硬件已经投了大钱，缺的是能吃到核间带宽的编译器。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. VGM 为何既费带宽又费容量</h2>
+      <p>
+        现有编译器（Roller、改过的 Ansor）和厂商库（PopART）的做法是：在每核本地内存里划出一块，拼成「虚拟全局内存」（VGM）。权重、激活都放进 VGM。当前算子被切成子算子，每核从 VGM 把需要的数据拉到本地「子算子区」，算完再写回 VGM。这就是 GPU 上那套 <strong>load-compute-store</strong>。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VGM 的 load-compute-store 与 compute-shift 对照">
+          <defs>
+            <marker id="t10v" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#c2410c"/></marker>
+            <marker id="t10s" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#0f766e"/></marker>
+          </defs>
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">(a) Load-Compute-Store · VGM</text>
+            <rect x="24" y="44" width="140" height="250" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="94" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">Core 0</text>
+            <rect x="38" y="80" width="112" height="36" rx="4" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="94" y="103" text-anchor="middle" font-size="11" fill="#57534e">空闲算子</text>
+            <rect x="38" y="124" width="112" height="52" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="94" y="145" text-anchor="middle" font-size="11" fill="#991b1b">VGM 活跃区</text>
+            <text x="94" y="163" text-anchor="middle" font-size="10" fill="#b91c1c">张量碎片</text>
+            <rect x="38" y="184" width="112" height="52" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <text x="94" y="205" text-anchor="middle" font-size="11" fill="#166534">子算子本地</text>
+            <text x="94" y="223" text-anchor="middle" font-size="10" fill="#15803d">再拷一份</text>
+            <text x="94" y="276" text-anchor="middle" font-size="10" fill="#78716c">load → compute</text>
+            <text x="94" y="292" text-anchor="middle" font-size="10" fill="#78716c">→ store 回 VGM</text>
+
+            <rect x="186" y="44" width="140" height="250" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="256" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">Core 1</text>
+            <rect x="200" y="80" width="112" height="36" rx="4" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="256" y="103" text-anchor="middle" font-size="11" fill="#57534e">空闲算子</text>
+            <rect x="200" y="124" width="112" height="52" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="256" y="154" text-anchor="middle" font-size="11" fill="#991b1b">VGM 碎片</text>
+            <rect x="200" y="184" width="112" height="52" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <text x="256" y="214" text-anchor="middle" font-size="11" fill="#166534">远程取数</text>
+            <path d="M150 150 L186 150" stroke="#c2410c" stroke-width="1.6" marker-end="url(#t10v)"/>
+            <path d="M150 210 L200 210" stroke="#c2410c" stroke-width="1.6" marker-end="url(#t10v)"/>
+            <text x="256" y="276" text-anchor="middle" font-size="10" fill="#9a3412">挤在单核 5.5 GB/s</text>
+            <text x="256" y="292" text-anchor="middle" font-size="10" fill="#9a3412">多对多冗余通信</text>
+
+            <text x="730" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">(c) Compute-Shift · 无 VGM</text>
+            <rect x="520" y="44" width="140" height="250" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="590" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">Core 0</text>
+            <rect x="534" y="86" width="112" height="40" rx="4" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="590" y="111" text-anchor="middle" font-size="11" fill="#57534e">空闲（紧凑）</text>
+            <rect x="534" y="140" width="112" height="90" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="590" y="172" text-anchor="middle" font-size="12" fill="#134e4a">更大子算子</text>
+            <text x="590" y="192" text-anchor="middle" font-size="11" fill="#0f766e">本地 tile</text>
+            <text x="590" y="210" text-anchor="middle" font-size="11" fill="#0f766e">无全局副本</text>
+            <text x="590" y="268" text-anchor="middle" font-size="10" fill="#115e59">compute</text>
+            <text x="590" y="284" text-anchor="middle" font-size="10" fill="#115e59">再 shift 给邻居</text>
+
+            <rect x="682" y="44" width="140" height="250" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="752" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">Core 1</text>
+            <rect x="696" y="86" width="112" height="40" rx="4" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="752" y="111" text-anchor="middle" font-size="11" fill="#57534e">空闲（紧凑）</text>
+            <rect x="696" y="140" width="112" height="90" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="752" y="172" text-anchor="middle" font-size="12" fill="#134e4a">更大子算子</text>
+            <text x="752" y="192" text-anchor="middle" font-size="11" fill="#0f766e">另一半 tile</text>
+            <text x="752" y="210" text-anchor="middle" font-size="11" fill="#0f766e">均匀占环</text>
+            <path d="M660 185 L682 185" stroke="#0f766e" stroke-width="2" marker-end="url(#t10s)"/>
+            <path d="M752 248 C 752 270, 590 270, 590 248" fill="none" stroke="#0f766e" stroke-width="1.6" stroke-dasharray="4 3"/>
+            <text x="752" y="276" text-anchor="middle" font-size="10" fill="#0f766e">每步只跟一个邻居</text>
+            <text x="752" y="292" text-anchor="middle" font-size="10" fill="#0f766e">子算子可增大 22–180%</text>
+
+            <rect x="844" y="44" width="116" height="250" rx="8" fill="#ecfdf5" stroke="#5eead4"/>
+            <text x="902" y="80" text-anchor="middle" font-size="11" font-weight="700" fill="#115e59">去掉 VGM</text>
+            <text x="902" y="112" text-anchor="middle" font-size="11" fill="#134e4a">活跃区并进</text>
+            <text x="902" y="132" text-anchor="middle" font-size="11" fill="#134e4a">子算子区</text>
+            <text x="902" y="168" text-anchor="middle" font-size="11" fill="#134e4a">通信占端到端</text>
+            <text x="902" y="188" text-anchor="middle" font-size="12" font-weight="700" fill="#0f766e">50–74%</text>
+            <text x="902" y="208" text-anchor="middle" font-size="11" fill="#134e4a">→ 8–43%</text>
+            <text x="902" y="250" text-anchor="middle" font-size="11" fill="#57534e">Fig. 2 / 13</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2. 论文 Figure 2 的结构重绘。VGM 让同一份数据占两块 SRAM，核间访问还不均衡；compute-shift 把活跃区还给子算子，通信变成环形邻居交换。</p>
+
+      <h3>通信上的两个病</h3>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>访问不均衡 + 单核带宽争抢</h4>
+          <p>一份张量分区只存在某一个核上，却常被多个核用。有的核能本地命中，有的核必须远程取。执行被远程核拖住。若多个核同时打同一个核，就会挤在那 5.5 GB/s 的单核链路上。</p>
+        </div>
+        <div class="tile">
+          <h4>取一份完整张量要跟很多核对</h4>
+          <p>VGM 把张量切碎散落到各核。一个核要凑齐一块数据，必须向许多核各取一小片，产生冗余的多对多通信，而不是一次有规律的邻居交换。</p>
+        </div>
+      </div>
+      <p>用 Roller 这种 VGM 编译器拆时间：核间访存占端到端 <strong>50%–74%</strong>（论文 Figure 13）。</p>
+
+      <h3>容量上的病：活跃算子被复制一份</h3>
+      <p>
+        子算子从 VGM 把数据再拷到本地，同一份数据同时占 VGM 区和子算子区。VGM 还要给空闲算子（已驻片上但没在跑）留位置。结果是每核能留给当前子算子的空间变小，计算强度下降，同样计算需要更多次搬运。去掉 VGM、把活跃区并进子算子区，子算子尺寸可增大 <strong>22%–180%</strong>（Figure 2b：BERT-BS8 MatMul 29.2%，ViT-BS128 22.0%，ResNet-BS128 Conv 60.4%，NeRF 138.5%，OPT-13B 一层 179.8%）。
+      </p>
+      <div class="callout teal">
+        行业在 IPU / WSE / SN10 上砸了数亿美元，却因为编译器仍按 GPU 共享内存去编，核间互连芯片打不过传统全局内存加速器。T10 的问题陈述就是这句话。
+      </div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 核心思想：compute-shift 范式</h2>
+      <p>
+        去掉 VGM 的办法，是把 DNN 计算映射成 <strong>compute-shift</strong>：每一步，每个核用刚从上游邻居收到的数据独立算一个子任务，再把数据 shift 给下游。可行性来自一个观察——绝大多数 DNN 算子可以切成规则任务，各自加载/产出输入输出张量上连续的 tile。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MatMul 的两种 compute-shift 计划">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="240" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">计划 (b)：空间切 2 核，权重复制</text>
+            <rect x="40" y="48" width="180" height="90" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="130" y="78" text-anchor="middle" font-size="12" fill="#9a3412">Core 0</text>
+            <text x="130" y="100" text-anchor="middle" font-size="11" fill="#78716c">A 上半 × 全部 W</text>
+            <text x="130" y="118" text-anchor="middle" font-size="11" fill="#78716c">一步算完 · 无通信</text>
+            <rect x="260" y="48" width="180" height="90" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="350" y="78" text-anchor="middle" font-size="12" fill="#9a3412">Core 1</text>
+            <text x="350" y="100" text-anchor="middle" font-size="11" fill="#78716c">A 下半 × 全部 W</text>
+            <text x="350" y="118" text-anchor="middle" font-size="11" fill="#78716c">内存占用高</text>
+            <text x="240" y="168" text-anchor="middle" font-size="12" fill="#9a3412">省通信，费容量</text>
+
+            <text x="720" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">计划 (c)：再沿 n 切权重，两步旋转</text>
+            <rect x="520" y="48" width="180" height="90" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="610" y="78" text-anchor="middle" font-size="12" fill="#115e59">Core 0 · Step 0</text>
+            <text x="610" y="100" text-anchor="middle" font-size="11" fill="#134e4a">持有 W 的一半</text>
+            <text x="610" y="118" text-anchor="middle" font-size="11" fill="#134e4a">算输出的一半</text>
+            <rect x="740" y="48" width="180" height="90" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="830" y="78" text-anchor="middle" font-size="12" fill="#115e59">Core 1 · Step 0</text>
+            <text x="830" y="100" text-anchor="middle" font-size="11" fill="#134e4a">持有 W 的另一半</text>
+            <text x="830" y="118" text-anchor="middle" font-size="11" fill="#134e4a">算输出的另一半</text>
+            <path d="M700 93 L740 93" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+            <defs>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#0f766e"/>
+              </marker>
+            </defs>
+            <text x="720" y="168" text-anchor="middle" font-size="12" fill="#0f766e">Step 1：环形 shift 权重后再算另一半</text>
+            <text x="720" y="188" text-anchor="middle" font-size="12" fill="#0f766e">省容量，费一轮通信</text>
+
+            <rect x="40" y="214" width="880" height="72" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+            <text x="480" y="242" text-anchor="middle" font-size="13" fill="#334155">compute-shift 相对 VGM 的三点：权重始终至少存在一个核上（无需全局副本）；通信均匀落在环上；每步每张量只跟一个邻居说话</text>
+            <text x="480" y="266" text-anchor="middle" font-size="13" fill="#334155">真实算子是多维、上千核，环可以沿多个轴嵌套，搜索空间极大</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3. 论文 Figure 3 的 MatMul 例子。两种计划都合法，差别只在容量–通信权衡。T10 的工作就是在这个空间里系统搜索，而不是手写一种切法。</p>
+
+      <p>系统流水线（Figure 4）是：DNN + 硬件规格 → 用 rTensor 枚举 compute-shift 计划 → 算子内 Pareto 前沿（时间 vs 内存）→ 算子间全局调和 → 三条设备接口落到 IPU 内核。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="T10 编译流水线">
+          <defs>
+            <marker id="t10p" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#1e3a5f"/></marker>
+          </defs>
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="12" y="40" width="150" height="90" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="87" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">DNN 模型</text>
+            <text x="87" y="100" text-anchor="middle" font-size="11" fill="#78716c">+ 硬件规格</text>
+            <path d="M162 85 L188 85" stroke="#1e3a5f" stroke-width="2" marker-end="url(#t10p)"/>
+            <rect x="196" y="40" width="160" height="90" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="276" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">rTensor 计划</text>
+            <text x="276" y="94" text-anchor="middle" font-size="11" fill="#475569">fₛ · fₜ · rp · Fₒₚ</text>
+            <text x="276" y="112" text-anchor="middle" font-size="10" fill="#64748b">§4.1–4.2</text>
+            <path d="M356 85 L382 85" stroke="#1e3a5f" stroke-width="2" marker-end="url(#t10p)"/>
+            <rect x="390" y="28" width="170" height="114" rx="8" fill="#ecfdf5" stroke="#0f766e"/>
+            <text x="475" y="56" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">算子内 Pareto</text>
+            <text x="475" y="78" text-anchor="middle" font-size="11" fill="#134e4a">时间 ↔ 内存前沿</text>
+            <text x="475" y="96" text-anchor="middle" font-size="11" fill="#134e4a">代价模型剪枝</text>
+            <text x="475" y="114" text-anchor="middle" font-size="10" fill="#0f766e">§4.3.1</text>
+            <path d="M560 85 L586 85" stroke="#1e3a5f" stroke-width="2" marker-end="url(#t10p)"/>
+            <rect x="594" y="28" width="170" height="114" rx="8" fill="#f0fdfa" stroke="#14b8a6"/>
+            <text x="679" y="56" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">算子间调和</text>
+            <text x="679" y="78" text-anchor="middle" font-size="11" fill="#134e4a">idle / active 双计划</text>
+            <text x="679" y="96" text-anchor="middle" font-size="11" fill="#134e4a">贪心 −ΔT/ΔM</text>
+            <text x="679" y="114" text-anchor="middle" font-size="10" fill="#0f766e">§4.3.2</text>
+            <path d="M764 85 L790 85" stroke="#1e3a5f" stroke-width="2" marker-end="url(#t10p)"/>
+            <rect x="798" y="40" width="170" height="90" rx="8" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="883" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">三条接口</text>
+            <text x="883" y="94" text-anchor="middle" font-size="11" fill="#7c2d12">allocate · compute</text>
+            <text x="883" y="112" text-anchor="middle" font-size="11" fill="#7c2d12">· shift → IPU</text>
+            <text x="490" y="178" text-anchor="middle" font-size="12" fill="#57534e">SRAM：空闲算子紧凑存放  ·  当前算子吃剩余 active 池  ·  setup 把 idle 布局改成 active</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4. 论文 Figure 4 的编译流水线。先把组合爆炸收成每个算子一条 Pareto 曲线，再在整网上调和 idle/active 内存，最后落到三条设备原语。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. rTensor：分布式张量抽象</h2>
+      <p>
+        RotatingTensor（rTensor）在普通 <code>shape</code> / <code>dtype</code> 之外，再描述这块张量如何被切开、贴到哪些核、以什么步长在核间旋转。一组 rTensor 配置就是一份 compute-shift 执行计划。
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>符号</th>
+            <th>名称</th>
+            <th>含义</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>f<sub>s</sub><sup>X</sup></code></td>
+            <td>空间划分因子</td>
+            <td>把张量 X 切成子张量，对应「哪些核组各自持有一块」</td>
+          </tr>
+          <tr>
+            <td><code>f<sub>t</sub><sup>X</sup></code></td>
+            <td>时间划分因子</td>
+            <td>把子张量再切成分区，在共享它的核之间轮转</td>
+          </tr>
+          <tr>
+            <td><code>rp</code></td>
+            <td>旋转步长</td>
+            <td>每步沿各维移多少元素，用来对齐计算与数据相遇的时机</td>
+          </tr>
+          <tr>
+            <td><code>F<sub>op</sub></code></td>
+            <td>算子划分因子</td>
+            <td>沿张量表达式的全部轴，把整个算子切成子算子</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>一个切法例子（Figure 6）</h3>
+      <p>
+        形状 <code>[6, 8]</code> 的张量，落到 8 个核上：<code>f<sub>s</sub> = [2, 1]</code> 沿 m 切成 2 个子张量，每个形状 <code>[3, 8]</code>，各由 4 个核共享。再设 <code>f<sub>t</sub> = [1, 2]</code>，每个子张量沿 k 切成 2 个 <code>[3, 4]</code> 分区，形成 2 个 2 核旋转环。把 <code>f<sub>t</sub></code> 改成 <code>[1, 4]</code> 则变成 1 个 4 核环。同一套划分上，<code>rp = [0, 2]</code> 每步移 2 个元素、4 步一圈；<code>rp = [0, 1]</code> 则 8 步一圈。环越长、步越小，容量越省、通信越多。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="rTensor 空间切、时间切与旋转环">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="120" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">(a) fₛ = [2,1]</text>
+            <rect x="20" y="40" width="200" height="120" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <rect x="36" y="56" width="168" height="44" rx="4" fill="#cbd5e1" stroke="#64748b"/>
+            <text x="120" y="84" text-anchor="middle" font-size="12" fill="#1e3a5f">子张量 0 · [3,8]</text>
+            <rect x="36" y="108" width="168" height="40" rx="4" fill="#e2e8f0" stroke="#94a3b8"/>
+            <text x="120" y="133" text-anchor="middle" font-size="12" fill="#334155">子张量 1 · [3,8]</text>
+            <text x="120" y="180" text-anchor="middle" font-size="11" fill="#64748b">8 核 · 各 4 核共享一块</text>
+
+            <text x="400" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">(b) fₜ = [1,2] · 两环</text>
+            <rect x="268" y="48" width="88" height="70" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="312" y="78" text-anchor="middle" font-size="11" fill="#134e4a">核 A</text>
+            <text x="312" y="96" text-anchor="middle" font-size="10" fill="#0f766e">[3,4]</text>
+            <rect x="372" y="48" width="88" height="70" rx="6" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="416" y="78" text-anchor="middle" font-size="11" fill="#134e4a">核 B</text>
+            <text x="416" y="96" text-anchor="middle" font-size="10" fill="#0f766e">[3,4]</text>
+            <path d="M356 70 C 356 36, 400 36, 400 70" fill="none" stroke="#0f766e" stroke-width="1.5"/>
+            <path d="M400 96 C 400 130, 356 130, 356 96" fill="none" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="400" y="150" text-anchor="middle" font-size="11" fill="#115e59">2 核 × 2 环</text>
+            <text x="400" y="170" text-anchor="middle" font-size="11" fill="#64748b">复制少 · 步数多</text>
+
+            <text x="680" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">(c) fₜ = [1,4] · 一环</text>
+            <rect x="530" y="48" width="70" height="56" rx="5" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="565" y="80" text-anchor="middle" font-size="11" fill="#9a3412">C0</text>
+            <rect x="610" y="48" width="70" height="56" rx="5" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="645" y="80" text-anchor="middle" font-size="11" fill="#9a3412">C1</text>
+            <rect x="690" y="48" width="70" height="56" rx="5" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="725" y="80" text-anchor="middle" font-size="11" fill="#9a3412">C2</text>
+            <rect x="770" y="48" width="70" height="56" rx="5" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="805" y="80" text-anchor="middle" font-size="11" fill="#9a3412">C3</text>
+            <path d="M600 76 L610 76" stroke="#c2410c" stroke-width="1.5"/>
+            <path d="M680 76 L690 76" stroke="#c2410c" stroke-width="1.5"/>
+            <path d="M760 76 L770 76" stroke="#c2410c" stroke-width="1.5"/>
+            <path d="M805 104 C 805 132, 565 132, 565 104" fill="none" stroke="#c2410c" stroke-width="1.4" stroke-dasharray="4 3"/>
+            <text x="680" y="158" text-anchor="middle" font-size="11" fill="#9a3412">4 核 × 1 环 · 容量更省</text>
+
+            <rect x="20" y="200" width="940" height="80" rx="6" fill="#faf8f4" stroke="#e7e0d4"/>
+            <text x="490" y="230" text-anchor="middle" font-size="13" fill="#1e3a5f">同一套 fₛ / fₜ 上，rp 只改步长：rp=[0,2] → 每步移 [3,2]，4 步一圈；rp=[0,1] → 移 [3,1]，8 步一圈</text>
+            <text x="490" y="256" text-anchor="middle" font-size="13" fill="#57534e">环越长、步越小 → SRAM 越省、通信 hop 越多。这就是算子内的容量–延迟杠杆。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5. 论文 Figure 6：空间因子决定谁持有子张量，时间因子决定环有几条、每条几核，旋转步长决定每步搬多大 tile。</p>
+
+      <h3>从张量表达式推 rTensor</h3>
+      <div class="eq">
+        C[m, n] += A[m, k] · B[k, n]
+      </div>
+      <p>
+        <code>F<sub>op</sub></code> 是沿 <code>[m, k, n]</code> 的整数向量，乘积等于子算子数（也就是用掉的核数）。例如 <code>F<sub>op</sub> = [2, 1, 3]</code> 得到 6 个子 MatMul，每个形状 <code>[M/2, K] × [K, N/3]</code>。空间因子由数据依赖直接推出：<code>f<sub>s</sub><sup>A</sup> = [2, 1]</code>，<code>f<sub>s</sub><sup>B</sup> = [1, 3]</code>，<code>f<sub>s</sub><sup>C</sup> = [2, 3]</code>。
+      </p>
+      <p>
+        若某张量缺了 <code>F<sub>op</sub></code> 里的某根轴，这块子张量就要被沿该轴的多个子算子共享。共享核数 <code>P = |cores| / ∏ f<sub>s</sub></code>。时间因子决定把子张量切成几份、形成几个环：<code>∏ f<sub>t</sub></code> 必须整除 <code>P</code>，环数 = <code>P / ∏ f<sub>t</sub></code>。多个环意味着复制多份，占内存，但每核每步能算更大的子任务、旋转步数更少——这就是算子内的容量–通信杠杆。
+      </p>
+
+      <h3>旋转必须对齐，否则数据依赖会断</h3>
+      <p>
+        Figure 7 里 A、B 都沿 k 做时间划分，但 <code>f<sub>t</sub></code> 不同。若两者沿 k 的 <code>rp</code> 不一致，某核上会出现「该乘的 A 块和 B 块不同时在场」。T10 强制两条约束：
+      </p>
+      <ol>
+        <li>沿同一轴旋转的 rTensor 必须共享该轴上的 <code>rp</code>。</li>
+        <li>每个 rTensor 的 <code>rp</code> 不能超过其在该维上的子张量分区长度，保证每步子任务能在本地算完。</li>
+      </ol>
+      <p>为拉高计算强度，T10 把 <code>rp</code> 取成各相关分区长度的最小值。每步子任务由 <code>F<sub>op</sub></code> 和各轴 <code>rp</code> 共同决定；子算子用嵌套循环扫完所有子任务，循环到哪根轴，就沿那根轴旋转对应 rTensor。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="旋转步长未对齐与对齐">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="16" width="460" height="218" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="246" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">未对齐：A、B 沿 k 的 rp 不同</text>
+            <rect x="40" y="62" width="120" height="70" rx="6" fill="#fecaca" stroke="#ef4444"/>
+            <text x="100" y="90" text-anchor="middle" font-size="12" fill="#991b1b">某核持有</text>
+            <text x="100" y="110" text-anchor="middle" font-size="12" fill="#7f1d1d">A₂ · 缺 B₂</text>
+            <rect x="186" y="62" width="120" height="70" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="246" y="90" text-anchor="middle" font-size="12" fill="#9a3412">邻居持有</text>
+            <text x="246" y="110" text-anchor="middle" font-size="12" fill="#7c2d12">B₂ 已转走</text>
+            <rect x="332" y="62" width="120" height="70" rx="6" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="392" y="90" text-anchor="middle" font-size="12" fill="#57534e">C += A·B</text>
+            <text x="392" y="110" text-anchor="middle" font-size="12" fill="#78716c">无法计算</text>
+            <text x="246" y="168" text-anchor="middle" font-size="12" fill="#9a3412">数据依赖断在「该乘的两块不同时在场」</text>
+            <text x="246" y="194" text-anchor="middle" font-size="11" fill="#78716c">A 沿 k 移 2，B 沿 k 移 3 —— 错拍</text>
+            <text x="246" y="214" text-anchor="middle" font-size="11" fill="#78716c">论文 Figure 7(c)</text>
+
+            <rect x="504" y="16" width="460" height="218" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="734" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">对齐：共享 rp，子任务长度 = rp</text>
+            <rect x="528" y="62" width="120" height="70" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="588" y="90" text-anchor="middle" font-size="12" fill="#134e4a">本地 A 块</text>
+            <text x="588" y="110" text-anchor="middle" font-size="12" fill="#0f766e">k 上长度 2</text>
+            <rect x="674" y="62" width="120" height="70" rx="6" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="734" y="90" text-anchor="middle" font-size="12" fill="#134e4a">本地 B 块</text>
+            <text x="734" y="110" text-anchor="middle" font-size="12" fill="#0f766e">同步移 2</text>
+            <rect x="820" y="62" width="120" height="70" rx="6" fill="#5eead4" stroke="#0f766e"/>
+            <text x="880" y="90" text-anchor="middle" font-size="12" fill="#115e59">子 MatMul</text>
+            <text x="880" y="110" text-anchor="middle" font-size="12" fill="#134e4a">[1, 2, 1]</text>
+            <text x="734" y="168" text-anchor="middle" font-size="12" fill="#115e59">同轴 rTensor 必须同 rp；rp ≤ 分区长度</text>
+            <text x="734" y="194" text-anchor="middle" font-size="11" fill="#0f766e">取各分区长度的最小值，拉高计算强度</text>
+            <text x="734" y="214" text-anchor="middle" font-size="11" fill="#0f766e">论文 Figure 7(d)</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6. 旋转对齐。T10 用两条硬约束保证每步子任务能在本地算完，否则 compute-shift 会算出错结果。</p>
+
+      <div class="callout navy">
+        rTensor 相对 SPMD 切分（GSPMD / Alpa / Megatron）的差别：后者通常是「切完再插一次 AllReduce」，计算与通信分两段优化，并且常靠复制来保证每份任务输入完整。T10 把一次算子编成多步交错的 compute 与 shift，复制与否、环有多长，都进同一个代价模型。
+      </div>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 算子内 / 算子间两级权衡</h2>
+      <p>
+        单算子的 <code>f<sub>s</sub> / f<sub>t</sub> / rp</code> 组合已经是组合爆炸；整网再乘上算子数。T10 拆成两级，避免直接搜笛卡尔积。
+      </p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>算子内：时间因子换通信</h4>
+          <p>更小的 <code>f<sub>t</sub></code> → 环更短、复制更多 → 通信 hop 少、内存贵。对每个算子搜出时间–内存的 Pareto 前沿：同样内存下更快，或同样时间下更省内存。</p>
+        </div>
+        <div class="tile">
+          <h4>算子间：把内存补给「最划算」的算子</h4>
+          <p>不同算子的内存–延迟斜率不同。同一算子还可以在空闲时用省内存计划、执行前再切到快跑计划（setup 阶段用核间传输改布局）。</p>
+        </div>
+      </div>
+
+      <h3>6.1 代价模型为什么能准</h3>
+      <p>
+        核间互连 + 软件显式管理传输，让访存不再是「下层 cache 会不会 stall」那种不可预测事件。给定划分，每核计算量、每步通信量、内存占用都可以静态算出来；每步计算只吃本地 SRAM。做法：
+      </p>
+      <ul>
+        <li>对每种算子，随机生成不同形状的子任务，在单颗 IPU 核上实测，用子任务形状拟合线性回归得到计算时间；</li>
+        <li>通信时间用传输量再拟一条线性回归；</li>
+        <li>用户自定义 kernel 可自己提供代价函数。</li>
+      </ul>
+      <p>
+        Figure 8：多数算子近乎完美拟合。例外是 convolution——走厂商闭源 kernel，有黑盒优化，仍足以选出好计划。作者设想厂商若把 T10 收进工具链，应能给出精确模型。
+      </p>
+
+      <h3>搜索剪枝：并行度与 padding</h3>
+      <p>完整空间会到 10<sup>19</sup>（ResNet 里 7 维卷积）。两条可配置规则先滤掉明显差的计划：</p>
+      <ul>
+        <li><strong>并行度约束</strong>：算子占用核数下限（例如 ≥90%），丢掉欠并行的 <code>F<sub>op</sub></code>。</li>
+        <li><strong>padding 约束</strong>：为对齐 AMP 等矩阵单元而填充时，原始尺寸 / 填充后尺寸低于阈值（如 0.9，即最多约 11% 浪费）的计划丢弃。</li>
+      </ul>
+      <p>过滤后通常 &lt;10<sup>4</sup> 个计划；每个计划在单 CPU 核上评估 &lt;100 ms，32 核约 30 秒扫完。Pareto 点多数算子不到 50 个，相同算子可缓存复用。约束收得越紧，编译越快；多数模型一分钟量级的严格约束已经接近最优延迟（Figure 19）。</p>
+
+      <h3>6.2 算子间内存调和（Algorithm 1）</h3>
+      <p>
+        策略仍是「尽量把多个算子留在片上，只让模型 I/O 走片外」，这样相邻算子的中间张量可以全速在片上复用。每个算子持有两份计划：
+      </p>
+      <ul>
+        <li><strong>idle</strong>：执行前尽量省内存；</li>
+        <li><strong>active</strong>：执行时尽量低延迟；</li>
+        <li>从 idle 切到 active 要付 <strong>setup</strong> 时间（核间搬数据改划分）。</li>
+      </ul>
+      <p>贪心过程：先给所有算子最省内存的 idle 计划，剩余空间当 active 内存。每步挑 <code>−ΔT<sub>setup</sub> / ΔM<sub>idle</sub></code> 最大的算子，给它更大的 idle（setup 更短），active 池相应缩小，再为每个算子选「能塞进当前 active 内存的最快计划」，估端到端时间。搜索复杂度从各算子 idle 计划数的乘积降到求和。最后取整条轨迹上端到端时间最短的那一步。</p>
+
+      <div class="fig-row">
+        <div class="fig">
+          <svg viewBox="0 0 460 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="算子内 Pareto 前沿">
+            <g font-family="Segoe UI, sans-serif">
+              <text x="230" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">算子内：时间–内存 Pareto</text>
+              <line x1="50" y1="190" x2="430" y2="190" stroke="#a8a29e" stroke-width="1.5"/>
+              <line x1="50" y1="190" x2="50" y2="36" stroke="#a8a29e" stroke-width="1.5"/>
+              <text x="240" y="212" text-anchor="middle" font-size="11" fill="#78716c">每核内存占用 →</text>
+              <text x="18" y="120" transform="rotate(-90 18 120)" font-size="11" fill="#78716c">执行时间</text>
+              <circle cx="90" cy="70" r="5" fill="#c2410c"/>
+              <circle cx="140" cy="95" r="4" fill="#d6d3d1"/>
+              <circle cx="180" cy="88" r="5" fill="#c2410c"/>
+              <circle cx="230" cy="120" r="4" fill="#d6d3d1"/>
+              <circle cx="280" cy="110" r="5" fill="#c2410c"/>
+              <circle cx="340" cy="150" r="5" fill="#c2410c"/>
+              <circle cx="390" cy="168" r="5" fill="#0f766e"/>
+              <path d="M90 70 L180 88 L280 110 L340 150 L390 168" fill="none" stroke="#c2410c" stroke-width="1.6"/>
+              <text x="390" y="158" font-size="10" fill="#0f766e">Roller 常停这</text>
+              <text x="100" y="58" font-size="10" fill="#9a3412">更快但更费内存</text>
+            </g>
+          </svg>
+        </div>
+        <div class="fig">
+          <svg viewBox="0 0 460 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="idle 到 active 的 setup">
+            <g font-family="Segoe UI, sans-serif">
+              <text x="230" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">算子间：idle → setup → active</text>
+              <rect x="24" y="48" width="120" height="130" rx="6" fill="#e7e5e4" stroke="#a8a29e"/>
+              <text x="84" y="78" text-anchor="middle" font-size="12" fill="#57534e">Idle</text>
+              <rect x="40" y="92" width="88" height="28" rx="3" fill="#d6d3d1"/>
+              <text x="84" y="111" text-anchor="middle" font-size="10" fill="#44403c">紧凑划分</text>
+              <rect x="40" y="128" width="88" height="36" rx="3" fill="#f5f5f4"/>
+              <text x="84" y="150" text-anchor="middle" font-size="10" fill="#78716c">省 SRAM</text>
+              <rect x="170" y="70" width="120" height="90" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+              <text x="230" y="100" text-anchor="middle" font-size="12" fill="#9a3412">Setup</text>
+              <text x="230" y="122" text-anchor="middle" font-size="11" fill="#7c2d12">核间改布局</text>
+              <text x="230" y="142" text-anchor="middle" font-size="10" fill="#78716c">付时间</text>
+              <rect x="316" y="48" width="120" height="130" rx="6" fill="#ecfdf5" stroke="#0f766e"/>
+              <text x="376" y="78" text-anchor="middle" font-size="12" fill="#115e59">Active</text>
+              <rect x="332" y="92" width="88" height="50" rx="3" fill="#99f6e4"/>
+              <text x="376" y="122" text-anchor="middle" font-size="10" fill="#134e4a">快跑计划</text>
+              <text x="230" y="200" text-anchor="middle" font-size="10" fill="#57534e">给关键算子提前 setup，idle 可占到约 58%</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <p class="figcap">图 7. 左：每个算子只保留 Pareto 点（论文 Figure 17）。右：同一算子两份计划，setup 用核间传输把紧凑布局展开成低延迟布局（Figure 9 / Algorithm 1）。</p>
+
+      <div class="callout">
+        Figure 20 的直觉：Roller 往往停在「idle 最小、setup 最痛」的最左方案。T10 会把 idle 扩到大约 58% 片上容量（ResNet-BS64 例子），因为许多算子 active 时最多只要 40%。把 setup 提前做在关键算子上，比把全部内存留给当前算子更划算。
+      </div>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 映射到硬件：allocate / compute / shift</h2>
+      <p>目标架构被收成统一抽象：多核、每核私有本地内存、高速片上网络。三条接口：</p>
+      <ol class="steps">
+        <li><code>allocate</code>：编译期给张量分区分配地址，并做 liveness，让前后算子复用同一块 SRAM。</li>
+        <li><code>compute</code>：按划分配置和张量表达式，用预定义模板生成单核计算（IPU 上叫 Vertex）。</li>
+        <li><code>shift</code>：运行时把子张量发到指定邻居核。</li>
+      </ol>
+
+      <h3>初始放置（Figure 10）</h3>
+      <p>
+        不仅要让「现在」每核上的 A、B、C 块满足依赖，还要保证沿各轴按升序排好，这样每转一步依赖仍然成立。3×3 MatMul 的放置顺序：先按划分放下全部 C；再沿时间维放下第一组 A，由当前 A 与 C 反推第一行核上的 B 对角块；再沿列依次放下其余 B；最后反推其余 A。这是在「旋转环」上解一个初始相位，而不是随意 scatter。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="3x3 MatMul 子张量初始放置">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="360" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">3×3 核上的初始相位（论文 Figure 10）</text>
+            <g id="grid">
+              <rect x="80" y="48" width="160" height="70" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+              <text x="160" y="70" text-anchor="middle" font-size="11" fill="#64748b">核 00</text>
+              <text x="160" y="90" text-anchor="middle" font-size="12" fill="#1e3a5f">C₀₀  A₀₀  B₀₀</text>
+              <rect x="260" y="48" width="160" height="70" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+              <text x="340" y="70" text-anchor="middle" font-size="11" fill="#64748b">核 01</text>
+              <text x="340" y="90" text-anchor="middle" font-size="12" fill="#1e3a5f">C₀₁  A₀₁  B₁₁</text>
+              <rect x="440" y="48" width="160" height="70" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+              <text x="520" y="70" text-anchor="middle" font-size="11" fill="#64748b">核 02</text>
+              <text x="520" y="90" text-anchor="middle" font-size="12" fill="#1e3a5f">C₀₂  A₀₂  B₂₂</text>
+              <rect x="80" y="128" width="160" height="70" rx="6" fill="#ecfdf5" stroke="#0f766e"/>
+              <text x="160" y="150" text-anchor="middle" font-size="11" fill="#0f766e">核 10</text>
+              <text x="160" y="170" text-anchor="middle" font-size="12" fill="#134e4a">C₁₀  A₁₀  B₁₀</text>
+              <rect x="260" y="128" width="160" height="70" rx="6" fill="#ecfdf5" stroke="#0f766e"/>
+              <text x="340" y="150" text-anchor="middle" font-size="11" fill="#0f766e">核 11</text>
+              <text x="340" y="170" text-anchor="middle" font-size="12" fill="#134e4a">C₁₁  A₁₁  B₂₁</text>
+              <rect x="440" y="128" width="160" height="70" rx="6" fill="#ecfdf5" stroke="#0f766e"/>
+              <text x="520" y="150" text-anchor="middle" font-size="11" fill="#0f766e">核 12</text>
+              <text x="520" y="170" text-anchor="middle" font-size="12" fill="#134e4a">C₁₂  A₁₂  B₀₂</text>
+              <rect x="80" y="208" width="160" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+              <text x="160" y="230" text-anchor="middle" font-size="11" fill="#9a3412">核 20</text>
+              <text x="160" y="250" text-anchor="middle" font-size="12" fill="#7c2d12">C₂₀  A₂₀  B₂₀</text>
+              <rect x="260" y="208" width="160" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+              <text x="340" y="230" text-anchor="middle" font-size="11" fill="#9a3412">核 21</text>
+              <text x="340" y="250" text-anchor="middle" font-size="12" fill="#7c2d12">C₂₁  A₂₁  B₀₁</text>
+              <rect x="440" y="208" width="160" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+              <text x="520" y="230" text-anchor="middle" font-size="11" fill="#9a3412">核 22</text>
+              <text x="520" y="250" text-anchor="middle" font-size="12" fill="#7c2d12">C₂₂  A₂₂  B₁₂</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 8. 先放下全部 C，再由数据依赖反推 A/B 的初始相位，并沿各轴升序排列，保证每转一步依赖仍成立。</p>
+
+      <h3>循环次序</h3>
+      <p>每核上是交错的 compute / shift 嵌套循环，一层对应一个时间划分维。内层选较小张量所在的维，因为内层执行次数多，这样总通信体积更小。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 实现细节：代码生成与伪 shift</h2>
+      <p>
+        独立编译器，输入 ONNX，解析成算子图（每算子一张量表达式），做算子内/间优化，吐 IPU 可执行代码。优化 pass 约 4K Python；代码生成约 4.5K Python + 1.5K C++ / IPU 汇编。总共约 10K 行。
+      </p>
+<pre>Vertex conv(out=C, in=A, kernel=B);
+for (i = 0; i &lt; num_core; i++) {
+  C[i].mapToCore(i);
+  A[i].mapToCore(i);
+  B[i].mapToCore(i);
+  compSet.addVertex(conv, core=i);
+}
+program.addStep(run(compSet));
+program.addStep(shift(A, "left"));
+program.addStep(shift(B, "right"));
+program.addStep(run(compSet));</pre>
+      <p>
+        同一步里所有 Vertex 同构，组成 ComputeSet。shift 之后用新的本地数据再跑同一套 ComputeSet。算子结束后若下一算子布局不同，插入一次 all-to-all 改布局；中间张量通常远小于执行中的 shift 体积，开销相对小。
+      </p>
+
+      <h3>IPU 没有原生 shift：用缓冲做伪旋转</h3>
+      <p>
+        源（要转出的数据）和目的（要转入的数据）在内存上重叠。每核留一块临时缓冲（默认 8 KB）做中转：缓冲越大越占 SRAM，越小就要多轮 shift。8 KB 的同步开销可忽略，大小可配。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 880 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="IPU 伪 shift 用临时缓冲">
+          <defs>
+            <marker id="t10sh" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#0f766e"/></marker>
+          </defs>
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="40" y="30" width="240" height="140" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="160" y="58" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">Core i 本地 SRAM</text>
+            <rect x="60" y="74" width="90" height="70" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="105" y="104" text-anchor="middle" font-size="12" fill="#134e4a">tile 旧</text>
+            <text x="105" y="122" text-anchor="middle" font-size="10" fill="#0f766e">要转出</text>
+            <rect x="170" y="74" width="90" height="70" rx="4" fill="#ffedd5" stroke="#c2410c" stroke-dasharray="4 3"/>
+            <text x="215" y="104" text-anchor="middle" font-size="12" fill="#9a3412">8 KB 缓冲</text>
+            <text x="215" y="122" text-anchor="middle" font-size="10" fill="#7c2d12">避开重叠</text>
+            <rect x="330" y="30" width="200" height="140" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="430" y="88" text-anchor="middle" font-size="13" fill="#9a3412">问题</text>
+            <text x="430" y="114" text-anchor="middle" font-size="12" fill="#7c2d12">转入地址 = 转出地址</text>
+            <text x="430" y="136" text-anchor="middle" font-size="12" fill="#7c2d12">IPU 无原生 shift</text>
+            <rect x="580" y="30" width="260" height="140" rx="8" fill="#ecfdf5" stroke="#0f766e"/>
+            <text x="710" y="70" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">Core i+1</text>
+            <rect x="620" y="88" width="180" height="50" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="710" y="118" text-anchor="middle" font-size="12" fill="#134e4a">收到邻居的 tile</text>
+            <path d="M280 109 L330 109" stroke="#0f766e" stroke-width="2" marker-end="url(#t10sh)"/>
+            <path d="M530 109 L580 109" stroke="#0f766e" stroke-width="2" marker-end="url(#t10sh)"/>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 9. 伪 shift：先拷进每核 8 KB 临时区，再发给邻居，避免源与目的在同一块 SRAM 上互相覆盖。</p>
+
+      <h3>复合轴</h3>
+      <p>
+        二维卷积 <code>O[b,f,h,w] += I[b,c,h+kh, w+kw] * C[f,c,kh,kw]</code> 里，<code>h+kh</code> 这类复合轴被拆成基本轴分别划分。Sort 等无法写成张量表达式的算子走厂商库。
+      </p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 评测：延迟、规模、GPU 对照与 LLM</h2>
+      <p>
+        平台：真实 Graphcore IPU MK2。基线：PopART、改到 IPU 的 Ansor、基于 VGM 的 Roller。模型：BERT 340M、ViT 86M、ResNet 11M、NeRF 24K，以及 OPT / Llama2 / RetNet 的部分层。batch 从 1 倍增直到片上装不下。只测推理——手上这颗 IPU 片上容量有限，也主要用于推理。T10 只做无损变换，与 Roller / PopART 在同一套预训练参数下精度差可忽略。
+      </p>
+
+      <h3>端到端（Figure 12–16）</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>现象</th>
+            <th>数字 / 含义</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>相对 Ansor / Roller</td>
+            <td>平均 1.69×，最高 3.3×；能跑更大 batch / 更大模型</td>
+          </tr>
+          <tr>
+            <td>Ansor / Roller 相对 PopART</td>
+            <td>平均 1.33× / 1.38×（单算子 tiling 更好），但仍困在 VGM</td>
+          </tr>
+          <tr>
+            <td>核间通信占比</td>
+            <td>Roller 50–74% → T10 8–43%</td>
+          </tr>
+          <tr>
+            <td>每核有效核间带宽</td>
+            <td>T10 4.42–4.73 GB/s（屋顶 5.5）；Roller 2.61–3.87，受不均衡访问拖累</td>
+          </tr>
+          <tr>
+            <td>单算子</td>
+            <td>最高 10.79×（ResNet-BS8）；&gt;80% 算子变快，&lt;10% 变慢（调和的代价）</td>
+          </tr>
+          <tr>
+            <td>编译时间</td>
+            <td>多数推理程序数小时内（Ryzen 7950X3D）；靠代价模型，不做 Ansor 式逐算子实测调参</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        ResNet / NeRF 会自动让大激活少动、让小卷积核或权重在核间转；LLM 则倾向让巨大权重驻核、转较小的输入——都是同一套权衡长出来的，不是手写规则。
+      </p>
+
+      <h3>算子内搜索空间（Figure 17–18）</h3>
+      <p>
+        T10 的 Pareto 集里几乎总能找到又比 PopART 快、又更省内存的点。Roller 总想用满每核本地内存找最快计划，但 VGM 占了一截，上限更低，也不能在算子之间做全局交换。过滤把 10<sup>19</sup> 量级空间收到 10<sup>4</sup>，代价模型再收到几十个 Pareto 点。
+      </p>
+
+      <h3>核数扩展（Figure 21）</h3>
+      <p>
+        用 V-IPU 把板上 2/4 颗 IPU 暴露成 2944 / 5888 核的「单芯片」，片间 160 GB/s；也用编译器限制核数模拟更小芯片。T10 在各核数上都快于 Roller，核间传输随核数扩展得更好。不少小 batch 场景，T10 用一半核就能达到 Roller 全核的 2×。多芯片时有效核间带宽因 IPU-Link 下降 26–33%，Roller 的时间甚至可能变差（ResNet BS-1），T10 的传输开销不随片间变差而恶化。
+      </p>
+
+      <h3>对照 A100 + TensorRT（Figure 22–23）</h3>
+      <p>
+        两颗芯片都是 7nm、峰值 FLOPS 接近。小 batch 时 IPU+T10 可快至 <strong>2.44×</strong>：吃的是 896 MB 片上内存，A100 被 HBM 卡住。batch 变大后变成算力屋顶，IPU 250 TFLOPS 低于 A100 312，且片上更满、通信权衡空间变小，IPU 会落后。作者的判断是：核间互连芯片更适合延迟敏感、小 batch 的推理，前提是编译器真的用上片上内存。
+      </p>
+      <p>
+        LLM：整模装不进单颗 IPU，所以跑子集层（OPT 1.3B–13B、Llama2 7B/13B、RetNet 1.3B）。层间中间数据很小（Llama2-13B 每 token 约 131 KB），流水线多芯片时片间开销可忽略，单芯片数字可以外推。小 batch 上 IPU+T10 相对 A100 最高 <strong>16.38×</strong>（平均 3.10×）：A100 的 40 MB 全局 cache 塞不下一个大算子，参数要从 HBM 反复加载。大 batch 再次变成算力比较。
+      </p>
+
+      <h3>如果给 IPU 加上 HBM（Figure 24，仿真）</h3>
+      <p>
+        真实 IPU 片外只有 8 GB/s，单芯片服务 LLM 会卡在载入参数。作者按 roofline 插入延迟来仿真不同 HBM 带宽，并做 double buffering（执行 596 MB / 预取 298 MB）。两种策略：Single Op（算一个、预取下一个）与 Inter Op（一组算子一起预取，组内用 T10 的算子间调度）。HBM 很窄时大家都被载入卡住，T10 与 Roller 接近；带宽升高后 T10 的算子内计划开始领先。Inter Op 在低带宽时更好，因为不同计算强度的算子可以互相填预取空隙；带宽足够高之后组内抢片上容量，Inter Op 会略慢于 Single Op。
+      </p>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 相关工作、边界与可带走的判断</h2>
+
+      <h3>作者自己划的位置</h3>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>DL 编译器</h4>
+          <p>IR 仍是算子图 + 张量表达式（TVM / Halide / Tensor Comprehensions 一路）。计算模型从 load-compute-store 换成 compute-shift。tiling、polyhedral、稀疏等共享内存技术可以正交叠加（融合、packing、iteration batching）。</p>
+        </div>
+        <div class="tile">
+          <h4>分布式切分</h4>
+          <p>JAX / PartIR / GSPMD / Megatron / Alpa / FlexFlow / Tofu 是节点级 SPMD：切完再通信，复制换本地完整性。T10 是芯片内、步级交错，通信模式是旋转环而不是一次性集合通信。</p>
+        </div>
+        <div class="tile">
+          <h4>Dataflow</h4>
+          <p>DISTAL / Tenet 要用户写 dataflow 计划；SambaNova 混模型并行与流水线，延迟和复制都会上去。T10 面向上千全互连张量核，自动编端到端 DNN，比固定脉动阵列更通用。</p>
+        </div>
+      </div>
+
+      <h3>未来工作里已经点名的延伸</h3>
+      <ul>
+        <li><strong>多芯片</strong>：同一套容量–通信权衡可以拿到片间，让集群用更少芯片跑更大模型。</li>
+        <li><strong>新 GPU</strong>：Hopper 把 SM 连成 thread block cluster，减少片外访问。T10 的 shift 调度可以迁过去，只是互连不再是全连接、带宽也不对称。</li>
+        <li><strong>核间芯片 + HBM</strong>：SambaNova 已有带 HBM 的产品；IPU 也可以把 HBM 控制器挂到片上互连，用与 shift 相同的投递语义给核送数。</li>
+      </ul>
+
+      <h3>论文没完全收口的边界</h3>
+      <ul>
+        <li><strong>几乎只谈推理</strong>。训练的反向、优化器状态、更大的激活存活区间，会让 idle/active 双计划的内存账本难得多，文中没有实验。</li>
+        <li><strong>LLM 是「若干层」不是整模</strong>。整模数字靠流水线外推；真实多芯片负载均衡、pipeline bubble、片间与片内调度如何分层，仍是开放问题。</li>
+        <li><strong>HBM 实验是仿真</strong>。延迟按 roofline 插入，没有真实控制器、排队、地址映射。</li>
+        <li><strong>卷积代价模型不准</strong>，依赖厂商闭源 kernel。可移植性绑在「单核 compute 模板 + 可拟合的通信」上；换一台互连拓扑不是全连接的芯片，旋转环可能对不上物理链路，需要另做路由或改抽象。</li>
+        <li><strong>Sort 等非张量表达式算子绕开</strong>。动态 shape、稀疏、MoE 专家路由这类不规则通信，compute-shift 的「可对齐旋转」假设会裂。</li>
+        <li><strong>编译时间数小时</strong>对生产部署偏重；虽然约束可换速度，但文中「近优」是延迟意义上的，不是每次都要重编的 CI 友好。</li>
+      </ul>
+
+      <div class="callout teal">
+        <strong>可带走的判断。</strong>核间互连加速器输给 GPU，常常不是算力不够，而是软件还在用全局内存的心智模型。T10 把「分布式片上内存」收成三个可搜索的整数向量（空间切、时间切、步长），再加一条很薄的贪心内存调和。这套抽象对 IPU 这类全连接 scratchpad 集群特别贴；对 GPU SM 簇、对带 HBM 的 dataflow 芯片，值得问的下一问不是「要不要 tiling」，而是「旋转环的物理代价函数怎么写」。若你在做片上 SRAM 池化或核间 DMA 调度，rTensor 的 idle/active 双计划比「把 SRAM 当软件管理的 cache」更接近这篇论文真正想卖的东西。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 SOSP ’24 论文与 arXiv:2408.04808v2。图表为便于阅读的结构重绘，数字以原文评测为准。
+    </footer>
+  </div>
+</body>
+</html>

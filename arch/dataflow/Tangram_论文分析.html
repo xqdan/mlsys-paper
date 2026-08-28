@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tangram 论文分析 | ASPLOS 2019</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .num { font-variant-numeric: tabular-nums; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 6px; }
+    .fig-row .fig { margin: 0; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">ASPLOS 2019</span>
+        <span class="badge">NN 加速器 · 粗粒度数据流</span>
+        <span class="badge">Tiled / 层内并行 / 层间流水</span>
+        <span class="badge ok">Stanford + Tsinghua + Google</span>
+        <span class="badge ok">硬件几乎不变，改的是映射</span>
+        <span class="badge ok">DOI 10.1145/3297858.3304014</span>
+      </div>
+      <h1>把分布式 SRAM 当成理想共享缓冲：粗粒度数据流才是 tiled 加速器的缩放瓶颈</h1>
+      <p class="subtitle">Tangram: Optimized Coarse-Grained Dataflow for Scalable NN Accelerators</p>
+      <p class="meta">
+        <strong>作者：</strong>Mingyu Gao（高明宇）<sup>∗†</sup>、Xuan Yang<sup>∗</sup>、Jing Pu<sup>∗‡</sup>、Mark Horowitz<sup>∗</sup>、Christos Kozyrakis<sup>∗‡</sup><br />
+        <strong>单位：</strong>Stanford University<sup>∗</sup> · Tsinghua University<sup>†</sup> · Google<sup>‡</sup><br />
+        <strong>原文：</strong><a href="https://doi.org/10.1145/3297858.3304014" target="_blank" rel="noopener">ACM DL</a>
+        · PDF <a href="https://people.iiis.tsinghua.edu.cn/~gaomy/pubs/tangram.asplos19.pdf" target="_blank" rel="noopener">清华副本</a>
+        · 幻灯 <a href="http://people.iiis.tsinghua.edu.cn/~gaomy/pubs/slides/tangram.asplos19.slides.pdf" target="_blank" rel="noopener">ASPLOS slides</a>
+        · 搜索工具 <a href="https://github.com/stanford-mast/nn_dataflow" target="_blank" rel="noopener">nn_dataflow</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">两层并行：引擎内细粒度 vs 瓦片间粗粒度</a></li>
+        <li><a href="#s3">基线 tiled 加速器卡在哪</a></li>
+        <li><a href="#s4">BSD：层内并行时共享缓冲、不复制</a></li>
+        <li><a href="#s5">ALLO：层间流水时细粒度转发 fmap</a></li>
+        <li><a href="#s6">复杂 DAG：二维分区与启发式映射</a></li>
+        <li><a href="#s7">实现：少量硬件 + 搜索 + 编译</a></li>
+        <li><a href="#s8">评测：相对单片、相对 tiled 基线</a></li>
+        <li><a href="#s9">相关工作与边界</a></li>
+        <li><a href="#s10">对数据流编译与映射搜索的含义</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        网络变大、层数变多之后，加速器不能靠把单个 PE 阵列无限做大。Tangram 的主张是：<strong>同样的 tiled 硬件，粗粒度数据流决定缩放效率</strong>——层内并行用缓冲共享（BSD）消掉瓦片间复制；层间流水用交替循环次序（ALLO）把中间 fmap 按子集立刻转给下一层；再配上面向 fork/join DAG 的二维分区。相对已经优化过的 tiled 基线，平均 <strong>2.0× 性能、能耗 −45%</strong>。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">2.0×</div>
+          <div class="k">相对同硬件 tiled 基线的平均加速；相对单片阵列 7.2×</div>
+        </div>
+        <div>
+          <div class="n">−45%</div>
+          <div class="k">相对 tiled 基线的系统能耗（相对单片 −41%）</div>
+        </div>
+        <div>
+          <div class="n">6107</div>
+          <div class="k">GOPS（28 nm、88 mm²）；含 DRAM 439.8 GOPS/W，芯片 936.4 GOPS/W</div>
+        </div>
+        <div>
+          <div class="n">67%</div>
+          <div class="k">缩放到 1024 引擎 / 65536 PE 时相对基线的能耗节省上限</div>
+        </div>
+      </div>
+      <div class="callout">
+        这篇工作<strong>不发明新的 PE 微架构</strong>。每个瓦片仍是 Eyeriss 式 8×8 PE + 32 kB SRAM；细粒度映射沿用 row-stationary 和 Yang 等的循环分块。贡献几乎全在<strong>瓦片之间</strong>怎么搬数据、怎么切层、怎么搜映射。作者把这套软件优化的能效提升，类比为提前两代工艺节点。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 两层并行：引擎内细粒度 vs 瓦片间粗粒度</h2>
+      <p>
+        CONV / FC 可写成对 batch <em>N<sub>b</sub></em>、输入通道 <em>N<sub>i</sub></em>、输出通道 <em>N<sub>o</sub></em> 的三重循环：每个 ofmap 是全部 ifmap 与对应滤波器卷积再累加。数据远大于片上 SRAM，所以效率取决于循环分块、重排、以及 PE 阵列上的空间映射。Eyeriss 把这一层叫 dataflow；Tangram 把它拆成两层。
+      </p>
+      <div class="eq">
+        O[b][o] = Σ<sub>i=0</sub><sup>N<sub>i</sub>−1</sup> I[b][i] ∗ W[o][i] + B[o]
+        &nbsp;&nbsp;&nbsp; 0 ≤ o &lt; N<sub>o</sub>,&nbsp; 0 ≤ b &lt; N<sub>b</sub>
+      </div>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>细粒度：一个引擎内部</h4>
+          <p>2D 卷积映射到 PE 阵列（row-stationary），寄存器捕获局部性；SRAM 用循环分块吃复用。类比 SIMD / ILP。单引擎做大之后，组播延迟、总线能耗、缓冲到远端 PE 的距离都会变差；小层也喂不满大阵列。</p>
+        </div>
+        <div class="tile">
+          <h4>粗粒度：多个引擎之间</h4>
+          <p>瓦片经 NoC 互连并接到片外通道。层内并行：同一层切到多个引擎；层间流水：不同层占不同区域，中间 fmap 片上转发。类比多核。Tangram 只优化这一层。</p>
+        </div>
+      </div>
+      <p>
+        单片大阵列（论文里 128×128 PE + 8 MB 全局缓冲）在组播总线上可烧掉最多约 20% 能耗，也撑不起层间流水所需的灵活转发。Tiled 是缩放的自然形态：DaDianNao、Neurocube、TETRIS、ScaleDeep 都走这条路。问题是，已有粗粒度方案在<strong>复制</strong>和<strong>流水填充</strong>上浪费了本该用来缩放的 SRAM 与利用率。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="细粒度与粗粒度两层并行">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="16" width="430" height="178" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="231" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">细粒度 · 一个引擎内部</text>
+            <rect x="40" y="60" width="70" height="48" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="118" y="60" width="70" height="48" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="196" y="60" width="70" height="48" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="274" y="60" width="70" height="48" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="231" y="88" text-anchor="middle" font-size="11" fill="#7c2d12">8×8 PE · row-stationary</text>
+            <rect x="40" y="122" width="382" height="50" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="231" y="142" text-anchor="middle" font-size="12" fill="#9a3412">32 kB SRAM · 循环分块吃复用</text>
+            <text x="231" y="160" text-anchor="middle" font-size="11" fill="#78716c">Tangram 不改这一层</text>
+
+            <rect x="474" y="16" width="430" height="178" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="689" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">粗粒度 · 瓦片之间（本文）</text>
+            <rect x="500" y="60" width="88" height="56" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="544" y="84" text-anchor="middle" font-size="11" fill="#134e4a">引擎</text>
+            <text x="544" y="102" text-anchor="middle" font-size="10" fill="#0f766e">BSD 旋转</text>
+            <rect x="604" y="60" width="88" height="56" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="648" y="84" text-anchor="middle" font-size="11" fill="#134e4a">引擎</text>
+            <text x="648" y="102" text-anchor="middle" font-size="10" fill="#0f766e">共享缓冲</text>
+            <rect x="708" y="60" width="88" height="56" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="752" y="84" text-anchor="middle" font-size="11" fill="#134e4a">引擎</text>
+            <text x="752" y="102" text-anchor="middle" font-size="10" fill="#0f766e">ALLO 转发</text>
+            <rect x="812" y="60" width="70" height="56" rx="4" fill="#ecfdf5" stroke="#5eead4"/>
+            <text x="847" y="92" text-anchor="middle" font-size="11" fill="#115e59">NoC</text>
+            <rect x="500" y="132" width="382" height="40" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="691" y="157" text-anchor="middle" font-size="12" fill="#115e59">层内并行不复制 · 层间流水按子集交接 fmap</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1. 两层并行。下面那一层（瓦片间）才是 Tangram 的搜索与数据流对象；PE 阵列内部仍用 Eyeriss 式 row-stationary。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 基线 tiled 加速器卡在哪</h2>
+      <p>
+        基线硬件：16×16 个 Eyeriss 式引擎，合计 16384 PE、8 MB SRAM。细粒度用 row-stationary；缓冲管理用 Yang 等的循环变换。中间 fmap 若能整段落在片上，切换层时不回写 DRAM。层内并行沿用 TETRIS 的混合 output + fmap 切分；共享输入一次从内存取出再广播，输出在引擎间累加后再写回（ScaleDeep 式）。层间流水把网络切成<strong>段</strong>，按运算量比例给各层分配引擎；只有段首输入和段尾输出走片外。权重若整网能钉在 SRAM 里，支持 model pinning。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="单片阵列与 tiled 加速器对比">
+          <rect x="20" y="28" width="280" height="244" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+          <text x="160" y="56" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412" font-family="Segoe UI, sans-serif">单片引擎 M</text>
+          <rect x="44" y="76" width="232" height="88" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text x="160" y="116" text-anchor="middle" font-size="12" fill="#7c2d12" font-family="Segoe UI, sans-serif">128×128 PE 阵列</text>
+          <text x="160" y="138" text-anchor="middle" font-size="11" fill="#9a3412" font-family="Segoe UI, sans-serif">组播总线长 · 最多 20% 能耗</text>
+          <rect x="44" y="180" width="232" height="40" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+          <text x="160" y="205" text-anchor="middle" font-size="12" fill="#9a3412" font-family="Segoe UI, sans-serif">8 MB 全局 SRAM（可分 bank）</text>
+          <text x="160" y="252" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">复用好，但不能钉多套权重</text>
+
+          <rect x="340" y="28" width="560" height="244" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+          <text x="620" y="56" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59" font-family="Segoe UI, sans-serif">Tiled：16×16 引擎 + NoC（B / T 同硬件）</text>
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="368" y="76" width="96" height="72" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="416" y="104" text-anchor="middle" font-size="11" fill="#134e4a">8×8 PE</text>
+            <text x="416" y="122" text-anchor="middle" font-size="10" fill="#0f766e">32 kB SRAM</text>
+            <rect x="480" y="76" width="96" height="72" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="528" y="104" text-anchor="middle" font-size="11" fill="#134e4a">8×8 PE</text>
+            <text x="528" y="122" text-anchor="middle" font-size="10" fill="#0f766e">32 kB SRAM</text>
+            <rect x="592" y="76" width="96" height="72" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="640" y="104" text-anchor="middle" font-size="11" fill="#134e4a">…</text>
+            <text x="640" y="122" text-anchor="middle" font-size="10" fill="#0f766e">共 256 瓦片</text>
+            <rect x="704" y="76" width="168" height="72" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="788" y="104" text-anchor="middle" font-size="11" fill="#134e4a">NoC + 4 通道</text>
+            <text x="788" y="122" text-anchor="middle" font-size="10" fill="#0f766e">LPDDR4 · 25.6 GB/s</text>
+          </g>
+          <rect x="368" y="168" width="504" height="78" rx="4" fill="#ecfdf5" stroke="#5eead4"/>
+          <text x="620" y="196" text-anchor="middle" font-size="12" fill="#115e59" font-family="Segoe UI, sans-serif">层内并行：切 batch / fmap / 输入 / 输出通道</text>
+          <text x="620" y="220" text-anchor="middle" font-size="12" fill="#115e59" font-family="Segoe UI, sans-serif">层间流水：一段网络同时占不同区域，中间 fmap 片上转发</text>
+        </svg>
+      </div>
+      <p class="figcap">图 2. 三种系统用同一套资源（16384 PE、8 MB SRAM）。差异只在组织方式和粗粒度数据流。B 与 T 硬件同构；T 换 BSD + ALLO + DAG 启发式。</p>
+
+      <h3>3.1 层内：至少一类数据必须复制</h3>
+      <table>
+        <thead>
+          <tr><th>切分方式</th><th>各引擎拿到的切片</th><th>必须共享因而会被复制的数据</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Batch 并行</td><td>不同样本</td><td>权重</td></tr>
+          <tr><td>Fmap 并行</td><td>特征图空间子块</td><td>权重</td></tr>
+          <tr><td>Output 并行</td><td>ofmap 子集（及对应权重）</td><td>ifmap</td></tr>
+          <tr><td>Input 并行</td><td>ifmap 子集</td><td>ofmap 部分和</td></tr>
+          <tr><td>混合（TETRIS）</td><td>上述组合</td><td>仍至少一类共享</td></tr>
+        </tbody>
+      </table>
+      <p>
+        基线把每个引擎缓冲当私有缓存，共享数据各留一份。64 kB 数据在 16×16 瓦片上复制就是 16 MB 的有效容量浪费。复制一多，层间 fmap 更塞不进片上，被迫回 DRAM；芯片若靠加大 SRAM 来补，面积先炸。
+      </p>
+
+      <h3>3.2 层间：整张 fmap 双缓冲 + 填/排空</h3>
+      <p>
+        先前流水工作多假设整网能一次铺上芯片。大网络只能分段。段内相邻层要对整张中间 fmap 做双缓冲以同时读写，容量是几十到几百 MB 量级（见表 2），再叠加层内复制就更糟。段切换时后层要等前层产出，填/排空让利用率掉下去。更早的方案还只覆盖线性链，Inception / ResNet / LSTM 这种 fork–join DAG 不在射程内。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="层间整张 fmap 双缓冲与填排空">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="16" width="430" height="198" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="231" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">基线层间流水：整张 fmap 双缓冲</text>
+            <rect x="40" y="60" width="110" height="70" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="95" y="90" text-anchor="middle" font-size="12" fill="#7c2d12">L-1</text>
+            <text x="95" y="110" text-anchor="middle" font-size="10" fill="#9a3412">写完整图</text>
+            <rect x="170" y="56" width="140" height="78" rx="6" fill="#fecaca" stroke="#ef4444"/>
+            <text x="240" y="82" text-anchor="middle" font-size="12" fill="#991b1b">Buf A 整张</text>
+            <text x="240" y="102" text-anchor="middle" font-size="12" fill="#991b1b">Buf B 整张</text>
+            <text x="240" y="120" text-anchor="middle" font-size="10" fill="#b91c1c">几十–几百 MB</text>
+            <rect x="332" y="60" width="90" height="70" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="377" y="90" text-anchor="middle" font-size="12" fill="#7c2d12">L-2</text>
+            <text x="377" y="110" text-anchor="middle" font-size="10" fill="#9a3412">等整图</text>
+            <text x="231" y="168" text-anchor="middle" font-size="11" fill="#9a3412">填 / 排空：后层空等前层产完</text>
+            <text x="231" y="190" text-anchor="middle" font-size="11" fill="#78716c">再叠加层内复制 → SRAM 先炸</text>
+
+            <rect x="474" y="16" width="430" height="198" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="689" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">ALLO：只缓冲正在交接的子集</text>
+            <rect x="500" y="64" width="90" height="56" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="545" y="90" text-anchor="middle" font-size="11" fill="#134e4a">L-1 产 O0</text>
+            <rect x="608" y="64" width="90" height="56" rx="6" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="653" y="90" text-anchor="middle" font-size="11" fill="#134e4a">一份子集</text>
+            <rect x="716" y="64" width="90" height="56" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="761" y="90" text-anchor="middle" font-size="11" fill="#134e4a">L-2 立刻吃</text>
+            <rect x="824" y="64" width="56" height="56" rx="6" fill="#ecfdf5" stroke="#5eead4"/>
+            <text x="852" y="96" text-anchor="middle" font-size="11" fill="#115e59">O1…</text>
+            <text x="689" y="152" text-anchor="middle" font-size="12" fill="#115e59">填排空按通道分块 t 再缩一档</text>
+            <text x="689" y="176" text-anchor="middle" font-size="11" fill="#0f766e">ofmap 仍须整缓冲 → 只能隔层用 ALLO</text>
+            <text x="689" y="196" text-anchor="middle" font-size="11" fill="#64748b">ALLO 用不上的那一半，靠 BSD 消复制</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3. 层间流水的容量病，以及 ALLO 把「等整张图」改成「等一个 fmap 子集」。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. BSD：层内并行时共享缓冲、不复制</h2>
+      <p>
+        Buffer Sharing Dataflow 的目标：把分散的私有 SRAM <strong>逻辑上合成一块理想共享缓冲</strong>——容量按总和计、正在算的数据永远在本引擎本地、远程只跟邻居换数据。做法是两步：计算错位（skew）+ 数据旋转（rotation）。
+      </p>
+      <div class="callout teal">
+        以 output 并行为例。基线：所有引擎同一时刻拿同一批 ifmap，各算不同 ofmap，ifmap 复制 <em>p<sub>o</sub></em> 份。BSD：引擎 <em>x</em> 先从邻近内存通道取不同的 ifmap 子集（累加可交换，错位不影响正确性）；算完后把 ifmap 在引擎间旋转一轮，直到每个引擎都见过全部共享数据。
+      </div>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BSD 旋转示意">
+          <text x="230" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412" font-family="Segoe UI, sans-serif">基线 T=1：同一批 ifmap 复制三份</text>
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="30" y="48" width="130" height="86" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="95" y="78" text-anchor="middle" font-size="11" fill="#7c2d12">E0  ofmap 0:2</text>
+            <text x="95" y="100" text-anchor="middle" font-size="11" fill="#9a3412">I[0:3] 副本</text>
+            <rect x="175" y="48" width="130" height="86" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="240" y="78" text-anchor="middle" font-size="11" fill="#7c2d12">E1  ofmap 2:4</text>
+            <text x="240" y="100" text-anchor="middle" font-size="11" fill="#9a3412">I[0:3] 副本</text>
+            <rect x="320" y="48" width="130" height="86" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="385" y="78" text-anchor="middle" font-size="11" fill="#7c2d12">E2  ofmap 4:6</text>
+            <text x="385" y="100" text-anchor="middle" font-size="11" fill="#9a3412">I[0:3] 副本</text>
+          </g>
+          <text x="690" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e" font-family="Segoe UI, sans-serif">BSD：错位取数，再邻居旋转</text>
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="500" y="48" width="120" height="86" rx="6" fill="#ecfdf5" stroke="#0f766e"/>
+            <text x="560" y="74" text-anchor="middle" font-size="11" fill="#134e4a">E0  T=1</text>
+            <text x="560" y="96" text-anchor="middle" font-size="11" fill="#0f766e">I[0:3]</text>
+            <text x="560" y="116" text-anchor="middle" font-size="10" fill="#115e59">T=2 ← I[3:6]</text>
+            <rect x="640" y="48" width="120" height="86" rx="6" fill="#ecfdf5" stroke="#0f766e"/>
+            <text x="700" y="74" text-anchor="middle" font-size="11" fill="#134e4a">E1  T=1</text>
+            <text x="700" y="96" text-anchor="middle" font-size="11" fill="#0f766e">I[3:6]</text>
+            <text x="700" y="116" text-anchor="middle" font-size="10" fill="#115e59">T=2 ← I[6:9]</text>
+            <rect x="780" y="48" width="120" height="86" rx="6" fill="#ecfdf5" stroke="#0f766e"/>
+            <text x="840" y="74" text-anchor="middle" font-size="11" fill="#134e4a">E2  T=1</text>
+            <text x="840" y="96" text-anchor="middle" font-size="11" fill="#0f766e">I[6:9]</text>
+            <text x="840" y="116" text-anchor="middle" font-size="10" fill="#115e59">T=2 ← I[0:3]</text>
+            <path d="M620 90 L640 90" stroke="#0f766e" stroke-width="1.6" marker-end="url(#arr)"/>
+            <path d="M760 90 L780 90" stroke="#0f766e" stroke-width="1.6"/>
+            <path d="M840 148 C840 168 560 168 560 148" fill="none" stroke="#0f766e" stroke-width="1.4" stroke-dasharray="4 3"/>
+          </g>
+          <text x="460" y="176" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f" font-family="Segoe UI, sans-serif">二维混合并行：权重纵向转完当前 fmap，再把 ifmap 横向转一格</text>
+          <rect x="80" y="196" width="760" height="60" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+          <text x="460" y="222" text-anchor="middle" font-size="12" fill="#334155" font-family="Segoe UI, sans-serif">共享数据按 2D 铺在引擎阵列上 · 旋转只走邻居 hop · 等价最优 NUCA，但是静态调度、应用可知</text>
+          <text x="460" y="244" text-anchor="middle" font-size="12" fill="#334155" font-family="Segoe UI, sans-serif">只要全部引擎的 SRAM 合计能放下 ifmap，换层时不必回 DRAM</text>
+        </svg>
+      </div>
+      <p class="figcap">图 4. BSD 把“每引擎一份副本”换成“全集分片 + 旋转”。混合并行时 ifmap 与权重可同时共享，旋转走两个轴。</p>
+
+      <h3>4.1 循环变换模型</h3>
+      <p>
+        无 BSD 时，引擎缓冲能装 <em>N<sub>i</sub>/t<sub>i</sub></em> 个 ifmap、<em>N<sub>o</sub>/t<sub>o</sub></em> 个 ofmap、batch 的 1/<em>t<sub>b</sub></em>。BSD 在 output 并行下让 <em>p<sub>o</sub></em> 个引擎各持不同 ifmap，ifmap 分块因子除以 <em>p<sub>o</sub></em>，并插入由引擎下标 <em>x</em> 错位的旋转环 <em>i″<sub>0</sub></em>。因为旋转环在 ofmap 环内侧，这批 ifmap 会在片上转 <em>r = t<sub>o</sub></em> 轮，被全部 ofmap 复用。
+      </p>
+      <div class="eq">
+        i<sub>0</sub> = ⌊T / (r p)⌋ · p + (x + T mod p) mod p
+        &nbsp;&nbsp;&nbsp; 0 ≤ T &lt; ⌈t / p⌉ · r · p
+      </div>
+      <p>
+        <em>N</em> 份共享数据、<em>p</em> 个引擎、每引擎存 1/<em>t</em>，外层决定旋转轮数 <em>r</em>。混合并行时各类共享数据的下标独立算。编译器据此静态生成访存顺序，运行时不必动态调度。
+      </p>
+
+      <h3>4.2 收益从哪来</h3>
+      <ul>
+        <li><strong>少取 ofmap。</strong> 无 BSD 时 ofmap 被取 <em>t<sub>i</sub></em> 次，每次只碰到 <em>N<sub>i</sub>/t<sub>i</sub></em> 个 ifmap；有 BSD 后每次碰到的 ifmap 多 <em>p<sub>o</sub></em> 倍，片外取次数降为 <em>t<sub>i</sub>/p<sub>o</sub></em>。</li>
+        <li><strong>换层复用。</strong> 中间 fmap 只要能塞进全部引擎 SRAM 的总和，就不用为“每引擎一份私有副本”而回写。</li>
+        <li><strong>等价理想大缓冲。</strong> 正在算的数据始终本地；旋转走邻居，NoC hop 最少。作者明确类比最优 NUCA，只是用网络结构做静态迁移，而不是硬件缓存协议。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. ALLO：层间流水时细粒度转发 fmap</h2>
+      <p>
+        层间流水能提高小层在大芯片上的利用率，并让中间 fmap 走 NoC 而不是 DRAM。代价是缓冲整张 fmap，以及长填/排空。简单补丁是把 batch 再切成 <em>t<sub>b</sub></em> 份：下一层不必等完整 batch。缓冲和填排空都缩到 1/<em>t<sub>b</sub></em>，但 <em>t<sub>b</sub></em> 受推理 batch 限制，权重还要取 <em>t<sub>b</sub></em> 次，实际只能取 4–8，省得有限。
+      </p>
+      <p>
+        Alternate Layer Loop Ordering 再往下切一档：<strong>不等一个样本的全部 fmap，只等一个 fmap 子集</strong>。若 L-1 按 ofmap 顺序产出，L-2 按同样顺序消费 ifmap，L-2 在第一个 fmap 就绪后就能开工；片上只需保留正在交接的那一份，而不是整张图。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ALLO 相邻层循环次序">
+          <rect x="20" y="20" width="430" height="180" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+          <text x="235" y="46" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412" font-family="Segoe UI, sans-serif">L-1：ofmap 环在外（顺序产出）</text>
+          <text x="235" y="78" text-anchor="middle" font-size="12" fill="#7c2d12" font-family="Segoe UI, sans-serif">for b · for o (×4) · for i · 计算</text>
+          <rect x="50" y="96" width="90" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text x="95" y="119" text-anchor="middle" font-size="11" fill="#7c2d12" font-family="Segoe UI, sans-serif">O 子集 0</text>
+          <rect x="155" y="96" width="90" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text x="200" y="119" text-anchor="middle" font-size="11" fill="#7c2d12" font-family="Segoe UI, sans-serif">O 子集 1</text>
+          <rect x="260" y="96" width="90" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+          <text x="305" y="119" text-anchor="middle" font-size="11" fill="#9a3412" font-family="Segoe UI, sans-serif">O 子集 2</text>
+          <rect x="365" y="96" width="70" height="36" rx="4" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="400" y="119" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">…</text>
+          <text x="235" y="168" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">分块因子与下一层 ifmap 环对齐</text>
+
+          <rect x="470" y="20" width="430" height="180" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+          <text x="685" y="46" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59" font-family="Segoe UI, sans-serif">L-2：ifmap 环在外（立刻消费）</text>
+          <text x="685" y="78" text-anchor="middle" font-size="12" fill="#134e4a" font-family="Segoe UI, sans-serif">for b · for i (×4) · for o · 计算</text>
+          <rect x="500" y="96" width="90" height="36" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+          <text x="545" y="119" text-anchor="middle" font-size="11" fill="#134e4a" font-family="Segoe UI, sans-serif">I 子集 0</text>
+          <rect x="605" y="96" width="90" height="36" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+          <text x="650" y="119" text-anchor="middle" font-size="11" fill="#115e59" font-family="Segoe UI, sans-serif">I 子集 1</text>
+          <rect x="710" y="96" width="90" height="36" rx="4" fill="#ecfdf5" stroke="#5eead4"/>
+          <text x="755" y="119" text-anchor="middle" font-size="11" fill="#0f766e" font-family="Segoe UI, sans-serif">等子集 2</text>
+          <text x="685" y="168" text-anchor="middle" font-size="11" fill="#0f766e" font-family="Segoe UI, sans-serif">缓冲一份正在转发的 fmap，而不是整张图</text>
+        </svg>
+      </div>
+      <p class="figcap">图 5. ALLO 要求相邻层对共享 fmap 使用相同的顺序访问模式（红字对齐的外层通道环），分块因子一致。L-2 的 ofmap 仍会被多次更新，必须整缓冲——所以 ALLO 只能隔层使用。</p>
+
+      <h3>5.1 只能隔层用，但省得比切 batch 多</h3>
+      <p>
+        CONV/FC 不能让 ifmap 和 ofmap 同时顺序访问。一段里有 ℓ 层、ℓ−1 份中间数据时，仍有 ⌊(ℓ−1)/2⌋ 份必须完整延迟并缓冲。两层一段是特例：中间数据可以完全不整缓冲。通道数通常远大于推理 batch（<em>N<sub>i</sub>, N<sub>o</sub> ≫ N<sub>b</sub></em>），所以 ALLO 的 <em>t<sub>i</sub>/t<sub>o</sub></em> 比单纯 <em>t<sub>b</sub></em> 切得更细，填排空和容量都按 <em>t</em> 再缩一档。
+      </p>
+      <div class="callout navy">
+        ALLO 管层间次序与片外顶层循环；BSD 在顶层之下再加旋转环。二者正交。ALLO 用不上的那一半层，中间 fmap 必须整放——这时 BSD 消复制，整网容量才压得下来。
+      </div>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 复杂 DAG：二维分区与启发式映射</h2>
+      <p>
+        ResNet、Inception、LSTM 不是单链。先前 1D 分配（每层占阵列若干列、数据水平流过）对非相邻转发和粗细不均的层都不合适。Tangram 改成 <strong>2D 之字形分区</strong>：当前行剩不下就折到下一行。分区更细，层的运算量更容易对齐成相近的流水级延迟；非相邻区域（如 R0→R3）的 NoC 距离也更短。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="1D 列分配与 2D 之字形分区">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="16" width="430" height="248" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="231" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">1D：每层占若干列，水平流过</text>
+            <rect x="40" y="64" width="70" height="160" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="75" y="144" text-anchor="middle" font-size="12" fill="#7c2d12">L0</text>
+            <rect x="124" y="64" width="50" height="160" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="149" y="144" text-anchor="middle" font-size="12" fill="#9a3412">L1</text>
+            <rect x="188" y="64" width="110" height="160" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="243" y="136" text-anchor="middle" font-size="12" fill="#7c2d12">L2 很宽</text>
+            <text x="243" y="156" text-anchor="middle" font-size="10" fill="#9a3412">细层被拉长</text>
+            <rect x="312" y="64" width="50" height="160" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="337" y="144" text-anchor="middle" font-size="12" fill="#9a3412">L3</text>
+            <rect x="376" y="64" width="50" height="160" rx="4" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="401" y="144" text-anchor="middle" font-size="11" fill="#57534e">空</text>
+            <text x="231" y="246" text-anchor="middle" font-size="11" fill="#9a3412">非相邻转发要横跨整行 · 延迟难对齐</text>
+
+            <rect x="474" y="16" width="430" height="248" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="689" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">2D 之字形：行满则折到下一行</text>
+            <rect x="500" y="60" width="120" height="70" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="560" y="90" text-anchor="middle" font-size="12" fill="#134e4a">R0</text>
+            <text x="560" y="108" text-anchor="middle" font-size="10" fill="#0f766e">fork 共享输入</text>
+            <rect x="632" y="60" width="120" height="70" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="692" y="90" text-anchor="middle" font-size="12" fill="#134e4a">R1</text>
+            <rect x="764" y="60" width="112" height="70" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="820" y="90" text-anchor="middle" font-size="12" fill="#134e4a">R2</text>
+            <text x="820" y="108" text-anchor="middle" font-size="10" fill="#0f766e">折行</text>
+            <rect x="500" y="148" width="180" height="70" rx="4" fill="#ecfdf5" stroke="#14b8a6"/>
+            <text x="590" y="178" text-anchor="middle" font-size="12" fill="#115e59">R3 接 R0</text>
+            <text x="590" y="196" text-anchor="middle" font-size="10" fill="#0f766e">NoC 更近</text>
+            <rect x="696" y="148" width="180" height="70" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="786" y="178" text-anchor="middle" font-size="12" fill="#134e4a">R4 · 运算量对齐</text>
+            <text x="786" y="196" text-anchor="middle" font-size="10" fill="#0f766e">流水级延迟相近</text>
+            <text x="689" y="244" text-anchor="middle" font-size="11" fill="#115e59">区域是链或树，不能多入边冲突；一层输出独占或回 DRAM</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6. 二维之字形分区。fork 共享输入的层放进同一段只取一次；映射规则禁止一个区域同时被两条邻居依赖拖住。</p>
+
+      <h3>6.1 选段</h3>
+      <p>按 DAG 拓扑序往当前段里加层，但必须与段内已有层共享依赖。依赖可以是：吃段内某层的输出（普通流水），或与另一层共享从片外取的同一份输入（fork 特有）。GoogLeNet inception 里 R0/R1/R3/R5 四路共享输入，放进同一段就只取一次。</p>
+      <p>
+        一层的输出要么被本段消费者独占，要么直接写回内存。只打包一半消费者没有意义——中间结果还是要回 DRAM，不如把消费者收进下一段。LSTM 放宽到<strong>最多一个</strong>消费者可以在另一段（图中 R2），训练时反向层依赖对应正向 fmap，这条放宽让正向仍能流水。
+      </p>
+
+      <h3>6.2 映到区域</h3>
+      <ul>
+        <li>ACT / POOL / 逐元素算子并进前一层 CONV/FC 的区域：无权重、算量小。</li>
+        <li>线性依赖链可共享同一区域，缓冲里顺序放下各层输出，只暴露给唯一后继。LSTM 的 R2 把三个逐元素算子并进 F-gate 的 FC。</li>
+        <li>同一区域顺序执行的层，只允许<strong>一条</strong>来自邻居区域的依赖，作为该区域的时间锚。多条邻居依赖会打架，造成停顿。区域之间可以是链或树，不能是多入边冲突。</li>
+      </ul>
+
+      <h3>6.3 训练</h3>
+      <p>
+        反向 CONV/FC 可改写成不同维度的正向层，BSD 直接套。训练 DAG 更长，用 6.1–6.2 的启发式即可。ALLO 对正向段和反向段都适用。
+      </p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 实现：少量硬件 + 搜索 + 编译</h2>
+      <p>数据流全部静态调度。每个引擎只执行编译器生成的缓冲访问与计算指令，没有动态调度器。</p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>硬件增量很小</h4>
+          <p>缓冲控制器要能向片外和其他引擎的 SRAM 发访问；按式 (2) 错位与旋转；用 ScaleDeep 的 MEMTRACK 跟踪“写够才能读、读够才能覆盖”。按缓冲行传输并预留空行，避免死锁。切分大致均匀则无负载失衡。ALLO 的细粒度转发复用已有层间通路，同步粒度改细即可。DAG 允许一对多转发。</p>
+        </div>
+        <div class="tile">
+          <h4>搜索空间要剪</h4>
+          <p>层内混合并行、段深浅、每层引擎数、片外分块、片上 dataflow、DAG 选段与区域映射，组合爆炸。更深的段少回 DRAM，但每层资源变少、单层 dataflow 变差，填排空也更长。工具：层内穷举；跨层按拓扑序动态规划 + beam search。代价模型沿 Eyeriss / TETRIS / Yang blocking。</p>
+        </div>
+      </div>
+
+      <p>
+        编译器把 ALLO、BSD、单引擎分块三套循环变换嵌成完整嵌套循环，按这次序发访存指令，并在指定点插入同步。数据进本地缓冲后，PE 阵列怎么算并不变，所以同一套编译器可改靶到不同引擎（TPU 类、Cambricon、ScaleDeep 瓦片）。开源搜索器：<code>stanford-mast/nn_dataflow</code>。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三套循环嵌套">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="24" width="280" height="112" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="156" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">外层 ALLO</text>
+            <text x="156" y="80" text-anchor="middle" font-size="12" fill="#7c2d12">层间次序 · 片外顶层循环</text>
+            <text x="156" y="104" text-anchor="middle" font-size="11" fill="#78716c">相邻层对齐 fmap 子集</text>
+            <rect x="320" y="24" width="280" height="112" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="460" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">中层 BSD 旋转环</text>
+            <text x="460" y="80" text-anchor="middle" font-size="12" fill="#134e4a">错位下标 · 邻居 hop</text>
+            <text x="460" y="104" text-anchor="middle" font-size="11" fill="#0f766e">共享数据不复制</text>
+            <rect x="624" y="24" width="280" height="112" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="764" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">内层引擎分块</text>
+            <text x="764" y="80" text-anchor="middle" font-size="12" fill="#334155">row-stationary / Yang blocking</text>
+            <text x="764" y="104" text-anchor="middle" font-size="11" fill="#64748b">PE 怎么算 · 本文不改</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7. 三套循环由外到内嵌在一起，编译器按这次序发访存并插入同步。换一种 PE 阵列只需替换最内层。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 评测：相对单片、相对 tiled 基线</h2>
+      <p>
+        引擎按 Eyeriss 缩放：28 nm、500 MHz、16-bit MAC 面积 0.004 mm² / 1 pJ；RF 与 SRAM 用 McPAT 1.3；NoC 0.61 pJ/bit/hop。默认 8×8 PE、每 PE 64 B RF、32 kB SRAM。芯片预算约 100 mm² → 16×16 引擎。四通道 LPDDR4-3200，24 Gb、25.6 GB/s。组播按每类数据独立总线、每周期 8 个元素（偏乐观）。性能模型对照 zsim + DRAMSim2 的访存轨迹。默认 batch 64，另扫 1–256。
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>网络</th><th>CONV / FC</th><th>Fmap（最大/总计）</th><th>权重（最大/总计）</th><th>拓扑特点</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>AlexNet</td><td>10 / 3</td><td>17.7 / 95.4 MB</td><td>72 / 116 MB</td><td>有 DAG；层中等</td></tr>
+          <tr><td>VGGNet</td><td>13 / 3</td><td>392 / 1842 MB</td><td>196 / 264 MB</td><td>线性；单层极大，BSD 吃 fmap</td></tr>
+          <tr><td>GoogLeNet</td><td>57 / 1</td><td>98 / 453 MB</td><td>2 / 13 MB</td><td>Inception fork，ALLO + 选段</td></tr>
+          <tr><td>ResNet</td><td>155 / 1</td><td>98 / 4319 MB</td><td>5 / 115 MB</td><td>残差 DAG；层多而单层小</td></tr>
+          <tr><td>MLP-M / L</td><td>— / 4</td><td>百 kB 级</td><td>2.7 / 6.1 MB</td><td>线性 FC；可 pinning</td></tr>
+          <tr><td>LSTM-M / L</td><td>— / 4 或 16</td><td>fmap 很小</td><td>4 / 61 MB</td><td>门控 DAG；M 可 pinning，L 仍钉不下</td></tr>
+        </tbody>
+      </table>
+      <p>尺寸按 16-bit 定点、batch 64。CNN 工作集数百 MB；MLP/LSTM 被权重主导、fmap 很小。</p>
+
+      <h3>8.1 主结果：同资源下换数据流</h3>
+      <ul>
+        <li>相对单片 M：平均 <strong>7.2×</strong> 性能、能耗 <strong>−41%</strong>。单片组播总线又慢又耗电；全局大缓冲复用好，但不支持把多层权重同时钉在片上。</li>
+        <li>相对 tiled 基线 B：平均 <strong>2.0×</strong> 性能、能耗 <strong>−45%</strong>。基线死在复制和填排空，CNN 的中间 fmap 尤其把 DRAM 和 NoC 打满。</li>
+        <li>Tangram：<strong>6107.4 GOPS</strong>，面积 88 mm²；含片外 439.8 GOPS/W，仅芯片 936.4 GOPS/W。作者对标 14 nm 的 ScaleDeep，称软件数据流约等于两代工艺。</li>
+        <li>MLP-M/L：tiled 能 pinning，单片不能。LSTM-M：Tangram 压低缓冲需求后才 pinning，层间优化带来约 <strong>4.6×</strong> 能耗下降。LSTM-L 仍然钉不住。</li>
+      </ul>
+
+      <h3>8.2 消融：谁吃哪类网络</h3>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>BSD（层内）</h4>
+          <p>全部 CNN 都明显受益，因为 fmap 大。MLP-L、LSTM-M 也受益：缓冲压力下降后，流水方案里能选更好的单层 dataflow，总线和 SRAM 访问变少。MLP-M、LSTM-L 几乎没增益。</p>
+        </div>
+        <div class="tile">
+          <h4>ALLO + DAG 流水（层间）</h4>
+          <p>AlexNet、GoogLeNet、ResNet、两个 LSTM 省得多：更深的段、更少 DRAM、每层更小区域从而降低层内 NoC，空间 PE 减少反而提高 PE 级复用。VGG 和两个 MLP 是简单线性链，层间优化几乎没贡献。</p>
+        </div>
+      </div>
+
+      <h3>8.3 缩放：瓦片越多、batch 越大，基线越亏</h3>
+      <p>
+        引擎数从 16 扫到 1024（65536 PE）：单层越来越喂不满全部瓦片，基线的复制和流水问题被放大，Tangram 相对能耗节省最高 <strong>67%</strong>。大 batch 时 tiled 基线甚至不如单片——数据变大后利用率更差。Tangram 则随 batch 增大而拉大优势。Batch=1（延迟敏感推理）时多数网络相对 tiled 仍大约 <strong>10%</strong>（AlexNet）；GoogLeNet 因段内共享输入更明显；LSTM-M 靠 pinning 消掉主导的权重访问。
+      </p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 相关工作与边界</h2>
+      <p>
+        细粒度加速器（DianNao 族、Eyeriss、TPU、FlexFlow）解决的是阵列内部。Tangram 站在 tiled 族（DaDianNao、Neurocube、TETRIS、ScaleDeep）上，专门补瓦片间数据流。稀疏（Cnvlutin、EIE、SCNN）主要改引擎内细粒度；作者认为粗粒度仍类似稠密，留给后续。ReRAM 流水（ISAAC、PipeLayer）有层间流水但没有这套循环变换。Fused-layer 用硬连线换细粒度融合，可编程性差。Li 等 FPGA 流水对 FC 有类似 ALLO 的想法，但只覆盖小 CNN。Shen 等异构引擎提高利用率，中间结果仍回 DRAM。Jia 等在多 GPU 上用动态规划搜流水，通常假设整网铺开，也没有系统讨论<strong>段深度权衡</strong>。
+      </p>
+      <div class="callout">
+        <strong>边界要说清。</strong>评测是 2019 年 ImageNet CNN / 中等 LSTM，不是 Transformer。静态调度加启发式剪枝，不规则稀疏和控制流不在模型里。MEMTRACK 和邻居旋转假设切分大致均匀。Batch=1 时层间收益缩水。单片基线没有做“全局缓冲再切成多银行去钉多层权重”，对 M 的对比略偏乐观。工具链验证靠解析代价模型加轨迹仿真，不是硅后。
+      </div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 对数据流编译与映射搜索的含义</h2>
+      <p>
+        Tangram 把“加速器编译”明确切成三层循环变换：引擎内分块（Yang / Eyeriss）、瓦片间旋转（BSD）、层间顶层次序（ALLO）。后面 Timeloop、MAESTRO、Interstellar、自研映射器，多半还在把这三层揉进同一个嵌套循环空间。值得从这篇抽出来的，不是 8×8 Eyeriss 瓦片，而是<strong>容量按总和计、正在用的数据必须本地、层间只转发子集</strong>这三条不随微架构过时的约束。
+      </p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>值得迁移</h4>
+          <p>共享数据不要按私有缓存复制，而要按 NUCA 式迁移或显式旋转。层融合不要默认缓冲完整中间激活，先对齐生产者–消费者的通道遍历次序。DAG 选段：共享输入的 fork 应同段；只覆盖一半消费者的段不如拆开。搜索要显式扫“段深度 vs 每层资源”，而不是默认整网铺上或默认一层打满芯片。</p>
+        </div>
+        <div class="tile">
+          <h4>不能照搬</h4>
+          <p>BSD 依赖 MAC 累加可交换和静态可知的旋转周期；注意力、MoE 路由、KV 追加不是这种交换律。ALLO 的“隔层才能对齐”来自 CONV 不能同时顺序扫 I 和 O；GEMM 风格的 QKᵀ 没有通道环这套语义。2D 之字分区假设均匀 mesh；chiplet / 近存模块是星型或分层拓扑，距离模型要换。Model pinning 对 2016 年 MLP 有效，对现代权重/KV 工作集几乎永远钉不满。</p>
+        </div>
+      </div>
+
+      <h3>可写成映射器约束的三条</h3>
+      <ol>
+        <li><strong>有效 SRAM = 总和 − 复制。</strong>任何把同一 ifmap/权重复制到多个计算单元的映射，代价函数里应直接扣容量，而不是只扣 NoC 能量。BSD 说明：扣掉复制之后，许多“必须回 DRAM”的层切换会重新变成片上转发。</li>
+        <li><strong>生产者–消费者对齐是一等公民。</strong>相邻算子的外层循环次序应作为搜索维度，而不是融合之后再做缓冲分配。对齐成功则缓冲从 O(整张激活) 变成 O(一个 tile)；对不齐则必须整缓冲，并应优先把 BSD 用在这一侧。</li>
+        <li><strong>段深浅与 DAG 切割一起搜。</strong>更深不一定更好。目标函数要同时看见：少一次中间 DRAM、每算子可用 PE/SRAM 下降、填排空气泡、以及 fork 输入是否只取一次。LSTM-M 的 4.6× 来自“浅到能 pinning”，不是来自无限加深。</li>
+      </ol>
+
+      <div class="callout teal">
+        和 TOM 对照：TOM 问的是 GPU 上哪段代码该靠近哪一栈数据；Tangram 问的是 tiled 加速器上哪一层该占哪些瓦片、共享数据如何在瓦片间走。两者都把“计算放哪”和“数据如何共址”拆开，并且都坚持<strong>程序员不标、编译器/搜索器给方案</strong>。对象从 CUDA 指令块换成 NN DAG 的循环嵌套，问题结构仍是同一张图：异构执行引擎、互相冲突的带宽目标、以及必须静态可验证的数据所有权。
+      </div>
+    </section>
+
+    <footer>
+      分析依据 ASPLOS 2019 论文全文 · 保存于 <code>mlsys-paper/arch/dataflow/Tangram_论文分析.html</code> · 2026-08-28
+    </footer>
+  </div>
+</body>
+</html>
