@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPGPU 编译器的基本思路 | 从 Hwacha 论文抽出</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  
+    .split-nav {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between;
+      margin: 0 0 22px; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .split-nav a {
+      background: var(--paper); border: 1px solid var(--line); padding: 10px 16px;
+      text-decoration: none; font-size: 14px; color: var(--navy);
+    }
+    .split-nav a:hover { border-color: var(--navy); }
+    .split-nav .muted { color: var(--muted); font-size: 12.5px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">从 Hwacha 论文抽出</span>
+        <span class="badge">CUDA 编译器</span>
+        <span class="badge">下篇 · 标量化</span>
+        <span class="badge ok">图解版</span>
+      </div>
+      <h1>GPGPU 编译器的基本思路</h1>
+      <p class="subtitle">生产编译器把「如何一捆执行」甩给硬件；论文主张把标量和分歧收回到编译器。</p>
+      <p class="meta">
+        <strong>依据：</strong>Yunsup Lee, <em>Decoupled Vector-Fetch Architecture with a Scalarizing Compiler</em>, UC Berkeley Ph.D., 2016<br />
+        <strong>相关全文分析：</strong><a href="Hwacha_论文分析.html">Hwacha_论文分析.html</a>
+      </p>
+    </header>
+        <div class="split-nav">
+      <a href="GPGPU的问题.html">上篇：GPGPU 的问题 <span class="muted">错位 · 四种模型 · 四类开销</span></a>
+      <span></span>
+    </div>
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s6">生产编译器实际在做什么</a></li>
+        <li><a href="#s7">论文主张：标量化编译器</a></li>
+        <li><a href="#s8">两条哲学对照</a></li>
+      </ol>
+    </nav>
+<section class="card" id="s6">
+      <h2>1. 生产编译器实际在做什么</h2>
+      <p>CUDA 工具链在论文里的画像是：<strong>按普通标量线程编译，把「如何高效地一捆执行」尽量甩给硬件。</strong></p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CUDA 生产编译器流水线">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="30" y="20" width="200" height="80" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="130" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">CUDA / OpenCL</text>
+            <text x="130" y="74" text-anchor="middle" font-size="11" fill="#7c2d12">单线程 kernel + 网格</text>
+            <path d="M230 60 L290 60" stroke="#57534e" stroke-width="2"/>
+            <polygon points="290,60 280,55 280,65" fill="#57534e"/>
+            <rect x="300" y="20" width="200" height="80" rx="8" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="400" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">LLVM → PTX</text>
+            <text x="400" y="74" text-anchor="middle" font-size="11" fill="#7c2d12">虚寄存器、简单分支</text>
+            <path d="M500 60 L560 60" stroke="#57534e" stroke-width="2"/>
+            <polygon points="560,60 550,55 550,65" fill="#57534e"/>
+            <rect x="570" y="8" width="320" height="104" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="730" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">ptxas → SASS</text>
+            <text x="730" y="58" text-anchor="middle" font-size="11" fill="#334155">① 分配硬件寄存器 → occupancy</text>
+            <text x="730" y="78" text-anchor="middle" font-size="11" fill="#334155">② 插入 push / pop 会合点</text>
+            <text x="730" y="98" text-anchor="middle" font-size="11" fill="#334155">③ 有限 if-conversion 启发式</text>
+            <rect x="30" y="160" width="860" height="170" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="460" y="190" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">硬件 SIMT 接手之后</text>
+            <rect x="60" y="210" width="240" height="90" rx="6" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="180" y="244" text-anchor="middle" font-size="12" fill="#134e4a">一条指令取一次</text>
+            <text x="180" y="266" text-anchor="middle" font-size="12" fill="#134e4a">warp 32 线程一起执行</text>
+            <rect x="340" y="210" width="240" height="90" rx="6" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="460" y="244" text-anchor="middle" font-size="12" fill="#134e4a">分歧：编译器定会合点</text>
+            <text x="460" y="266" text-anchor="middle" font-size="12" fill="#134e4a">硬件管栈、选边、掩码</text>
+            <rect x="620" y="210" width="240" height="90" rx="6" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="740" y="244" text-anchor="middle" font-size="12" fill="#134e4a">访存：每线程算地址</text>
+            <text x="740" y="266" text-anchor="middle" font-size="12" fill="#134e4a">硬件动态 coalescing</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 12. 生产编译器流水线。会合点怎么选，编译器要配合；路径选择、掩码、再会合在硬件里。前端因此可以保持「就是在编译一条线程」。</p>
+      <ul>
+        <li>if-then-else 会合点 = 立即后支配点；循环 = 所有出口的后支配点。</li>
+        <li>谓词 + 一致分支已在 ISA 里，后端几乎只用于小 if；有限启发式平均几乎不改变性能。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>2. 论文主张：标量化编译器</h2>
+      <p>方向和自动向量化相反：从已经显式并行的 SPMD 里，找出其实该只做一次的部分。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="向量化与标量化方向相反">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="30" y="30" width="180" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="120" y="60" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">单线程循环</text>
+            <text x="120" y="80" text-anchor="middle" font-size="11" fill="#7c2d12">for i in 0..n</text>
+            <rect x="30" y="140" width="180" height="70" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="120" y="170" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">SPMD kernel</text>
+            <text x="120" y="190" text-anchor="middle" font-size="11" fill="#334155">每线程一份 i=tid</text>
+            <rect x="710" y="30" width="180" height="70" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="800" y="60" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">标量核</text>
+            <text x="800" y="80" text-anchor="middle" font-size="11" fill="#134e4a">记账 / 共享值</text>
+            <rect x="710" y="140" width="180" height="70" rx="6" fill="#fef3c7" stroke="#b45309"/>
+            <text x="800" y="170" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">数据并行单元</text>
+            <text x="800" y="190" text-anchor="middle" font-size="11" fill="#92400e">真正不同的元素</text>
+            <path d="M220 65 C400 65, 520 65, 700 65" fill="none" stroke="#c2410c" stroke-width="2"/>
+            <path d="M220 175 C400 175, 520 80, 700 80" fill="none" stroke="#c2410c" stroke-width="2"/>
+            <text x="460" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#c2410c">向量化 → 挖并行</text>
+            <path d="M220 165 C400 165, 520 175, 700 175" fill="none" stroke="#1e3a5f" stroke-width="2"/>
+            <path d="M220 75 C400 75, 520 165, 700 165" fill="none" stroke="#1e3a5f" stroke-width="2"/>
+            <text x="460" y="220" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">← 标量化  挖「其实该标量」</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 13. 向量化从串行里挖并行；标量化从并行里挖冗余。失败时向量化可以退回标量核，SPMD 不能退。</p>
+
+      <table>
+        <thead>
+          <tr><th></th><th>向量化编译器</th><th>标量化编译器</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>输入</td><td>单线程循环</td><td>已经显式并行的 SPMD</td></tr>
+          <tr><td>要找的</td><td>哪些能并行</td><td>哪些其实该标量做</td></tr>
+          <tr><td>输出</td><td>标量核记账 + 向量算</td><td>共享标量 + 谓词化向量</td></tr>
+          <tr><td>失败时</td><td>退回标量核</td><td><strong>不能退</strong>，必须仍正确并行</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Pass 1：收敛 + 方差必须同一趟</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="收敛与方差联合传播">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="280" height="220" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="160" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">乐观起点</text>
+            <text x="40" y="80" font-size="12" fill="#134e4a">所有块 = 收敛</text>
+            <text x="40" y="104" font-size="12" fill="#134e4a">所有指令 = 线程不变</text>
+            <text x="40" y="140" font-size="12" fill="#0f766e">工作表只放入：</text>
+            <text x="40" y="164" font-size="12" fill="#44403c">读 tid</text>
+            <text x="40" y="186" font-size="12" fill="#44403c">atomic / volatile</text>
+            <text x="40" y="214" font-size="12" fill="#78716c">kernel 入口默认全收敛</text>
+
+            <rect x="320" y="20" width="280" height="220" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="460" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">传播</text>
+            <text x="340" y="80" font-size="12" fill="#44403c">沿 SSA：可变 → 后继可变</text>
+            <text x="340" y="110" font-size="12" fill="#44403c">若是条件分支：</text>
+            <text x="340" y="134" font-size="12" fill="#44403c">控制依赖后继 → 分歧</text>
+            <text x="340" y="158" font-size="12" fill="#44403c">块内指令全部入表</text>
+            <text x="340" y="190" font-size="12" fill="#9a3412">syncthreads 的块除外</text>
+            <text x="340" y="214" font-size="12" fill="#78716c">提前退出也可视为收敛</text>
+
+            <rect x="620" y="20" width="280" height="220" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="760" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">代码生成</text>
+            <text x="640" y="80" font-size="12" fill="#44403c">不变值 → 共享标量</text>
+            <text x="640" y="104" font-size="12" fill="#44403c">指令 → 每 warp 一次</text>
+            <text x="640" y="128" font-size="12" fill="#44403c">仿射地址 → ldvec / stvec</text>
+            <text x="640" y="164" font-size="12" fill="#1e3a5f">只看 CFG：32% 收敛</text>
+            <text x="640" y="186" font-size="12" fill="#1e3a5f">+ 方差：57%</text>
+            <text x="640" y="208" font-size="12" fill="#1e3a5f">+ 退出优化：66%</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 14. 收敛和方差分不开：块收敛当且仅当它只控制依赖于「收敛块且分支条件线程不变」。没被污染到的，就可以标量化。</p>
+
+      <h3>Pass 2：谓词化按控制依赖生成掩码</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="谓词化与分歧栈对照">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="430" height="180" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="235" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">分歧栈</text>
+            <text x="40" y="80" font-size="13" fill="#44403c">硬件选边、压栈、换边、会合</text>
+            <text x="40" y="106" font-size="13" fill="#44403c">执行顺序不确定</text>
+            <text x="40" y="132" font-size="13" fill="#44403c">部分会合点被串行</text>
+            <text x="40" y="158" font-size="13" fill="#44403c">编译器当普通线程编译</text>
+            <text x="40" y="184" font-size="12" fill="#9a3412">假象留给硬件</text>
+            <rect x="470" y="20" width="430" height="180" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="685" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">线程感知谓词化</text>
+            <text x="490" y="80" font-size="13" fill="#44403c">CDG 上插谓词节点</text>
+            <text x="490" y="106" font-size="13" fill="#44403c">循环：loop / continue / exit mask</text>
+            <text x="490" y="132" font-size="13" fill="#44403c">静态一致：去掉守卫，保留分支</text>
+            <text x="490" y="158" font-size="13" fill="#44403c">运行时一致：全假则整段不取指</text>
+            <text x="490" y="184" font-size="12" fill="#0f766e">顺序确定，硅上只慢 2.7%</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 15. 谓词化不是单线程 if-conversion：所有路径必须部分执行，分歧后必须会合，还不能把 occupancy 打爆。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>3. 两条哲学对照</h2>
+      <div class="fig">
+        <svg viewBox="0 0 920 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="两条编译器哲学">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="430" height="200" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="235" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">GPGPU 默认哲学</text>
+            <text x="40" y="88" font-size="13" fill="#44403c">保持「单线程编译」的假象</text>
+            <text x="40" y="114" font-size="13" fill="#44403c">SIMT 取指只做一次</text>
+            <text x="40" y="140" font-size="13" fill="#44403c">分歧栈管控制流</text>
+            <text x="40" y="166" font-size="13" fill="#44403c">多线程 + 超大寄存器文件藏延迟</text>
+            <text x="40" y="192" font-size="13" fill="#44403c">动态 coalescing 补地址</text>
+            <rect x="470" y="20" width="430" height="200" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="685" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#115e59">论文主张的哲学</text>
+            <text x="490" y="88" font-size="13" fill="#44403c">SPMD 只是程序员接口</text>
+            <text x="490" y="114" font-size="13" fill="#44403c">证明何时收敛、何值不变</text>
+            <text x="490" y="140" font-size="13" fill="#44403c">冗余收成标量，控制流收成谓词</text>
+            <text x="490" y="166" font-size="13" fill="#44403c">硬件：一份标量 + 一份谓词 + 长向量</text>
+            <text x="490" y="192" font-size="13" fill="#44403c">地址冻结后做非推测预取</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 16. 可编程性被买贵了：贵在把本该由编译器静态完成的标量化和分歧管理，做成了运行时硬件。</p>
+      <p>Hwacha 是这条哲学落到向量机上的结果。对 GPGPU 本身，诊断已经够用：不是不能做 SPMD，而是不该让硬件独自消化 SPMD 的全部假象。</p>
+    </section>
+
+    <footer>
+      下篇抽出自 Yunsup Lee, <em>Decoupled Vector-Fetch Architecture with a Scalarizing Compiler</em>, UC Berkeley, 2016。<br />
+      上篇：<a href="GPGPU的问题.html">GPGPU的问题.html</a>
+      · 全文结构：<a href="Hwacha_论文分析.html">Hwacha_论文分析.html</a>。图 12–16 编号接上篇。图为解释图，不是原文插图扫描。
+    </footer>
+  </div>
+</body>
+</html>
