@@ -1,0 +1,1631 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="RedKnot 论文中文解读：重要问题、核心思路、系统设计、实验结果与局限。">
+  <title>RedKnot 论文解读：把 KV Cache 从整块行李箱拆成按需抽屉</title>
+  <style>
+    :root {
+      --bg: #f5f2eb;
+      --paper: #fffdf8;
+      --ink: #192322;
+      --muted: #5d6b68;
+      --line: #d9ddd6;
+      --accent: #9f3f2f;
+      --accent-soft: #f4e6df;
+      --green: #246354;
+      --green-soft: #e2eee9;
+      --blue: #315e78;
+      --blue-soft: #e4edf2;
+      --code: #233230;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      color-scheme: light;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 17px;
+      line-height: 1.85;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    .page {
+      width: min(1120px, calc(100% - 32px));
+      margin: 28px auto 64px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+    }
+
+    header {
+      padding: 72px clamp(24px, 7vw, 88px) 54px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin: 0 0 16px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 {
+      margin-top: 0;
+      line-height: 1.28;
+      letter-spacing: -.02em;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin-bottom: 20px;
+      font-size: clamp(34px, 5.4vw, 64px);
+      font-family: Georgia, "Songti SC", "STSong", serif;
+      font-weight: 700;
+    }
+
+    h2 {
+      margin-bottom: 24px;
+      font-size: clamp(27px, 3.5vw, 38px);
+      font-family: Georgia, "Songti SC", "STSong", serif;
+    }
+
+    h3 {
+      margin-bottom: 10px;
+      font-size: 21px;
+    }
+
+    p { margin: 0 0 18px; }
+
+    .subtitle {
+      max-width: 780px;
+      color: var(--muted);
+      font-size: 20px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      margin-top: 30px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 0;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      max-height: 100vh;
+      padding: 36px 24px;
+      overflow: auto;
+      border-right: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    nav strong {
+      display: block;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .14em;
+    }
+
+    nav a {
+      display: block;
+      padding: 7px 0;
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    nav a:hover { color: var(--accent); }
+
+    main { min-width: 0; }
+
+    section {
+      padding: 54px clamp(24px, 6vw, 72px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    section:last-child { border-bottom: 0; }
+
+    .lead {
+      font-size: 22px;
+      line-height: 1.7;
+    }
+
+    .answer {
+      padding: 24px 28px;
+      background: var(--accent-soft);
+      border-left: 4px solid var(--accent);
+      font-size: 19px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 30px;
+    }
+
+    .problem {
+      padding-top: 19px;
+      border-top: 4px solid var(--ink);
+    }
+
+    .num {
+      display: inline-grid;
+      width: 30px;
+      height: 30px;
+      margin-bottom: 14px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--paper);
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .muted { color: var(--muted); }
+
+    .analogy {
+      display: grid;
+      grid-template-columns: 1fr 56px 1fr;
+      align-items: stretch;
+      gap: 14px;
+      margin: 28px 0;
+    }
+
+    .analogy-box {
+      padding: 24px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .arrow {
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      font-size: 30px;
+      font-weight: 800;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin: 30px 0;
+      border: 1px solid var(--line);
+    }
+
+    .step {
+      position: relative;
+      padding: 22px;
+      background: #fff;
+      border-right: 1px solid var(--line);
+    }
+
+    .step:last-child { border-right: 0; }
+
+    .step b {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 13px;
+      letter-spacing: .06em;
+    }
+
+    .mechanism {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 26px;
+      padding: 26px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .mechanism:first-of-type { border-top: 0; }
+
+    .tag {
+      width: fit-content;
+      padding: 5px 10px;
+      border: 1px solid currentColor;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .08em;
+    }
+
+    .plain {
+      margin-top: 12px;
+      padding: 15px 18px;
+      background: var(--green-soft);
+      color: #204a40;
+    }
+
+    .head-demo {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 7px;
+      margin: 20px 0 10px;
+    }
+
+    .head {
+      padding: 14px 5px;
+      border: 1px solid var(--line);
+      background: var(--green-soft);
+      color: var(--green);
+      text-align: center;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .head.global {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .legend {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    figure {
+      margin: 30px 0;
+    }
+
+    .diagram-card {
+      padding: 20px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .diagram-card svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Microsoft YaHei", sans-serif;
+    }
+
+    figcaption {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .figure-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 30px;
+    }
+
+    .figure-grid figure { margin: 0; }
+
+    .animation-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 24px 0 16px;
+    }
+
+    .control-button {
+      padding: 9px 15px;
+      border: 1px solid var(--ink);
+      border-radius: 2px;
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .control-button:hover,
+    .control-button:focus-visible {
+      background: var(--ink);
+      color: var(--paper);
+      outline: none;
+    }
+
+    .stage-track {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .stage-track::before,
+    .stage-track::after {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      content: "";
+    }
+
+    .stage-track::before {
+      width: 100%;
+      background: var(--line);
+    }
+
+    .stage-track::after {
+      width: 0;
+      background: var(--accent);
+    }
+
+    .mechanism-animation.is-running + .stage-track::after,
+    .stage-track.running::after {
+      animation: stage-progress 10s linear infinite;
+    }
+
+    .mechanism-animation {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      padding: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #f3f2ed;
+    }
+
+    .animation-panel {
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .animation-panel header {
+      padding: 0 0 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .animation-panel header strong {
+      display: block;
+      font-size: 17px;
+    }
+
+    .animation-panel header span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .old-panel header strong { color: var(--accent); }
+    .new-panel header strong { color: var(--green); }
+
+    .scene-block {
+      margin-top: 17px;
+    }
+
+    .scene-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .context-strip,
+    .ffn-strip {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 4px;
+    }
+
+    .context-strip span,
+    .ffn-strip span {
+      min-width: 0;
+      height: 20px;
+      border: 1px solid #cdd3cf;
+      background: #e8eae6;
+    }
+
+    .context-strip span:nth-child(-n+3) {
+      background: var(--blue-soft);
+      border-color: #aebfca;
+    }
+
+    .rope-chip {
+      width: fit-content;
+      margin: 8px auto 0;
+      padding: 3px 9px;
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 750;
+      opacity: .32;
+    }
+
+    .head-lanes {
+      display: grid;
+      gap: 6px;
+    }
+
+    .head-lane {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      gap: 7px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .lane-track {
+      position: relative;
+      height: 16px;
+      overflow: hidden;
+      border: 1px solid #cdd3cf;
+      background: #e8eae6;
+    }
+
+    .sweep {
+      position: absolute;
+      top: 0;
+      left: -18%;
+      width: 18%;
+      height: 100%;
+      background: var(--accent);
+      opacity: 0;
+    }
+
+    .new-panel .global-lane .sweep {
+      background: var(--accent);
+    }
+
+    .local-segment {
+      position: absolute;
+      top: 1px;
+      bottom: 1px;
+      background: var(--green);
+      opacity: .45;
+    }
+
+    .local-segment.sink {
+      left: 1px;
+      width: 8%;
+    }
+
+    .local-segment.window {
+      right: 1px;
+      width: 25%;
+    }
+
+    .ffn-strip span {
+      height: 22px;
+      background: #eceeea;
+    }
+
+    .kv-stack {
+      display: grid;
+      gap: 5px;
+    }
+
+    .kv-item {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      gap: 7px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .kv-bar {
+      height: 12px;
+      transform-origin: left center;
+      background: #bfc7c4;
+    }
+
+    .new-panel .kv-item.global .kv-bar {
+      width: 100%;
+      background: var(--accent);
+    }
+
+    .new-panel .kv-item.local .kv-bar {
+      width: 31%;
+      background: var(--green);
+    }
+
+    .animation-result {
+      margin-top: 16px;
+      padding: 10px 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      opacity: .35;
+    }
+
+    .old-panel .animation-result strong { color: var(--accent); }
+    .new-panel .animation-result strong { color: var(--green); }
+
+    .animation-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .animation-legend span::before {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      margin-right: 6px;
+      content: "";
+      background: var(--line);
+    }
+
+    .animation-legend .legend-recompute::before { background: var(--accent); }
+    .animation-legend .legend-reuse::before { background: var(--green); }
+    .animation-legend .legend-prefix::before { background: var(--blue); }
+
+    .mechanism-animation.is-running .old-panel .sweep,
+    .mechanism-animation.is-running .new-panel .global-lane .sweep {
+      animation: lane-sweep 10s ease-in-out infinite;
+    }
+
+    .mechanism-animation.is-running .rope-chip {
+      animation: rope-align 10s ease-in-out infinite;
+    }
+
+    .mechanism-animation.is-running .new-panel .local-segment {
+      animation: local-repair 10s ease-in-out infinite;
+    }
+
+    .mechanism-animation.is-running .old-panel .ffn-strip span {
+      animation: dense-ffn 10s ease-in-out infinite;
+    }
+
+    .mechanism-animation.is-running .new-panel .ffn-strip span:nth-child(2),
+    .mechanism-animation.is-running .new-panel .ffn-strip span:nth-child(5),
+    .mechanism-animation.is-running .new-panel .ffn-strip span:nth-child(8) {
+      animation: sparse-ffn 10s ease-in-out infinite;
+    }
+
+    .mechanism-animation.is-running .old-panel .kv-bar {
+      animation: dense-store 10s ease-in-out infinite;
+    }
+
+    .mechanism-animation.is-running .new-panel .kv-bar {
+      animation: sparse-store 10s ease-in-out infinite;
+    }
+
+    .mechanism-animation.is-running .animation-result {
+      animation: result-reveal 10s ease-in-out infinite;
+    }
+
+    .mechanism-animation.paused *,
+    .stage-track.paused::after {
+      animation-play-state: paused !important;
+    }
+
+    @keyframes stage-progress {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    @keyframes rope-align {
+      0%, 8% { opacity: .32; background: transparent; }
+      12%, 25% { opacity: 1; background: var(--green-soft); }
+      30%, 100% { opacity: .55; background: transparent; }
+    }
+
+    @keyframes lane-sweep {
+      0%, 22% { left: -18%; opacity: 0; }
+      26% { opacity: .88; }
+      48% { left: 100%; opacity: .88; }
+      52%, 100% { left: 100%; opacity: 0; }
+    }
+
+    @keyframes local-repair {
+      0%, 24% { opacity: .38; }
+      30%, 48% { opacity: 1; }
+      54%, 100% { opacity: .48; }
+    }
+
+    @keyframes dense-ffn {
+      0%, 47% { background: #eceeea; }
+      55%, 70% { background: var(--accent); }
+      76%, 100% { background: #eceeea; }
+    }
+
+    @keyframes sparse-ffn {
+      0%, 47% { background: #eceeea; }
+      55%, 70% { background: var(--green); }
+      76%, 100% { background: #eceeea; }
+    }
+
+    @keyframes dense-store {
+      0%, 68% { transform: scaleX(.08); opacity: .3; }
+      77%, 92% { transform: scaleX(1); opacity: 1; }
+      100% { transform: scaleX(.08); opacity: .3; }
+    }
+
+    @keyframes sparse-store {
+      0%, 68% { transform: scaleX(.08); opacity: .3; }
+      77%, 92% { transform: scaleX(1); opacity: 1; }
+      100% { transform: scaleX(.08); opacity: .3; }
+    }
+
+    @keyframes result-reveal {
+      0%, 78% { opacity: .25; }
+      84%, 96% { opacity: 1; }
+      100% { opacity: .25; }
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 24px;
+    }
+
+    .compare > div {
+      padding: 24px;
+      border: 1px solid var(--line);
+    }
+
+    .compare .old { background: #f4f3ef; }
+    .compare .new { background: var(--blue-soft); }
+
+    .kv-row {
+      display: grid;
+      grid-template-columns: 82px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin: 11px 0;
+      font-size: 13px;
+    }
+
+    .bar {
+      height: 13px;
+      background: #bcc5c2;
+    }
+
+    .bar.short {
+      width: 22%;
+      min-width: 38px;
+      background: var(--green);
+    }
+
+    .bar.full { width: 100%; background: var(--accent); }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 28px;
+      background: var(--line);
+      border: 1px solid var(--line);
+    }
+
+    .metric {
+      padding: 24px 18px;
+      background: var(--paper);
+    }
+
+    .metric strong {
+      display: block;
+      color: var(--accent);
+      font-family: Georgia, serif;
+      font-size: 29px;
+      line-height: 1.2;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .callout {
+      margin-top: 25px;
+      padding: 20px 24px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    ul, ol {
+      margin: 10px 0 20px;
+      padding-left: 1.25em;
+    }
+
+    li { margin: 8px 0; }
+
+    .caveats li::marker { color: var(--accent); }
+
+    .verdict {
+      font-size: 23px;
+      line-height: 1.65;
+      font-family: Georgia, "Songti SC", "STSong", serif;
+    }
+
+    .glossary {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      margin: 0;
+    }
+
+    .glossary dt,
+    .glossary dd {
+      margin: 0;
+      padding: 15px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .glossary dt { font-weight: 750; }
+    .glossary dd { color: var(--muted); }
+
+    footer {
+      padding: 28px clamp(24px, 7vw, 88px);
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    code {
+      padding: 2px 5px;
+      background: #e9ece7;
+      color: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .9em;
+    }
+
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { display: none; }
+      .grid-3, .metrics { grid-template-columns: 1fr 1fr; }
+      .pipeline { grid-template-columns: 1fr 1fr; }
+      .step:nth-child(2) { border-right: 0; }
+      .step:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+
+    @media (max-width: 580px) {
+      body { font-size: 16px; }
+      .page { width: 100%; margin: 0; border: 0; }
+      header { padding-top: 48px; }
+      .grid-3, .compare, .metrics, .pipeline, .analogy, .figure-grid,
+      .mechanism-animation {
+        grid-template-columns: 1fr;
+      }
+      .arrow { transform: rotate(90deg); min-height: 32px; }
+      .step { border-right: 0; border-bottom: 1px solid var(--line); }
+      .step:last-child { border-bottom: 0; }
+      .mechanism { grid-template-columns: 1fr; gap: 10px; }
+      .head-demo { grid-template-columns: repeat(4, 1fr); }
+      .glossary { grid-template-columns: 1fr; }
+      .glossary dt { padding-bottom: 2px; }
+      .glossary dd { padding-top: 2px; border-top: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .mechanism-animation *,
+      .stage-track::after {
+        animation: none !important;
+      }
+
+      .mechanism-animation .rope-chip,
+      .mechanism-animation .animation-result {
+        opacity: 1;
+      }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page { width: 100%; margin: 0; border: 0; }
+      nav { display: none; }
+      .layout { display: block; }
+      section { break-inside: avoid; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <article class="page">
+    <header>
+      <p class="eyebrow">论文精读 · 2026</p>
+      <h1>RedKnot：把 KV Cache 从“整块行李箱”拆成“按需抽屉”</h1>
+      <p class="subtitle">
+        一篇关于长上下文大模型推理的系统论文。它的关键不是简单地“少算一点”，
+        而是让计算、存储和数据搬运都按照注意力头的真实需求来组织。
+      </p>
+      <div class="meta">
+        <span>论文：RedKnot: Efficient Long-Context LLM Serving with Head-Aware KV Reuse and SegPagedAttention</span>
+        <span>arXiv:2606.06256v3</span>
+        <span>解读日期：2026-08-10</span>
+        <span><a href="https://arxiv.org/pdf/2606.06256">查看原论文</a></span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav aria-label="目录">
+        <strong>目录</strong>
+        <a href="#one-sentence">一句话结论</a>
+        <a href="#animation">动态机制对比</a>
+        <a href="#problem">解决什么问题</a>
+        <a href="#insight">关键观察</a>
+        <a href="#solution">解决思路</a>
+        <a href="#workflow">运行流程</a>
+        <a href="#why">为什么有效</a>
+        <a href="#results">实验结果</a>
+        <a href="#value">真正贡献</a>
+        <a href="#limits">局限与注意</a>
+        <a href="#glossary">术语速查</a>
+      </nav>
+
+      <main>
+        <section id="one-sentence">
+          <h2>一句话结论</h2>
+          <div class="answer">
+            <strong>RedKnot 解决的是：重复出现的长文本明明已经算过，换个位置后却很难低成本复用的问题。</strong>
+            它发现不同注意力头对“前文变化”的敏感程度不同，于是只重算少数敏感的头，
+            复用大多数不敏感的头；再只让重要 token 经过昂贵的 FFN；最后用按头分页的
+            KV 存储和专用内核，把算法上的稀疏真正变成显存、带宽与延迟收益。
+          </div>
+        </section>
+
+        <section id="animation">
+          <p class="eyebrow">Animated comparison</p>
+          <h2>动态对比：同一个缓存文档块，两种方案怎么处理？</h2>
+          <p>
+            两侧使用同一份“新前缀 + 已缓存文档块”。动画依次展示位置处理、注意力恢复、
+            FFN 计算和 KV 存储。红色表示重新计算或完整读取，绿色表示复用或局部修补。
+          </p>
+
+          <div class="animation-controls" aria-label="动画控制">
+            <button class="control-button" id="animation-toggle" type="button" aria-pressed="false">暂停动画</button>
+            <button class="control-button" id="animation-replay" type="button">重新播放</button>
+          </div>
+
+          <div class="stage-track running" id="animation-stage-track" aria-hidden="true">
+            <span>1 · 位置处理</span>
+            <span>2 · 注意力恢复</span>
+            <span>3 · FFN 计算</span>
+            <span>4 · KV 存储</span>
+          </div>
+
+          <div class="mechanism-animation is-running" id="mechanism-animation">
+            <article class="animation-panel old-panel">
+              <header>
+                <strong>传统方案：token 级恢复 + 密集布局</strong>
+                <span>所有头被绑定在同一批 token 和同一个矩形 KV 中</span>
+              </header>
+
+              <div class="scene-block">
+                <div class="scene-label">
+                  <span>输入：新前缀 + 缓存文档块</span>
+                  <span>位置变化</span>
+                </div>
+                <div class="context-strip" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+
+              <div class="scene-block">
+                <div class="scene-label">
+                  <span>token 级选择取各头需求的并集</span>
+                  <span>大量重算</span>
+                </div>
+                <div class="head-lanes">
+                  <div class="head-lane"><span>头 A</span><div class="lane-track"><i class="sweep"></i></div></div>
+                  <div class="head-lane"><span>头 B</span><div class="lane-track"><i class="sweep"></i></div></div>
+                  <div class="head-lane"><span>头 C</span><div class="lane-track"><i class="sweep"></i></div></div>
+                  <div class="head-lane"><span>头 D</span><div class="lane-track"><i class="sweep"></i></div></div>
+                </div>
+              </div>
+
+              <div class="scene-block">
+                <div class="scene-label">
+                  <span>FFN：所有 token 都执行</span>
+                  <span>密集计算</span>
+                </div>
+                <div class="ffn-strip" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+
+              <div class="scene-block">
+                <div class="scene-label">
+                  <span>KV：每个头预留完整长度</span>
+                  <span>密集搬运</span>
+                </div>
+                <div class="kv-stack">
+                  <div class="kv-item"><span>头 A</span><div class="kv-bar"></div></div>
+                  <div class="kv-item"><span>头 B</span><div class="kv-bar"></div></div>
+                  <div class="kv-item"><span>头 C</span><div class="kv-bar"></div></div>
+                  <div class="kv-item"><span>头 D</span><div class="kv-bar"></div></div>
+                </div>
+              </div>
+
+              <div class="animation-result">
+                <strong>结果：</strong>即使 mask 掉部分位置，完整 KV 仍占空间并产生带宽与慢内核开销。
+              </div>
+            </article>
+
+            <article class="animation-panel new-panel">
+              <header>
+                <strong>RedKnot：按头恢复 + 按头分页</strong>
+                <span>不同注意力头可以拥有不同的有效上下文与存储长度</span>
+              </header>
+
+              <div class="scene-block">
+                <div class="scene-label">
+                  <span>输入：新前缀 + 缓存文档块</span>
+                  <span>先对齐位置</span>
+                </div>
+                <div class="context-strip" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <div class="rope-chip">RoPE 相对旋转：旧位置 → 新位置</div>
+              </div>
+
+              <div class="scene-block">
+                <div class="scene-label">
+                  <span>按头选择恢复方式</span>
+                  <span>少数重算，多数复用</span>
+                </div>
+                <div class="head-lanes">
+                  <div class="head-lane global-lane">
+                    <span>全局头</span><div class="lane-track"><i class="sweep"></i></div>
+                  </div>
+                  <div class="head-lane local-lane">
+                    <span>局部头</span><div class="lane-track"><i class="local-segment sink"></i><i class="local-segment window"></i></div>
+                  </div>
+                  <div class="head-lane local-lane">
+                    <span>局部头</span><div class="lane-track"><i class="local-segment sink"></i><i class="local-segment window"></i></div>
+                  </div>
+                  <div class="head-lane local-lane">
+                    <span>局部头</span><div class="lane-track"><i class="local-segment sink"></i><i class="local-segment window"></i></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="scene-block">
+                <div class="scene-label">
+                  <span>FFN：只处理重要 token</span>
+                  <span>其余走残差</span>
+                </div>
+                <div class="ffn-strip" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+
+              <div class="scene-block">
+                <div class="scene-label">
+                  <span>KV：每个头只分配实际需要的页</span>
+                  <span>变长布局</span>
+                </div>
+                <div class="kv-stack">
+                  <div class="kv-item global"><span>全局头</span><div class="kv-bar"></div></div>
+                  <div class="kv-item local"><span>局部头</span><div class="kv-bar"></div></div>
+                  <div class="kv-item local"><span>局部头</span><div class="kv-bar"></div></div>
+                  <div class="kv-item local"><span>局部头</span><div class="kv-bar"></div></div>
+                </div>
+              </div>
+
+              <div class="animation-result">
+                <strong>结果：</strong>重算更少，FFN 更少，局部头 KV 更短；显存、带宽和内核工作量一起下降。
+              </div>
+            </article>
+          </div>
+
+          <div class="animation-legend" aria-label="动画图例">
+            <span class="legend-recompute">红色：重算 / 全长度访问</span>
+            <span class="legend-reuse">绿色：复用 / 局部修补</span>
+            <span class="legend-prefix">蓝色：新前缀</span>
+          </div>
+        </section>
+
+        <section id="problem">
+          <p class="eyebrow">The problem</p>
+          <h2>它解决了什么重要问题？</h2>
+          <p class="lead">
+            RAG、代码 Agent 和多轮工具调用会把大量文档、日志与历史对话塞进提示词。
+            同一段内容经常重复出现，却可能位于不同位置、前面接着不同文本。
+            这让传统的“前缀完全相同才命中缓存”远远不够。
+          </p>
+
+          <div class="grid-3">
+            <div class="problem">
+              <span class="num">1</span>
+              <h3>长上下文太慢、太占显存</h3>
+              <p class="muted">
+                Prefill 要处理整段输入；上下文越长，注意力计算、KV Cache 容量和显存带宽压力越大。
+                论文举例称，70B 模型的 128K 上下文 KV Cache 可超过 40 GB。
+              </p>
+            </div>
+            <div class="problem">
+              <span class="num">2</span>
+              <h3>已有复用方式粒度不对</h3>
+              <p class="muted">
+                现有位置无关缓存往往选择一批 token 重算。但不同注意力头重视的 token 不同，
+                取并集后可能接近整段文本；少选会损害准确率，多选又失去加速意义。
+              </p>
+            </div>
+            <div class="problem">
+              <span class="num">3</span>
+              <h3>“逻辑稀疏”没有变成“物理节省”</h3>
+              <p class="muted">
+                即使算法说某些头只看很短窗口，传统系统仍按统一的矩形张量存储，
+                再用 mask 屏蔽无用位置。数据照样占显存、被搬运，还可能退出 FlashAttention 快路径。
+              </p>
+            </div>
+          </div>
+
+          <div class="callout">
+            <strong>还有一个容易忽略的瓶颈：</strong>
+            在论文测试的 2K–8K 较短上下文中，FFN 占 prefill TTFT 的 57%–62%。
+            所以只优化注意力，即使做得完美，也很难把整体延迟大幅降低。
+          </div>
+
+          <figure>
+            <div class="diagram-card">
+              <svg viewBox="0 0 760 305" role="img" aria-labelledby="union-title union-desc">
+                <title id="union-title">token 级恢复的并集膨胀问题</title>
+                <desc id="union-desc">三个注意力头各自只需要少数 token，但合并所有头的重要 token 后，需要重算大部分 token。</desc>
+                <text x="20" y="30" fill="#192322" font-size="17" font-weight="700">每个头单独看都很稀疏</text>
+                <text x="20" y="78" fill="#315e78" font-size="14" font-weight="700">注意力头 1</text>
+                <text x="20" y="128" fill="#246354" font-size="14" font-weight="700">注意力头 2</text>
+                <text x="20" y="178" fill="#9f3f2f" font-size="14" font-weight="700">注意力头 3</text>
+
+                <g fill="#e6e8e3" stroke="#d1d6cf">
+                  <rect x="150" y="55" width="34" height="34"/><rect x="195" y="55" width="34" height="34"/>
+                  <rect x="240" y="55" width="34" height="34"/><rect x="285" y="55" width="34" height="34"/>
+                  <rect x="330" y="55" width="34" height="34"/><rect x="375" y="55" width="34" height="34"/>
+                  <rect x="420" y="55" width="34" height="34"/><rect x="465" y="55" width="34" height="34"/>
+                  <rect x="510" y="55" width="34" height="34"/><rect x="555" y="55" width="34" height="34"/>
+                  <rect x="600" y="55" width="34" height="34"/><rect x="645" y="55" width="34" height="34"/>
+                  <rect x="150" y="105" width="34" height="34"/><rect x="195" y="105" width="34" height="34"/>
+                  <rect x="240" y="105" width="34" height="34"/><rect x="285" y="105" width="34" height="34"/>
+                  <rect x="330" y="105" width="34" height="34"/><rect x="375" y="105" width="34" height="34"/>
+                  <rect x="420" y="105" width="34" height="34"/><rect x="465" y="105" width="34" height="34"/>
+                  <rect x="510" y="105" width="34" height="34"/><rect x="555" y="105" width="34" height="34"/>
+                  <rect x="600" y="105" width="34" height="34"/><rect x="645" y="105" width="34" height="34"/>
+                  <rect x="150" y="155" width="34" height="34"/><rect x="195" y="155" width="34" height="34"/>
+                  <rect x="240" y="155" width="34" height="34"/><rect x="285" y="155" width="34" height="34"/>
+                  <rect x="330" y="155" width="34" height="34"/><rect x="375" y="155" width="34" height="34"/>
+                  <rect x="420" y="155" width="34" height="34"/><rect x="465" y="155" width="34" height="34"/>
+                  <rect x="510" y="155" width="34" height="34"/><rect x="555" y="155" width="34" height="34"/>
+                  <rect x="600" y="155" width="34" height="34"/><rect x="645" y="155" width="34" height="34"/>
+                </g>
+
+                <g fill="#315e78">
+                  <rect x="150" y="55" width="34" height="34"/><rect x="195" y="55" width="34" height="34"/>
+                  <rect x="420" y="55" width="34" height="34"/>
+                </g>
+                <g fill="#246354">
+                  <rect x="285" y="105" width="34" height="34"/><rect x="330" y="105" width="34" height="34"/>
+                  <rect x="555" y="105" width="34" height="34"/>
+                </g>
+                <g fill="#9f3f2f">
+                  <rect x="240" y="155" width="34" height="34"/><rect x="465" y="155" width="34" height="34"/>
+                  <rect x="600" y="155" width="34" height="34"/>
+                </g>
+
+                <line x1="20" y1="214" x2="710" y2="214" stroke="#d9ddd6"/>
+                <text x="20" y="249" fill="#192322" font-size="15" font-weight="700">token 级方案取并集</text>
+                <g fill="#9f3f2f">
+                  <rect x="150" y="230" width="34" height="34"/><rect x="195" y="230" width="34" height="34"/>
+                  <rect x="240" y="230" width="34" height="34"/><rect x="285" y="230" width="34" height="34"/>
+                  <rect x="330" y="230" width="34" height="34"/><rect x="420" y="230" width="34" height="34"/>
+                  <rect x="465" y="230" width="34" height="34"/><rect x="555" y="230" width="34" height="34"/>
+                  <rect x="600" y="230" width="34" height="34"/>
+                </g>
+                <g fill="#e6e8e3" stroke="#d1d6cf">
+                  <rect x="375" y="230" width="34" height="34"/><rect x="510" y="230" width="34" height="34"/>
+                  <rect x="645" y="230" width="34" height="34"/>
+                </g>
+                <text x="150" y="289" fill="#9f3f2f" font-size="13" font-weight="700">各头需求不同，合起来后 9 / 12 个 token 都要重算</text>
+              </svg>
+            </div>
+            <figcaption>
+              图 1 · 为什么 token 级恢复容易失效：每个头的重要 token 很少，但不同头关注的位置不同，
+              一旦为了照顾所有头而取并集，恢复集合会迅速变大。示意图不代表论文中的具体比例。
+            </figcaption>
+          </figure>
+        </section>
+
+        <section id="insight">
+          <p class="eyebrow">The insight</p>
+          <h2>最关键的观察：注意力头不是一视同仁的</h2>
+          <p>
+            一个 Transformer 层里有多个注意力头，可以把它们理解成一组分工不同的“信息侦察员”：
+            有的负责跨很远的文本找证据，有的主要关心附近几个词。RedKnot 将其概括为两类。
+          </p>
+
+          <div class="analogy">
+            <div class="analogy-box">
+              <h3>全局头：远程调查员</h3>
+              <p>
+                会回看很远的上下文，容易受新前缀影响。文档前面换了内容，它得到的表示也可能明显改变，
+                所以复用旧缓存时通常要重新计算。
+              </p>
+            </div>
+            <div class="arrow" aria-hidden="true">↔</div>
+            <div class="analogy-box">
+              <h3>局部头：近场观察员</h3>
+              <p>
+                主要看最近的一小段 token 和少量“注意力汇聚”起始 token。
+                远处前缀变化对它影响很小，因此大部分旧 KV 可以直接复用。
+              </p>
+            </div>
+          </div>
+
+          <p>
+            论文在多种模型上的 needle-in-a-haystack 测试显示，局部头约占
+            <strong>83.4%–96.8%</strong>，全局头仅占 <strong>3.2%–16.6%</strong>。
+            更重要的是，一个特定 <code>(层, 头)</code> 属于全局还是局部，通常相对稳定，
+            因而可以离线分析一次，在线重复使用。
+          </p>
+
+          <div class="head-demo" aria-label="注意力头分类示意">
+            <div class="head global">全局头</div>
+            <div class="head">局部头</div>
+            <div class="head">局部头</div>
+            <div class="head">局部头</div>
+            <div class="head">局部头</div>
+            <div class="head">局部头</div>
+            <div class="head global">全局头</div>
+            <div class="head">局部头</div>
+          </div>
+          <p class="legend">示意：少数全局头需要完整重算，大多数局部头只需复用或修补短窗口；比例并非固定。</p>
+        </section>
+
+        <section id="solution">
+          <p class="eyebrow">The solution</p>
+          <h2>三部分协同：算什么、怎么算、怎么存</h2>
+
+          <figure>
+            <div class="diagram-card">
+              <svg viewBox="0 0 760 430" role="img" aria-labelledby="overview-title overview-desc">
+                <title id="overview-title">RedKnot 三部分协同流程图</title>
+                <desc id="overview-desc">缓存文档块先经过位置对齐，再按全局头和局部头分别恢复，随后选择重要 token 执行 FFN，最终交由按头分页的注意力布局执行。</desc>
+                <defs>
+                  <marker id="arrowhead-overview" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                    <path d="M0,0 L8,4 L0,8 Z" fill="#7d8986"/>
+                  </marker>
+                </defs>
+
+                <rect x="248" y="18" width="264" height="54" rx="4" fill="#e4edf2" stroke="#315e78"/>
+                <text x="380" y="40" text-anchor="middle" fill="#192322" font-size="15" font-weight="700">离线缓存的可复用文档块</text>
+                <text x="380" y="59" text-anchor="middle" fill="#5d6b68" font-size="12">旧位置的 KV Cache</text>
+
+                <line x1="380" y1="72" x2="380" y2="103" stroke="#7d8986" stroke-width="2" marker-end="url(#arrowhead-overview)"/>
+                <rect x="270" y="108" width="220" height="52" rx="4" fill="#fffdf8" stroke="#9f3f2f"/>
+                <text x="380" y="130" text-anchor="middle" fill="#9f3f2f" font-size="15" font-weight="700">RoPE 位置对齐</text>
+                <text x="380" y="149" text-anchor="middle" fill="#5d6b68" font-size="12">先修正“门牌号”</text>
+
+                <line x1="380" y1="160" x2="380" y2="188" stroke="#7d8986" stroke-width="2"/>
+                <line x1="195" y1="188" x2="565" y2="188" stroke="#7d8986" stroke-width="2"/>
+                <line x1="195" y1="188" x2="195" y2="211" stroke="#7d8986" stroke-width="2" marker-end="url(#arrowhead-overview)"/>
+                <line x1="565" y1="188" x2="565" y2="211" stroke="#7d8986" stroke-width="2" marker-end="url(#arrowhead-overview)"/>
+
+                <rect x="72" y="216" width="246" height="72" rx="4" fill="#f4e6df" stroke="#9f3f2f"/>
+                <text x="195" y="240" text-anchor="middle" fill="#9f3f2f" font-size="15" font-weight="700">少数全局头</text>
+                <text x="195" y="262" text-anchor="middle" fill="#192322" font-size="13">对新前缀敏感：完整重算</text>
+                <text x="195" y="279" text-anchor="middle" fill="#5d6b68" font-size="11">保留长距离检索能力</text>
+
+                <rect x="442" y="216" width="246" height="72" rx="4" fill="#e2eee9" stroke="#246354"/>
+                <text x="565" y="240" text-anchor="middle" fill="#246354" font-size="15" font-weight="700">大多数局部头</text>
+                <text x="565" y="262" text-anchor="middle" fill="#192322" font-size="13">复用旧 KV，只修补短窗口</text>
+                <text x="565" y="279" text-anchor="middle" fill="#5d6b68" font-size="11">sink token + 最近 token</text>
+
+                <line x1="195" y1="288" x2="195" y2="314" stroke="#7d8986" stroke-width="2"/>
+                <line x1="565" y1="288" x2="565" y2="314" stroke="#7d8986" stroke-width="2"/>
+                <line x1="195" y1="314" x2="565" y2="314" stroke="#7d8986" stroke-width="2"/>
+                <line x1="380" y1="314" x2="380" y2="336" stroke="#7d8986" stroke-width="2" marker-end="url(#arrowhead-overview)"/>
+
+                <rect x="72" y="342" width="294" height="66" rx="4" fill="#fffdf8" stroke="#246354"/>
+                <text x="219" y="367" text-anchor="middle" fill="#246354" font-size="15" font-weight="700">Sparse FFN</text>
+                <text x="219" y="390" text-anchor="middle" fill="#192322" font-size="13">重要 token 精加工，其余走残差</text>
+
+                <rect x="394" y="342" width="294" height="66" rx="4" fill="#fffdf8" stroke="#315e78"/>
+                <text x="541" y="367" text-anchor="middle" fill="#315e78" font-size="15" font-weight="700">SegPagedAttention</text>
+                <text x="541" y="390" text-anchor="middle" fill="#192322" font-size="13">只存、只读每个头真正需要的页</text>
+              </svg>
+            </div>
+            <figcaption>
+              图 2 · RedKnot 的整体逻辑。上半部分解决缓存换位置后的正确性，下半部分分别削减 FFN 计算，
+              并让按头稀疏在存储和注意力内核中真正落地。
+            </figcaption>
+          </figure>
+
+          <div class="mechanism">
+            <div>
+              <span class="tag">机制一</span>
+              <h3>按头恢复 KV</h3>
+            </div>
+            <div>
+              <p>
+                先用 RoPE 的相对旋转把离线缓存的 key 从旧位置对齐到新位置。
+                然后全量重算对前缀敏感的全局头；局部头则复用大部分 KV，
+                只修补起始 sink token 与最近窗口。
+              </p>
+              <div class="plain">
+                <strong>通俗理解：</strong>搬家后先改门牌号；需要了解整座城市的调查员重新调查，
+                只看自家街区的调查员沿用旧记录，只更新门口附近。
+              </div>
+            </div>
+          </div>
+
+          <div class="mechanism">
+            <div>
+              <span class="tag">机制二</span>
+              <h3>只让重要 token 跑 FFN</h3>
+            </div>
+            <div>
+              <p>
+                在较深层，RedKnot 根据恢复后的注意力信号选择重要 token。
+                这些 token 正常执行昂贵的 FFN；其余 token 跳过 FFN 更新，只沿残差连接传递。
+                浅层仍保持更保守的密集 FFN，以避免早期误差被后续层放大。
+              </p>
+              <div class="plain">
+                <strong>通俗理解：</strong>不是给会议里的每个人同样长的发言时间；
+                先找出真正掌握证据的人，让他们详细发言，其余人保留原意见。
+              </div>
+            </div>
+          </div>
+
+          <div class="mechanism">
+            <div>
+              <span class="tag">机制三</span>
+              <h3>SegPagedAttention</h3>
+            </div>
+            <div>
+              <p>
+                把传统“一个 token 块中捆着所有头”的 KV 布局，改成
+                <code>(层, KV 头, 分段)</code> 可独立寻址的页列表。
+                全局头拥有完整页列表，局部头只保留 sink 与最近窗口的页；
+                融合的变长注意力内核一次处理不同长度的头，不构造注意力 mask。
+              </p>
+              <div class="plain">
+                <strong>通俗理解：</strong>传统仓库按日期装箱，一只箱子里混着所有部门的资料；
+                找一个部门也得搬整箱。现在按部门分抽屉，只取实际需要的抽屉。
+              </div>
+            </div>
+          </div>
+
+          <div class="compare">
+            <div class="old">
+              <h3>传统矩形 KV 布局</h3>
+              <p class="muted">所有头都按完整上下文占空间，局部头只是在计算时被 mask 掉。</p>
+              <div class="kv-row"><span>全局头 A</span><div class="bar full"></div></div>
+              <div class="kv-row"><span>局部头 B</span><div class="bar full"></div></div>
+              <div class="kv-row"><span>局部头 C</span><div class="bar full"></div></div>
+              <div class="kv-row"><span>全局头 D</span><div class="bar full"></div></div>
+            </div>
+            <div class="new">
+              <h3>按头分段 KV 布局</h3>
+              <p class="muted">每个头只存活跃范围；节省的不只是计算，还有真实的页、带宽和传输量。</p>
+              <div class="kv-row"><span>全局头 A</span><div class="bar full"></div></div>
+              <div class="kv-row"><span>局部头 B</span><div class="bar short"></div></div>
+              <div class="kv-row"><span>局部头 C</span><div class="bar short"></div></div>
+              <div class="kv-row"><span>全局头 D</span><div class="bar full"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="workflow">
+          <p class="eyebrow">How it runs</p>
+          <h2>一次在线请求是怎么跑的？</h2>
+          <div class="pipeline">
+            <div class="step">
+              <b>01 · 离线准备</b>
+              对可复用文档块计算 KV，并分析每层每个头是全局头还是局部头。
+            </div>
+            <div class="step">
+              <b>02 · 位置对齐</b>
+              文档块出现在新位置时，利用 RoPE 相对旋转修正缓存 key 的位置信息。
+            </div>
+            <div class="step">
+              <b>03 · 弹性恢复</b>
+              重算全局头，局部头只修补可见窗口；深层仅为重要 token 执行 FFN。
+            </div>
+            <div class="step">
+              <b>04 · 按头执行</b>
+              SegPagedAttention 只读取各头实际需要的页，用融合变长内核完成注意力。
+            </div>
+          </div>
+
+          <p>
+            论文还试图把这一框架推广到不同架构：标准 GQA 模型管理显式 KV 页；
+            Qwen3.5 一类混合模型还要管理线性注意力的循环状态；DeepSeek MLA 模型则管理压缩 latent state。
+            因此 RedKnot 抽象出“可复用状态对象”，用模型适配器完成
+            <code>PROFILE</code>、<code>BUILDSTATE</code>、<code>SELECTVISIBLESTATE</code>
+            和 <code>EXECUTE</code>。
+          </p>
+        </section>
+
+        <section id="why">
+          <p class="eyebrow">Why it works</p>
+          <h2>为什么三个机制必须一起做？</h2>
+          <ol>
+            <li>
+              <strong>只做按头算法、不改存储：</strong>
+              虽然逻辑上少看了一些 token，但密集 KV 仍占显存并被搬运，mask 还可能让内核变慢。
+            </li>
+            <li>
+              <strong>只减少注意力、不管 FFN：</strong>
+              在 2K–8K 的 Agent 常见上下文中，FFN 才是多数 prefill 时间的来源，整体加速会很快碰到天花板。
+            </li>
+            <li>
+              <strong>只改存储、不解决缓存失真：</strong>
+              文档块换到新前缀后，旧 KV 缺少与新前文的交互；直接复用会伤害输出质量。
+            </li>
+          </ol>
+          <div class="callout">
+            <strong>论文最完整的因果链：</strong>
+            按头恢复解决“该重算谁”；稀疏 FFN 解决“哪些 token 值得继续精加工”；
+            SegPagedAttention 解决“如何让少算真正对应少存、少搬和快内核”。
+          </div>
+        </section>
+
+        <section id="results">
+          <p class="eyebrow">Evidence</p>
+          <h2>论文报告了什么效果？</h2>
+          <p>
+            实验覆盖 Mistral-7B、Qwen3-32B、Llama-3.3-70B、Qwen3.5-397B-A17B、
+            DeepSeek-V4-Flash 等模型，8K–128K 上下文和多种 QA / LongBench 工作负载，
+            主要硬件为单台 8× NVIDIA H800 80GB 服务器。
+          </p>
+
+          <div class="metrics">
+            <div class="metric">
+              <strong>1.6–3.54×</strong>
+              <span>摘要与结论强调的 TTFT 加速范围；部分大模型面板报告最高 5.16×</span>
+            </div>
+            <div class="metric">
+              <strong>67–79.5%</strong>
+              <span>相对密集注意力 / prefill 的 FLOPs 降低幅度</span>
+            </div>
+            <div class="metric">
+              <strong>4.7–7.8×</strong>
+              <span>采用按头物理存储后，每张 GPU 可容纳的并发会话提升</span>
+            </div>
+            <div class="metric">
+              <strong>≥95%</strong>
+              <span>多数设置下，相对密集重算保持的 F1 水平；论文称部分长上下文准确率反而更高</span>
+            </div>
+          </div>
+
+          <div class="figure-grid">
+            <figure>
+              <div class="diagram-card">
+                <svg viewBox="0 0 360 285" role="img" aria-labelledby="capacity-title capacity-desc">
+                  <title id="capacity-title">每张 GPU 并发会话容量对比</title>
+                  <desc id="capacity-desc">32K 上下文从传统密集布局的 4 个会话提高到 RedKnot 的 31 个；64K 从 3 个提高到 14 个。</desc>
+                  <text x="12" y="27" fill="#192322" font-size="16" font-weight="700">每张 GPU 可容纳会话数</text>
+                  <text x="12" y="49" fill="#5d6b68" font-size="11">来源：论文图 12(c)</text>
+
+                  <text x="12" y="88" fill="#192322" font-size="13" font-weight="700">32K 上下文</text>
+                  <text x="12" y="116" fill="#5d6b68" font-size="11">密集布局</text>
+                  <rect x="82" y="103" width="31" height="17" fill="#bfc7c4"/>
+                  <text x="120" y="117" fill="#5d6b68" font-size="12">4</text>
+                  <text x="12" y="146" fill="#246354" font-size="11">RedKnot</text>
+                  <rect x="82" y="133" width="240" height="17" fill="#246354"/>
+                  <text x="328" y="147" fill="#246354" font-size="12" font-weight="700">31</text>
+
+                  <line x1="12" y1="174" x2="348" y2="174" stroke="#d9ddd6"/>
+                  <text x="12" y="205" fill="#192322" font-size="13" font-weight="700">64K 上下文</text>
+                  <text x="12" y="233" fill="#5d6b68" font-size="11">密集布局</text>
+                  <rect x="82" y="220" width="23" height="17" fill="#bfc7c4"/>
+                  <text x="112" y="234" fill="#5d6b68" font-size="12">3</text>
+                  <text x="12" y="263" fill="#246354" font-size="11">RedKnot</text>
+                  <rect x="82" y="250" width="108" height="17" fill="#246354"/>
+                  <text x="197" y="264" fill="#246354" font-size="12" font-weight="700">14</text>
+                </svg>
+              </div>
+              <figcaption>
+                图 3 · 按头实际裁掉 KV 后，同一块显存能容纳更多请求。这里体现的是容量收益，
+                不是单请求速度。
+              </figcaption>
+            </figure>
+
+            <figure>
+              <div class="diagram-card">
+                <svg viewBox="0 0 360 285" role="img" aria-labelledby="latency-title latency-desc">
+                  <title id="latency-title">128K decode 注意力内核延迟对比</title>
+                  <desc id="latency-desc">Dense 加 mask 的延迟是 506.8 毫秒，SegPagedAttention 是 24.1 毫秒，相差约 21 倍。</desc>
+                  <text x="12" y="27" fill="#192322" font-size="16" font-weight="700">128K decode 内核延迟</text>
+                  <text x="12" y="49" fill="#5d6b68" font-size="11">越短越好 · 来源：论文图 9(e)(f) 微基准</text>
+
+                  <text x="12" y="92" fill="#5d6b68" font-size="12">Dense + mask</text>
+                  <rect x="12" y="105" width="324" height="36" fill="#9f3f2f"/>
+                  <text x="324" y="129" text-anchor="end" fill="#fffdf8" font-size="14" font-weight="700">506.8 ms</text>
+
+                  <text x="12" y="184" fill="#315e78" font-size="12">SegPagedAttention</text>
+                  <rect x="12" y="197" width="15" height="36" fill="#315e78"/>
+                  <text x="36" y="221" fill="#315e78" font-size="14" font-weight="700">24.1 ms</text>
+
+                  <line x1="12" y1="259" x2="336" y2="259" stroke="#d9ddd6"/>
+                  <text x="174" y="279" text-anchor="middle" fill="#246354" font-size="13" font-weight="700">约 21× 内核级加速</text>
+                </svg>
+              </div>
+              <figcaption>
+                图 4 · mask 只是在逻辑上忽略数据，仍可能付出密集读取与慢内核代价；
+                按头变长页列表才把“少看”变成“少搬”。注意这不是端到端延迟。
+              </figcaption>
+            </figure>
+          </div>
+
+          <h3 style="margin-top: 34px;">值得注意的具体结果</h3>
+          <ul>
+            <li>
+              SegPagedAttention 的隔离微基准中，128K decode 相比 Dense+mask 从
+              506.8 ms 降到 24.1 ms，约 <strong>21×</strong>；128K prefill 报告约
+              <strong>23.3×</strong> 内核级加速。
+            </li>
+            <li>
+              Qwen3-32B 的 prefix KV 压缩在 32K 时减少 <strong>44%</strong> KV 传输，
+              固定显存预算下 decode QPS/GPU 提升约 <strong>1.90×</strong>。
+            </li>
+            <li>
+              并发容量从 32K 下的每 GPU 4 个会话增至 31 个，从 64K 下的 3 个增至 14 个。
+            </li>
+            <li>
+              MuSiQue 请求流分析发现，62% 文档块从未复用；只缓存复用至少 5 次的块，
+              论文估算可用 7.8 GB 缓存换取 75% 的重计算节省。
+            </li>
+          </ul>
+
+          <div class="callout">
+            <strong>如何理解“稀疏反而可能更准确”？</strong>
+            超长上下文里，大量无关段落会稀释真正证据。RedKnot 在深层减少低价值 token 的 FFN 更新，
+            类似给信号做降噪。论文观察到在 64K–128K 区域，部分模型和任务上它超过密集计算；
+            这并不意味着稀疏永远更准，而是说明长上下文中的“多算”可能也会传播噪声。
+          </div>
+        </section>
+
+        <section id="value">
+          <p class="eyebrow">What matters</p>
+          <h2>这篇论文真正重要在哪里？</h2>
+          <p class="verdict">
+            它把 KV Cache 从“模型计算后顺手留下的一整块被动张量”，提升为
+            “知道不同头价值、可独立寻址、可压缩、可分层放置、可按成本调度的运行时对象”。
+          </p>
+          <p>
+            这比单个稀疏算法更有系统意义。因为长上下文服务不只需要减少 FLOPs，还要共同解决：
+            GPU HBM 容量、内存带宽、prefill/decode 节点间传输、缓存准入与淘汰、内核调度等问题。
+            RedKnot 的方向是让同一份“按头稀疏元数据”贯穿这些环节。
+          </p>
+          <p>
+            如果这一思路进入主流推理引擎，未来缓存命中可能不再只是“整块命中 / 整块未命中”，
+            而是：这个文档块的哪些头仍有效、哪些头要重算、每个头保留多长窗口、应放 GPU 还是低速层级，
+            以及它是否值得继续缓存。
+          </p>
+        </section>
+
+        <section id="limits">
+          <p class="eyebrow">Critical reading</p>
+          <h2>阅读结果时要注意的局限</h2>
+          <ul class="caveats">
+            <li>
+              <strong>在线 TTFT 不包含离线文档块 prefill。</strong>
+              这对高复用内容合理，但若文本只出现一次，离线成本无法摊薄。
+            </li>
+            <li>
+              <strong>参数依赖离线校准。</strong>
+              全局头比例、局部窗口、浅层密集边界、token 选择阈值均按模型和任务配置；
+              工作负载变化时是否稳定，需要更多生产环境验证。
+            </li>
+            <li>
+              <strong>并非所有端到端实验都启用了 SegPagedAttention。</strong>
+              论文明确指出部分 PD 分离与吞吐测试仍使用 Dense+mask 后端；
+              某些很高的 21×–23.3× 数字来自隔离的注意力内核微基准，不能直接等同于端到端吞吐。
+            </li>
+            <li>
+              <strong>大模型上缺少完整的同类基线。</strong>
+              CacheBlend、ProphetKV 在 Qwen3.5-397B 与 DeepSeek-V4-Flash 等规模上未可靠运行，
+              因而这些场景主要与 full recompute 比较。
+            </li>
+            <li>
+              <strong>“局部头”并不保证所有任务都安全。</strong>
+              论文也提醒，检索密集型任务的答案可能落在被裁剪的前缀中段；
+              实际部署需要 retrieval-head 白名单或任务感知压缩。
+            </li>
+            <li>
+              <strong>论文中的最高 TTFT 数字口径不同。</strong>
+              摘要 / 结论强调最高约 3.54×，而部分 Qwen3.5 / DeepSeek-V4 图中报告 3.51×–5.16×。
+              应按具体模型、上下文、对照实现和是否为单模块测试分别解读。
+            </li>
+          </ul>
+        </section>
+
+        <section id="glossary">
+          <p class="eyebrow">Glossary</p>
+          <h2>术语速查</h2>
+          <dl class="glossary">
+            <dt>KV Cache</dt>
+            <dd>模型保存历史 token 的 key/value 表示，避免生成每个新 token 时重复计算全部历史。</dd>
+            <dt>Prefill</dt>
+            <dd>生成首个 token 前，模型处理完整输入提示词的阶段；长输入时常是 TTFT 的主要来源。</dd>
+            <dt>TTFT</dt>
+            <dd>Time To First Token，从请求到首个输出 token 的时间，直接影响交互等待感。</dd>
+            <dt>PIC</dt>
+            <dd>Position-Independent KV Cache：文本块换了位置或前缀后，仍尝试复用其预计算 KV。</dd>
+            <dt>RoPE</dt>
+            <dd>旋转位置编码。RedKnot 利用其相对旋转性质，把缓存 key 从旧位置对齐到新位置。</dd>
+            <dt>FFN</dt>
+            <dd>Transformer 的前馈网络。对每个 token 做昂贵的非线性变换，在较短上下文 prefill 中占比很高。</dd>
+            <dt>Attention sink</dt>
+            <dd>少量起始 token 会吸收较高注意力，即便它们语义上未必重要；局部窗口通常仍需保留它们。</dd>
+            <dt>PD 分离</dt>
+            <dd>Prefill 与 Decode 使用不同工作节点；KV Cache 需要从 prefill 节点传给 decode 节点。</dd>
+          </dl>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      本文基于 arXiv:2606.06256v3 整理。性能与准确率均为论文作者报告结果，
+      不等同于在其他硬件、模型、数据集或生产流量上的保证。原论文注明开源社区代码测试结果应作为最终参考。
+    </footer>
+  </article>
+  <script>
+    (() => {
+      const animation = document.getElementById("mechanism-animation");
+      const stageTrack = document.getElementById("animation-stage-track");
+      const toggleButton = document.getElementById("animation-toggle");
+      const replayButton = document.getElementById("animation-replay");
+
+      if (!animation || !stageTrack || !toggleButton || !replayButton) return;
+
+      const setPaused = (paused) => {
+        animation.classList.toggle("paused", paused);
+        stageTrack.classList.toggle("paused", paused);
+        toggleButton.textContent = paused ? "继续动画" : "暂停动画";
+        toggleButton.setAttribute("aria-pressed", String(paused));
+      };
+
+      toggleButton.addEventListener("click", () => {
+        setPaused(!animation.classList.contains("paused"));
+      });
+
+      replayButton.addEventListener("click", () => {
+        setPaused(false);
+        animation.classList.remove("is-running");
+        stageTrack.classList.remove("running");
+        void animation.offsetWidth;
+        animation.classList.add("is-running");
+        stageTrack.classList.add("running");
+      });
+    })();
+  </script>
+</body>
+</html>
