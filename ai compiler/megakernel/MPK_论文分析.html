@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MPK 论文分析 | OSDI 2026</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">OSDI 2026</span>
+        <span class="badge">arXiv:2512.22219v2</span>
+        <span class="badge">Mega-kernel · 推理编译</span>
+        <span class="badge ok">CMU + NVIDIA</span>
+        <span class="badge ok">tGraph</span>
+        <span class="badge ok">A100 / H100 / B200</span>
+      </div>
+      <h1>把整次推理打成一颗 persistent mega-kernel</h1>
+      <p class="subtitle">MPK: A Compiler and Runtime for Mega-Kernelizing Tensor Programs</p>
+      <p class="meta">
+        <strong>作者：</strong>Xinhao Cheng*、Zhihao Zhang*、Yu Zhou*、Jianan Ji* 等（CMU / 清华 / NVIDIA / 密歇根 / 北大）<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2512.22219" target="_blank" rel="noopener">arXiv:2512.22219</a>
+        · 代码 <a href="https://github.com/mirage-project/mirage" target="_blank" rel="noopener">mirage-project/mirage</a>（分支 <code>tgx-osdi26-ae</code>）
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">kernel-per-operator 卡住的三件事</a></li>
+        <li><a href="#s3">tGraph：依赖下沉到 SM</a></li>
+        <li><a href="#s4">编译器：分解、融合、规范化、线性化</a></li>
+        <li><a href="#s5">核内运行时：worker / scheduler</a></li>
+        <li><a href="#s6">JIT 与 AOT 混合发射</a></li>
+        <li><a href="#s7">分页共享内存与跨任务流水</a></li>
+        <li><a href="#s8">评测：单卡、MoE、多卡、消融</a></li>
+        <li><a href="#s9">局限与和 Event Tensor / Fleet 的分工</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        现有 serving 系统（vLLM、SGLang）一个算子一个 kernel，核间有隐式屏障。PDL 能部分重叠，但要改核结构；CUDA Graph 能省 launch，但图是静态的。MPK 声称自己是<strong>第一套把多 GPU 模型推理自动变成一颗高性能 mega-kernel 的编译器 + 运行时</strong>：依赖画在 SM 级 tGraph 上，调度发生在核里面。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">1.0–1.7×</div>
+          <div class="k">相对 vLLM / SGLang 端到端（小模型、新卡更大）</div>
+        </div>
+        <div>
+          <div class="n">12.5 ms</div>
+          <div class="k">Qwen3-8B A100 每 token；基线 14.5 ms，带宽下界 ~10 ms</div>
+        </div>
+        <div>
+          <div class="n">1.1–1.4×</div>
+          <div class="k">8×H100 张量并行相对 vLLM / SGLang</div>
+        </div>
+        <div>
+          <div class="n">0.28%</div>
+          <div class="k">核内调度器占运行时间</div>
+        </div>
+      </div>
+      <div class="callout">
+        用户接口是 <code>torch.compile(backend=MPK)</code>。实现约 44K C++、42K CUDA、10K Python。计算任务用 <a href="Mirage_论文分析.html">Mirage</a> 超优化生成 CUDA，通信走 NVSHMEM。手写 mega-kernel（FlashDMoE、HazyResearch 的 LLaMA-1B）证明这条路有性能，MPK 要证明它可以编译出来。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. kernel-per-operator 卡住的三件事</h2>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>核屏障杀跨算子流水</h4>
+          <p>同 stream 上后核要等前核全部线程结束。TMA / Tensor Core / CUDA Core 的 intra-task 流水可以做，task 边界上会留 pipeline bubble。PDL 能部分重叠，但要改控制流。</p>
+        </div>
+        <div class="tile">
+          <h4>依赖太粗，算通叠不上</h4>
+          <p>MatMul 后面 AllGather / AllReduce 时，通信其实只依赖对应 tile。整核屏障让 AllGather 等到整个 MatMul 结束。细粒度重叠需要 SM 之间的子核同步。</p>
+        </div>
+        <div class="tile">
+          <h4>成百上千次 launch</h4>
+          <p>CUDA Graph 能把 launch 从 ~3.8 μs 压到 ~0.8 μs，但图绑死 shape 和控制流。连续批、变长、MoE 路由都要重捕获。</p>
+        </div>
+      </div>
+      <p>
+        mega-kernel = 一次 launch 打完整模型（含层计算和卡间通信）。好处对应上面三件事：零重复 launch、跨算子 prefetch、tile 级算通重叠。难点是生态碎片——NCCL / NVSHMEM、FlashInfer / FlashAttention、CUDA / Triton 各管一段，很难塞进同一颗核。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="核屏障 vs mega-kernel 流水">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">Kernel-per-operator</text>
+            <rect x="30" y="48" width="430" height="170" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="50" y="70" width="160" height="36" rx="4" fill="#fdba74"/>
+            <text x="130" y="93" text-anchor="middle" font-size="12">MatMul 核</text>
+            <rect x="250" y="70" width="80" height="36" rx="4" fill="#fecaca"/>
+            <text x="290" y="93" text-anchor="middle" font-size="11">屏障</text>
+            <rect x="360" y="70" width="80" height="36" rx="4" fill="#fdba74"/>
+            <text x="400" y="93" text-anchor="middle" font-size="12">AR 核</text>
+            <text x="245" y="140" text-anchor="middle" font-size="12" fill="#57534e">TMA / TC / CUDA 只在核内流水</text>
+            <text x="245" y="164" text-anchor="middle" font-size="12" fill="#57534e">AllReduce 等整个 MatMul 结束</text>
+            <text x="245" y="196" text-anchor="middle" font-size="12" fill="#9a3412">bubble + 粗粒度依赖</text>
+
+            <text x="735" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">MPK mega-kernel</text>
+            <rect x="520" y="48" width="430" height="170" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="545" y="70" width="90" height="28" rx="4" fill="#5eead4"/>
+            <text x="590" y="89" text-anchor="middle" font-size="11">MM tile</text>
+            <rect x="650" y="70" width="90" height="28" rx="4" fill="#99f6e4"/>
+            <text x="695" y="89" text-anchor="middle" font-size="11">AR tile</text>
+            <rect x="545" y="108" width="90" height="28" rx="4" fill="#5eead4"/>
+            <text x="590" y="127" text-anchor="middle" font-size="11">MM tile</text>
+            <rect x="650" y="108" width="90" height="28" rx="4" fill="#99f6e4"/>
+            <text x="695" y="127" text-anchor="middle" font-size="11">AR tile</text>
+            <rect x="755" y="70" width="170" height="66" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="840" y="98" text-anchor="middle" font-size="11">下一任务 prefetch</text>
+            <text x="840" y="118" text-anchor="middle" font-size="11">（分页 shared mem）</text>
+            <text x="735" y="196" text-anchor="middle" font-size="12" fill="#115e59">同核内 SM 级事件驱动</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1 · 核屏障把流水和重叠锁在算子边界内；tGraph 把依赖画到 tile / SM。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. tGraph：依赖下沉到 SM</h2>
+      <p>
+        tGraph 的节点是两类：<strong>task</strong>（一颗 SM 上的计算或通信）和 <strong>event</strong>（跨 task 的同步）。边交替出现：task 只连到它触发的 event，event 只连到依赖它的 task。task 在全部依赖 event 激活后才能跑；跑完通知触发 event。event 收齐通知后激活。
+      </p>
+      <p>
+        经典例子：MatMul → AllReduce。AllReduce 是逐元素的，每个 AR task 只依赖对应那一块 MM tile。tGraph 在这对 tile 之间插细粒度 event，于是有的 SM 还在做 MM，有的 SM 已经开始 AR。若 event 只捕获算子级依赖，tGraph 就退化成 CUDA Graph。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="粗粒度 event 与 SM 级 tGraph">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">算子级依赖 · 退化成 CUDA Graph</text>
+            <rect x="20" y="40" width="450" height="240" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="50" y="70" width="70" height="36" rx="4" fill="#fdba74"/>
+            <text x="85" y="93" text-anchor="middle" font-size="11">MM1</text>
+            <rect x="130" y="70" width="70" height="36" rx="4" fill="#fdba74"/>
+            <text x="165" y="93" text-anchor="middle" font-size="11">MM2</text>
+            <rect x="210" y="70" width="70" height="36" rx="4" fill="#fdba74"/>
+            <text x="245" y="93" text-anchor="middle" font-size="11">MM3</text>
+            <rect x="290" y="70" width="70" height="36" rx="4" fill="#fdba74"/>
+            <text x="325" y="93" text-anchor="middle" font-size="11">MM4</text>
+            <circle cx="245" cy="150" r="22" fill="#fecaca" stroke="#ef4444"/>
+            <text x="245" y="155" text-anchor="middle" font-size="11">e</text>
+            <rect x="90" y="200" width="70" height="36" rx="4" fill="#fed7aa"/>
+            <text x="125" y="223" text-anchor="middle" font-size="11">AR1</text>
+            <rect x="180" y="200" width="70" height="36" rx="4" fill="#fed7aa"/>
+            <text x="215" y="223" text-anchor="middle" font-size="11">AR2</text>
+            <rect x="270" y="200" width="70" height="36" rx="4" fill="#fed7aa"/>
+            <text x="305" y="223" text-anchor="middle" font-size="11">AR3</text>
+            <path d="M85 106 L245 128" stroke="#c2410c" stroke-width="1.2"/>
+            <path d="M165 106 L245 128" stroke="#c2410c" stroke-width="1.2"/>
+            <path d="M245 106 L245 128" stroke="#c2410c" stroke-width="1.2"/>
+            <path d="M325 106 L245 128" stroke="#c2410c" stroke-width="1.2"/>
+            <path d="M245 172 L125 200" stroke="#c2410c" stroke-width="1.2"/>
+            <path d="M245 172 L215 200" stroke="#c2410c" stroke-width="1.2"/>
+            <path d="M245 172 L305 200" stroke="#c2410c" stroke-width="1.2"/>
+            <text x="245" y="262" text-anchor="middle" font-size="12" fill="#9a3412">全部 MM 结束才放行全部 AR</text>
+
+            <text x="735" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">SM 级 tGraph · 细粒度重叠</text>
+            <rect x="510" y="40" width="450" height="240" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="540" y="70" width="60" height="32" rx="4" fill="#5eead4"/>
+            <text x="570" y="91" text-anchor="middle" font-size="11">MM1</text>
+            <rect x="640" y="70" width="60" height="32" rx="4" fill="#5eead4"/>
+            <text x="670" y="91" text-anchor="middle" font-size="11">MM2</text>
+            <rect x="740" y="70" width="60" height="32" rx="4" fill="#5eead4"/>
+            <text x="770" y="91" text-anchor="middle" font-size="11">MM3</text>
+            <rect x="840" y="70" width="60" height="32" rx="4" fill="#5eead4"/>
+            <text x="870" y="91" text-anchor="middle" font-size="11">MM4</text>
+            <circle cx="570" cy="140" r="14" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="570" y="144" text-anchor="middle" font-size="10">e1</text>
+            <circle cx="670" cy="140" r="14" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="670" y="144" text-anchor="middle" font-size="10">e2</text>
+            <circle cx="770" cy="140" r="14" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="770" y="144" text-anchor="middle" font-size="10">e3</text>
+            <circle cx="870" cy="140" r="14" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="870" y="144" text-anchor="middle" font-size="10">e4</text>
+            <rect x="540" y="178" width="60" height="32" rx="4" fill="#fde68a"/>
+            <text x="570" y="199" text-anchor="middle" font-size="11">AR1</text>
+            <rect x="640" y="178" width="60" height="32" rx="4" fill="#fde68a"/>
+            <text x="670" y="199" text-anchor="middle" font-size="11">AR2</text>
+            <rect x="740" y="178" width="60" height="32" rx="4" fill="#fde68a"/>
+            <text x="770" y="199" text-anchor="middle" font-size="11">AR3</text>
+            <rect x="840" y="178" width="60" height="32" rx="4" fill="#fde68a"/>
+            <text x="870" y="199" text-anchor="middle" font-size="11">AR4</text>
+            <path d="M570 102 L570 126" stroke="#0f766e"/>
+            <path d="M670 102 L670 126" stroke="#0f766e"/>
+            <path d="M770 102 L770 126" stroke="#0f766e"/>
+            <path d="M870 102 L870 126" stroke="#0f766e"/>
+            <path d="M570 154 L570 178" stroke="#0f766e"/>
+            <path d="M670 154 L670 178" stroke="#0f766e"/>
+            <path d="M770 154 L770 178" stroke="#0f766e"/>
+            <path d="M870 154 L870 178" stroke="#0f766e"/>
+            <text x="735" y="242" text-anchor="middle" font-size="12" fill="#115e59">MM1 一完，AR1 立刻在另一颗 SM 上跑</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2 · 同一份 MatMul→AllReduce。左边一个 event 等价于核屏障；右边每个 tile 对一个 event，计算和通信在不同 SM 上重叠。</p>
+      <div class="callout teal">
+        和 CUDA Graph 的关系：结构相似（静态实例化、显式依赖），粒度不同。CUDA Graph 描述 kernel 发射顺序，重叠停在核边界。tGraph 显式建模算子内和算子间的 SM 级依赖，同步走 device memory 原语，全部发生在一颗 persistent kernel 里。
+      </div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 编译器：分解、融合、规范化、线性化</h2>
+      <p>
+        输入是计算图 + 推理配置（batch、GPU 型号）。输出是针对该配置特化的 tGraph，外加每个 task 的 CUDA device function。
+      </p>
+      <ol class="steps">
+        <li><strong>算子分解。</strong>按输出张量切 task。默认切分数与 SM 数成比例以均衡负载。启发式：最小化 HBM→shared memory 的装载量。用户可指定各输出维的并行度。</li>
+        <li><strong>依赖分析。</strong>两算子共享张量时，枚举 task 对；输出区域与输入区域相交就插一个 event。保留全部生产-消费依赖，独立 task 可并行。</li>
+        <li><strong>Event 融合。</strong>后继集相同（同一组消费者）→ successor-set fusion；前驱集相同（同一组生产者）→ predecessor-set fusion。Qwen3-8B：162k 对依赖收成 2366 个 event（68×）；MoE 因 many-to-many 路由，融合达 118×。</li>
+        <li><strong>规范化。</strong>每个 task 至多依赖 1 个、触发 1 个 event。多扇出/扇入时插入空 task 和中间 event。真实 LLM 图「深而不宽」，评测里 fork/join 组为 0，开销 &lt;1%；有并行分支（未融合的 Q/K/V）时仍需要它来保证定长描述符。</li>
+        <li><strong>线性化。</strong>BFS：同一 event 触发的 task 在数组里连续，扇出只需存 first/last 下标。device 上后继编码降 4.4–15×（MoE 最高，因为高扇出路由 event 特别吃范围编码）。</li>
+      </ol>
+      <p>
+        线性化后每个 task 只存两个 event id；每个 event 存激活计数 + 任务下标范围。这是核内调度能用原子加法在环形缓冲上跑起来的前提。
+      </p>
+      <p>
+        Task 实现：block 级超优化，不是 kernel 级。每个 compute task 有一份 PyTorch 参考实现，交给 Mirage 搜 thread-block 图再降 CUDA（软件流水、寄存器复用、bank conflict 布局）。手写核可以包成统一 calling convention 的 device function，和编译生成的 task 走同一套事件调度。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="tGraph 编译五步">
+          <g font-family="Segoe UI, sans-serif" font-size="11">
+            <rect x="12" y="36" width="175" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="100" y="64" text-anchor="middle" font-weight="700" font-size="13">1 分解</text>
+            <text x="100" y="86" text-anchor="middle">算子 → SM 级 task</text>
+            <rect x="207" y="36" width="175" height="70" rx="6" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="294" y="64" text-anchor="middle" font-weight="700" font-size="13">2 依赖</text>
+            <text x="294" y="86" text-anchor="middle">相交区域插 event</text>
+            <rect x="402" y="36" width="175" height="70" rx="6" fill="#fef3c7" stroke="#b45309"/>
+            <text x="490" y="64" text-anchor="middle" font-weight="700" font-size="13">3 融合</text>
+            <text x="490" y="86" text-anchor="middle">后继/前驱集相同则并</text>
+            <rect x="597" y="36" width="175" height="70" rx="6" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="684" y="64" text-anchor="middle" font-weight="700" font-size="13">4 规范化</text>
+            <text x="684" y="86" text-anchor="middle">每 task 扇入扇出 ≤1</text>
+            <rect x="792" y="36" width="175" height="70" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="880" y="64" text-anchor="middle" font-weight="700" font-size="13">5 线性化</text>
+            <text x="880" y="86" text-anchor="middle">扇出改成 first–last 下标</text>
+            <text x="490" y="140" text-anchor="middle" font-size="13" fill="#44403c">Qwen3-8B：293 算子 → 13,867 task · 162k 对依赖 → 2,366 event（68×）</text>
+            <text x="490" y="166" text-anchor="middle" font-size="13" fill="#44403c">线性化后：task 只存两个 event id；event 只存计数 + 下标范围</text>
+            <text x="490" y="196" text-anchor="middle" font-size="12" fill="#57534e">device 上后继编码再省 4.4–15× · 这是核内原子调度能跑起来的前提</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3 · 编译器把任意扇入扇出收成定长描述符。规范化用空 task 拆多扇出；线性化让同一 event 的消费者在数组里连续。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 核内运行时：worker / scheduler</h2>
+      <p>
+        一颗 mega-kernel 占满 GPU，一直跑到这次推理结束。SM 在 launch 时固定分成 worker 和 scheduler，核内不切换角色。
+      </p>
+      <table>
+        <thead>
+          <tr><th>GPU</th><th>SM 数</th><th>Worker</th><th>Scheduler warp</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>A100</td><td>108</td><td>104</td><td>16（4 SM × 4 warp）</td></tr>
+          <tr><td>H100</td><td>132</td><td>128</td><td>16</td></tr>
+          <tr><td>B200</td><td>148</td><td>144</td><td>16</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Worker：每颗 SM 一个任务队列，FIFO 取 task → 算/传 → 通知触发 event。Scheduler：每颗调度 SM 上 4 个 warp，各维护 event 队列，轮询已激活 event，把对应 task 派给 worker。队列是 device memory 里的环形缓冲，入队出队只有 <code>atomicAdd</code>。调度是去中心的：每个 scheduler 用局部状态派活，没有全局锁。
+      </p>
+      <p>
+        事件驱动还有一个附带好处：同一套 tGraph 能吃异构互连。通信和计算都是 task，谁先触发 event 谁先放行下游。快链路早完成就早放计算，慢链路只拖依赖它的那部分。调度器不需要 NVLink / 跨节点带宽的静态画像。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="核内 worker 与 scheduler">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="280" height="240" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="160" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">Scheduler SM ×4</text>
+            <text x="160" y="70" text-anchor="middle" font-size="11" fill="#57534e">每 SM 4 warp · 共 16</text>
+            <rect x="48" y="90" width="224" height="44" rx="4" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="160" y="117" text-anchor="middle" font-size="12">event 环形队列</text>
+            <rect x="48" y="148" width="224" height="44" rx="4" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="160" y="175" text-anchor="middle" font-size="12">atomicAdd 出队 · 派 task</text>
+            <text x="160" y="224" text-anchor="middle" font-size="12" fill="#1e3a5f">launch 时角色固定</text>
+            <text x="160" y="244" text-anchor="middle" font-size="11" fill="#57534e">核内不切换</text>
+
+            <path d="M310 140 L390 140" stroke="#0f766e" stroke-width="2"/>
+            <text x="350" y="128" text-anchor="middle" font-size="11" fill="#0f766e">dispatch</text>
+
+            <rect x="400" y="20" width="560" height="240" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="680" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">Worker SM（其余全部）</text>
+            <rect x="430" y="70" width="150" height="70" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="505" y="100" text-anchor="middle" font-size="12">w1 队列</text>
+            <text x="505" y="120" text-anchor="middle" font-size="11">FIFO 取 task</text>
+            <rect x="605" y="70" width="150" height="70" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="680" y="100" text-anchor="middle" font-size="12">w2 队列</text>
+            <text x="680" y="120" text-anchor="middle" font-size="11">算 / 传 / notify</text>
+            <rect x="780" y="70" width="150" height="70" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="855" y="100" text-anchor="middle" font-size="12">w3 …</text>
+            <text x="855" y="120" text-anchor="middle" font-size="11">去中心 · 无全局锁</text>
+            <text x="680" y="180" text-anchor="middle" font-size="12" fill="#134e4a">H100：128 worker + 16 scheduler warp</text>
+            <text x="680" y="204" text-anchor="middle" font-size="12" fill="#134e4a">B200：144 worker · 调度占运行时间 0.28%</text>
+            <text x="680" y="236" text-anchor="middle" font-size="11" fill="#57534e">队列在 HBM 环形缓冲 · 入队出队只有原子加</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4 · persistent mega-kernel 把 GPU 切成调度器和工人。调度器看 event 队列，工人看 task 队列；通信和计算是同一种 task。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. JIT 与 AOT 混合发射</h2>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>JIT：依赖满足后再入队</h4>
+          <p>worker → scheduler → worker 两跳同步。优点：attention 这种耗时随序列长度变的算子，先做完的 SM 可以多接下游 MM / AR，动态均衡。缺点：每 task 发射延迟更高。</p>
+        </div>
+        <div class="tile">
+          <h4>AOT：预先入队，本地等 event</h4>
+          <p>只需一跳（event 触发）。延迟低，但静态绑定，不均衡时 SM 空转。适合耗时可预测的算子。</p>
+        </div>
+      </div>
+      <p>
+        编译期按算子打标签：耗时数据依赖的（attention）标 JIT，其下游保持 JIT，直到碰到「必须被全部上游触发」的全局屏障——屏障会抹掉累积不均衡，之后改回 AOT。同一算子的全部 task 共享发射模式。Worker 有两条队列，永远优先 JIT；JIT 空了再看队首 AOT 的 event 是否已激活。AOT task 在执行前 round-robin 预分配，减轻 scheduler 负担。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="JIT 与 AOT 发射路径">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">JIT · 两跳</text>
+            <rect x="20" y="40" width="450" height="190" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="40" y="70" width="100" height="40" rx="4" fill="#fdba74"/>
+            <text x="90" y="95" text-anchor="middle" font-size="12">w1 做 T1</text>
+            <rect x="170" y="70" width="110" height="40" rx="4" fill="#fecaca"/>
+            <text x="225" y="95" text-anchor="middle" font-size="12">通知 scheduler</text>
+            <rect x="310" y="70" width="130" height="40" rx="4" fill="#fed7aa"/>
+            <text x="375" y="95" text-anchor="middle" font-size="12">scheduler 派 T2</text>
+            <rect x="150" y="140" width="180" height="40" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="240" y="165" text-anchor="middle" font-size="12">w2 出队并执行 T2</text>
+            <text x="245" y="206" text-anchor="middle" font-size="12" fill="#9a3412">可均衡 attention 长短请求 · 延迟高</text>
+
+            <text x="735" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">AOT · 一跳</text>
+            <rect x="510" y="40" width="450" height="190" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="540" y="70" width="180" height="40" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="630" y="95" text-anchor="middle" font-size="12">T2 预先在 w2 队列里</text>
+            <rect x="750" y="70" width="180" height="40" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="840" y="95" text-anchor="middle" font-size="12">w1 做完 T1 触发 e</text>
+            <rect x="640" y="140" width="200" height="40" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="740" y="165" text-anchor="middle" font-size="12">w2 本地等到 e 再跑 T2</text>
+            <text x="735" y="206" text-anchor="middle" font-size="12" fill="#115e59">少一跳同步 · 绑死 worker 不均衡时空转</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5 · 论文 Figure 8。Attention 标 JIT，遇到全局屏障后改回 AOT。Worker 永远先消化 JIT 队列。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 分页共享内存与跨任务流水</h2>
+      <p>
+        常规模型里 shared memory 随 kernel 生灭，一核独占。mega-kernel 要在同一颗 SM 上流水「当前 task 计算」和「下一 task 装数据」，两 task 会同时要 shared memory。
+      </p>
+      <p>
+        MPK 把 shared memory 切成固定页（评测里 32 KB；A100 每 SM 5 页，H100/B200 每 SM 7 页）。Task 按足迹申请页，用完释放；一旦释放过，就不许再申请——单调用法简化调度。当前 task 放出页，立刻可以给下一 task 做 prefetch。
+      </p>
+      <p>
+        跨任务流水：每个 task 拆成 preload 和 compute。当 (1) 当前 task 已发完自己的数据搬运，且 (2) 有足够页给下一 task 的 preload，就把两者重叠。SM 内插入必要屏障，避免两套搬运打架。Qwen3-8B 最后一层线性：开流水比不开快 1.2–1.3×，甚至超过 cuBLAS 编译核。
+      </p>
+      <p>
+        另外，task 描述符 352 字节，队列在 HBM；runtime 把即将执行的描述符预取进 shared memory。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="分页共享内存跨任务流水">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="80" y="36" font-size="13" font-weight="700" fill="#1e3a5f">同一 worker SM 的时间轴</text>
+            <text x="70" y="80" font-size="12" fill="#57534e">T1 compute</text>
+            <rect x="160" y="60" width="280" height="32" rx="4" fill="#fdba74" stroke="#c2410c"/>
+            <text x="300" y="81" text-anchor="middle" font-size="12">Tensor Core / CUDA Core</text>
+            <text x="70" y="128" font-size="12" fill="#57534e">T1 preload</text>
+            <rect x="160" y="108" width="120" height="32" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="220" y="129" text-anchor="middle" font-size="12">TMA 装完</text>
+            <text x="70" y="176" font-size="12" fill="#57534e">T2 preload</text>
+            <rect x="300" y="156" width="200" height="32" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="400" y="177" text-anchor="middle" font-size="12">T2 抢到释放的页 · 开始装</text>
+            <text x="70" y="216" font-size="11" fill="#57534e">shared mem 页</text>
+            <rect x="160" y="200" width="70" height="22" rx="3" fill="#fecaca"/>
+            <text x="195" y="215" text-anchor="middle" font-size="10">T1 占用</text>
+            <rect x="238" y="200" width="70" height="22" rx="3" fill="#fecaca"/>
+            <text x="273" y="215" text-anchor="middle" font-size="10">T1 占用</text>
+            <rect x="316" y="200" width="70" height="22" rx="3" fill="#ccfbf1"/>
+            <text x="351" y="215" text-anchor="middle" font-size="10">放出→T2</text>
+            <rect x="394" y="200" width="70" height="22" rx="3" fill="#5eead4"/>
+            <text x="429" y="215" text-anchor="middle" font-size="10">T2 占用</text>
+            <rect x="540" y="50" width="410" height="170" rx="8" fill="#faf7f2" stroke="#e7e0d4"/>
+            <text x="745" y="80" text-anchor="middle" font-size="13" font-weight="700">规则</text>
+            <text x="745" y="110" text-anchor="middle" font-size="12">页 32 KB · A100 5 页 / H100·B200 7 页</text>
+            <text x="745" y="136" text-anchor="middle" font-size="12">释放过就不能再申请（单调用法）</text>
+            <text x="745" y="162" text-anchor="middle" font-size="12">T1 发完自己的搬运 且 有空页 → 重叠</text>
+            <text x="745" y="194" text-anchor="middle" font-size="12" fill="#0f766e">末层线性 1.2–1.3× vs 不开流水</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6 · 核屏障让跨 task prefetch 做不成，因为下一核还没 launch。分页让当前 task 计算和下一个 task 装数同时占同一颗 SM 的 shared memory。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 评测：单卡、MoE、多卡、消融</h2>
+      <p>
+        离线批推理，prompt 64、生成 1024，batch 1–16。模型：Qwen3-0.6B / 1.7B / 8B、Llama-3.2-1B、Qwen3-30B-A3B（MoE）。基线：PyTorch、vLLM、SGLang，都开 paged attention 和 continuous batching。关键差异：MPK 把 page 分配和请求调度做进 mega-kernel；vLLM / SGLang 这些在 CPU 上做，带来 host–device 同步。
+      </p>
+      <h3>端到端</h3>
+      <p>
+        单 batch 相对最强基线 1.0–1.7×。增益在小模型和新型号上更大——计算变少、硬件变快之后，三笔开销相对变大：核切换（即便有 CUDA Graph）、流水 bubble、CPU 侧调度。Qwen3-8B A100：14.5 ms → 12.5 ms / token，16 GB 权重按 1.6 TB/s 估的下界约 10 ms。相对原生 PyTorch 超过 10×。
+      </p>
+      <h3>动态性怎么接</h3>
+      <p>
+        连续批和 paged attention：start event 上跑一个 task，踢掉已完成请求、准入新请求、更新 KV 元数据（元数据放 device memory，attention task 直接读）。动态 batch：按 2 的幂预编译多张 tGraph，runtime 按当前 batch 选一张。这不是 Event Tensor 那种符号 shape 一张图走天下，是「代表性 shape 特化 + 运行时切换」。
+      </p>
+      <h3>MoE</h3>
+      <p>
+        路由 / dispatch / expert 计算 / combine 都是同一 tGraph 里的 task，all-to-all 和计算由同一事件调度器重叠。两点 MoE 特化：
+      </p>
+      <ul>
+        <li><strong>混合负载均衡。</strong>编译期按 expert 切 task；runtime 用 topk-softmax 的 meta-tensor（每 expert 的 token 数）动态改切分。纯静态在倾斜路由下会饿死 SM，全动态 Grouped-GEMM 同步太碎。</li>
+        <li><strong>融合 gather-GEMM。</strong>Hopper/Blackwell 上 TMA 要连续布局，单独 gather 在 SGLang、bs=1 可占 MoE 时间的 11%。MPK 把异步 token 级拷贝塞进 GEMM 的数据加载阶段。</li>
+      </ul>
+      <p>B200 上 Qwen3-30B-A3B 的 MoE 段，Hybrid 相对 SGLang 约 1.07–1.18×。</p>
+      <h3>多卡</h3>
+      <p>
+        用户在 attention 和 gated MLP 后插 AllReduce。MPK 把集合通信拆成 NVSHMEM <code>nvshmem_signal_wait_until</code> 的传数 task 和本地 reduction task，同步集合变异步 task。8×H100 上 Qwen3-1.7B TP：相对 PyTorch 最高 10×，相对 vLLM/SGLang 1.1–1.4×。细粒度算通重叠本身贡献约 1.1× per-iteration。
+      </p>
+      <h3>编译阶段数字（B200）</h3>
+      <table>
+        <thead>
+          <tr><th>模型</th><th>算子</th><th>每算子 task 数</th><th>最终 event</th><th>融合比</th><th>线性化省内存</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Qwen3-1.7B</td><td>229</td><td>35.6</td><td>1,870</td><td>37×</td><td>4.4×</td></tr>
+          <tr><td>Qwen3-8B</td><td>293</td><td>47.3</td><td>2,366</td><td>68×</td><td>5.9×</td></tr>
+          <tr><td>Qwen3-30B-A3B</td><td>533</td><td>32.2</td><td>1,142</td><td>118×</td><td>15.0×</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Qwen3-8B 每 token 本应 launch 293 个核：eager 1.1 ms，CUDA Graph 0.2 ms。MPK 一次 launch，调度器 0.28%。
+      </p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 局限与和 Event Tensor / Fleet 的分工</h2>
+      <h3>资源占用的常见误解</h3>
+      <p>
+        「一颗 mega-kernel 必须在每颗 SM 上预留所有融合算子的资源总和」——MPK 用时间复用避免这一点：SM 只持有当前 task 的资源；shared memory 按页申请释放。例外是<strong>寄存器</strong>：整颗 mega-kernel 的寄存器用量取所有 task 类型的最大值。这和 <a href="Fleet_论文分析.html">Fleet</a> 观察到的「单 wave / SIMD、L2 miss 直接堵 MFMA」是同一类税。
+      </p>
+      <h3>动态 shape 仍是特化多图</h3>
+      <p>
+        按 2 的幂生成多张 tGraph，runtime 选图。这能跑连续批，但 warmup / 编译次数随 shape 集合涨。Event Tensor 论文点名这条限制：MPK（以及 Spector 的手写 mega-kernel）对动态 shape 和数据依赖控制流缺乏一等抽象，往往要按 shape 重编译。
+      </p>
+      <h3>评测口径</h3>
+      <ul>
+        <li>离线批、固定 prompt 64 / 输出 1024，去掉了在线到达造成的空转。这有利于突出 GPU 效率，不反映调度器在真实 trace 上的行为。</li>
+        <li>大 batch / 大模型上加速收敛到 1.0–1.1×：计算占满之后，去掉 launch 和 bubble 的相对收益变小。</li>
+        <li>bs≥64 的 compute-bound 区，Fleet 在 AMD 上已经看到 persistent GEMM 尚未做 K-split，会被 hipBLASLt 反超。NVIDIA 侧同类风险同样存在。</li>
+      </ul>
+      <div class="callout navy">
+        分工可以记成三句话。<strong>Mirage</strong> 发明单个 task 的 CUDA；<strong>MPK</strong> 把 task 图编译进一颗 persistent kernel，并给出去中心事件运行时；<strong>Event Tensor</strong> 把 event 升成带符号 shape 的张量 IR，一张图覆盖动态 batch 和 MoE 路由；<strong>Fleet</strong> 在 MPK 运行时上加 Chiplet-task，把调度对齐到多 die 的私有 L2。MPK 是这条线上第一篇「自动 mega-kernelize」的系统论文。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 arXiv:2512.22219v2（2026-06-10）· 同目录：<a href="Mirage_论文分析.html">Mirage</a> · <a href="EventTensor_论文分析.html">Event Tensor</a> · <a href="Fleet_论文分析.html">Fleet</a>
+    </footer>
+  </div>
+</body>
+</html>

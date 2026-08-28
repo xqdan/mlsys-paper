@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mirage 论文分析 | OSDI 2025</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .num { font-variant-numeric: tabular-nums; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">OSDI 2025</span>
+        <span class="badge">arXiv:2405.05751v3</span>
+        <span class="badge">张量编译 · 超优化</span>
+        <span class="badge ok">CMU Catalyst</span>
+        <span class="badge ok">μGraph</span>
+        <span class="badge ok">A100 / H100</span>
+      </div>
+      <h1>三级一起搜：自动发现 FlashAttention 一类自定义核</h1>
+      <p class="subtitle">Mirage: A Multi-Level Superoptimizer for Tensor Programs</p>
+      <p class="meta">
+        <strong>作者：</strong>Mengdi Wu、Xinhao Cheng、Shengyu Liu、Chunan Shi、Jianan Ji、Man Kit Ao、Praveen Velliengiri、Xupeng Miao、Oded Padon、Zhihao Jia<br />
+        <strong>单位：</strong>Carnegie Mellon University · Peking University · Pennsylvania State University · Purdue University · Weizmann Institute of Science<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2405.05751" target="_blank" rel="noopener">arXiv:2405.05751</a>
+        · 代码 <a href="https://github.com/mirage-project/mirage" target="_blank" rel="noopener">mirage-project/mirage</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">两类编译器各自漏掉什么</a></li>
+        <li><a href="#s3">μGraph：核 / block / thread 同一套图</a></li>
+        <li><a href="#s4">案例：RMSNorm + MatMul 如何被融进一核</a></li>
+        <li><a href="#s5">搜索：抽象表达式剪枝</a></li>
+        <li><a href="#s6">验证：有限域上的概率等价</a></li>
+        <li><a href="#s7">后处理：布局、调度、内存规划</a></li>
+        <li><a href="#s8">评测主结果</a></li>
+        <li><a href="#s9">局限、与 megakernel 线的关系</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        现有张量编译器把「代数变换」和「调度变换」拆成两条河：TASO / PET 只在算子图上换等价算法，Halide / TVM / Triton 只在给定算法上搜 schedule。FlashAttention 这类核同时改算法、改核边界、改并行维度——两条河都搜不到。Mirage 的主张是：<strong>用一张分层图把 GPU 的 kernel / thread block / thread 三级写成同一套 μGraph，然后在这张图上做超优化</strong>，顺带发明新的自定义核。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">3.3×</div>
+          <div class="k">GatedMLP 相对最强基线（H100）</div>
+        </div>
+        <div>
+          <div class="n">2.2×</div>
+          <div class="k">GQA 相对 FlashAttention / FlashDecoding</div>
+        </div>
+        <div>
+          <div class="n">1.9×</div>
+          <div class="k">端到端：Chameleon-7B bs=1 相对 PyTorch</div>
+        </div>
+        <div>
+          <div class="n">11 ops</div>
+          <div class="k">有抽象剪枝才能搜到的 block 图规模</div>
+        </div>
+      </div>
+      <div class="callout">
+        这篇论文本身不是 megakernel 运行时。它解决的是「单个（或一小簇）自定义核怎么自动生成」。后续 <a href="MPK_论文分析.html">MPK</a> 把 Mirage 生成的 SM 级任务塞进一张 persistent mega-kernel；<a href="EventTensor_论文分析.html">Event Tensor</a> 再给这张任务图加上动态 shape 与数据依赖。读 megakernel 线，Mirage 是代码生成底座。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 两类编译器各自漏掉什么</h2>
+      <p>
+        今天的 DNN 框架把计算写成张量程序：DAG 的节点是 matmul、conv 这类代数算子，边是张量。落地到 GPU 有两条自动化路线，都还要人先指定「有哪些核」。
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>调度路线（Halide / TVM / Ansor / Triton）</h4>
+          <p>算法固定，搜 tiling、并行、流水。漏掉的是：同一份数学可以换成完全不同的算子分解，以及「把标准核拆开、只融合其中一部分」这种新核。</p>
+        </div>
+        <div class="tile">
+          <h4>代数路线（TASO / Grappler / Tensat / PET）</h4>
+          <p>在算子图上做等价替换、融合、重排。漏掉的是：每个算子的实现仍是人手写的库核，跨 kernel / block / thread 的协同调度不在搜索空间里。</p>
+        </div>
+      </div>
+      <p>
+        FlashAttention 同时做三件事：算法层重排（代数）、把计算重新切成新核（发明自定义核）、按 GPU 层级改并行策略（调度）。Triton 上手写 FlashAttention-2 要 700+ 行。Mirage 要自动搜出这类 μGraph，并验证它和原程序等价。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="两条编译路线与 Mirage 搜索空间">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="18" width="300" height="244" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="166" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">调度路线</text>
+            <text x="166" y="66" text-anchor="middle" font-size="11" fill="#78716c">Halide / TVM / Triton</text>
+            <rect x="40" y="82" width="252" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="166" y="105" text-anchor="middle" font-size="12">算法由人指定 · 冻结</text>
+            <rect x="40" y="128" width="252" height="44" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="166" y="148" text-anchor="middle" font-size="12">搜 tiling / 并行 / 流水</text>
+            <text x="166" y="166" text-anchor="middle" font-size="11" fill="#9a3412">换不了算子分解</text>
+            <text x="166" y="208" text-anchor="middle" font-size="11" fill="#57534e">漏：新核、跨核代数</text>
+            <text x="166" y="232" text-anchor="middle" font-size="11" fill="#57534e">FlashAttn 要手写 700+ 行</text>
+
+            <rect x="340" y="18" width="300" height="244" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="490" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">代数路线</text>
+            <text x="490" y="66" text-anchor="middle" font-size="11" fill="#78716c">TASO / PET / Tensat</text>
+            <rect x="364" y="82" width="252" height="36" rx="4" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="490" y="105" text-anchor="middle" font-size="12">算子图上等价替换</text>
+            <rect x="364" y="128" width="252" height="44" rx="4" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="490" y="148" text-anchor="middle" font-size="12">融合 / 重排 / 换算子</text>
+            <text x="490" y="166" text-anchor="middle" font-size="11" fill="#1e3a5f">实现仍是库核</text>
+            <text x="490" y="208" text-anchor="middle" font-size="11" fill="#57534e">漏：block / thread 调度</text>
+            <text x="490" y="232" text-anchor="middle" font-size="11" fill="#57534e">搜不到自定义核内部</text>
+
+            <rect x="664" y="18" width="300" height="244" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="814" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">Mirage μGraph</text>
+            <text x="814" y="66" text-anchor="middle" font-size="11" fill="#78716c">三级同一套图</text>
+            <rect x="688" y="82" width="252" height="28" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="814" y="101" text-anchor="middle" font-size="12">代数：换结合顺序</text>
+            <rect x="688" y="118" width="252" height="28" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="814" y="137" text-anchor="middle" font-size="12">调度：grid / imap / fmap</text>
+            <rect x="688" y="154" width="252" height="28" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="814" y="173" text-anchor="middle" font-size="12">发明 graph-defined 新核</text>
+            <text x="814" y="214" text-anchor="middle" font-size="11" fill="#115e59">自动发现 FlashAttn 类 μGraph</text>
+            <text x="814" y="236" text-anchor="middle" font-size="11" fill="#0f766e">外加概率等价验证</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1 · 两条河各自只搜一半。FlashAttention 同时改算法、核边界和并行轴，只有 μGraph 把三件事放进同一搜索空间。</p>
+      <div class="callout teal">
+        论文的搜索空间比 TASO / PET 大一个数量级：后者只在 kernel 级、固定核集合上搜；Mirage 同时搜三级，并且允许生成 graph-defined 新核。这迫使它发明剪枝和概率验证，否则搜不动。
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. μGraph：核 / block / thread 同一套图</h2>
+      <p>
+        GPU 计算按 SPMD 组织：一个 kernel 是一整个 GPU 上的函数；kernel 里是 grid of thread blocks，每个 block 跑在一颗 SM 上，线程共享 shared memory；每条线程有私有寄存器。输入输出都在 device memory。μGraph 把这三级写成嵌套图。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="μGraph 三级层次">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="940" height="90" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="40" y="48" font-size="14" font-weight="700" fill="#9a3412">Kernel graph · device memory</text>
+            <text x="40" y="72" font-size="12.5" fill="#57534e">节点 = 预定义库核（cuDNN / cuBLAS）或 graph-defined 核（由下层 block 图定义）</text>
+            <text x="40" y="94" font-size="12.5" fill="#57534e">边 = 张量，只能放 device memory（核之间无法共享 SM 内存储）</text>
+
+            <rect x="60" y="128" width="860" height="90" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="80" y="156" font-size="14" font-weight="700" fill="#115e59">Block graph · shared memory</text>
+            <text x="80" y="180" font-size="12.5" fill="#57534e">grid 维 imap/omap 决定张量如何切到各 block；for-loop 维 fmap 决定每轮从 HBM 搬哪一块</text>
+            <text x="80" y="202" font-size="12.5" fill="#57534e">中间张量一律放 shared memory；放不下就拆成多个 block 图，避免额外 HBM 往返</text>
+
+            <rect x="100" y="236" width="780" height="80" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="120" y="264" font-size="14" font-weight="700" fill="#1e3a5f">Thread graph · register file</text>
+            <text x="120" y="288" font-size="12.5" fill="#57534e">最低层，只含预定义线程算子。Input iterator 从 shared mem 装寄存器，output saver 写回。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2 · μGraph 与 GPU 存储层次一一对应。graph-defined 核是「发明新核」的入口。</p>
+
+      <h3>分区语义：imap / omap / fmap</h3>
+      <p>
+        这三张映射把调度空间写进图里，而不是写进另一套 schedule 语言。
+      </p>
+      <table>
+        <thead>
+          <tr><th>映射</th><th>作用对象</th><th>语义</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>imap</code></td>
+            <td>block 图的每个输入</td>
+            <td>grid 维 → 张量某一维（均分）或副本维 φ（复制）</td>
+          </tr>
+          <tr>
+            <td><code>omap</code></td>
+            <td>block 图的每个输出</td>
+            <td>grid 维必须映射到数据维；各 block 的输出沿该维拼接</td>
+          </tr>
+          <tr>
+            <td><code>fmap</code></td>
+            <td>for-loop 的 input iterator</td>
+            <td>循环维 → 数据维或 φ，控制每轮从 HBM 装哪一块到 shared memory</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="imap 与 fmap 如何切张量">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">(a) imap = {x↔列} · fmap = {i↔行}</text>
+            <rect x="30" y="44" width="430" height="236" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <g font-size="11">
+              <rect x="50" y="64" width="90" height="70" fill="#fed7aa" stroke="#c2410c"/>
+              <text x="95" y="90" text-anchor="middle">blk0 i=0</text>
+              <rect x="50" y="134" width="90" height="70" fill="#ffedd5" stroke="#fdba74"/>
+              <text x="95" y="160" text-anchor="middle">blk0 i=1</text>
+              <rect x="150" y="64" width="90" height="70" fill="#fed7aa" stroke="#c2410c"/>
+              <text x="195" y="90" text-anchor="middle">blk1 i=0</text>
+              <rect x="150" y="134" width="90" height="70" fill="#ffedd5" stroke="#fdba74"/>
+              <text x="195" y="160" text-anchor="middle">blk1 i=1</text>
+              <rect x="250" y="64" width="90" height="70" fill="#fed7aa" stroke="#c2410c"/>
+              <text x="295" y="90" text-anchor="middle">blk2 i=0</text>
+              <rect x="250" y="134" width="90" height="70" fill="#ffedd5" stroke="#fdba74"/>
+              <text x="295" y="160" text-anchor="middle">blk2 i=1</text>
+              <rect x="350" y="64" width="90" height="70" fill="#fed7aa" stroke="#c2410c"/>
+              <text x="395" y="90" text-anchor="middle">blk3 i=0</text>
+              <rect x="350" y="134" width="90" height="70" fill="#ffedd5" stroke="#fdba74"/>
+              <text x="395" y="160" text-anchor="middle">blk3 i=1</text>
+            </g>
+            <text x="245" y="228" text-anchor="middle" font-size="12" fill="#7c2d12">grid 沿列切开 · 循环沿行切块装入</text>
+            <text x="245" y="252" text-anchor="middle" font-size="11" fill="#57534e">每个 block 看到一整列的若干行切片</text>
+
+            <text x="735" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">(b) imap = {y↔行, x↔φ} · fmap = {i↔列}</text>
+            <rect x="520" y="44" width="430" height="236" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="560" y="70" width="160" height="50" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="640" y="100" text-anchor="middle" font-size="12">block (0,0) 复制</text>
+            <rect x="750" y="70" width="160" height="50" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="830" y="100" text-anchor="middle" font-size="12">block (1,0) 复制</text>
+            <rect x="560" y="140" width="160" height="50" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="640" y="170" text-anchor="middle" font-size="12">block (0,1) 下行</text>
+            <rect x="750" y="140" width="160" height="50" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="830" y="170" text-anchor="middle" font-size="12">block (1,1) 下行</text>
+            <text x="735" y="228" text-anchor="middle" font-size="12" fill="#115e59">x 维复制整张量 · y 维切行</text>
+            <text x="735" y="252" text-anchor="middle" font-size="11" fill="#57534e">循环再沿列把切片装进 shared memory</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3 · 论文 Figure 4 的分区语义。imap 决定哪个 block 拿到哪一块；fmap 决定 for-loop 每一轮从 HBM 搬哪一片。φ 表示复制而非切开。</p>
+      <p>
+        for-loop body 用 accumulator（求和 / max）把多轮中间结果攒在 shared memory，循环结束后再做后处理（例如求平均时除以 n）。合法 μGraph 还要求：每条从输入到输出的路径恰好经过一个 iterator、一个 accumulator、一个 saver；各级张量装得进对应存储。
+      </p>
+      <div class="callout navy">
+        与 Welder / ASPEN 的 tile-graph 对比：那些工作主要做调度。μGraph 同时表示代数变换（换算子、换结合顺序）和调度（grid / for-loop / 布局），并且允许生成标准库里没有的 graph-defined 核。论文里的多数加速都落在这第三类。
+      </div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 案例：RMSNorm + MatMul 如何被融进一核</h2>
+      <p>
+        RMSNorm 是近年 LLM 的标配归一化。它后面几乎总跟着一次线性层：
+      </p>
+      <div class="eq">
+        Y<sub>ij</sub> = X<sub>ij</sub> G<sub>j</sub> / RMS(X<sub>i</sub>),
+        &nbsp; RMS(X<sub>i</sub>) = √( (1/d) Σ<sub>j</sub> X<sub>ij</sub>² )
+      </div>
+      <p>
+        两次 reduction 卡在不同维上，现有编译器通常打两个核，中间结果 Y 必须落 device memory。Mirage 搜到的最优 μGraph 做了四件现有系统不会一起做的事：
+      </p>
+      <ol class="steps">
+        <li>利用 matmul 与逐元素除法的交换律，把 RMSNorm 的除法挪到 MatMul 之后（代数）。</li>
+        <li>把 RMS 的累加 Σ X² 和 MatMul 的累加 Σ XGW 放在同一个 for-loop 里并行跑（调度），避免把累加结果写回 HBM。</li>
+        <li>把 Mul / Sqrt / Div 融进一张 thread 图，中间量只活在寄存器里（调度）。</li>
+        <li>整段计算变成一个 graph-defined 新核（发明核），省掉 launch 和 Y 的物化。</li>
+      </ol>
+      <div class="fig">
+        <svg viewBox="0 0 980 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RMSNorm 加 MatMul 融合前后">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">现有系统 · 两核</text>
+            <rect x="20" y="40" width="450" height="250" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="50" y="60" width="160" height="44" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="130" y="88" text-anchor="middle" font-size="13">RMSNorm 核</text>
+            <rect x="250" y="60" width="180" height="44" rx="4" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="340" y="88" text-anchor="middle" font-size="13">Y 落 HBM</text>
+            <rect x="50" y="130" width="160" height="28" rx="3" fill="#fecaca" stroke="#ef4444"/>
+            <text x="130" y="149" text-anchor="middle" font-size="12">kernel 屏障</text>
+            <rect x="250" y="124" width="180" height="40" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="340" y="149" text-anchor="middle" font-size="13">MatMul 核</text>
+            <text x="245" y="200" text-anchor="middle" font-size="12" fill="#7c2d12">两次 reduction 卡在不同维</text>
+            <text x="245" y="224" text-anchor="middle" font-size="12" fill="#7c2d12">无法共享 shared memory / 寄存器</text>
+            <text x="245" y="258" text-anchor="middle" font-size="12" fill="#9a3412">launch + 物化 Y</text>
+
+            <text x="735" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">Mirage · 单 graph-defined 核</text>
+            <rect x="510" y="40" width="450" height="250" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="540" y="58" width="390" height="36" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="735" y="81" text-anchor="middle" font-size="12">for-loop：ΣX² 与 ΣXGW 并行累加</text>
+            <rect x="540" y="106" width="180" height="44" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="630" y="125" text-anchor="middle" font-size="12">Accum RMS</text>
+            <text x="630" y="141" text-anchor="middle" font-size="11" fill="#134e4a">shared memory</text>
+            <rect x="750" y="106" width="180" height="44" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="840" y="125" text-anchor="middle" font-size="12">Accum MatMul</text>
+            <text x="840" y="141" text-anchor="middle" font-size="11" fill="#134e4a">shared memory</text>
+            <rect x="540" y="164" width="390" height="40" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="735" y="189" text-anchor="middle" font-size="12">thread 图：Mul · Sqrt · Div 全在寄存器</text>
+            <text x="735" y="230" text-anchor="middle" font-size="12" fill="#115e59">除法挪到 MatMul 之后（交换律）</text>
+            <text x="735" y="258" text-anchor="middle" font-size="12" fill="#0f766e">A100 1.5× · H100 1.9×</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4 · RMSNorm+MatMul。左边两次核、Y 落 HBM；右边一张自定义核里并行累加，后处理只走寄存器。</p>
+      <p>
+        相对手写核：A100 上 1.5×，H100 上 1.9×。单独做代数或单独做调度都到不了这张图。
+      </p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 搜索：抽象表达式剪枝</h2>
+      <p>
+        完整搜三级会爆炸。Mirage 用两条策略压空间。
+      </p>
+      <h3>混合生成</h3>
+      <p>
+        kernel 和 block 级穷举（到给定算子个数上限）；thread 级只用规则融合。理由：HBM / shared memory 比寄存器贵几个数量级，性能关键决策在上两级。生成时只产出 canonical form（算子按 rank 递增），避免同构图重复。
+      </p>
+      <h3>抽象表达式</h3>
+      <p>
+        每条边对应一个「忽略同张量元素差异」的一阶逻辑项。例如 <code>Matmul(X,Y)</code> 的抽象是 <code>sum(k, mul(E(X), E(Y)))</code>，行和与列和会撞成同一个表达式，但保留 reduction 长度 k——这对剪枝至关重要。
+      </p>
+      <p>
+        剪枝规则：若前缀的抽象表达式不是输入程序抽象表达式的「子表达式」（在公理集 A<sub>eq</sub> ∪ A<sub>sub</sub> 下），就丢掉。直觉：搜 <code>X·Z + Y·Z</code> 时，<code>X·Y</code> 剪掉，<code>X+Y</code> 留下，因为 <code>(X+Y)·Z</code> 等价。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 270" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="抽象表达式剪枝">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="220" height="80" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="130" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">目标 EO</text>
+            <text x="130" y="76" text-anchor="middle" font-size="12">X·Z + Y·Z</text>
+            <path d="M250 60 L310 60" stroke="#1e3a5f" stroke-width="2"/>
+            <rect x="320" y="20" width="280" height="230" rx="8" fill="#faf7f2" stroke="#e7e0d4"/>
+            <text x="460" y="48" text-anchor="middle" font-size="13" font-weight="700">生成前缀</text>
+            <rect x="350" y="64" width="220" height="36" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="460" y="87" text-anchor="middle" font-size="12">X+Y  ·  subexpr ✓</text>
+            <rect x="350" y="112" width="220" height="36" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="460" y="135" text-anchor="middle" font-size="12">X·Y  ·  不是子表达式 ✂</text>
+            <rect x="350" y="160" width="220" height="36" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="460" y="183" text-anchor="middle" font-size="12">(X+Y)·Z  ·  等价 ✓</text>
+            <text x="460" y="226" text-anchor="middle" font-size="11" fill="#57534e">SMT 查 Aeq ∪ Asub</text>
+            <path d="M610 90 L670 90" stroke="#0f766e" stroke-width="2"/>
+            <path d="M610 176 L670 176" stroke="#0f766e" stroke-width="2"/>
+            <rect x="680" y="20" width="280" height="230" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="820" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">保留的 μGraph</text>
+            <rect x="710" y="70" width="220" height="50" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="820" y="100" text-anchor="middle" font-size="12">继续长成完整图</text>
+            <text x="820" y="150" text-anchor="middle" font-size="12" fill="#134e4a">定理 1：Aeq 下等价的图</text>
+            <text x="820" y="172" text-anchor="middle" font-size="12" fill="#134e4a">不会被剪掉</text>
+            <text x="820" y="210" text-anchor="middle" font-size="11" fill="#57534e">无剪枝：6 ops 就要 &gt;10 h</text>
+            <text x="820" y="230" text-anchor="middle" font-size="11" fill="#57534e">有剪枝：11 ops / 28 s</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5 · 抽象表达式解决「还没搜到完整图，怎么判断前缀有没有用」。子表达式测试在抽象里做，避免鸡生蛋。</p>
+      <div class="callout">
+        定理 1：若某等价 μGraph 的抽象表达式在 A<sub>eq</sub> 下等于输入，则它不会被剪掉。A<sub>eq</sub> 故意不含消去律（如 <code>div(mul(x,y),y)=x</code>），否则「一切都是一切的子表达式」，剪枝失效。这是最优性与可搜性之间的显式折中。评测里这个折中够用：RMSNorm 需要 block 图 11 个算子，关掉抽象剪枝后 6 个算子就要搜超过 10 小时。
+      </div>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 验证：有限域上的概率等价</h2>
+      <p>
+        张量可以有上百万元素，穷举对拍不可行。Mirage 把候选限制在 <strong>LAX 片段</strong>：多线性算子 + 除法 + 指数，且每条输入到输出路径上指数最多一次。LAX 覆盖 matmul / conv / 归一化 / 激活里常见的那一段，也是概率验证能给出理论保证的条件。
+      </p>
+      <p>
+        LAX 程序每个输出元素可写成「多项式 × 指数」的分式。把多项式恒等测试（PIT）推广到这类式子，需要两个有限域：素数 p 管指数外，素数 q | (p−1) 管指数内，并用 Z<sub>p</sub> 中的 q 次单位根实现 exp。
+      </p>
+      <div class="eq">
+        非等价 μGraph 通过一次随机测试的概率 ≤ 8 d k⁴ / q + q<sup>−1</sup> / k²
+      </div>
+      <p>
+        重复测试可以把误接受率压到任意 δ。实现上用能塞进 16-bit 的最大 p、q（p=227, q=113）在 GPU 上跑，目前只做一次随机测试；作者称实践中没见过假阳性，计划只对最终最优图做完整理论保证的多轮测试。浮点溢出另用一次浮点对拍过滤。
+      </p>
+      <p>
+        非 LAX（如 ReLU）走另一条求解器验证：用户给算子的一阶性质，再用定理证明器推等价。这条路径更通，但每个新算子要手写公理。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mirage 端到端流水线">
+          <g font-family="Segoe UI, sans-serif" font-size="12">
+            <rect x="16" y="50" width="140" height="56" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="86" y="74" text-anchor="middle" font-weight="700">切 LAX 子图</text>
+            <text x="86" y="92" text-anchor="middle" fill="#57534e">线性+除+指数</text>
+            <path d="M164 78 L196 78" stroke="#1e3a5f" stroke-width="2"/>
+            <rect x="204" y="50" width="150" height="56" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="279" y="74" text-anchor="middle" font-weight="700">生成 μGraph</text>
+            <text x="279" y="92" text-anchor="middle" fill="#57534e">穷举 + 抽象剪枝</text>
+            <path d="M362 78 L394 78" stroke="#1e3a5f" stroke-width="2"/>
+            <rect x="402" y="50" width="150" height="56" rx="6" fill="#fef3c7" stroke="#b45309"/>
+            <text x="477" y="74" text-anchor="middle" font-weight="700">有限域对拍</text>
+            <text x="477" y="92" text-anchor="middle" fill="#57534e">Zp × Zq · PIT</text>
+            <path d="M560 78 L592 78" stroke="#1e3a5f" stroke-width="2"/>
+            <rect x="600" y="50" width="150" height="56" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="675" y="74" text-anchor="middle" font-weight="700">布局 / 调度</text>
+            <text x="675" y="92" text-anchor="middle" fill="#57534e">ILP · depth · 内存</text>
+            <path d="M758 78 L790 78" stroke="#1e3a5f" stroke-width="2"/>
+            <rect x="798" y="50" width="160" height="56" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="878" y="74" text-anchor="middle" font-weight="700">CUDA 核</text>
+            <text x="878" y="92" text-anchor="middle" fill="#57534e">JIT 插进 PyTorch</text>
+            <text x="490" y="150" text-anchor="middle" font-size="13" fill="#44403c">验证前不搜布局：同一拓扑的不同 layout 不算不同候选</text>
+            <text x="490" y="176" text-anchor="middle" font-size="12" fill="#57534e">关掉任一项后处理：GQA bs=1 掉 5–70%</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6 · 论文 Figure 1 的流水线。搜索只关心图拓扑；正确性用随机测试；性能相关决策全部后置。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 后处理：布局、调度、内存规划</h2>
+      <p>
+        这三项不影响正确性，所以放在验证之后，避免搜索时把「同一拓扑、不同布局」当成不同候选。
+      </p>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>布局 ILP</h4>
+          <p>每个张量每个候选布局一个布尔变量。cuBLAS 等库核带来线性约束。代价函数刻画 bulk copy 能否走。Z3 求最优组合。</p>
+        </div>
+        <div class="tile">
+          <h4>算子调度</h4>
+          <p>按「到任意输入的最长路径」标 depth，升序执行，使 block 内 <code>__syncthreads</code> 次数最少。</p>
+        </div>
+        <div class="tile">
+          <h4>内存规划</h4>
+          <p>三级中间张量的偏移做成动态存储分配，穷举找最优。</p>
+        </div>
+      </div>
+      <p>
+        GQA、bs=1、A100 上逐项关掉：thread 图构造 −18%，布局 −60%，调度 −70%，内存规划 −5%。布局和同步次数不是装饰。
+      </p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 评测主结果</h2>
+      <p>
+        基准全是 LAX 子图，对应真实模型里的热路径。对比 TASO/PET、FlashAttention / FlashDecoding、TensorRT / TensorRT-LLM、PyTorch（<code>torch.compile</code> + FA）、Triton。半精度，CUDA Graphs 开着。
+      </p>
+      <table>
+        <thead>
+          <tr><th>基准</th><th>来源模型</th><th>Mirage 做了什么</th><th>相对最强基线</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GQA</td>
+            <td>LLaMA-3-70B</td>
+            <td>自动搜 grid 维（吃满 108/132 SM）；按场景在 sample / KV-head / Q-seq / KV-seq 里选并行轴；HBM 访问最多降 7×</td>
+            <td>最高 2.2×</td>
+          </tr>
+          <tr>
+            <td>QKNorm</td>
+            <td>Chameleon-7B</td>
+            <td>把 Q/K 的 LayerNorm 融进 attention 自定义核，中间不落 HBM</td>
+            <td>最高 1.4×</td>
+          </tr>
+          <tr>
+            <td>RMSNorm</td>
+            <td>LLaMA-2-7B</td>
+            <td>见第 4 节，单核融合</td>
+            <td>A100 最高 3.2×，H100 1.9×</td>
+          </tr>
+          <tr>
+            <td>LoRA</td>
+            <td>GPT-3-7B-LoRA</td>
+            <td>代数恒等式把三次 MatMul 收成两次 block 级 MatMul，Concat 只改 shared memory 偏移</td>
+            <td>1.1–2.4×</td>
+          </tr>
+          <tr>
+            <td>GatedMLP</td>
+            <td>Falcon-7B</td>
+            <td>两次 MatMul 在同一 block 图并行，SiLU 与逐元乘做 post-processing</td>
+            <td>A100 1.5×，H100 2.7–3.3×</td>
+          </tr>
+          <tr>
+            <td>nTrans</td>
+            <td>nGPT-1B</td>
+            <td>三次 Norm 融进一核。仍慢于 TensorRT：轻计算核被「每张量都进 shared memory」拖累</td>
+            <td>相对 TensorRT 约 0.3–0.4×</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        端到端把 Mirage 核插进 PyTorch：Chameleon-7B 最高 1.9×，LLaMA-3-8B / nGPT-1B 约 1.4×，LoRA 模型 0.9–1.2×。搜索一次性、最长约 4 小时。
+      </p>
+      <div class="callout teal">
+        关于 GQA：TensorRT-LLM 在 bs=1/8 用 grid (8,2,1) / (8,2,8)，吃不满 A100/H100 的 SM。把 Mirage 最优图强行换成同一 grid，性能掉 18%。FlashAttention 固定沿 sample/head/query 并行，FlashDecoding 沿 sample/head/KV-seq——对头数很少的 GQA 都不是最优。Mirage 按 shape 换 μGraph。
+      </div>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 局限、与 megakernel 线的关系</h2>
+      <h3>这篇论文不解决什么</h3>
+      <ul>
+        <li><strong>不是端到端 mega-kernel。</strong>输出仍是一串（更少、更好的）CUDA 核。核间屏障、launch、跨算子流水仍在。</li>
+        <li><strong>LAX 边界。</strong>超优化主路径要求线性 + 除法 + 至多一次指数。ReLU 等走求解器，公理要手写。</li>
+        <li><strong>轻计算核。</strong>nTrans 暴露了「凡事进 shared memory」的税。作者计划支持绕过 shared memory 的加载路径。</li>
+        <li><strong>搜索预算。</strong>kernel 图最多 5 个算子、block 图最多 11 个。更大子图要先人工切 LAX 片段。</li>
+      </ul>
+      <h3>在 megakernel 文件夹里它扮演什么角色</h3>
+      <p>
+        <a href="MPK_论文分析.html">MPK</a> 把算子切成 SM 级任务后，每个任务的 CUDA device function 仍要人写或编译器生成。MPK 明确写：compute task 交给 Mirage 超优化器搜 thread-block 图再降到 CUDA。没有 Mirage，MPK 只是一个调度壳。
+      </p>
+      <p>
+        反过来，Mirage 单独部署已经能在「仍用 kernel-per-operator」的世界里拿到 1.5–3×。megakernel 要解决的是 Mirage 刻意留在图外的那一层：跨核流水、细粒度算通重叠、动态 shape 下一张 persistent kernel 打天下。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="四篇 megakernel 论文的层次">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="40" width="220" height="90" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="126" y="74" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">Mirage</text>
+            <text x="126" y="100" text-anchor="middle" font-size="12">单个 task 的 CUDA</text>
+            <path d="M246 85 L278 85" stroke="#1e3a5f" stroke-width="2"/>
+            <rect x="286" y="40" width="220" height="90" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="396" y="74" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">MPK</text>
+            <text x="396" y="100" text-anchor="middle" font-size="12">整模型 persistent 核</text>
+            <path d="M516 70 L548 50" stroke="#0f766e" stroke-width="1.5"/>
+            <path d="M516 100 L548 120" stroke="#b45309" stroke-width="1.5"/>
+            <rect x="556" y="16" width="200" height="70" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="656" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">Event Tensor</text>
+            <text x="656" y="66" text-anchor="middle" font-size="11">动态 shape · MoE 路由</text>
+            <rect x="556" y="100" width="200" height="70" rx="8" fill="#fef3c7" stroke="#b45309"/>
+            <text x="656" y="128" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">Fleet</text>
+            <text x="656" y="150" text-anchor="middle" font-size="11">chiplet 私有 L2</text>
+            <rect x="780" y="40" width="180" height="90" rx="8" fill="#faf7f2" stroke="#e7e0d4"/>
+            <text x="870" y="74" text-anchor="middle" font-size="12">发明核 → 调度核</text>
+            <text x="870" y="98" text-anchor="middle" font-size="12">→ 动态 IR / 多 die</text>
+            <text x="490" y="184" text-anchor="middle" font-size="12" fill="#57534e">μGraph 搜实现；tGraph 排任务；Event Tensor 让图可符号；Chiplet-task 把任务绑到 L2 地盘</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7 · 同目录四篇的分工。Mirage 停在「更好的核」；后面三篇把核边界拆掉，分别补动态、补 chiplet。</p>
+      <div class="callout navy">
+        可带走的判断：张量编译的下一个搜索空间不是「再多一种 schedule 原语」，而是「允许发明新核，并且核的内部结构与图级代数写在同一套 IR 里」。μGraph 是这个判断的具体化。后续 Event Tensor 把「事件」也做成张量，走的是同一条「把并行原语升成一等 IR」的路。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 arXiv:2405.05751v3（2025-06-06）· 同目录相关：<a href="MPK_论文分析.html">MPK</a> · <a href="EventTensor_论文分析.html">Event Tensor</a> · <a href="Fleet_论文分析.html">Fleet</a>
+    </footer>
+  </div>
+</body>
+</html>

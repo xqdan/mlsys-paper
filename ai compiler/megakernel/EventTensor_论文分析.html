@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Tensor 论文分析 | MLSys 2026</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre {
+      background: #1c1917; color: #fafaf9; padding: 16px 18px; overflow-x: auto;
+      font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px; line-height: 1.55;
+      margin: 12px 0 18px;
+    }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">MLSys 2026</span>
+        <span class="badge">arXiv:2604.13327v2</span>
+        <span class="badge">动态 Mega-kernel · IR</span>
+        <span class="badge ok">CMU + NVIDIA</span>
+        <span class="badge ok">TVM 后端</span>
+        <span class="badge ok">B200</span>
+      </div>
+      <h1>把同步事件做成张量，一张图覆盖动态 batch 和 MoE</h1>
+      <p class="subtitle">Event Tensor: A Unified Abstraction for Compiling Dynamic Megakernel</p>
+      <p class="meta">
+        <strong>作者：</strong>Hongyi Jin*、Bohan Hou*、Guanjie Wang*、Ruihang Lai* 等（CMU / 上交 / NVIDIA / Berkeley / Princeton / 清华 / 北大）<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2604.13327" target="_blank" rel="noopener">arXiv:2604.13327</a>
+        · 会议：第 9 届 MLSys，Bellevue，2026
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">Mega-kernel 在动态负载上卡住</a></li>
+        <li><a href="#s3">Event Tensor 是什么</a></li>
+        <li><a href="#s4">两类动态：符号 shape 与数据依赖</a></li>
+        <li><a href="#s5">静态调度：预排队列 + notify/wait</a></li>
+        <li><a href="#s6">动态调度：核内 push/pop</a></li>
+        <li><a href="#s7">降低到「整数张量 + 原子」</a></li>
+        <li><a href="#s8">评测：算通融合、MoE、serving、warmup</a></li>
+        <li><a href="#s9">和 MPK 的关系、局限</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        <a href="MPK_论文分析.html">MPK</a> 和 HazyResearch 的手写 mega-kernel 已经证明：把算子切成 tile、用核内信号做细粒度依赖，能去掉 launch 间隙、露出核间并行。它们过不了生产 serving 的两道坎——<strong>动态 shape</strong>（连续批）和<strong>数据依赖控制流</strong>（MoE 路由）。Event Tensor 把「一簇 SM 级任务完成」升成编译器里的一等张量，形状可以是符号，下标可以是运行时算出来的。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">1.40×</div>
+          <div class="k">GEMM+Reduce-Scatter / AG+GEMM 相对 cuBLAS+NCCL（8×B200）</div>
+        </div>
+        <div>
+          <div class="n">1.23×</div>
+          <div class="k">完整 MoE 层相对 Triton / FlashInfer（1024 token）</div>
+        </div>
+        <div>
+          <div class="n">1.48×</div>
+          <div class="k">Qwen3-30B-A3B bs=1 TPOT 相对 vLLM</div>
+        </div>
+        <div>
+          <div class="n">35 s</div>
+          <div class="k">Qwen3-32B warmup；vLLM 123 s，SGLang 583 s</div>
+        </div>
+      </div>
+      <div class="callout">
+        信号量不是新东西。论文的新颖点是：把它们做成 IR 里的张量，从而直接复用编译器已有的符号 shape 设施（PyTorch 2 / Relax），并且用同一套变换生成静态或动态调度的 persistent kernel。ETC 做在 Apache TVM 上，device function 用 TVM DSL 写，抽象本身声称 DSL 无关。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. Mega-kernel 在动态负载上卡住</h2>
+      <p>
+        Launch 仍贵：一次 5–10 μs，最快的核 2 μs 就跑完。CUDA Graph 把 launch 间隙压没，但核边界还在，细粒度重叠做不到。Mega-kernel 把算子切成 tile task、用轻量信号保序，理论上能同时解决两件事。
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>动态性</h4>
+          <p>连续批让 batch / 序列长度成为符号。按每个 shape 重编译或重捕获，启动延迟不可接受，shape 空间太大时根本枚举不完。MoE 的 expert 路由在编译期未知，静态任务图无法表达「这个 GroupGEMM tile 处理哪些 token」。</p>
+        </div>
+        <div class="tile">
+          <h4>可编程性</h4>
+          <p>开发者要手写百万级细粒度依赖。静态调度（每 SM 预分配队列）和动态调度（核内 scheduler 派 ready task）各有适用场景，理想情况是同一份 IR 上选变换，而不是重写整颗核。</p>
+        </div>
+      </div>
+      <p>
+        这两件事不是 mega-kernel 独有：CUDA Graph 在生产 serving 里最大的痛就是按 shape 反复捕获。低 batch、延迟敏感的 agent / 编程助手把问题放大——这时候核间并行才是在砍每请求延迟。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三种 GPU 调度模型">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="16" y="18" width="300" height="220" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="166" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">Kernel-by-kernel</text>
+            <rect x="40" y="60" width="110" height="28" rx="3" fill="#fdba74"/>
+            <text x="95" y="79" text-anchor="middle" font-size="11">A0–A4</text>
+            <rect x="160" y="60" width="50" height="28" rx="3" fill="#fecaca"/>
+            <text x="185" y="79" text-anchor="middle" font-size="10">launch</text>
+            <rect x="220" y="60" width="70" height="28" rx="3" fill="#fdba74"/>
+            <text x="255" y="79" text-anchor="middle" font-size="11">B0–B4</text>
+            <text x="166" y="118" text-anchor="middle" font-size="12" fill="#7c2d12">核间隙 5–10 μs</text>
+            <text x="166" y="142" text-anchor="middle" font-size="12" fill="#7c2d12">最快核只要 2 μs</text>
+            <text x="166" y="178" text-anchor="middle" font-size="11" fill="#57534e">核边界 = 全局屏障</text>
+            <text x="166" y="202" text-anchor="middle" font-size="11" fill="#57534e">B 必须等全部 A</text>
+
+            <rect x="340" y="18" width="300" height="220" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="490" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">CUDA Graph</text>
+            <rect x="364" y="60" width="110" height="28" rx="3" fill="#cbd5e1"/>
+            <text x="419" y="79" text-anchor="middle" font-size="11">A0–A4</text>
+            <rect x="484" y="60" width="28" height="28" rx="3" fill="#e2e8f0"/>
+            <rect x="522" y="60" width="94" height="28" rx="3" fill="#cbd5e1"/>
+            <text x="569" y="79" text-anchor="middle" font-size="11">B0–B4</text>
+            <text x="490" y="118" text-anchor="middle" font-size="12" fill="#1e3a5f">launch 间隙可忽略</text>
+            <text x="490" y="142" text-anchor="middle" font-size="12" fill="#1e3a5f">核边界仍在</text>
+            <text x="490" y="178" text-anchor="middle" font-size="11" fill="#57534e">按 shape 各捕获一张</text>
+            <text x="490" y="202" text-anchor="middle" font-size="11" fill="#57534e">vLLM warmup 要 67 张图</text>
+
+            <rect x="664" y="18" width="300" height="220" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="814" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">Megakernel + Event Tensor</text>
+            <rect x="688" y="60" width="70" height="28" rx="3" fill="#99f6e4"/>
+            <text x="723" y="79" text-anchor="middle" font-size="11">A0</text>
+            <rect x="768" y="60" width="70" height="28" rx="3" fill="#5eead4"/>
+            <text x="803" y="79" text-anchor="middle" font-size="11">B0</text>
+            <rect x="848" y="60" width="90" height="28" rx="3" fill="#ccfbf1"/>
+            <text x="893" y="79" text-anchor="middle" font-size="11">A1∥B1</text>
+            <text x="814" y="118" text-anchor="middle" font-size="12" fill="#115e59">一颗核 · 细粒度依赖</text>
+            <text x="814" y="142" text-anchor="middle" font-size="12" fill="#115e59">符号 shape · 数据依赖边</text>
+            <text x="814" y="178" text-anchor="middle" font-size="11" fill="#57534e">静态 / 动态调度都是变换</text>
+            <text x="814" y="202" text-anchor="middle" font-size="11" fill="#57534e">AOT 一颗核 · warmup 35 s</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1 · 论文 Figure 1 三种调度。CUDA Graph 去掉 launch 但保核屏障；Event Tensor 把依赖画成可符号实例化的张量。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. Event Tensor 是什么</h2>
+      <p>
+        <strong>Event</strong>：一簇在 SM 粒度上完成的任务。Mega-kernel 把算子切成大量 tile，对应的同步事件自然长成和数据张量同构的多维数组。<strong>Event Tensor</strong> 就是这张数组，每个元素有初始 wait count，支持 <code>notify()</code>、<code>wait()</code>，动态调度下还可以触发下游 task。
+      </p>
+      <p>语言里三块构件：</p>
+      <ul>
+        <li><strong>Device function</strong>：一组按多维坐标发射的 tile，坐标标识跑在哪颗 SM 上的 task。内部可写 warp specialization、tensor core。</li>
+        <li><strong>Event Tensor</strong>：多维事件。单独管每个 event 在百万级规模下会把任务图管理打爆；收成张量后，一次对象表示成千上万个事件。</li>
+        <li><strong>Graph function</strong>：<code>call_device</code> 构成的计算图，同时包含数据张量和 Event Tensor。每个 launch 标注 <code>in_edges</code> / <code>out_edges</code> 以及坐标映射（einsum 风格，如 <code>"ij->i"</code>）。</li>
+      </ul>
+      <p>
+        默认模式是「生产 task → event → 消费 task」：out_edges 在生产 task 末尾隐式 notify，in_edges 在消费 task 开头隐式 wait。也允许 device function 把 Event Tensor 当参数，在内部显式 notify/wait——这是写融合变换时需要的一等能力。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="split-K 上的 Event Tensor">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="30" y="40" width="200" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="130" y="70" text-anchor="middle" font-size="13" font-weight="700">partial_sum</text>
+            <text x="130" y="92" text-anchor="middle" font-size="11" fill="#57534e">tile (n, 4) · ij</text>
+            <path d="M240 75 L330 75" stroke="#1e3a5f" stroke-width="2"/>
+            <text x="285" y="64" text-anchor="middle" font-size="11" fill="#1e3a5f">ij→i</text>
+            <rect x="340" y="40" width="200" height="70" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="440" y="70" text-anchor="middle" font-size="13" font-weight="700">ETensor (n,)</text>
+            <text x="440" y="92" text-anchor="middle" font-size="11" fill="#57534e">wait_count = 4</text>
+            <path d="M550 75 L640 75" stroke="#1e3a5f" stroke-width="2"/>
+            <text x="595" y="64" text-anchor="middle" font-size="11" fill="#1e3a5f">i→i</text>
+            <rect x="650" y="40" width="200" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="750" y="70" text-anchor="middle" font-size="13" font-weight="700">final_sum</text>
+            <text x="750" y="92" text-anchor="middle" font-size="11" fill="#57534e">tile (n,) · i</text>
+            <text x="490" y="160" text-anchor="middle" font-size="13" fill="#44403c">C[i] 只依赖 B[i, :]，不必等全部 partial_sum</text>
+            <text x="490" y="186" text-anchor="middle" font-size="13" fill="#44403c">n 是符号变量：同一份图覆盖所有行数</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2 · 论文 Figure 3 的 split-K：四列部分和完成才触发对应行的 final_sum。传统 kernel-by-kernel 会等全部部分和结束。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 两类动态：符号 shape 与数据依赖</h2>
+      <h3>Shape dynamism</h3>
+      <p>
+        Event Tensor 的维可以含符号（batch、序列长度）。这张符号图是任务图模板：runtime 填入具体 B=1 或 B=2，实例化出 1×H 或 2×H 的依赖，<strong>不重编译、不重捕获</strong>。这是相对 CUDA Graph / 静态 tGraph 的核心差别。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="符号 shape 模板实例化">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="30" width="280" height="180" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="160" y="58" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">编译期模板</text>
+            <text x="160" y="88" text-anchor="middle" font-size="12">ETensor (B, H)</text>
+            <text x="160" y="112" text-anchor="middle" font-size="12">Q/K/V · Attn 映射 "bh→bh"</text>
+            <text x="160" y="148" text-anchor="middle" font-size="12" fill="#57534e">B 是符号</text>
+            <text x="160" y="172" text-anchor="middle" font-size="12" fill="#57534e">一份代码覆盖所有 batch</text>
+            <path d="M310 120 L370 80" stroke="#0f766e" stroke-width="1.5"/>
+            <path d="M310 120 L370 160" stroke="#0f766e" stroke-width="1.5"/>
+            <rect x="380" y="20" width="270" height="90" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="515" y="48" text-anchor="middle" font-size="12" font-weight="700">runtime B=1</text>
+            <text x="515" y="72" text-anchor="middle" font-size="12">实例化 1×H 任务图</text>
+            <text x="515" y="94" text-anchor="middle" font-size="11" fill="#57534e">不重编译</text>
+            <rect x="380" y="130" width="270" height="90" rx="6" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="515" y="158" text-anchor="middle" font-size="12" font-weight="700">runtime B=2</text>
+            <text x="515" y="182" text-anchor="middle" font-size="12">实例化 2×H 任务图</text>
+            <text x="515" y="204" text-anchor="middle" font-size="11" fill="#57534e">不重捕获 CUDA Graph</text>
+            <rect x="680" y="50" width="280" height="140" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="820" y="84" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">对照：CUDA Graph</text>
+            <text x="820" y="116" text-anchor="middle" font-size="12">每个 B 一张静态图</text>
+            <text x="820" y="140" text-anchor="middle" font-size="12">SGLang 51 次 capture</text>
+            <text x="820" y="164" text-anchor="middle" font-size="12">vLLM 67 次 · 123 s warmup</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3 · 论文 Figure 4。符号维把「任务图」变成模板；concrete B 只在运行时填进去。</p>
+      <h3>Data-dependent dynamism</h3>
+      <p>
+        MoE：token 按 runtime 的 topk 分到 expert，再 GroupGEMM。编译期不知道哪个 tile 处理哪些 token。Event Tensor 用两个机制：
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>数据依赖的 event 更新</h4>
+          <p>grouping tile（每 token 一个）按 <code>topk[i,:]</code> 去 notify 对应 expert 的 event。每个 expert 的 wait count 初始化为分到它的 token 数——这个数本身是 runtime 算的。</p>
+        </div>
+        <div class="tile">
+          <h4>数据依赖的 task 触发</h4>
+          <p><code>exp_indptr</code>（CSR 风格前缀和）记录每 expert 要发多少 GroupGEMM tile。Expert i 激活区间 <code>(indptr[i], indptr[i+1])</code> 内的 tile。</p>
+        </div>
+      </div>
+      <p>
+        整条链仍是前馈：Attention → TopK → Grouping → GroupGEMM。TopK 对 Attention 的依赖是普通静态边；数据依赖机制只管后面「谁 notify 谁、触发多少 tile」。结合符号 shape，<strong>全部编译发生在离线</strong>，推理时零编译开销。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MoE 数据依赖 Event Tensor">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="160" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">规则图</text>
+            <rect x="20" y="40" width="280" height="210" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="50" y="70" width="90" height="36" rx="4" fill="#fdba74"/>
+            <text x="95" y="93" text-anchor="middle" font-size="12">tile i</text>
+            <circle cx="200" cy="88" r="18" fill="#fecaca" stroke="#ef4444"/>
+            <text x="200" y="93" text-anchor="middle" font-size="11">E[i]</text>
+            <rect x="155" y="140" width="90" height="36" rx="4" fill="#fed7aa"/>
+            <text x="200" y="163" text-anchor="middle" font-size="12">tile i</text>
+            <text x="160" y="210" text-anchor="middle" font-size="11" fill="#57534e">"i→i" 编译期已知</text>
+
+            <text x="490" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">MoE：runtime 才知道边</text>
+            <rect x="330" y="40" width="630" height="210" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="360" y="70" width="80" height="32" rx="4" fill="#99f6e4"/>
+            <text x="400" y="91" text-anchor="middle" font-size="11">tok0</text>
+            <rect x="360" y="112" width="80" height="32" rx="4" fill="#99f6e4"/>
+            <text x="400" y="133" text-anchor="middle" font-size="11">tok1</text>
+            <rect x="360" y="154" width="80" height="32" rx="4" fill="#99f6e4"/>
+            <text x="400" y="175" text-anchor="middle" font-size="11">tok2</text>
+            <text x="500" y="88" font-size="11" fill="#0f766e">topk[i,:]</text>
+            <circle cx="600" cy="88" r="20" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="600" y="93" text-anchor="middle" font-size="10">E0</text>
+            <circle cx="600" cy="140" r="20" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="600" y="145" text-anchor="middle" font-size="10">E1</text>
+            <circle cx="600" cy="192" r="20" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="600" y="197" text-anchor="middle" font-size="10">E2</text>
+            <text x="700" y="88" font-size="11" fill="#0f766e">indptr</text>
+            <rect x="780" y="70" width="70" height="32" rx="4" fill="#5eead4"/>
+            <text x="815" y="91" text-anchor="middle" font-size="11">G0</text>
+            <rect x="860" y="70" width="70" height="32" rx="4" fill="#5eead4"/>
+            <text x="895" y="91" text-anchor="middle" font-size="11">G0'</text>
+            <rect x="780" y="124" width="70" height="32" rx="4" fill="#99f6e4"/>
+            <text x="815" y="145" text-anchor="middle" font-size="11">G1</text>
+            <rect x="780" y="176" width="70" height="32" rx="4" fill="#fde68a"/>
+            <text x="815" y="197" text-anchor="middle" font-size="11">G2</text>
+            <path d="M448 86 L578 86" stroke="#0f766e"/>
+            <path d="M448 128 L578 140" stroke="#0f766e"/>
+            <path d="M448 170 L578 192" stroke="#0f766e"/>
+            <path d="M622 88 L780 86" stroke="#0f766e"/>
+            <path d="M622 140 L780 140" stroke="#0f766e"/>
+            <path d="M622 192 L780 192" stroke="#0f766e"/>
+            <text x="645" y="230" text-anchor="middle" font-size="11" fill="#57534e">wait count = 分到该 expert 的 token 数 · 触发区间 = (indptr[i], indptr[i+1])</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4 · 论文 Figure 5。黄色边在 runtime 由 topk / exp_indptr 决定；编译器事先只知道「会有这种映射」，不知道具体下标。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 静态调度：预排队列 + notify/wait</h2>
+      <p>
+        静态调度把多个 device function 融成一颗 persistent 核：host 上为每颗 SM 生成执行队列，核内主循环不断取预计算的 (task_idx, task_type)，在 GEMM 末尾 <code>notify</code>、在 Reduce-Scatter 开头 <code>wait</code>。同步开销最低，适合可预测负载。
+      </p>
+      <p>
+        GEMM + Reduce-Scatter（张量并行标配）：每个 RS tile 覆盖两个 MM tile，event 初值 2。SM0 做完 MM0 后计数变 1，队列里下一个是 RS，进 spin-wait；SM1 做完对应 MM 后计数归零，SM0 退出等待开跑 RS。GPU 在等待期间仍被其他 MM 占着。
+      </p>
+      <p>
+        静态调度本身不擅长动态。ETC 的补丁：shape 上采样代表点，未见过的 shape 复用「下一个更大采样」的队列；数据依赖上按最坏情况改写 notify/wait。队列构造用 round-robin。这能跑，但保守。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 270" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="静态 notify-wait 时间线">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="60" y="40" font-size="12" fill="#57534e">SM0</text>
+            <text x="60" y="90" font-size="12" fill="#57534e">SM1</text>
+            <text x="60" y="140" font-size="12" fill="#57534e">E[0]</text>
+            <rect x="120" y="22" width="140" height="32" rx="4" fill="#fdba74"/>
+            <text x="190" y="43" text-anchor="middle" font-size="12">MM0</text>
+            <rect x="270" y="22" width="90" height="32" rx="4" fill="#fecaca"/>
+            <text x="315" y="43" text-anchor="middle" font-size="11">spin wait</text>
+            <rect x="370" y="22" width="140" height="32" rx="4" fill="#5eead4"/>
+            <text x="440" y="43" text-anchor="middle" font-size="12">RS</text>
+            <rect x="120" y="74" width="240" height="32" rx="4" fill="#fdba74"/>
+            <text x="240" y="95" text-anchor="middle" font-size="12">MM0（更慢）</text>
+            <rect x="370" y="74" width="120" height="32" rx="4" fill="#fde68a"/>
+            <text x="430" y="95" text-anchor="middle" font-size="12">MM1</text>
+            <text x="190" y="148" font-size="12" fill="#0f766e">count=2→1</text>
+            <text x="370" y="148" font-size="12" fill="#0f766e">count=0 · 放行 RS</text>
+            <rect x="560" y="30" width="400" height="160" rx="8" fill="#faf7f2" stroke="#e7e0d4"/>
+            <text x="760" y="58" text-anchor="middle" font-size="13" font-weight="700">静态调度要点</text>
+            <text x="760" y="88" text-anchor="middle" font-size="12">每 SM 预计算队列 · 主循环取 (idx, type)</text>
+            <text x="760" y="112" text-anchor="middle" font-size="12">GEMM 末尾 notify · RS 开头 wait</text>
+            <text x="760" y="136" text-anchor="middle" font-size="12">RS tile 跨两个 MM tile · 初值 2</text>
+            <text x="760" y="164" text-anchor="middle" font-size="12" fill="#0f766e">等待时 GPU 仍被另一颗 SM 的 MM 占着</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5 · 论文 Figure 7。SM0 的 RS 自旋，但 SM1 继续算 MM；计数归零才结束等待。适合规则、可预测负载。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 动态调度：核内 push/pop</h2>
+      <p>
+        任务耗时不可预测时，静态绑定会让部分 SM 堆积长 tile、其余空转。动态调度：event 计数归零后，把全部消费者原子 push 进核内 scheduler；空闲 SM 原子 pop 一个 ready task。tile 顺序在 runtime、符号值和路由结果都已解析之后才决定，因此天然覆盖两类动态。
+      </p>
+      <p>
+        同一 GEMM+RS 例子：SM0 做完 MM0 计数变 1，立刻 pop 下一个 ready 的 MM1，不空等；SM1 做完后计数归零，RS 被 push，SM1 pop 到 RS 开跑。没有 host 预计算队列。
+      </p>
+      <p>
+        实现用全局内存里的集中队列，求简单，作者承认大规模下可能争用。附录 E 的优化：<strong>early push</strong>——生产者刚被派到 SM（不必等算完）就把消费者推进 ready 队列，依赖仍由消费者入口的 wait 保证，push 开销和生产者计算重叠。
+      </p>
+      <div class="callout teal">
+        折中是经典的。静态：调度税最低，适合规则、可预测。动态：负载均衡，适合 MoE / 通信抖动，付 push/pop 税。分布式上动态调度往远端队列 push 会很贵（Qwen3-32B TP=4 上动态相对未融合 mega-kernel 只有 0.83–0.89×）。所以端到端 decode 用静态，大 batch 算通重叠用动态。
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="动态 push-pop 时间线">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="70" y="36" font-size="12" fill="#57534e">SM0</text>
+            <rect x="110" y="18" width="120" height="30" rx="4" fill="#fdba74"/>
+            <text x="170" y="38" text-anchor="middle" font-size="11">MM0</text>
+            <rect x="240" y="18" width="120" height="30" rx="4" fill="#fde68a"/>
+            <text x="300" y="38" text-anchor="middle" font-size="11">pop MM1</text>
+            <text x="70" y="80" font-size="12" fill="#57534e">SM1</text>
+            <rect x="110" y="62" width="200" height="30" rx="4" fill="#fdba74"/>
+            <text x="210" y="82" text-anchor="middle" font-size="11">MM0</text>
+            <rect x="320" y="62" width="100" height="30" rx="4" fill="#5eead4"/>
+            <text x="370" y="82" text-anchor="middle" font-size="11">pop RS</text>
+            <text x="70" y="124" font-size="12" fill="#57534e">队列</text>
+            <rect x="110" y="106" width="80" height="30" rx="4" fill="#ccfbf1"/>
+            <text x="150" y="126" text-anchor="middle" font-size="11">MM1</text>
+            <rect x="200" y="106" width="80" height="30" rx="4" fill="#99f6e4"/>
+            <text x="240" y="126" text-anchor="middle" font-size="11">…</text>
+            <rect x="320" y="106" width="80" height="30" rx="4" fill="#5eead4"/>
+            <text x="360" y="126" text-anchor="middle" font-size="11">+RS</text>
+            <rect x="480" y="20" width="480" height="180" rx="8" fill="#faf7f2" stroke="#e7e0d4"/>
+            <text x="720" y="50" text-anchor="middle" font-size="13" font-weight="700">动态 vs 静态</text>
+            <text x="720" y="80" text-anchor="middle" font-size="12">SM0 不等 RS，立刻 pop 下一个 ready MM</text>
+            <text x="720" y="106" text-anchor="middle" font-size="12">计数归零才 push RS · 谁空谁领</text>
+            <text x="720" y="132" text-anchor="middle" font-size="12">early push：生产者一派出去就 push 消费者</text>
+            <text x="720" y="158" text-anchor="middle" font-size="12" fill="#0f766e">MoE 1024 token：动态 1.08× vs 未融合</text>
+            <text x="720" y="182" text-anchor="middle" font-size="12" fill="#9a3412">TP=4 稠密：动态 0.83× · 远端队列太贵</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6 · 论文 Figure 9。空闲 SM 立刻去队列里抢活，不再 spin-wait。通信抖动和大 batch MoE 走这条；低 batch decode 走静态。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 降低到「整数张量 + 原子」</h2>
+      <p>
+        调度逻辑编译进 mega-kernel，不在内存里物化任务图，也不需要通用图执行器。Event Tensor 降成整数张量，复用现有张量数据结构：<code>notify</code> = 原子减，<code>wait</code> = 自旋到 0。Runtime 状态 = 这些整数张量 + scheduler 的 task 队列。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="传统 runtime 与 compiled-in 对照">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="450" height="160" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="245" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">传统：图在内存里展开</text>
+            <rect x="50" y="70" width="160" height="40" rx="4" fill="#fed7aa"/>
+            <text x="130" y="95" text-anchor="middle" font-size="12">物化 task graph</text>
+            <rect x="250" y="70" width="180" height="40" rx="4" fill="#ffedd5"/>
+            <text x="340" y="95" text-anchor="middle" font-size="12">通用执行器遍历</text>
+            <text x="245" y="140" text-anchor="middle" font-size="12" fill="#7c2d12">只编译 tiled 算子</text>
+            <text x="245" y="160" text-anchor="middle" font-size="11" fill="#57534e">调度仍是 runtime 解释</text>
+
+            <rect x="510" y="20" width="450" height="160" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="735" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">ETC：控制流编进核</text>
+            <rect x="540" y="70" width="180" height="40" rx="4" fill="#99f6e4"/>
+            <text x="630" y="95" text-anchor="middle" font-size="12">ETensor → int tensor</text>
+            <rect x="740" y="70" width="190" height="40" rx="4" fill="#5eead4"/>
+            <text x="835" y="95" text-anchor="middle" font-size="12">notify=原子减 wait=自旋</text>
+            <text x="735" y="140" text-anchor="middle" font-size="12" fill="#115e59">无专用 event 数据结构</text>
+            <text x="735" y="160" text-anchor="middle" font-size="11" fill="#57534e">状态 = 整数张量 + 一个队列</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7 · 论文 Figure 10。把调度变成编译变换之后，runtime 不再需要一张展开的任务图。</p>
+      <p>
+        对比「传统 runtime 执行器」：任务图在内存里展开，只编译 tiled 算子，执行器遍历图再 launch。ETC 是 compiled-in control flow。流水线：图级优化（含内存规划）→ tile 级指令与流水 → 静态或动态调度变换 → persistent 代码生成 → 按注解生成 weight prefetch → 若静态则物化每 SM 队列。
+      </p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 评测：算通融合、MoE、serving、warmup</h2>
+      <p>
+        8×B200 NVLink，Ubuntu 24.04，PyTorch 2.8，CUDA 13.0。基线已含 CUDA Graph、PDL、<code>torch.compile</code>。作者说明现有 mega-kernel 框架只针对单 batch 稠密推理，动态 shape / 数据依赖下无法公平对比（点名 MPK 与 Spector）。
+      </p>
+      <h3>融合通信 + 计算（8192 token，TP=8）</h3>
+      <table>
+        <thead>
+          <tr><th>模式</th><th>实现选择</th><th>为何这套调度</th><th>结果</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GEMM + Reduce-Scatter</td>
+            <td>multimem PTX + <strong>动态</strong>调度</td>
+            <td>网络争用让完成时间不可预测</td>
+            <td>相对 cuBLAS+NCCL 最高 1.40×</td>
+          </tr>
+          <tr>
+            <td>All-Gather + GEMM</td>
+            <td>copy engine 环形 + <strong>静态</strong>调度</td>
+            <td>只有 GEMM tile 占 SM，到达顺序由 ring 决定，预计算队列即可重叠</td>
+            <td>同样最高 1.40×</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        TP-Async 切块粒度要么吃不满 SM、要么藏不住通信；Triton-Distributed 的 B200 GEMM 尚未充分特化。未融合的 cuBLAS+NCCL 有时反而接近这些「融合」基线——说明融合本身很难做对。ETC 的优势来自把整段流水画成细粒度任务图，并按负载选调度器。
+      </p>
+      <h3>MoE 层（Qwen3-30B-A3B，128 expert，topk=8）</h3>
+      <p>
+        现有系统有高效 persistent GroupGEMM，但完整 MoE 仍是一串独立 launch。ETC 把数据依赖数据流融进一颗核，动态调度。最高 1.23×（1024 token）。来源：打破全局屏障，两段 GroupGEMM 细粒度流水（减轻 wave quantization）；核内动态调度给不规则路由做负载均衡。
+      </p>
+      <h3>端到端低 batch serving</h3>
+      <p>
+        Decode 为主（prefill / 大 batch 已经吃满 GPU，mega-kernel 边际小，除了算通重叠）。静态调度覆盖完整 decode 管线（Attention、RoPE、KV、Norm、MLP、MoE），不只 GEMM。数据集：prefill 512、生成 100 token，batch 1–128。
+      </p>
+      <ul>
+        <li>Qwen3-30B-A3B TP=1：bs=1 相对 vLLM 1.48×、SGLang 1.20×。</li>
+        <li>Qwen3-32B TP=1：相对 vLLM 最高 1.15×（bs=1），相对 SGLang 最高 1.09×（bs=64）。</li>
+        <li>Qwen3-32B TP=4：相对 vLLM 0.99–1.06×；SGLang 因 CPU 调度器更省分布式开销，端到端 TPOT 有时更好。</li>
+      </ul>
+      <p>
+        附录给了剥离框架开销的 raw kernel 时间：MoE 模型 bs=1 相对 vLLM 1.49×、SGLang 1.27×；稠密 TP=1 平均约 7%，最高 1.13×；TP=4 相对 vLLM 最高 1.08×。偶发落后被归因于编译生成的 GEMM tile 不如 cuBLAS、以及 serving 引擎的 CPU 开销——不是抽象本身的上限。
+      </p>
+      <p>
+        融合带来的具体优化：Attention 里 Q 的 Norm+RoPE 与 K 的 Norm+RoPE+CacheAppend 并行；MoE / MLP 里 GroupGEMM 流水减轻 wave quantization；权重在激活到达前 prefetch。
+      </p>
+      <h3>Warmup</h3>
+      <table>
+        <thead>
+          <tr><th>系统</th><th>Warmup</th><th>JIT / Graph capture 次数</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>SGLang (JIT)</td><td>583 s</td><td>51</td></tr>
+          <tr><td>vLLM (JIT)</td><td>123 s</td><td>67</td></tr>
+          <tr><td>ETC (AOT)</td><td>35 s</td><td>0（离线 107 s 编一颗 shape-generic 核）</td></tr>
+        </tbody>
+      </table>
+      <h3>调度消融（相对「算子间单 event 全局屏障」的未融合 mega-kernel）</h3>
+      <p>
+        未融合基线用同一套算子代码，加速只来自细粒度 Event Tensor 依赖。MoE：动态除 bs=1 外优于静态，1024 token 时相对未融合 1.08×。稠密 TP=4：静态稳定 1.06–1.09×，动态 0.83–0.89×（远端队列）。这解释了为何大 batch 带宽型图（11/12）和低 batch 延迟型图（14 右）看起来趋势不同。
+      </p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 和 MPK 的关系、局限</h2>
+      <p>
+        相关工作里点名 Cheng et al. 2025（即 MPK）和 Spector et al. 2025：它们只支持单 batch 稠密、只实现一种调度。Event Tensor 补的是 shape / 数据依赖的系统化 IR，以及静态+动态两套变换。和 Cilk / Legion / Realm / OpenMP Tasks 的关系：那些是 CPU 编排的粗粒度任务；和 Graphene / Cypress 的关系：那些优化单核，Graphene 把线程当成带同步能力的张量，概念相近，但不做多算子 mega-kernel 融合。
+      </p>
+      <h3>还没做的</h3>
+      <ul>
+        <li>更高层 pass：从普通计算图自动生成 Event Tensor 任务图。当前仍要在图上标注 Event Tensor 和 tile 切分（Triton / 编译器 builtin / TVM DSL）。</li>
+        <li>动态调度的集中队列在规模上的争用，只承认了，没有多级队列数据。</li>
+        <li>TP=4 低 batch 的端到端仍受 CPU 调度和通信尾延迟限制，抽象解决不了 serving 引擎的宿主机路径。</li>
+        <li>评测几乎全在 B200；IR 层声称与代数无关，但生成的 GEMM tile 质量仍绑定后端。</li>
+      </ul>
+      <div class="callout navy">
+        可带走的判断：mega-kernel 要从「手写或按 shape 特化一张静态任务图」变成「生产可用」，缺的不是又一个 scheduler，而是<strong>把同步做成和数据一样的符号对象</strong>。Event Tensor 是这个判断的 IR。MPK 的 tGraph 规范化/线性化是静态、具体 shape 下的高效编码；Event Tensor 是它的动态、可变换上界。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 arXiv:2604.13327v2（2026-04-21）· 同目录：<a href="Mirage_论文分析.html">Mirage</a> · <a href="MPK_论文分析.html">MPK</a> · <a href="Fleet_论文分析.html">Fleet</a>
+    </footer>
+  </div>
+</body>
+</html>

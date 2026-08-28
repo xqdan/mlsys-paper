@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fleet 论文分析 | arXiv:2604.15379</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv:2604.15379v1</span>
+        <span class="badge">Chiplet GPU · Mega-kernel</span>
+        <span class="badge">2026-04-15</span>
+        <span class="badge ok">AMD Research</span>
+        <span class="badge ok">MI350</span>
+        <span class="badge ok">Chiplet-task</span>
+      </div>
+      <h1>多 die GPU 上，任务要绑到 L2 的地盘</h1>
+      <p class="subtitle">Fleet: Hierarchical Task-based Abstraction for Megakernels on Multi-Die GPUs</p>
+      <p class="meta">
+        <strong>作者：</strong>Sangeeta Chowdhary、Ryan Swann、Sean Siddens、Muhammad Osama、Stephen Neuendorffer、Alexandru Dutu、Karthik Sangaiah、Sandeepa Bhuyan、Samuel Bayliss、Ganesh Dasika<br />
+        <strong>单位：</strong>AMD Research<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2604.15379" target="_blank" rel="noopener">arXiv:2604.15379</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">Chiplet 把 L2 从「设备范围」撕开</a></li>
+        <li><a href="#s3">四级任务：缺的那一层叫 Chiplet-task</a></li>
+        <li><a href="#s4">合作 tiling：M-major 把 miss 变成 hit</a></li>
+        <li><a href="#s5">分层同步：fence 摊到每 XCD 一次</a></li>
+        <li><a href="#s6">运行时：每 die 一个 scheduler</a></li>
+        <li><a href="#s7">评测：调度税 vs L2 复用</a></li>
+        <li><a href="#s8">局限、与 MPK 的关系</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        CUDA/HIP 的执行层次仍是 thread → wavefront → workgroup → grid，按单片 GPU、统一 L2 设计。MI300/MI350 是 8 个 XCD、每 die 私有 4 MB 非一致 L2；Blackwell 是 2 die、L2 分区。编程模型看不到 chiplet，LLM decode 这种访存型负载就会把同一行权重从 HBM 搬进多个 L2。Fleet 加了一层 <strong>Chiplet-task</strong>：活和数据绑到一颗 die 的 L2 上，persistent kernel 里按 die 调度。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">1.3–1.5×</div>
+          <div class="k">Qwen3-8B decode TPOT 相对 vLLM（bs=1–8）</div>
+        </div>
+        <div>
+          <div class="n">6.73 ms</div>
+          <div class="k">bs=1；vLLM 10.51 ms，无感知 MPK 7.83 ms</div>
+        </div>
+        <div>
+          <div class="n">12%→54%</div>
+          <div class="k">摘要口径：bs=32 的 L2 hit（正文 Table 4：38.9%→51.0%）</div>
+        </div>
+        <div>
+          <div class="n">37%</div>
+          <div class="k">bs=64 HBM 读流量下降（相对 chiplet-unaware mega-kernel）</div>
+        </div>
+      </div>
+      <div class="callout">
+        Fleet 不是从零写 mega-kernel 运行时。它扩展 <a href="MPK_论文分析.html">Mirage Persistent Kernel</a>：在 AMD MI350 上加上 chiplet 感知和分层同步。Mirage 决定融什么，Fleet 决定调度到哪颗 die。评测只有 Qwen3-8B 稠密、单卡 MI350，没有 Blackwell 实测。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. Chiplet 把 L2 从「设备范围」撕开</h2>
+      <p>
+        单片 GPU 上任意 CU 访问 L2 延迟带宽相同，程序员不用想数据缓存在哪。Chiplet 之后，封装内出现了以前只在多卡之间才有的 NUMA。
+      </p>
+      <table>
+        <thead>
+          <tr><th>计算层次</th><th>存储</th><th>CUDA/HIP</th><th>Fleet</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>SIMD</td><td>寄存器</td><td>Wavefront</td><td>Wavefront-task</td></tr>
+          <tr><td>CU / SM</td><td>LDS</td><td>Workgroup</td><td>CU-task</td></tr>
+          <tr><td>Chiplet / XCD</td><td>L2</td><td>—</td><td><strong>Chiplet-task</strong></td></tr>
+          <tr><td>Device</td><td>HBM</td><td>Device / Grid</td><td>Device-task</td></tr>
+        </tbody>
+      </table>
+      <p>
+        MI350：8 XCD × 32 CU = 256 CU，每 XCD 私有 4 MB L2（合计 32 MB），共享 256 MB Infinity Cache（L2 的 victim），HBM3 &gt; 5 TB/s，288 GB。HBM 是统一地址空间，任意 die 都能访问任意 stack。默认 load/store 是 wave scope（SC1=SC0=NT=0）：L2 把数据当成本 XCD 私有，不发跨 XCD 探针。XCD i 的脏数据要让 XCD j 看见，生产者必须 <code>buffer_wbl2</code>，消费者必须作废过期行。device/system scope 会走一致性协议，延迟更高。
+      </p>
+      <p>
+        对 LLM decode 的后果：默认指令加载的权重在每个 XCD 的 L2 里各缓存一份。两个不同 die 上的 CU 读同一行权重，HBM（或 LLC）要供两次。Qwen3-8B 每层权重 368 MB（bf16），均分到 8 XCD 仍是 46 MB，远超 4 MB L2。线性层占 decode 时间 95%，attention 5%；无合作调度时 bs=1 的 L2 hit 只有 16.4%。再叠加每 token ~250 次 kernel launch、核边界冲刷 L2——这就是为什么要 persistent + chiplet 感知。
+      </p>
+      <div class="callout teal">
+        CUDA/HIP Graph 减 launch，但按 batch 各捕获一张图，节点仍是核粒度顺序执行，核边界冲 L2。persistent mega-kernel 只 launch 一次，L2 状态跨算子保留。这是 MPK 已经讲过的；Fleet 加的是「保留在哪一颗 L2 里」。
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MI350 存储层次">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="210" height="160" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="125" y="46" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">XCD 0</text>
+            <text x="125" y="70" text-anchor="middle" font-size="11">32 CU</text>
+            <rect x="40" y="88" width="170" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="125" y="111" text-anchor="middle" font-size="12">私有 L2 4 MB</text>
+            <text x="125" y="154" text-anchor="middle" font-size="11" fill="#57534e">默认 wave scope</text>
+            <text x="125" y="170" text-anchor="middle" font-size="11" fill="#57534e">不探其他 die</text>
+            <rect x="250" y="20" width="210" height="160" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="355" y="46" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">XCD 1</text>
+            <text x="355" y="70" text-anchor="middle" font-size="11">32 CU</text>
+            <rect x="270" y="88" width="170" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="355" y="111" text-anchor="middle" font-size="12">私有 L2 4 MB</text>
+            <text x="355" y="154" text-anchor="middle" font-size="11" fill="#57534e">同一行权重</text>
+            <text x="355" y="170" text-anchor="middle" font-size="11" fill="#57534e">再从 HBM 搬一次</text>
+            <rect x="480" y="50" width="70" height="100" rx="6" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="515" y="90" text-anchor="middle" font-size="11">…</text>
+            <text x="515" y="112" text-anchor="middle" font-size="11">×8</text>
+            <rect x="570" y="20" width="210" height="160" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="675" y="46" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">XCD 7</text>
+            <text x="675" y="70" text-anchor="middle" font-size="11">32 CU</text>
+            <rect x="590" y="88" width="170" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="675" y="111" text-anchor="middle" font-size="12">私有 L2 4 MB</text>
+            <rect x="20" y="200" width="760" height="56" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="400" y="224" text-anchor="middle" font-size="13">Infinity Cache 256 MB（L2 victim）→ HBM3 &gt;5 TB/s · 288 GB</text>
+            <text x="400" y="244" text-anchor="middle" font-size="11" fill="#57534e">统一地址 · 跨 die 可见要 buffer_wbl2</text>
+            <rect x="800" y="20" width="160" height="236" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="880" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">Qwen3-8B</text>
+            <text x="880" y="100" text-anchor="middle" font-size="12">每层 368 MB</text>
+            <text x="880" y="124" text-anchor="middle" font-size="12">每 XCD 46 MB</text>
+            <text x="880" y="148" text-anchor="middle" font-size="12">L2 只有 4 MB</text>
+            <text x="880" y="184" text-anchor="middle" font-size="12" fill="#9a3412">bs=1 hit 16.4%</text>
+            <text x="880" y="216" text-anchor="middle" font-size="11" fill="#57534e">线性层占 95%</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1 · MI350 把 L2 撕成 8 份互不共享的 4 MB。无感知调度等于同一份权重买 8 次 HBM 带宽。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 四级任务：缺的那一层叫 Chiplet-task</h2>
+      <p>
+        设计原则：任务写在与算子资源需求匹配的硬件粒度上。
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>Wavefront-task</h4>
+          <p>单 wave（AMD 上 64 线程），寄存器 + LDS。SiLU、残差加、RoPE、逐元乘。</p>
+        </div>
+        <div class="tile">
+          <h4>CU-task</h4>
+          <p>单 workgroup，LDS + L2。单个 attention head、RMSNorm、argmax/sampling。</p>
+        </div>
+        <div class="tile">
+          <h4>Chiplet-task</h4>
+          <p>一颗 XCD 上全部 worker（MI350：32 CU 里 31 个，1 个给 scheduler），显式 L2 预算。GEMM 把权重切成 cache-friendly 片。</p>
+        </div>
+        <div class="tile">
+          <h4>Device-task</h4>
+          <p>8 个 Chiplet-task 集体完成一个算子。屏障语义：8 个都完成才算完。各 XCD 按 stride 写共享输出缓冲，就地拼接，不必 reduction；若沿 K 切（split-K），完成后再做一次归约。</p>
+        </div>
+      </div>
+      <p>
+        依赖用 event 表达。Chiplet-task 把一颗 die 上的 worker 收成一个单元，每条依赖边每 die 只需一个 event，而不是每 worker 一个。跨 chiplet 同步事件数降 W 倍（W = 每 die worker 数）。
+      </p>
+      <p>
+        一层 Transformer、bs=1：无感知分解把每个 GEMM 拆成 96–256 个 CU-task，共 1407 个任务；Fleet 每个 GEMM 8 个 Chiplet-task，SiLU 融进 gate+up，共 543 个（2.6× 更少）。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="一层 Transformer 任务数对照">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">无感知 · 1,407 task</text>
+            <rect x="20" y="40" width="450" height="190" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="40" y="60" width="410" height="28" rx="3" fill="#fecaca"/>
+            <text x="245" y="79" text-anchor="middle" font-size="11">QKV Linear · 96 CU-task</text>
+            <rect x="40" y="96" width="410" height="28" rx="3" fill="#fed7aa"/>
+            <text x="245" y="115" text-anchor="middle" font-size="11">O-Proj · 256 CU-task</text>
+            <rect x="40" y="132" width="410" height="28" rx="3" fill="#fdba74"/>
+            <text x="245" y="151" text-anchor="middle" font-size="11">Gate+Up · 192 · SiLU 96 · Down 256</text>
+            <text x="245" y="196" text-anchor="middle" font-size="12" fill="#9a3412">每 worker 一次 dispatch · 看不到 XCD</text>
+
+            <text x="735" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">Fleet · 543 task</text>
+            <rect x="510" y="40" width="450" height="190" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="530" y="60" width="410" height="28" rx="3" fill="#99f6e4"/>
+            <text x="735" y="79" text-anchor="middle" font-size="11">QKV · 8 Chiplet-task（每 die 一个）</text>
+            <rect x="530" y="96" width="410" height="28" rx="3" fill="#ccfbf1"/>
+            <text x="735" y="115" text-anchor="middle" font-size="11">O-Proj / Gate+Up+SiLU / Down · 各 8 个</text>
+            <rect x="530" y="132" width="410" height="28" rx="3" fill="#5eead4"/>
+            <text x="735" y="151" text-anchor="middle" font-size="11">RMSNorm / Attention 仍是 CU-task</text>
+            <text x="735" y="196" text-anchor="middle" font-size="12" fill="#115e59">GEMM 一次广播给 31 worker · 共享 L2</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2 · 论文 Figure 4(a)。Chiplet-task 把「每 CU 一个 GEMM 切片」收成「每 die 一个合作任务」，同步事件数降 W 倍。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 合作 tiling：M-major 把 miss 变成 hit</h2>
+      <p>
+        线性层 GEMM 按输出列切给 8 个 Chiplet-task：每个算独立的 [M, K]×[K, N/8]。Qwen3-8B 的 gate-up 每 XCD 仍是 24 MB，塞不进 4 MB L2。关键是<strong>窗口化的 M-major 遍历</strong>（灵感来自 HipKittens）：同一 Chiplet-task 内，worker 先把某一列权重 [0:K, n] 配上各行激活算完，再换下一列。并发 worker 在短时间窗口里读同一列权重——第一个从 HBM 装进 L2，后面的 hit。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="无感知 vs Fleet 按列切权重">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="26" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">无感知：同 XCD 的 worker 踩不同 GEMM</text>
+            <rect x="20" y="40" width="450" height="170" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="50" y="70" width="120" height="90" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="110" y="100" text-anchor="middle" font-size="11">XCD0</text>
+            <text x="110" y="122" text-anchor="middle" font-size="10">Wq 一块</text>
+            <text x="110" y="140" text-anchor="middle" font-size="10">Wg 一块</text>
+            <rect x="185" y="70" width="120" height="90" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="245" y="100" text-anchor="middle" font-size="11">XCD1</text>
+            <text x="245" y="122" text-anchor="middle" font-size="10">又搬 Wq</text>
+            <text x="245" y="140" text-anchor="middle" font-size="10">L2 互挤</text>
+            <rect x="320" y="70" width="120" height="90" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="380" y="100" text-anchor="middle" font-size="11">XCD2</text>
+            <text x="380" y="122" text-anchor="middle" font-size="10">同一行权重</text>
+            <text x="380" y="140" text-anchor="middle" font-size="10">HBM ×3</text>
+            <text x="245" y="188" text-anchor="middle" font-size="11" fill="#9a3412">L2 无法合作 · 带宽浪费</text>
+
+            <text x="735" y="26" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">Fleet：每 XCD 独占一列权重</text>
+            <rect x="510" y="40" width="450" height="170" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="540" y="70" width="120" height="90" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="600" y="100" text-anchor="middle" font-size="11">XCD0</text>
+            <text x="600" y="122" text-anchor="middle" font-size="10">N 的 0/8</text>
+            <text x="600" y="140" text-anchor="middle" font-size="10">31 worker 共享</text>
+            <rect x="675" y="70" width="120" height="90" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="735" y="100" text-anchor="middle" font-size="11">XCD1</text>
+            <text x="735" y="122" text-anchor="middle" font-size="10">N 的 1/8</text>
+            <text x="735" y="140" text-anchor="middle" font-size="10">另一份 L2</text>
+            <rect x="810" y="70" width="120" height="90" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="870" y="100" text-anchor="middle" font-size="11">XCD2</text>
+            <text x="870" y="122" text-anchor="middle" font-size="10">N 的 2/8</text>
+            <text x="870" y="140" text-anchor="middle" font-size="10">无跨 die 同步</text>
+            <text x="735" y="188" text-anchor="middle" font-size="11" fill="#115e59">N-split · 输出列独立 · 不需要 reduction</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3 · 论文 Figure 2。左边同 die 的人在打不同矩阵，L2 被踩乱；右边每 die 认领权重的 1/8 列，合作只发生在本地 4 MB L2 里。</p>
+      <div class="eq">
+        L2 Hit<sub>weight</sub> = 1 − 1 / min(W, m_tiles)
+        &nbsp;&nbsp; 其中 m_tiles = ⌈B / T<sub>M</sub>⌉
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 980 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="N-major vs M-major">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">N-major（坏）</text>
+            <rect x="40" y="48" width="410" height="160" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="245" y="80" text-anchor="middle" font-size="12">相邻 tile 沿权重列前进</text>
+            <text x="245" y="108" text-anchor="middle" font-size="12">并发 worker 读不同权重</text>
+            <text x="245" y="136" text-anchor="middle" font-size="12">L2 被连续不同行挤兑</text>
+            <text x="245" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">miss 多，HBM 流量大</text>
+
+            <text x="735" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">M-major（Fleet）</text>
+            <rect x="530" y="48" width="410" height="160" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="735" y="80" text-anchor="middle" font-size="12">相邻 tile 沿 batch 行前进</text>
+            <text x="735" y="108" text-anchor="middle" font-size="12">同一时间窗口共享一列权重</text>
+            <text x="735" y="136" text-anchor="middle" font-size="12">R 个 worker 共用，hit ≈ (R−1)/R</text>
+            <text x="735" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">L2 命中，有效 AI 右移</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4 · 同一 Chiplet-task 内的遍历阶。色调表示权重列；N-major 让并发 worker 踩不同列。</p>
+      <p>两条对照策略：</p>
+      <ul>
+        <li><strong>M-tile：</strong>8 个 XCD 拿到同一组 M-tile，XCD 内先扫 M 再换权重列。这是合作复用。</li>
+        <li><strong>M-split：</strong>每个 XCD 分到不相交的 M-tile，无合作共享。用来把「Chiplet-task 调度」和「L2 合作 tiling」拆开。</li>
+      </ul>
+      <p>
+        bs=1 时模型预测权重复用为零，实测仍有 16.9% hit——来自融合 SiLU：gate 和 up 拼成一张 [W_gate; W_up]，两半共享激活读取。不融合时 bs=1 掉到 ~9%。
+      </p>
+      <h3>三级 cache modifier</h3>
+      <ol>
+        <li><strong>权重 load：</strong>streaming（sc1=1, nt=1）。每块权重只用一次，允许短窗口复用后立刻可逐。合作 M-tile 的 hit 发生在逐出之前。</li>
+        <li><strong>激活 store：</strong>NT=1，绕过 L2，避免 GEMM 输出 / RMSNorm / SiLU 挤掉正在合作使用的权重。</li>
+        <li><strong>调度通信：</strong>跨 XCD 轮询用 NT load 读 HBM 新值；XCD 内走 volatile、共享 L2。</li>
+      </ol>
+      <p>
+        把 SiLU 融进 gate+up 的 Chiplet-task，bs=1 的 L2 hit 从 9.4% 到 17.4%。融进 CU-task 也能从 8.1% 到 16.5%——收益来自消灭中间缓冲，不只来自 XCD 协同。
+      </p>
+      <p>
+        N-split（按输出列切 XCD，无跨 die 同步）和 K-split（workgroup 内沿 K 切、LDS 归约）互补：小 batch 调度开销是瓶颈，N-split + 合作 L2 赢；bs≥32 进入 compute-bound，K-split + 自动调 tile 更重要。Fleet 的 persistent GEMM 还没做后者，所以大 batch 会被 hipBLASLt 追上。
+      </p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 分层同步：fence 摊到每 XCD 一次</h2>
+      <p>
+        单片 GPU 上 device-scope 原子便宜，一致性流量留在一片 L2。MI350 上一次 device-scope 原子要跨 8 个 L2 分区，走 die 间 fabric；<code>buffer_wbl2</code> 按脏行数缩放，拖死后继访存。Fleet 按「够正确的最窄 scope」分层：
+      </p>
+      <ol class="steps">
+        <li><strong>任务队列只读。</strong>mega-kernel launch 前填好，执行中不变，无需同步。</li>
+        <li><strong>Scheduler → worker。</strong>写本 XCD 的 per-worker 队列，device-scope store/atomic 在本地 L2 完成。</li>
+        <li><strong>Worker → worker。</strong>Chiplet-task 内用 XCD 本地计数器累加完成数，同一 L2，不必 fence。</li>
+        <li><strong>XCD → 全局。</strong>每 XCD 最后一个完成的 worker 才发一次 threadfence + GPU-scope atomic（<code>flat_atomic_add sc0 sc1</code>）。跨 die 一致性成本按 XCD 摊，不是按 worker 摊。全局计数到阈值后，把 event 入队给负责的 scheduler。</li>
+      </ol>
+      <p>
+        Chiplet-task 的两级计数：每 event 每 XCD 至多一次 fence；该 event 没有任务的 XCD 零次。线性 event 恰好 8 个 task（每 XCD 一个），总共恰好 8 次 fence。Wavefront/CU-task 只有一个 worker，直接 GPU-scope atomic，不必两级。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="分层同步协议">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="360" height="210" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="200" y="46" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">XCD 0 · 本地 L2</text>
+            <rect x="44" y="64" width="70" height="36" rx="4" fill="#99f6e4"/>
+            <text x="79" y="87" text-anchor="middle" font-size="11">W0</text>
+            <rect x="126" y="64" width="70" height="36" rx="4" fill="#99f6e4"/>
+            <text x="161" y="87" text-anchor="middle" font-size="11">W1</text>
+            <rect x="208" y="64" width="70" height="36" rx="4" fill="#ccfbf1"/>
+            <text x="243" y="87" text-anchor="middle" font-size="11">…</text>
+            <rect x="290" y="64" width="70" height="36" rx="4" fill="#99f6e4"/>
+            <text x="325" y="87" text-anchor="middle" font-size="11">W30</text>
+            <rect x="80" y="120" width="220" height="40" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="190" y="145" text-anchor="middle" font-size="12">L[0][e] 本地计数 · 无 fence</text>
+            <text x="200" y="190" text-anchor="middle" font-size="12" fill="#134e4a">最后一个 worker 才出 die</text>
+
+            <rect x="400" y="20" width="200" height="210" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="500" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">XCD 边界</text>
+            <rect x="420" y="96" width="160" height="50" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="500" y="118" text-anchor="middle" font-size="11">buffer_wbl2</text>
+            <text x="500" y="136" text-anchor="middle" font-size="11">一次 / XCD / event</text>
+            <text x="500" y="176" text-anchor="middle" font-size="11" fill="#57534e">flat_atomic_add</text>
+            <text x="500" y="196" text-anchor="middle" font-size="11" fill="#57534e">sc0 sc1 · GPU-scope</text>
+
+            <rect x="620" y="20" width="340" height="210" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="790" y="46" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">全局 G[e] 在 HBM</text>
+            <rect x="650" y="70" width="280" height="44" rx="4" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="790" y="97" text-anchor="middle" font-size="12">8 个 XCD 各加一次</text>
+            <rect x="650" y="130" width="280" height="44" rx="4" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="790" y="157" text-anchor="middle" font-size="12">scheduler 轮询 G ≥ 阈值</text>
+            <text x="790" y="200" text-anchor="middle" font-size="12" fill="#1e3a5f">派下游 Chiplet-task</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5 · 论文 Figure 5。die 内原子走本地 L2；跨 die 的昂贵 fence 摊到「每 XCD 最后一个 worker」一次，而不是每 worker 一次。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 运行时：每 die 一个 scheduler</h2>
+      <p>
+        一颗 HIP kernel 占满全部 CU。每 XCD 一个 workgroup 当 scheduler（读 <code>HW_ID</code> 认自己是哪颗 die），其余当 worker。MI350 上 8/256 CU（3.1%）不做计算。Scheduler 只做计数读取、队列写入、指针算术，与 worker 执行重叠；短任务时调度开销可能露出来。
+      </p>
+      <p>
+        Chiplet-task：scheduler 向本 die 全部 worker <strong>广播</strong>同一任务，worker 按 stride tile 合作、共享 L2。CU-task / wavefront-task：在本 die 的 CU 上 round-robin。任务队列和 event 计数在 HBM，自然缓存在 XCD 本地 L2；die 内通信借共享 L2 隐式一致，不必 global acquire/release。
+      </p>
+      <p>
+        代码生成：目前给 Mirage 编译器换一套带 Chiplet-task 节点的输入，<strong>不走超优化</strong>。每个 GEMM 变成 8 个 Chiplet-task；tile 指针在代码生成时算好（<code>base + k × (N/8) × K × sizeof(bf16)</code>）。核内不必判断自己是哪个 Chiplet-task，只读当前 tile 指针。调用改成 <code>_execute_xcd_task(tile_idx)</code>，库代码按 tile 下标区分 CU 行为。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="每 die 调度器的两种派活">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="460" height="180" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="250" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">CU-task · round-robin</text>
+            <rect x="40" y="70" width="80" height="40" rx="4" fill="#fed7aa"/>
+            <text x="80" y="95" text-anchor="middle" font-size="11">Sched</text>
+            <rect x="150" y="70" width="70" height="40" rx="4" fill="#ffedd5"/>
+            <text x="185" y="95" text-anchor="middle" font-size="11">W0</text>
+            <rect x="230" y="70" width="70" height="40" rx="4" fill="#e7e5e4"/>
+            <text x="265" y="95" text-anchor="middle" font-size="11">W1</text>
+            <rect x="310" y="70" width="70" height="40" rx="4" fill="#ffedd5"/>
+            <text x="345" y="95" text-anchor="middle" font-size="11">W2</text>
+            <rect x="390" y="70" width="70" height="40" rx="4" fill="#e7e5e4"/>
+            <text x="425" y="95" text-anchor="middle" font-size="11">…</text>
+            <text x="250" y="150" text-anchor="middle" font-size="12" fill="#7c2d12">Attention / RMSNorm · 一人一份</text>
+            <text x="250" y="174" text-anchor="middle" font-size="11" fill="#57534e">不同 worker 不同任务</text>
+
+            <rect x="500" y="20" width="460" height="180" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="730" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">Chiplet-task · 广播</text>
+            <rect x="520" y="70" width="80" height="40" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="560" y="95" text-anchor="middle" font-size="11">Sched</text>
+            <rect x="630" y="70" width="300" height="40" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="780" y="95" text-anchor="middle" font-size="12">W0…W30 同一任务 · stride tile</text>
+            <text x="730" y="150" text-anchor="middle" font-size="12" fill="#115e59">GEMM 权重列绑在这颗 L2 上</text>
+            <text x="730" y="174" text-anchor="middle" font-size="11" fill="#57534e">3.1% CU 做调度（8/256）</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6 · 论文 Figure 4(b)。同一套 persistent kernel：轻算子按 CU 派，重 GEMM 按 die 广播。指针在代码生成时就算好，dispatch 不做算术。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 评测：调度税 vs L2 复用</h2>
+      <p>
+        单卡 MI350X。模型 Qwen3-8B 稠密 bf16。基线：(1) 移植到 MI350 的 Mirage MPK，分层调度但无 chiplet 感知、无合作；(2) vLLM 0.17.2 ROCm，<code>--enforce-eager</code>。64 输入 + 1024 输出，decode TPOT 用核内 <code>s_memrealtime</code>，不含 prefill。GEMM tile 16×64×256 CK，权重 streaming load。
+      </p>
+      <h3>小 batch：几乎全是调度</h3>
+      <p>
+        无感知 MPK 已比 vLLM 快 1.34×（7.83 vs 10.51 ms）——persistent 去掉 launch。Fleet 再收到 6.82 / 6.73 ms（M-tile / M-split），相对 vLLM 1.54–1.56×。bs=1–16 时 m_tiles=1，没有合作复用，两变体几乎一样，相对 Mirage 1.13–1.16×。L2 hit 都在 16–24%，HBM 读几乎相同。收益来自每个 GEMM 8 次 broadcast 而不是 96–256 次 CU 级 dispatch。
+      </p>
+      <h3>大 batch：L2 合作主导</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>BS</th><th>Mirage L2</th><th>M-tile L2</th><th>M-split L2</th>
+            <th>M-tile HBM 读</th><th>M-tile 延迟</th><th>Mirage 延迟</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>16.4%</td><td>16.9%</td><td>17.0%</td><td>0.98×</td><td>6.82 ms</td><td>7.83 ms</td></tr>
+          <tr><td>32</td><td>38.9%</td><td>51.0%</td><td>39.5%</td><td>0.82×</td><td>12.35 ms</td><td>15.62 ms</td></tr>
+          <tr><td>64</td><td>39.0%</td><td>61.4%</td><td>47.4%</td><td>0.63×</td><td>18.61 ms</td><td>24.10 ms</td></tr>
+        </tbody>
+      </table>
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="调度税与 L2 复用拆开">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">bs=1–16 · m_tiles=1</text>
+            <rect x="20" y="44" width="450" height="156" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="245" y="80" text-anchor="middle" font-size="13">M-tile ≈ M-split ≈ 1.13–1.16× vs Mirage</text>
+            <text x="245" y="108" text-anchor="middle" font-size="12">L2 hit 都在 16–24% · HBM 读几乎相同</text>
+            <text x="245" y="136" text-anchor="middle" font-size="12">没有合作复用可做</text>
+            <text x="245" y="168" text-anchor="middle" font-size="13" fill="#9a3412">收益 = 8 次广播 vs 96–256 次 CU dispatch</text>
+
+            <text x="735" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">bs=32–64 · 合作启动</text>
+            <rect x="510" y="44" width="450" height="156" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="735" y="80" text-anchor="middle" font-size="13">M-tile L2 51% / 61% · HBM −18% / −37%</text>
+            <text x="735" y="108" text-anchor="middle" font-size="12">M-split 几乎回到 Mirage（1.17× → 1.03×）</text>
+            <text x="735" y="136" text-anchor="middle" font-size="12">有效 AI：32 → 65 FLOP/byte（bs=32）</text>
+            <text x="735" y="168" text-anchor="middle" font-size="13" fill="#115e59">收益 = L2 合作 tiling，不是调度本身</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7 · M-split 消融把两笔账拆开。小 batch 赢在 dispatch；大 batch 赢在「同一列权重要被多个 worker 连续踩」。</p>
+      <p>
+        bs=32：M-tile 1.27× vs Mirage，M-split 只有 1.17×（和调度-only 一致）。HBM：M-tile 3190 GB vs Mirage 3906 GB（−18%），M-split 无下降。bs=64：四 worker 共享每列，M-tile 1.30×、HBM −37%；M-split 掉到 1.03×，几乎回到 Mirage。Roofline 上 bs=32 的有效算术强度从 32 移到 65 FLOP/byte（AI_eff = B / (1 − L2 hit)）。
+      </p>
+      <p>
+        bs≥32 时 vLLM 靠 hipBLASLt 的 wave 级 K-split 把延迟打平到 ~11–12 ms。Fleet M-tile 在 bs=32 仍快 1.06×，bs=64 已经更慢——persistent GEMM 还没有 compute-bound 区的 K-split 和 attention 优化。
+      </p>
+      <p>
+        每 GEMM 的 per-XCD 分区都大于 4 MB L2，但合作 tiling 让活跃工作集保持在「每 worker 一个 K-chunk」量级（约 31 × 32 KB ≈ 1 MB），所以 M-major 在分区超 L2 最多 6× 时仍有高 hit。整层 368 MB 塞不进 256 MB MALL，单 GEMM 的窗口可以。
+      </p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 局限、与 MPK 的关系</h2>
+      <h3>评测范围</h3>
+      <ul>
+        <li>一个模型（Qwen3-8B 稠密）、一颗 GPU（MI350）。无多卡、无 prefill、无需要 TP 才能放下的模型。</li>
+        <li>无 Blackwell 数据。抽象按 (X, W, C) 参数化，声称同一任务图能适应 MI300X / MI350，Blackwell 需要平台后端。</li>
+        <li>vLLM 基线开了 <code>--enforce-eager</code>，即没有 HIP Graph。这会放大 persistent 相对「按核 launch」的优势；和论文里批评 Graph 的段落放在一起读，口径并不对称。</li>
+      </ul>
+      <h3>Mega-kernel 的寄存器税</h3>
+      <p>
+        所有 task 类型编进同一个 GPU 函数，寄存器取并集，占用落到每 SIMD 单 wave，没有 wave 切换藏延迟。L2 miss 直接堵 MFMA，所以 hit rate 比普通核更致命。按 task 分别编译能减寄存器，但会丢掉单 launch。作者把这视为 mega-kernel 的固有折中；RDNA 式动态寄存器分配可能缓解。
+      </p>
+      <h3>和张量并行的组合</h3>
+      <p>
+        TP 先在多卡间切 N，Fleet 再在单卡内切。TP=4 会让 per-XCD 片变小，可能掉到 L2 容量以下，合作 dispatch 不再必要。两级切分正交，同步路径不交叉。多卡评测留作未来。
+      </p>
+      <div class="callout navy">
+        和同目录另外三篇的关系：<a href="Mirage_论文分析.html">Mirage</a> 搜单个 task 的实现；<a href="MPK_论文分析.html">MPK</a> 在统一 L2 的 NVIDIA GPU 上把 task 图跑成 persistent kernel；<a href="EventTensor_论文分析.html">Event Tensor</a> 解决动态 shape 与 MoE 路由；<strong>Fleet 解决的是 MPK 默认假设已经被 chiplet 打破的那一层存储层次</strong>。NVIDIA 侧若只把 MPK 原样搬到 Blackwell，会遇到同一类「分区 L2 上看不见 locality」的问题，只是 die 数是 2 而不是 8。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 arXiv:2604.15379v1（2026-04-15）· 同目录：<a href="Mirage_论文分析.html">Mirage</a> · <a href="MPK_论文分析.html">MPK</a> · <a href="EventTensor_论文分析.html">Event Tensor</a>
+    </footer>
+  </div>
+</body>
+</html>
