@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hwacha 二维扩展论文分析 | Colin Schmidt 2021</title>
+  <style>
+    :root {
+      --bg: #f4f1ea; --paper: #fffdf8; --ink: #1c1917; --muted: #57534e;
+      --line: #e7e0d4; --accent: #9a3412; --teal: #0f766e; --navy: #1e3a5f;
+      --gold: #b45309; --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta { font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13.5px; color: var(--muted); }
+    .meta strong { color: var(--ink); }
+    nav.toc { background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px; }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n { font-size: 24px; font-weight: 700; color: var(--accent); font-family: "Segoe UI", sans-serif; line-height: 1.15; }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig { margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line); padding: 18px 14px 10px; overflow-x: auto; }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">UC Berkeley PhD · 2021</span>
+        <span class="badge">Hwacha 续篇 · 二维扩展</span>
+        <span class="badge">时域向量 · GEMM / DNN</span>
+        <span class="badge ok">VTMM + 子矩阵访存</span>
+        <span class="badge ok">Hurricane / Eagle / EagleX</span>
+      </div>
+      <h1>一维向量已经会了，二维计算别再拆成一排 FMA</h1>
+      <p class="subtitle">Extending Temporal-Vector Microarchitectures for Two-Dimensional Computations</p>
+      <p class="meta">
+        <strong>作者：</strong>Colin Schmidt　<strong>导师：</strong>Krste Asanović　委员会：Borivoje Nikolić、Robert C. Leachman<br />
+        <strong>单位：</strong>UC Berkeley · Summer 2021 · UCB/EECS-2021-186<br />
+        <strong>前作：</strong><a href="Hwacha_论文分析.html">Yunsup Lee, Decoupled Vector-Fetch Architecture…（2016）</a>
+        · Schmidt 是 Hwacha v4 的核心实现者之一
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话与和前作的关系</a></li>
+        <li><a href="#s2">为什么一维向量做 GEMM 会丢上下文</a></li>
+        <li><a href="#s3">时域向量：二维叠在时间上，不改控制流</a></li>
+        <li><a href="#s4">指令一：VTMM</a></li>
+        <li><a href="#s5">指令二：子矩阵 / 短向量访存</a></li>
+        <li><a href="#s6">微架构：Latch、Reuse、nano-op</a></li>
+        <li><a href="#s7">四颗芯片与评测数字</a></li>
+        <li><a href="#s8">放在 Tensor Core / TPU / VNNI 谱上</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话与和前作的关系</h2>
+      <p class="lead">
+        Lee 的论文把 SPMD 压回「标量 + 长向量 + 谓词」。Schmidt 接着问：<strong>矩阵乘、卷积这类二维运算，能不能在不重排寄存器文件、不另做一块脉动阵列的前提下，只给时域向量机加几条指令，就少搬 SRAM、少发指令？</strong>
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">Z=AᵀB+C</div>
+          <div class="k">VTMM：GEMM 内层一步，最多 8 个 FMA 合成 1 条</div>
+        </div>
+        <div>
+          <div class="n">−7/8</div>
+          <div class="k">depth=8 时，Reuse 可省掉最多 7/8 的 SRAM 读写</div>
+        </div>
+        <div>
+          <div class="n">−40%</div>
+          <div class="k">短向量半精 GEMM 运行时间；长向量能耗仍可 −15%</div>
+        </div>
+        <div>
+          <div class="n">209.5</div>
+          <div class="k">Eagle 硅上 HGEMM GFLOPS/W（0.55 V / 339 MHz）</div>
+        </div>
+      </div>
+      <div class="callout">
+        中心假设：<strong>时域向量取指微架构，特别适合在已有可编程数据并行机上做多维特化</strong>。解耦让软件本来就不指望低延迟握手；运行时可重配让特化可以挂在 <code>vsetcfg</code> 上；时域执行让第二维可以沿时间展开，而不必改整条控制通路。
+      </div>
+      <p>
+        这篇论文有两半：前半是 Hwacha 在硅上怎么活下来（Hurricane-1/2、Eagle、EagleX，以及 Hammer 物理设计生成器）；后半才是二维扩展本身。读的时候不要把它当成又一篇「向量 vs GPU」——那部分 Lee 已经写过。这里的新东西是：<strong>把连续若干向量寄存器当成子矩阵，用 Latch（转置广播）和 Reuse（局部归约）少碰 SRAM。</strong>
+      </p>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 为什么一维向量做 GEMM 会丢上下文</h2>
+      <p>
+        高维运算都能拆成一维甚至标量，硬件因此总能算。代价是上下文丢了：机器不知道自己在处理矩阵的一行、张量的一片。能利用这些模式的地方——不物化中间结果、少发内存请求、寄存器文件少激活——全部消失。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GEMM 被拆成一排 FMA">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="200" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">软件看见的 GEMM</text>
+            <rect x="40" y="48" width="70" height="90" rx="4" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="75" y="98" text-anchor="middle" font-size="13" fill="#9a3412">A</text>
+            <text x="128" y="98" font-size="18" fill="#44403c">×</text>
+            <rect x="150" y="70" width="110" height="48" rx="4" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="205" y="100" text-anchor="middle" font-size="13" fill="#1e3a5f">B</text>
+            <text x="280" y="98" font-size="18" fill="#44403c">+</text>
+            <rect x="300" y="70" width="110" height="48" rx="4" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="355" y="100" text-anchor="middle" font-size="13" fill="#115e59">C</text>
+            <text x="220" y="168" text-anchor="middle" font-size="12" fill="#57534e">二维：行复用、列复用、累加不写回</text>
+
+            <text x="480" y="100" font-size="28" fill="#9a3412">→</text>
+
+            <text x="740" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">一维向量机实际执行</text>
+            <rect x="540" y="48" width="390" height="200" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="560" y="76" font-size="12" fill="#44403c" font-family="Consolas, monospace">vfmadd vv0, vs8, vv4, vv0</text>
+            <text x="560" y="96" font-size="12" fill="#44403c" font-family="Consolas, monospace">vfmadd vv1, vs8, vv5, vv1</text>
+            <text x="560" y="116" font-size="12" fill="#44403c" font-family="Consolas, monospace">vfmadd vv2, vs8, vv6, vv2</text>
+            <text x="560" y="136" font-size="12" fill="#44403c" font-family="Consolas, monospace">… × depth × 列数</text>
+            <text x="735" y="170" text-anchor="middle" font-size="12" fill="#9a3412">每条 FMA：三次 SRAM 读 + 一次写</text>
+            <text x="735" y="192" text-anchor="middle" font-size="12" fill="#9a3412">C 的中间值每步都写回寄存器文件</text>
+            <text x="735" y="214" text-anchor="middle" font-size="12" fill="#9a3412">A 的元素本可沿列广播，却当普通向量读</text>
+            <text x="735" y="236" text-anchor="middle" font-size="12" fill="#78716c">指令流也被这排 FMA 撑满</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1. 一维向量能算 GEMM，但把「同一列共享 A 的一个元素、C 沿 k 累加」拆没了。Tensor Core / VNNI / TPU 脉动阵列就是在买回这个上下文。Schmidt 想在 Hwacha 上用更轻的方式买回来。</p>
+
+      <div class="grid-3">
+        <div class="tile">
+          <h4>DNN 其实还是这三类</h4>
+          <p>卷积常被 im2col 成 GEMM；pooling 是局部归约；逐元素非线性挂在向量流水线上。网络形态一年变几次，固定功能 ASIC 容易过时。</p>
+        </div>
+        <div class="tile">
+          <h4>二维加速器谱</h4>
+          <p>Eyeriss / TPU：解耦、可编程性弱。CE：片上、C 内联。Tensor Core：GPU 里的固定尺寸矩阵 FU。VNNI：AVX 里把一串已有操作收成一条。</p>
+        </div>
+        <div class="tile">
+          <h4>本文的落点</h4>
+          <p>可编程性靠近 VNNI（以前能做的事，现在更省）；耦合比固定延迟 FU 更松，才能做 Latch/Reuse 这种跨拍优化。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 时域向量：二维叠在时间上，不改控制流</h2>
+      <p>
+        「时域」（temporal）相对空间向量：不是把二维一下子铺满阵列，而是<strong>同一套 1R1W 分 bank 数据通路，第二维用连续多拍（nano-op）走完</strong>。控制通路几乎不动，只在译码时给指令打上「这是子矩阵、depth 是多少」。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="空间二维 vs 时域二维">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="440" height="260" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="240" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">空间二维（脉动阵列 / 网格 PE）</text>
+            <rect x="50" y="70" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="102" y="70" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="154" y="70" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="206" y="70" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="50" y="122" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="102" y="122" width="44" height="44" rx="3" fill="#93c5fd" stroke="#2563eb"/>
+            <rect x="154" y="122" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="206" y="122" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="50" y="174" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="102" y="174" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="154" y="174" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="206" y="174" width="44" height="44" rx="3" fill="#bfdbfe" stroke="#3b82f6"/>
+            <text x="350" y="120" font-size="12" fill="#334155">PE 网格同时铺开</text>
+            <text x="350" y="142" font-size="12" fill="#334155">互连、数据流、尺寸写死</text>
+            <text x="350" y="164" font-size="12" fill="#334155">效率高，形状一变就空转</text>
+            <text x="350" y="198" font-size="12" fill="#1e3a5f">TPU / Gemmini / Tensor Core</text>
+            <text x="350" y="220" font-size="12" fill="#64748b">EagleX 片上就有一块 16×16 Int8</text>
+
+            <rect x="500" y="20" width="440" height="260" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="720" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">时域二维（本篇）</text>
+            <rect x="530" y="80" width="70" height="50" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="610" y="80" width="70" height="50" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="690" y="80" width="70" height="50" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="770" y="80" width="70" height="50" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="565" y="110" text-anchor="middle" font-size="11" fill="#134e4a">bank0</text>
+            <text x="645" y="110" text-anchor="middle" font-size="11" fill="#134e4a">bank1</text>
+            <text x="725" y="110" text-anchor="middle" font-size="11" fill="#134e4a">bank2</text>
+            <text x="805" y="110" text-anchor="middle" font-size="11" fill="#134e4a">bank3</text>
+            <text x="720" y="160" text-anchor="middle" font-size="12" fill="#0f766e">同一套收缩期 1R1W 通路</text>
+            <text x="530" y="190" font-size="12" fill="#134e4a">拍 t：depth 维第 0 行 · Latch A[0] 广播</text>
+            <text x="530" y="212" font-size="12" fill="#134e4a">拍 t+1：第 1 行 · Reuse 累加不写 SRAM</text>
+            <text x="530" y="234" font-size="12" fill="#134e4a">… 直到 depth，只写回一次 C</text>
+            <text x="530" y="260" font-size="12" fill="#78716c">控制流几乎不变 · 寄存器文件布局不变</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2. 空间二维把矩阵铺在 PE 上；时域二维把第二维叠在连续多拍上。Hwacha 的 4 bank SRAM 本来就是时域向量机，加 Latch/Reuse 等于承认「这一排 FMA 其实是一块子矩阵」。</p>
+      <div class="callout teal">
+        为什么选向量取指做底座：① 解耦——控制核已经跑在前面，特化任务可以更长而不打乱标量软件；② 运行时可配——程序员本来就要 <code>vsetcfg</code>，特化特征可以挂在同一套配置上；③ 时域微架构——第二维沿时间走，不必改正常控制流。
+      </div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 指令一：VTMM（向量-转置矩阵乘）</h2>
+      <p>
+        GEMM 内层那一步：<strong>Z = Aᵀ × B + C</strong>。不重排 VRF，只把连续若干向量寄存器当成一块子矩阵。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 960 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VTMM 操作数布局">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="120" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">A · 一个向量，长 = depth</text>
+            <rect x="40" y="48" width="48" height="200" rx="4" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="64" y="80" text-anchor="middle" font-size="11" fill="#9a3412">A0</text>
+            <text x="64" y="112" text-anchor="middle" font-size="11" fill="#9a3412">A1</text>
+            <text x="64" y="144" text-anchor="middle" font-size="11" fill="#9a3412">A2</text>
+            <text x="64" y="176" text-anchor="middle" font-size="11" fill="#9a3412">A3</text>
+            <text x="64" y="220" text-anchor="middle" font-size="10" fill="#78716c">只用前</text>
+            <text x="64" y="236" text-anchor="middle" font-size="10" fill="#78716c">depth 个</text>
+            <text x="160" y="150" font-size="22" fill="#44403c">ᵀ</text>
+
+            <text x="400" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">B · depth 个向量寄存器，每个长 vl</text>
+            <rect x="220" y="48" width="90" height="36" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+            <rect x="220" y="90" width="90" height="36" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+            <rect x="220" y="132" width="90" height="36" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+            <rect x="220" y="174" width="90" height="36" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+            <text x="265" y="71" text-anchor="middle" font-size="11" fill="#1e3a5f">vv4  row0</text>
+            <text x="265" y="113" text-anchor="middle" font-size="11" fill="#1e3a5f">vv5  row1</text>
+            <text x="265" y="155" text-anchor="middle" font-size="11" fill="#1e3a5f">vv6  row2</text>
+            <text x="265" y="197" text-anchor="middle" font-size="11" fill="#1e3a5f">vv7  row3</text>
+            <text x="360" y="150" font-size="18" fill="#44403c">+</text>
+
+            <text x="620" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">C / Z · 同样 depth 个 vv，长 vl</text>
+            <rect x="400" y="48" width="90" height="36" rx="3" fill="#ccfbf1" stroke="#0f766e"/>
+            <rect x="400" y="90" width="90" height="36" rx="3" fill="#ccfbf1" stroke="#0f766e"/>
+            <rect x="400" y="132" width="90" height="36" rx="3" fill="#ccfbf1" stroke="#0f766e"/>
+            <rect x="400" y="174" width="90" height="36" rx="3" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="445" y="71" text-anchor="middle" font-size="11" fill="#115e59">vv0</text>
+            <text x="445" y="113" text-anchor="middle" font-size="11" fill="#115e59">vv1</text>
+            <text x="445" y="155" text-anchor="middle" font-size="11" fill="#115e59">vv2</text>
+            <text x="445" y="197" text-anchor="middle" font-size="11" fill="#115e59">vv3</text>
+
+            <rect x="540" y="48" width="390" height="250" rx="8" fill="#faf8f4" stroke="#e7e0d4"/>
+            <text x="735" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#44403c">一条 VTMM 在干什么</text>
+            <text x="560" y="110" font-size="13" fill="#44403c">depth=4 时：</text>
+            <text x="560" y="136" font-size="13" fill="#44403c">Z[i] += A[k] × B[k][i]　k=0..3</text>
+            <text x="560" y="162" font-size="13" fill="#44403c">A[k] 对所有列 i 相同 → Latch 广播</text>
+            <text x="560" y="188" font-size="13" fill="#44403c">Z 沿 k 累加 → Reuse，中间不写 SRAM</text>
+            <text x="560" y="214" font-size="13" fill="#0f766e">汇编：vfvmmadd vv0, vv8, vv4, vv0, 4</text>
+            <text x="560" y="240" font-size="13" fill="#9a3412">替换 4×4=16 条 vfmadd</text>
+            <text x="560" y="266" font-size="12" fill="#78716c">depth 最大 8 · 正好一排 128b SRAM 装得下 8 个 64b</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3. VTMM 的操作数。A 是「短向量」，B/C 是「depth 个长向量」。寄存器编号连续即可，普通 load 先把数据搬进来，编程模型几乎不变。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FMA 流被 VTMM 压缩">
+          <g font-family="Consolas, monospace">
+            <text x="240" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412" font-family="Segoe UI, sans-serif">原来：16 条 FMA</text>
+            <text x="30" y="52" font-size="11" fill="#44403c">vfmadd vv0, vs8, vv4, vv0</text>
+            <text x="30" y="70" font-size="11" fill="#44403c">vfmadd vv1, vs8, vv5, vv1</text>
+            <text x="30" y="88" font-size="11" fill="#44403c">vfmadd vv2, vs8, vv6, vv2</text>
+            <text x="30" y="106" font-size="11" fill="#44403c">vfmadd vv3, vs8, vv7, vv3</text>
+            <text x="30" y="124" font-size="11" fill="#78716c">… vs9 / vs10 / vs11 再各 4 条</text>
+            <text x="240" y="160" text-anchor="middle" font-size="12" fill="#9a3412" font-family="Segoe UI, sans-serif">A 的四个元素还要先 splat 成 vs</text>
+            <text x="240" y="182" text-anchor="middle" font-size="12" fill="#9a3412" font-family="Segoe UI, sans-serif">取指、发射、记依赖，全按 16 条算</text>
+
+            <text x="500" y="100" font-size="28" fill="#0f766e" font-family="Segoe UI, sans-serif">→</text>
+
+            <text x="740" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59" font-family="Segoe UI, sans-serif">现在：4 条 VTMM</text>
+            <text x="560" y="60" font-size="12" fill="#134e4a">vfvmmadd vv0, vv8,  vv4, vv0, 4</text>
+            <text x="560" y="82" font-size="12" fill="#134e4a">vfvmmadd vv0, vv9,  vv4, vv0, 4</text>
+            <text x="560" y="104" font-size="12" fill="#134e4a">vfvmmadd vv0, vv10, vv4, vv0, 4</text>
+            <text x="560" y="126" font-size="12" fill="#134e4a">vfvmmadd vv0, vv11, vv4, vv0, 4</text>
+            <text x="740" y="168" text-anchor="middle" font-size="12" fill="#0f766e" font-family="Segoe UI, sans-serif">A 留在向量里，靠 Latch 转置广播</text>
+            <text x="740" y="190" text-anchor="middle" font-size="12" fill="#0f766e" font-family="Segoe UI, sans-serif">内层随即被访存指令占满 → 需要子矩阵 load</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4. 指令流变密。算完之后瓶颈转到「怎么把子矩阵搬进连续 vv」，于是有下一组访存指令。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 指令二：子矩阵 / 短向量访存</h2>
+      <p>三档，可以组合：</p>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>VLSM 子矩阵 load/store</h4>
+          <p>连续 <code>seglen</code>（最多 8）个单位步长向量，行与行之间有字节 stride。行主序矩阵的一块直接进 vv0–vv7。基址和 stride 走地址寄存器，VMU 不必等 VXU。</p>
+        </div>
+        <div class="tile">
+          <h4>Depth-only 短向量</h4>
+          <p>有效向量长临时改成 <code>depth</code>，只搬 A 真正用到的那几个元素。典型 vl≥32，短 load 明显省带宽、少污染缓存。</p>
+        </div>
+        <div class="tile">
+          <h4>VLDSM 两者合一</h4>
+          <p>两维都由指令编码，独立于当前 <code>vl</code>。限制：硬件向量长至少 8（depth 上限）。</p>
+        </div>
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 960 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="子矩阵 load 对应内存中的一块">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="200" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">内存里的行主序矩阵</text>
+            <rect x="30" y="40" width="360" height="28" rx="2" fill="#e2e8f0" stroke="#94a3b8"/>
+            <rect x="30" y="72" width="200" height="28" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="30" y="104" width="200" height="28" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="30" y="136" width="200" height="28" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="30" y="168" width="200" height="28" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="30" y="200" width="360" height="28" rx="2" fill="#e2e8f0" stroke="#94a3b8"/>
+            <text x="130" y="91" text-anchor="middle" font-size="11" fill="#1e3a5f">行 0 · 长 vl</text>
+            <text x="130" y="123" text-anchor="middle" font-size="11" fill="#1e3a5f">行 1</text>
+            <text x="130" y="155" text-anchor="middle" font-size="11" fill="#1e3a5f">行 2</text>
+            <text x="130" y="187" text-anchor="middle" font-size="11" fill="#1e3a5f">行 3</text>
+            <text x="300" y="123" font-size="11" fill="#64748b">stride</text>
+            <path d="M235 86 L235 118" stroke="#1e3a5f" stroke-dasharray="3 2"/>
+
+            <text x="480" y="130" font-size="22" fill="#0f766e">→</text>
+
+            <text x="740" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">一条 vlsmd vv0, va0, va1, 4</text>
+            <rect x="560" y="48" width="360" height="36" rx="3" fill="#ccfbf1" stroke="#0f766e"/>
+            <rect x="560" y="90" width="360" height="36" rx="3" fill="#ccfbf1" stroke="#0f766e"/>
+            <rect x="560" y="132" width="360" height="36" rx="3" fill="#ccfbf1" stroke="#0f766e"/>
+            <rect x="560" y="174" width="360" height="36" rx="3" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="740" y="71" text-anchor="middle" font-size="12" fill="#134e4a">vv0</text>
+            <text x="740" y="113" text-anchor="middle" font-size="12" fill="#134e4a">vv1</text>
+            <text x="740" y="155" text-anchor="middle" font-size="12" fill="#134e4a">vv2</text>
+            <text x="740" y="197" text-anchor="middle" font-size="12" fill="#134e4a">vv3</text>
+            <text x="740" y="240" text-anchor="middle" font-size="12" fill="#78716c">替换 4 条 vld · 且只占 1 组 sequencer 槽的状态机</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5. 子矩阵 load。基址 <code>va0</code>、行距 <code>va1</code>。微架构里每条向量访存要占 3 个 sequencer 槽，8 槽机器同时只能飞 2 条普通 load；子矩阵用状态机在 VMU 里重发 segment，让 VTMM 吃得动的数据量对得上发射窗口。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 微架构：Latch、Reuse、nano-op</h2>
+      <p>不重排 VRF，实现策略是「当成重复的一维操作」。新控制量叫 <strong>nano-operation</strong>：子矩阵第二维走了几步。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Latch 与 Reuse">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="450" height="280" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="245" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">Latch = 转置成一列，沿 vl 广播</text>
+            <text x="40" y="80" font-size="12" fill="#44403c">A 的第 k 个元素，对 B 这一行所有列都相同</text>
+            <rect x="50" y="100" width="50" height="160" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="75" y="140" text-anchor="middle" font-size="11" fill="#9a3412">A0</text>
+            <text x="75" y="200" text-anchor="middle" font-size="11" fill="#9a3412">A1</text>
+            <text x="140" y="180" font-size="22" fill="#9a3412">→</text>
+            <rect x="180" y="120" width="260" height="36" rx="3" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="310" y="143" text-anchor="middle" font-size="12" fill="#9a3412">A0 A0 A0 A0 … 整条 vl</text>
+            <rect x="180" y="170" width="260" height="36" rx="3" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="310" y="193" text-anchor="middle" font-size="12" fill="#9a3412">下一 nano-op：换成 A1…</text>
+            <text x="40" y="280" font-size="12" fill="#7c2d12">存在 per-bank 锁存，SRAM 几乎只读一次 · 再按精度复制到 128b 宽</text>
+
+            <rect x="490" y="20" width="450" height="280" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="715" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">Reuse = 局部归约，中间不写回</text>
+            <text x="510" y="80" font-size="12" fill="#44403c">C 沿 k 累加：输出立刻变成下一拍输入</text>
+            <rect x="530" y="100" width="80" height="40" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="570" y="125" text-anchor="middle" font-size="11" fill="#134e4a">FMA k=0</text>
+            <path d="M610 120 L650 120" stroke="#0f766e" stroke-width="2"/>
+            <rect x="650" y="100" width="80" height="40" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="690" y="125" text-anchor="middle" font-size="11" fill="#134e4a">FMA k=1</text>
+            <path d="M730 120 L770 120" stroke="#0f766e" stroke-width="2"/>
+            <rect x="770" y="100" width="80" height="40" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="810" y="125" text-anchor="middle" font-size="11" fill="#134e4a">FMA k=2</text>
+            <path d="M810 140 L810 180 L570 180 L570 140" fill="none" stroke="#0f766e" stroke-dasharray="4 3"/>
+            <text x="715" y="200" text-anchor="middle" font-size="12" fill="#0f766e">结果旁路回第三输入，不进 SRAM</text>
+            <text x="510" y="230" font-size="12" fill="#134e4a">连续 strip + 连续 nano-op：连读也可以省</text>
+            <text x="510" y="252" font-size="12" fill="#134e4a">depth=8 时最多省 7/8 读和 7/8 写</text>
+            <text x="510" y="278" font-size="12" fill="#78716c">译码时每个指令可指定 1 个 latch 操作数 + 1 个 reuse 操作数</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6. Latch 把短向量变成对整行的广播（转置）；Reuse 把沿 depth 的累加留在数据通路上。两者都是通用的操作数修饰，卷积的短 kernel 也可以直接复用 Latch。</p>
+
+      <h3>依赖怎么跟得上</h3>
+      <ul>
+        <li>主 sequencer：额外比较器跟踪子矩阵用到的寄存器集合（不按单个 vv 细拆，按整条指令）。</li>
+        <li>lane sequencer：nano-op 计数、当前该碰哪一个 vv、Latch 锁存的结构冲突。</li>
+        <li>实现是逐步放宽的：先「同时只能有一条二维指令且必须最老」→ 再「寄存器就绪即可」→ 最后「多条二维指令可重叠」。</li>
+        <li>VMU：短向量复用「不同 vf 块本就可能有不同 vl」的机制；子矩阵多一个状态机，按 segment 重发并做虚地址累加（不必乘法器）。</li>
+      </ul>
+      <div class="callout navy">
+        调度代价：一条子矩阵 load 可能对应上千次内存请求、占 sequencer 上万拍。依赖可以跟到「这一行已经回来」，但第一轮仍要用更小的 depth 让计算先进窗口；双缓冲比预想中更有用，因为超长占用的访存几乎能和计算完全重叠。
+      </div>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 四颗芯片与评测数字</h2>
+      <p>前半论文是把时域向量机真正做进硅里。没有这部分，二维扩展只是 RTL 故事。</p>
+      <table>
+        <thead>
+          <tr><th>芯片</th><th>工艺 / 规模</th><th>要点</th><th>测到的效率</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hurricane-1</td>
+            <td>28 nm FD-SOI</td>
+            <td>Hwacha 谓词寄存器拥塞；片上 DC-DC + 自适应时钟</td>
+            <td>前作同系列的向量能效探索</td>
+          </tr>
+          <tr>
+            <td>Hurricane-2</td>
+            <td>28 nm，DDR4 PHY 把芯片拉得很瘦高</td>
+            <td>SERDES/DDR 基本没能当主存用；测 DVFS。L2 计数器 AVS 比看功耗最多再省 14%</td>
+            <td>最优点 780 mV / 115 MHz：22.3 DP / 36.5 HP GFLOPS/W</td>
+          </tr>
+          <tr>
+            <td>Eagle</td>
+            <td>TSMC 16 nm，8 核，24 mm²，每核 1 lane</td>
+            <td>Hammer 首次流片；簇共享 L2 + 大 L3。L2 半频，Hwacha 带宽只到理论 50%</td>
+            <td>0.55 V / 339 MHz：DGEMM 56.5、SGEMM 92.3、HGEMM 209.5 GFLOPS/W（约峰值 34%）</td>
+          </tr>
+          <tr>
+            <td>EagleX</td>
+            <td>16 nm，22 核 / 20 应用核，56 mm²</td>
+            <td>同片再放 Gemmini 16×16 Int8 脉动阵列，方便和固定功能比。20 核跑起 SMP Linux</td>
+            <td>频率范围与 Eagle 相近；详细扫频当时未完成</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="fig">
+        <svg viewBox="0 0 960 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="二维扩展的性能与能耗两个区">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="450" height="200" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="245" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">短向量区（小矩阵 / 半精）</text>
+            <text x="40" y="80" font-size="13" fill="#44403c">基线喂不饱 FU 和内存带宽</text>
+            <text x="40" y="104" font-size="13" fill="#44403c">vl=16 时只有约 33% 峰值</text>
+            <text x="40" y="128" font-size="13" fill="#44403c">vl=32 → 68%；64 → 80%；128 → 90%</text>
+            <text x="40" y="164" font-size="13" fill="#9a3412">子矩阵把有效向量长拉长</text>
+            <text x="40" y="188" font-size="13" fill="#9a3412">运行时间约 −40% · 能耗 −40%～50%</text>
+
+            <rect x="490" y="20" width="450" height="200" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="715" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">长向量区（已经接近打满）</text>
+            <text x="510" y="80" font-size="13" fill="#44403c">64² / 128² 单精、双精</text>
+            <text x="510" y="104" font-size="13" fill="#44403c">运行时间只少 &lt;10%，128² DGEMM &lt;1%</text>
+            <text x="510" y="140" font-size="13" fill="#0f766e">但 128×128 DGEMM 能耗仍 &gt;15%</text>
+            <text x="510" y="164" font-size="13" fill="#0f766e">几乎全是少激活 SRAM，不是算得更快</text>
+            <text x="510" y="188" font-size="13" fill="#78716c">窄矩阵（列很少）收益更大，与总运算量无关</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7. 评测在 Intel 22 nm（16 nm 趋势相同）。门数大约 +10%。短向量赢在利用率，长向量赢在 SRAM。窄 B 矩阵（32×16、8×16 列）时，子矩阵扩展的相对收益随 vl 变短而变大。</p>
+      <p>
+        Eagle 若把 L2 端口加宽、去掉半频限制，长向量能效大约还能翻倍。当时发表时，它是带可编程精度的 RISC-V 数据并行扩展里报告过的最高能效。
+      </p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 放在 Tensor Core / TPU / VNNI 谱上</h2>
+      <div class="fig">
+        <svg viewBox="0 0 960 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="可编程性与耦合谱">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="480" y="28" text-anchor="middle" font-size="13" fill="#57534e">可编程性 →</text>
+            <line x1="80" y1="50" x2="880" y2="50" stroke="#a8a29e" stroke-width="2"/>
+            <rect x="40" y="70" width="140" height="70" rx="6" fill="#fecaca" stroke="#dc2626"/>
+            <text x="110" y="98" text-anchor="middle" font-size="12" fill="#991b1b">固定功能 ASIC</text>
+            <text x="110" y="118" text-anchor="middle" font-size="11" fill="#7f1d1d">单任务</text>
+            <rect x="200" y="70" width="160" height="70" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="280" y="98" text-anchor="middle" font-size="12" fill="#9a3412">TPU / Eyeriss</text>
+            <text x="280" y="118" text-anchor="middle" font-size="11" fill="#7c2d12">解耦 · 算子子集</text>
+            <rect x="380" y="70" width="160" height="70" rx="6" fill="#fde68a" stroke="#b45309"/>
+            <text x="460" y="98" text-anchor="middle" font-size="12" fill="#92400e">Tensor Core</text>
+            <text x="460" y="118" text-anchor="middle" font-size="11" fill="#78350f">GPU 内固定尺寸 FU</text>
+            <rect x="560" y="70" width="180" height="70" rx="6" fill="#bbf7d0" stroke="#16a34a"/>
+            <text x="650" y="90" text-anchor="middle" font-size="12" fill="#166534">本文 VTMM</text>
+            <text x="650" y="110" text-anchor="middle" font-size="11" fill="#14532d">VNNI 级可编程</text>
+            <text x="650" y="128" text-anchor="middle" font-size="11" fill="#14532d">比固定 FU 更解耦</text>
+            <rect x="760" y="70" width="160" height="70" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="840" y="98" text-anchor="middle" font-size="12" fill="#115e59">纯 Hwacha / RVV</text>
+            <text x="840" y="118" text-anchor="middle" font-size="11" fill="#134e4a">通用一维向量</text>
+            <text x="110" y="170" text-anchor="middle" font-size="11" fill="#78716c">Gemmini 在 EagleX 上当对照</text>
+            <text x="480" y="200" text-anchor="middle" font-size="13" fill="#44403c">主张：不要为矩阵另做一台机器；在时域向量上加「承认这是子矩阵」的指令即可</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 8. 和当代二维加速器对齐。VNNI 把已有 AVX 操作收成一条；VTMM 把已有 FMA 收成一条，并多了 Latch/Reuse 这种固定延迟 FU 做不到的跨拍省 SRAM。</p>
+
+      <h3>未做完、但路径清楚的后续</h3>
+      <ul>
+        <li><strong>一维卷积：</strong>短 kernel 当 Latch 操作数，几乎只加译码表。</li>
+        <li><strong>Pooling：</strong>沿 depth 可复用 VTMM 局部归约；沿 vl 且落在同一 slice 内则要新数据通路，不一定值得。</li>
+        <li><strong>更窄精度：</strong>若最高只支持 32 位，depth 可放到 16，SRAM 节省再翻一倍。</li>
+        <li>多领域扩展能否叠在同一底座上而不互相拖后腿；同一套 Latch/Reuse 能否接到别的 DLP 底座（不只 Hwacha）。</li>
+      </ul>
+      <div class="callout">
+        读完两篇可以串成一条 Berkeley 向量线：Lee 证明「编译器标量化 + 解耦向量取指」能达到 GPU 级可编程、更省硬件；Schmidt 证明「同一套时域微架构承认二维」能在不另做脉动阵列的情况下，让 GEMM 少搬寄存器、短向量打得更满。EagleX 把 Gemmini 放在旁边，等于在同一块硅上摆了两种答案。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 Colin Schmidt, <em>Extending Temporal-Vector Microarchitectures for Two-Dimensional Computations</em>, Ph.D. dissertation, UC Berkeley, 2021（UCB/EECS-2021-186）。<br />
+      图为根据第 1、3、6、7 章重绘的解释图。前作见 <a href="Hwacha_论文分析.html">Hwacha_论文分析.html</a>。
+    </footer>
+  </div>
+</body>
+</html>

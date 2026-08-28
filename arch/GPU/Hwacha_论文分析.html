@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hwacha 论文分析 | UC Berkeley 2016 博士论文</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .num { font-variant-numeric: tabular-nums; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 6px; }
+    .fig-row .fig { margin: 0; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre.code {
+      background: #1c1917; color: #f5f5f4; padding: 14px 16px; overflow-x: auto;
+      font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px; line-height: 1.55;
+      margin: 12px 0 16px;
+    }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">UC Berkeley PhD · 2016</span>
+        <span class="badge">向量架构 · 编译器 · GPU</span>
+        <span class="badge">RISC-V · Rocket Chip · Chisel</span>
+        <span class="badge ok">Hwacha vector-fetch</span>
+        <span class="badge ok">标量化编译器</span>
+        <span class="badge ok">28 nm vs Mali-T628</span>
+      </div>
+      <h1>把 SPMD 的负担推回编译器：解耦向量取指加上标量化</h1>
+      <p class="subtitle">Decoupled Vector-Fetch Architecture with a Scalarizing Compiler</p>
+      <p class="meta">
+        <strong>作者：</strong>Yunsup Lee（李允燮）<br />
+        <strong>导师：</strong>Krste Asanović · 委员会：David A. Patterson、Borivoje Nikolić、Paul K. Wright<br />
+        <strong>单位：</strong>University of California, Berkeley · Spring 2016<br />
+        <strong>相关论文：</strong>CGO 2013（标量化）· MICRO 2014（分歧管理）· ESSCIRC 2014（RISC-V 向量加速器）
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与研究定位</a></li>
+        <li><a href="#s2">问题：暗硅时代怎么做数据并行</a></li>
+        <li><a href="#s3">四种汇编模型：SIMD / SIMT / 向量 / 向量线程</a></li>
+        <li><a href="#s4">标量化编译器：向量化的镜像</a></li>
+        <li><a href="#s5">机制一：收敛 + 方差分析做标量化</a></li>
+        <li><a href="#s6">机制二：线程感知谓词化</a></li>
+        <li><a href="#s7">Hwacha：控制线程 + 工作线程</a></li>
+        <li><a href="#s8">解耦微架构：VRU / VXU / VMU</a></li>
+        <li><a href="#s9">评测：面积、性能、能耗</a></li>
+        <li><a href="#s10">贡献、边界与对后续架构的含义</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与研究定位</h2>
+      <p class="lead">
+        GPU 为了让程序员写单线程 kernel，把<strong>跨线程冗余</strong>和<strong>控制流分歧</strong>都压进了硬件。这篇论文的主张是反过来：编译器把 SPMD 程序里的标量部分抠出来、把复杂控制流压成谓词，硬件就可以回到更干净的向量机——这就是 Hwacha：解耦向量取指架构。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">23–29%</div>
+          <div class="k">标量化后动态操作数减少（warp 4–32）</div>
+        </div>
+        <div>
+          <div class="n">−2.7%</div>
+          <div class="k">软件谓词化相对硬件分歧栈，Kepler 上平均性能差</div>
+        </div>
+        <div>
+          <div class="n">~3×</div>
+          <div class="k">估算 6-lane Hwacha 相对 Mali-T628 MP6 的面积效率</div>
+        </div>
+        <div>
+          <div class="n">66%→97%</div>
+          <div class="k">静态证明收敛 → 加动态保收敛后的线程执行时间</div>
+        </div>
+      </div>
+      <div class="callout">
+        这篇不是一篇会议短文，而是 Yunsup Lee 的博士论文（157 页）。它把三件事钉在一起：对数据并行 ISA 的系统盘点、在 NVIDIA 生产 CUDA 编译器里做出来的标量化/谓词化、以及接到 RISC-V Rocket 上、走完 28 nm VLSI 并和 ARM Mali GPU 对打的 Hwacha 加速器。Maven 项目证明向量比 MIMD 更省面积和能量；Hwacha 则进一步把分歧管理从硬件拿回编译器，并加上轻量访问-执行解耦。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：暗硅时代怎么做数据并行</h2>
+      <p>
+        Dennard 缩放在 90 nm 左右失效，晶体管不再能按比例降压；28 nm 之后单门成本开始上升。架构师仍能拿到更多晶体管，但它们既“暗”又不便宜。应对路径有两条：铺大量专用固定功能加速器（窄应用、百倍收益），或放少数可编程的通用特化单元（更宽覆盖、约十倍收益）。论文选择后者：向量、packed-SIMD、GPU 这类数据并行加速器。
+      </p>
+      <p>
+        关键设计问题随之变成：往这条红线上加什么特征，才能既抬高已有应用的性能/能效，又扩大可编程覆盖面，同时不把尾巴压回去？GPU 的答案是纹理缓存、超越函数单元、硬件分歧栈。论文的答案是：先把现有汇编模型和分歧方案的代价算清楚，再把一部分复杂度推回编译器。
+      </p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>Maven 留下的教训</h4>
+          <p>向量架构确实比 MIMD 更省面积和能量；解耦能做非推测预取来藏访存延迟；分 bank 的向量寄存器文件面积效率高。失败点是：硬件分歧管理极难做对（一半以上调试时间花在这里）；缺少标量寄存器会伤性能和能效；多端口触发器寄存器文件面积差。</p>
+        </div>
+        <div class="tile">
+          <h4>NVIDIA 实习带来的分界线</h4>
+          <p>Maven 之后作者在 NVIDIA 做了三年生产 CUDA 编译器。结论是：编译器-架构边界可以重划——让编译器承担更多，硬件更简单也更高效。第 3–5 章的标量化与谓词化，就是这条分界线的实验证据。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 四种汇编模型：SIMD / SIMT / 向量 / 向量线程</h2>
+      <p>
+        上层语言主要是两类：隐式并行的自动向量化（写串行循环，编译器抽并行），以及显式并行的 SPMD（CUDA / OpenCL，程序员写单线程 kernel 再网格启动）。SPMD 对程序员友好，但把大量负担甩给硬件：跨线程冗余无法表达、复杂控制流必须被正确执行。汇编层则决定这些负担落在谁身上。
+      </p>
+      <p>论文用带条件的 SAXPY（CSAXPY：<code>if (cond[i]) y[i] = a*x[i] + y[i]</code>）把四种模型摊开对比。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="四种数据并行汇编模型对比">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="12" y="12" width="230" height="396" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="127" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">Packed-SIMD</text>
+            <text x="127" y="62" text-anchor="middle" font-size="11" fill="#7c2d12">Intel SSE / AVX</text>
+            <text x="24" y="92" font-size="12" fill="#44403c">向量宽度写进 opcode</text>
+            <text x="24" y="114" font-size="12" fill="#44403c">必须 splat 标量到向量</text>
+            <text x="24" y="136" font-size="12" fill="#44403c">加宽 ISA 就要新指令</text>
+            <text x="24" y="158" font-size="12" fill="#44403c">旧码无法吃新宽度</text>
+            <text x="24" y="180" font-size="12" fill="#44403c">尾部元素要单独处理</text>
+            <rect x="28" y="200" width="198" height="90" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="127" y="228" text-anchor="middle" font-size="12" fill="#9a3412">代价：静态宽度</text>
+            <text x="127" y="250" text-anchor="middle" font-size="11" fill="#78716c">优点：有标量控制核</text>
+            <text x="127" y="272" text-anchor="middle" font-size="11" fill="#78716c">地址计算摊到 SIMD 宽</text>
+            <text x="127" y="390" text-anchor="middle" font-size="11" fill="#78716c">谓词支持 historically 弱</text>
+
+            <rect x="254" y="12" width="230" height="396" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="369" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">GPU / SIMT</text>
+            <text x="369" y="62" text-anchor="middle" font-size="11" fill="#334155">NVIDIA warp / AMD wave</text>
+            <text x="266" y="92" font-size="12" fill="#44403c">一条指令，多线程执行</text>
+            <text x="266" y="114" font-size="12" fill="#44403c">每线程自己算地址</text>
+            <text x="266" y="136" font-size="12" fill="#44403c">标量被复制 32 份</text>
+            <text x="266" y="158" font-size="12" fill="#44403c">越界检查写进 kernel</text>
+            <text x="266" y="180" font-size="12" fill="#44403c">分歧栈管控制流</text>
+            <rect x="270" y="200" width="198" height="90" rx="4" fill="#dbeafe" stroke="#93c5fd"/>
+            <text x="369" y="228" text-anchor="middle" font-size="12" fill="#1e3a5f">代价：无标量资源</text>
+            <text x="369" y="250" text-anchor="middle" font-size="11" fill="#64748b">优点：宽度不进 opcode</text>
+            <text x="369" y="272" text-anchor="middle" font-size="11" fill="#64748b">动态合并访存</text>
+            <text x="369" y="390" text-anchor="middle" font-size="11" fill="#64748b">线程状态巨大，靠多线程藏延迟</text>
+
+            <rect x="496" y="12" width="230" height="396" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="611" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">传统向量</text>
+            <text x="611" y="62" text-anchor="middle" font-size="11" fill="#134e4a">Cray-1 · VLR</text>
+            <text x="508" y="92" font-size="12" fill="#44403c">vsetvl 动态设向量长</text>
+            <text x="508" y="114" font-size="12" fill="#44403c">软件不知硬件向量长</text>
+            <text x="508" y="136" font-size="12" fill="#44403c">无尾部特殊代码</text>
+            <text x="508" y="158" font-size="12" fill="#44403c">标量指针只存一份</text>
+            <text x="508" y="180" font-size="12" fill="#44403c">谓词显式管理分歧</text>
+            <rect x="512" y="200" width="198" height="90" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="611" y="228" text-anchor="middle" font-size="12" fill="#115e59">兼得：动态宽度 + 标量</text>
+            <text x="611" y="250" text-anchor="middle" font-size="11" fill="#0f766e">编译器负责谓词</text>
+            <text x="611" y="272" text-anchor="middle" font-size="11" fill="#0f766e">向前/向后兼容</text>
+            <text x="611" y="390" text-anchor="middle" font-size="11" fill="#78716c">向量指令仍挤在控制核流里</text>
+
+            <rect x="738" y="12" width="230" height="396" rx="8" fill="#faf5ff" stroke="#6d28d9" stroke-width="1.5"/>
+            <text x="853" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#5b21b6">向量线程 → Hwacha</text>
+            <text x="853" y="62" text-anchor="middle" font-size="11" fill="#6d28d9">Maven / Scale → vf</text>
+            <text x="750" y="92" font-size="12" fill="#44403c">访存留在剥带循环</text>
+            <text x="750" y="114" font-size="12" fill="#44403c">算术抬进 vector-fetch</text>
+            <text x="750" y="136" font-size="12" fill="#44403c">Maven：硬件管分歧</text>
+            <text x="750" y="158" font-size="12" fill="#44403c">Hwacha：全部进 vf 块</text>
+            <text x="750" y="180" font-size="12" fill="#44403c">va 只读 → 安全预取</text>
+            <rect x="754" y="200" width="198" height="90" rx="4" fill="#ede9fe" stroke="#c4b5fd"/>
+            <text x="853" y="228" text-anchor="middle" font-size="12" fill="#5b21b6">再加：解耦 + 标量 + 谓词</text>
+            <text x="853" y="250" text-anchor="middle" font-size="11" fill="#6d28d9">控制核跑在前面</text>
+            <text x="853" y="272" text-anchor="middle" font-size="11" fill="#6d28d9">工作线程独立执行</text>
+            <text x="853" y="390" text-anchor="middle" font-size="11" fill="#78716c">论文真正落地的目标形态</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1. 四种汇编模型的核心取舍。Packed-SIMD 把宽度写死；SIMT 丢掉标量；传统向量两者都要；Hwacha 再把向量指令从控制核流里拆出去，换来访问-执行解耦。</p>
+
+      <div class="callout teal">
+        Packed-SIMD 和 SIMT 的缺陷几乎互补：前者死在静态宽度，后者死在没有标量。传统向量用向量长度寄存器（VLR）同时解决这两件事——<code>vsetvl</code> 取应用向量长和硬件向量长的较小值，同一份代码能跑在任意宽度上，尾部也不再需要特殊代码。Hwacha 在此之上把整段向量指令抬进独立的 worker thread。
+      </div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 标量化编译器：向量化的镜像</h2>
+      <p>
+        向量化编译器从单线程循环里抽出可并行部分，放到数据并行单元，把记账、地址、共享数据留在标量核上。标量化编译器方向相反：从已经显式并行的 SPMD 程序里，找出其实该只做一次的部分，映射回标量资源，再把剩下的并行部分高效铺到向量/SIMT 单元。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="向量化与标量化编译器方向相反">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="30" y="40" width="200" height="80" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="130" y="74" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">单线程代码</text>
+            <text x="130" y="96" text-anchor="middle" font-size="12" fill="#7c2d12">嵌套 for 循环</text>
+
+            <rect x="30" y="170" width="200" height="80" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="130" y="204" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">并行代码</text>
+            <text x="130" y="226" text-anchor="middle" font-size="12" fill="#334155">CUDA / OpenCL kernel</text>
+
+            <rect x="690" y="40" width="200" height="80" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="790" y="74" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">标量处理器</text>
+            <text x="790" y="96" text-anchor="middle" font-size="12" fill="#134e4a">记账 · 共享数据 · 地址</text>
+
+            <rect x="690" y="170" width="200" height="80" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="1.5"/>
+            <text x="790" y="204" text-anchor="middle" font-size="14" font-weight="700" fill="#b45309">数据并行单元</text>
+            <text x="790" y="226" text-anchor="middle" font-size="12" fill="#92400e">向量 / SIMD / SIMT</text>
+
+            <path d="M240 70 C 420 70, 500 70, 680 70" fill="none" stroke="#c2410c" stroke-width="2.2" marker-end="url(#arr1)"/>
+            <path d="M240 210 C 420 210, 500 80, 680 80" fill="none" stroke="#c2410c" stroke-width="2.2" marker-end="url(#arr1)"/>
+            <text x="460" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#c2410c">向量化编译器 →</text>
+
+            <path d="M240 190 C 420 190, 500 210, 680 210" fill="none" stroke="#1e3a5f" stroke-width="2.2" marker-end="url(#arr2)"/>
+            <path d="M240 90 C 420 90, 500 200, 680 200" fill="none" stroke="#1e3a5f" stroke-width="2.2" marker-end="url(#arr2)"/>
+            <text x="460" y="258" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">← 标量化编译器</text>
+
+            <defs>
+              <marker id="arr1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c2410c"/></marker>
+              <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1e3a5f"/></marker>
+            </defs>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2. 向量化从串行里挖并行；标量化从并行里挖“其实该标量做”的部分。两者最终都要把工作拆到标量核和数据并行单元，只是起点相反。</p>
+
+      <p>SPMD 有两类隐藏开销，对应标量化编译器的两道 pass：</p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>开销 1：跨线程冗余</h4>
+          <p>程序员只写 kernel 和网格尺寸，无法声明“这段对所有线程相同”。循环计数、基址、系数加载、共享行向量会被每条线程各做一遍。SIMT 只摊了取指，执行和寄存器仍然按线程复制。</p>
+        </div>
+        <div class="tile">
+          <h4>开销 2：复杂控制流</h4>
+          <p>嵌套 if、循环、虚函数、goto 在 SPMD 里是功能正确性要求，不能像向量化那样放弃并退回标量核。GPU 因此做了分歧栈。论文用谓词 + 一致分支把这件事交回编译器。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 机制一：收敛 + 方差分析做标量化</h2>
+      <p>
+        要把每线程一份的寄存器/指令收成每 warp 一份，编译器必须同时证明两件事：<strong>收敛</strong>（这一组线程现在停在 CFG 的同一点）和<strong>不变</strong>（这个变量在各线程上取值相同）。论文的关键观察是：这两件事必须在同一趟分析里互相传播，不能拆开。
+      </p>
+
+      <h3>FIR 滤波器：冗余长什么样</h3>
+      <p>
+        每个线程算一个输出点：把 <code>flen</code> 个输入和同一组系数做卷积。常规编译结果里，每条线程都保存循环计数、结束条件、基址，并且每轮都重复加载同一份系数。32 线程 warp 上，常规代码用 9 个私有寄存器/线程（288 个寄存器槽）；标量化后是 2 个私有 + 6 个共享（70 个槽），少 76%。动态源操作数少 79%，执行操作少 85%，每轮地址从 64 个降到 2 个。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="标量化把每线程工作收成每 warp 一份">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="230" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">常规 SPMD 编译</text>
+            <rect x="20" y="44" width="80" height="230" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="110" y="44" width="80" height="230" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="200" y="44" width="80" height="230" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="290" y="44" width="80" height="230" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="60" y="70" text-anchor="middle" font-size="11" fill="#7c2d12">T0</text>
+            <text x="150" y="70" text-anchor="middle" font-size="11" fill="#7c2d12">T1</text>
+            <text x="240" y="70" text-anchor="middle" font-size="11" fill="#7c2d12">T2</text>
+            <text x="330" y="70" text-anchor="middle" font-size="11" fill="#7c2d12">T31</text>
+            <text x="60" y="110" text-anchor="middle" font-size="10" fill="#44403c">tid</text>
+            <text x="60" y="130" text-anchor="middle" font-size="10" fill="#44403c">base</text>
+            <text x="60" y="150" text-anchor="middle" font-size="10" fill="#44403c">i</text>
+            <text x="60" y="170" text-anchor="middle" font-size="10" fill="#44403c">coeff</text>
+            <text x="60" y="190" text-anchor="middle" font-size="10" fill="#44403c">sample</text>
+            <text x="60" y="210" text-anchor="middle" font-size="10" fill="#44403c">acc</text>
+            <text x="150" y="150" text-anchor="middle" font-size="10" fill="#44403c">同样的</text>
+            <text x="150" y="168" text-anchor="middle" font-size="10" fill="#44403c">base / i</text>
+            <text x="150" y="186" text-anchor="middle" font-size="10" fill="#44403c">/ coeff</text>
+            <text x="230" y="268" text-anchor="middle" font-size="11" fill="#9a3412">288 寄存器 · 256 ops/iter</text>
+
+            <text x="455" y="150" text-anchor="middle" font-size="22" fill="#0f766e" font-weight="700">→</text>
+            <text x="455" y="178" text-anchor="middle" font-size="11" fill="#0f766e">标量化</text>
+
+            <text x="720" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">标量化后</text>
+            <rect x="530" y="44" width="160" height="230" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="610" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">共享标量 @s</text>
+            <text x="610" y="100" text-anchor="middle" font-size="11" fill="#134e4a">base, flen, i</text>
+            <text x="610" y="120" text-anchor="middle" font-size="11" fill="#134e4a">coeff（一次加载）</text>
+            <text x="610" y="140" text-anchor="middle" font-size="11" fill="#134e4a">循环条件</text>
+            <text x="610" y="168" text-anchor="middle" font-size="11" fill="#0f766e">ldvec / stvec</text>
+            <text x="610" y="188" text-anchor="middle" font-size="11" fill="#0f766e">编译期合并单位步长</text>
+            <rect x="710" y="44" width="80" height="230" rx="6" fill="#fef3c7" stroke="#b45309"/>
+            <rect x="800" y="44" width="80" height="230" rx="6" fill="#fef3c7" stroke="#b45309"/>
+            <text x="750" y="70" text-anchor="middle" font-size="11" fill="#92400e">T0 私有</text>
+            <text x="840" y="70" text-anchor="middle" font-size="11" fill="#92400e">T31 私有</text>
+            <text x="750" y="150" text-anchor="middle" font-size="11" fill="#44403c">sample</text>
+            <text x="750" y="170" text-anchor="middle" font-size="11" fill="#44403c">acc</text>
+            <text x="720" y="268" text-anchor="middle" font-size="11" fill="#115e59">70 寄存器 · 39 ops/iter</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3. FIR 例子里，系数、基址、循环记账对所有线程相同，应收成每 warp 一份；只有 sample 和累加器是私有的。单位步长访存变成 <code>ldvec</code> / <code>stvec</code>，不再依赖硬件动态合并。</p>
+
+      <h3>联合分析算法</h3>
+      <ol class="steps">
+        <li><strong>乐观初始化。</strong>所有基本块标为收敛，所有指令标为线程不变。工作表只放入：读线程号、原子操作、volatile 访存。</li>
+        <li><strong>沿 SSA 传播方差。</strong>弹出一条线程可变指令，把它的数据流后继加入工作表。</li>
+        <li><strong>沿控制依赖传播分歧。</strong>若该指令是条件分支，则把它迭代控制依赖的后继块标为分歧（含 <code>syncthreads</code> 的块除外），块内指令全部入表。</li>
+        <li><strong>不动点结束。</strong>没被访问到的块/指令分别保持收敛和线程不变，即可标量化。</li>
+      </ol>
+      <p>
+        收敛的形式定义比“立即后支配点”更强：在该点放线程组屏障永远不会失败——要么全到，要么全不到。仅看 CFG 形状只能证明 32% 的动态指令收敛；耦方差分析升到 57%；“提前退出线程可视为收敛”再升到 66%。再加一个极简硬件机制（各线程动态走向相同时不让 warp 分歧），可到 97%，与动态神谕持平。
+      </p>
+      <p>
+        仿射分析再进一步：若地址能写成 <code>base + sizeof(T) * tid.x</code>，就把标量/线程访存改成向量 load/store。这既省地址生成，也为后面 Hwacha 的非推测预取提供了静态可识别的单位步长流。
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>指标</th><th>warp=4</th><th>warp=32</th><th>含义</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>静态指令被标量化</td><td colspan="2">平均 29%</td><td>静态指令数仅增 2%（算向量基址）</td></tr>
+          <tr><td>寄存器需求</td><td>−20%</td><td>−33%</td><td>可换更多并发线程，或缩小寄存器文件</td></tr>
+          <tr><td>动态执行操作</td><td>−23%</td><td>−29%</td><td>标量指令每 warp 只执行一次</td></tr>
+          <tr><td>寄存器读写</td><td>−24%</td><td>−31%</td><td>动态操作数 24–31% 是标量</td></tr>
+          <tr><td>内存地址生成</td><td>−37%</td><td>−47%</td><td>编译期合并，减轻动态 coalescer</td></tr>
+          <tr><td>内存数据访问次数</td><td>−30%</td><td>−38%</td><td>共享系数等不再按线程重复取</td></tr>
+        </tbody>
+      </table>
+      <p>评测在 NVIDIA 生产 CUDA/LLVM 编译器上实现，跑 Rodinia + Parboil 共 23 个 benchmark；目标是带标量资源的抽象 SIMT，因为当时真实 GPU 没有标量执行通路。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 机制二：线程感知谓词化</h2>
+      <p>
+        NVIDIA 用分歧栈隐式管理控制流：warp 在分支处分叉，一边继续、一边把 PC 和掩码压栈，在立即后支配点会合。编译器也可以显式做：谓词守卫 + 一致分支（所有线程谓词相同时才跳）。向量机上的 <code>vpopcnt</code> + 标量分支，和 GPU 上的 <code>cbranch.ifnone</code> 是同构的。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="分歧栈与谓词化对照">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="430" height="300" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="235" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">硬件分歧栈</text>
+            <rect x="50" y="68" width="90" height="36" rx="4" fill="#dbeafe" stroke="#93c5fd"/>
+            <text x="95" y="91" text-anchor="middle" font-size="12" fill="#1e3a5f">if (p)</text>
+            <rect x="50" y="130" width="90" height="36" rx="4" fill="#bfdbfe" stroke="#60a5fa"/>
+            <text x="95" y="153" text-anchor="middle" font-size="12" fill="#1e3a5f">then</text>
+            <rect x="180" y="130" width="90" height="36" rx="4" fill="#e2e8f0" stroke="#94a3b8"/>
+            <text x="225" y="153" text-anchor="middle" font-size="12" fill="#475569">else（压栈）</text>
+            <rect x="50" y="200" width="220" height="36" rx="4" fill="#dbeafe" stroke="#93c5fd"/>
+            <text x="160" y="223" text-anchor="middle" font-size="12" fill="#1e3a5f">reconverge = 立即后支配点</text>
+            <text x="235" y="268" text-anchor="middle" font-size="11" fill="#64748b">编译器 push/pop token</text>
+            <text x="235" y="290" text-anchor="middle" font-size="11" fill="#64748b">硬件选边、维护栈、序列化子集</text>
+            <path d="M95 104 L95 130" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M140 86 L180 148" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M95 166 L95 200" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M225 166 L200 200" stroke="#1e3a5f" stroke-width="1.5"/>
+
+            <rect x="470" y="20" width="430" height="300" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="685" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">软件谓词化</text>
+            <rect x="500" y="68" width="370" height="36" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="685" y="91" text-anchor="middle" font-size="12" fill="#115e59">vp0 = cmp; 可选 cbranch.ifnone</text>
+            <rect x="500" y="120" width="170" height="50" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="585" y="142" text-anchor="middle" font-size="12" fill="#134e4a">@vp0 then</text>
+            <text x="585" y="160" text-anchor="middle" font-size="11" fill="#0f766e">部分写向量寄存器</text>
+            <rect x="700" y="120" width="170" height="50" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="785" y="142" text-anchor="middle" font-size="12" fill="#134e4a">@!vp0 else</text>
+            <text x="785" y="160" text-anchor="middle" font-size="11" fill="#0f766e">同一条向量指令流</text>
+            <rect x="500" y="190" width="370" height="36" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="685" y="213" text-anchor="middle" font-size="12" fill="#115e59">会合点：无谓词的后续指令</text>
+            <text x="685" y="258" text-anchor="middle" font-size="11" fill="#0f766e">循环用 loop / continue / exit mask</text>
+            <text x="685" y="280" text-anchor="middle" font-size="11" fill="#0f766e">一致分支跳过全假谓词区域</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4. 分歧栈把路径序列化进硬件；谓词化让编译器按控制依赖图生成守卫，用一致分支跳过全假区域。会合点两者相同（立即后支配点 / 循环所有出口的后支配点），只是谁来调度不同。</p>
+
+      <h3>线程感知之处</h3>
+      <p>经典 if-conversion 只优化单线程。SPMD 还要：所有路径都必须被部分执行（正确性）；分歧后必须再会合（效率）；寄存器压力直接决定 occupancy；以及能标量的控制/数据应尽量不谓词化。算法建立在带标签的控制依赖图上：</p>
+      <ul>
+        <li>谓词节点插在基本块之间，明确“这段代码由哪个谓词守卫”。</li>
+        <li>循环加上 <strong>loop mask</strong>（谁还在圈内）、<strong>exit mask</strong>（从哪个出口离开）、<strong>continue mask</strong>（本轮是否该跳回）。</li>
+        <li><strong>静态分支一致性：</strong>能证明谓词线程不变，就保留原控制流、去掉守卫，减轻寄存器压力。</li>
+        <li><strong>运行时分支一致性：</strong>对无法静态证明的 SESE 区域插入一致分支，谓词全假时整段不取指。</li>
+        <li>用结构分析把 if/loop/acyclic 层次化，再反向 DFS 后序遍历，把同一结构的块排成连续线性序，避免多余跳转。</li>
+        <li>不可约区域走逃生舱：入口/出口处把活跃线程一个个串过去。</li>
+      </ul>
+
+      <div class="callout navy">
+        在 Tesla K20c（Kepler GK110）上，相对纯分歧栈基线：裸谓词化慢 11.3%；加上静态一致性优化快回 4.7%；再加运行时检查再快 3.9%。最终平均只慢 <strong>2.7%</strong>；若逐 kernel 挑最好配置，只慢 0.6%。NVIDIA 自带的有限 if-conversion 启发式几乎不改变平均性能。软件方案的主要收益不是立刻更快，而是拿掉硬件分歧栈、让执行顺序对编译器确定——短接表达式可以在部分会合点并行，方差分析也更强，从而给标量化让路。
+      </div>
+      <p>
+        谓词化会抬高寄存器压力（分配器不能轻易在分支两侧复用同一寄存器），部分 kernel occupancy 下降，这是少数明显变慢案例（bfs、b+tree、srad）的主因。虚函数调用可用一条 <code>find_unique</code> 把唯一目标地址和对应线程掩码拆出来，按约定用入口掩码谓词化被调函数，直到所有活跃线程都序列化完。
+      </p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. Hwacha：控制线程 + 工作线程</h2>
+      <p>
+        有了标量化编译器，传统向量机可以保持和 GPU 同级的可编程性，同时更高效、也更好编译。Hwacha 再进一步：用 <code>vf</code>（vector-fetch）把向量指令流拆成独立工作线程，换来轻量的访问-执行解耦。它是 RISC-V 的非标准扩展，挂在 Rocket 的 RoCC 口上。
+      </p>
+
+      <h3>用户可见状态</h3>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>向量侧</h4>
+          <p><code>vv0–255</code> 数据寄存器（8/16/32/64 位整数，半/单/双精浮点）；<code>vp0–15</code> 1 位谓词。硬件向量长可按寄存器用量重配，但至少保证 8；<code>vlen=0</code> 时所有向量指令空操作。</p>
+        </div>
+        <div class="tile">
+          <h4>两种标量</h4>
+          <p><code>vs0–63</code> 向量共享寄存器（<code>vs0</code> 硬连线 0），工作线程可读写；<code>va0–31</code> 地址寄存器，工作线程<strong>只读</strong>。这个只读约束让 VRU 能非推测地预取，且不会和执行单元互相等待而死锁。</p>
+        </div>
+      </div>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hwacha CSAXPY 控制线程与工作线程">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="420" height="320" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="230" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">控制线程 · Rocket</text>
+            <text x="40" y="80" font-size="12" fill="#44403c" font-family="Consolas, monospace">vsetcfg  #v64,#v32,#v16,#vp</text>
+            <text x="40" y="102" font-size="12" fill="#44403c" font-family="Consolas, monospace">vmcs     vs1, a     // splat 标量 a</text>
+            <text x="40" y="132" font-size="12" fill="#9a3412" font-family="Consolas, monospace">stripmine:</text>
+            <text x="40" y="154" font-size="12" fill="#44403c" font-family="Consolas, monospace">vsetvl   t0, n</text>
+            <text x="40" y="176" font-size="12" fill="#44403c" font-family="Consolas, monospace">vmca     va0, cond</text>
+            <text x="40" y="198" font-size="12" fill="#44403c" font-family="Consolas, monospace">vmca     va1, x</text>
+            <text x="40" y="220" font-size="12" fill="#44403c" font-family="Consolas, monospace">vmca     va2, y</text>
+            <rect x="36" y="232" width="388" height="28" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="230" y="251" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412" font-family="Consolas, monospace">vf  csaxpy_worker</text>
+            <text x="40" y="282" font-size="12" fill="#44403c" font-family="Consolas, monospace">指针 += vl;  n -= vl</text>
+            <text x="40" y="304" font-size="12" fill="#44403c" font-family="Consolas, monospace">bnez n, stripmine</text>
+            <text x="230" y="328" text-anchor="middle" font-size="11" fill="#78716c">地址记账每向量只做一次</text>
+
+            <path d="M450 246 L500 180" stroke="#0f766e" stroke-width="2.2"/>
+            <polygon points="500,180 488,178 492,190" fill="#0f766e"/>
+
+            <rect x="510" y="20" width="390" height="320" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="705" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">工作线程 · Hwacha vf 块</text>
+            <text x="530" y="84" font-size="12" fill="#44403c" font-family="Consolas, monospace">vlb      vv0, (va0)</text>
+            <text x="530" y="108" font-size="12" fill="#44403c" font-family="Consolas, monospace">vcmpez   vp0, vv0</text>
+            <text x="530" y="132" font-size="12" fill="#0f766e" font-family="Consolas, monospace">!vp0 vlw vv0, (va1)</text>
+            <text x="530" y="156" font-size="12" fill="#0f766e" font-family="Consolas, monospace">!vp0 vlw vv1, (va2)</text>
+            <text x="530" y="180" font-size="12" fill="#0f766e" font-family="Consolas, monospace">!vp0 vfma vv0, vv0, vs1, vv1</text>
+            <text x="530" y="204" font-size="12" fill="#0f766e" font-family="Consolas, monospace">!vp0 vsw vv0, (va2)</text>
+            <rect x="526" y="220" width="358" height="28" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="705" y="239" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59" font-family="Consolas, monospace">vstop</text>
+            <text x="705" y="280" text-anchor="middle" font-size="12" fill="#134e4a">向量指令全部谓词化</text>
+            <text x="705" y="302" text-anchor="middle" font-size="12" fill="#134e4a">vs1 是共享标量 a，不 splat</text>
+            <text x="705" y="324" text-anchor="middle" font-size="11" fill="#78716c">控制核已去跑下一轮剥带</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5. CSAXPY 在 Hwacha 上的形态。相对传统向量，剥带循环里的向量操作全部抬进 worker；对这个例子标量指令大约少 15%，更复杂的循环收益更大，控制核也更能跑在前面。</p>
+
+      <h3>六条架构决策</h3>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>1. 用预取藏延迟</h4>
+          <p>GPU 靠多线程：整份线程状态都得停在片上。地址流已知时，预取只需缓存数据本身。Hwacha 的 VRU（访问）和 VXU（执行）解耦；worker 不能写 <code>va</code>，所以 VRU 不必等执行单元做决定，无死锁风险。</p>
+        </div>
+        <div class="tile">
+          <h4>2. 用标量化吃均匀操作数</h4>
+          <p>约三分之一的操作和寄存器访问可静态标量化。共享值进 <code>vs</code>，向量指令可直接读它们。控制核也可用 <code>vmcs</code> 写入。</p>
+        </div>
+        <div class="tile">
+          <h4>3. 用谓词管控制流</h4>
+          <p>所有向量指令（含 gather/scatter）可谓词化。一致分支支持 ifnone / ifall / ifany。谓词逻辑是三输入 + 8 项真值表。谓词可溢出到内存。</p>
+        </div>
+        <div class="tile">
+          <h4>4. 可重启异常做虚存</h4>
+          <p>vf 块里地址都是虚地址。保存/恢复微架构状态以支持可重启异常，也供 OS 抢占。另有 fence 规定控制线程与工作线程之间的访存序。不靠重命名，允许向量指令部分完成。</p>
+        </div>
+        <div class="tile">
+          <h4>5. 可重配硬件向量长</h4>
+          <p><code>vsetcfg</code> 按 64/32/16 位向量寄存器和谓词数量重切寄存器文件。寄存器少则向量更长；寄存器多用完编码空间也不轻易溢出。比 GPU 按 warp 量子化 occupancy 更细，也更不敏感。</p>
+        </div>
+        <div class="tile">
+          <h4>6. 混合精度</h4>
+          <p>宽数据通路按元素切开，窄类型更密地填进同一份 VRF，吞吐上升、向量更长、更利于解耦藏延迟。单个向量寄存器的精度可独立配置，不像 VPW 一刀切。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 解耦微架构：VRU / VXU / VMU</h2>
+      <p>
+        Hwacha 作为独立加速器插在 Rocket Chip 的 RoCC 插座里，有自己的前端和 4 KB 向量指令缓存。Tile 经 TileLink 接到分 bank、对 L1 全包含的共享 L2。向量单元走 uncached TileLink（不持有私有副本），但与 L1 D$ 保持一致性，所以控制核和加速器共享同一虚地址空间，汇编模型不必拆两套内存。连 L2 而非 L1，是用更高带宽换更长平均延迟，因此合并访存更重要。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hwacha 解耦向量加速器结构">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="140" height="90" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="90" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">Rocket</text>
+            <text x="90" y="74" text-anchor="middle" font-size="11" fill="#7c2d12">控制线程</text>
+            <text x="90" y="94" text-anchor="middle" font-size="11" fill="#7c2d12">5 级顺序核</text>
+
+            <rect x="190" y="20" width="160" height="90" rx="8" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="270" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">RoCC 单元</text>
+            <text x="270" y="74" text-anchor="middle" font-size="11" fill="#7c2d12">vsetcfg / vsetvl</text>
+            <text x="270" y="94" text-anchor="middle" font-size="11" fill="#7c2d12">VCMDQ · VRCMDQ</text>
+
+            <rect x="380" y="16" width="200" height="98" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="480" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">标量单元</text>
+            <text x="480" y="62" text-anchor="middle" font-size="11" fill="#134e4a">4 级 · vs / va 文件</text>
+            <text x="480" y="80" text-anchor="middle" font-size="11" fill="#134e4a">标量算 / 标量访存</text>
+            <text x="480" y="98" text-anchor="middle" font-size="11" fill="#134e4a">向量指令 → 主 sequencer</text>
+
+            <rect x="610" y="16" width="160" height="98" rx="8" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.5"/>
+            <text x="690" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">VRU 访问处理器</text>
+            <text x="690" y="64" text-anchor="middle" font-size="11" fill="#134e4a">解码单位步长访存</text>
+            <text x="690" y="82" text-anchor="middle" font-size="11" fill="#134e4a">向 L2 发非推测预取</text>
+            <text x="690" y="100" text-anchor="middle" font-size="11" fill="#134e4a">节流 runahead 距离</text>
+
+            <rect x="800" y="30" width="140" height="70" rx="8" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="870" y="60" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">L1 VI$ 4KB</text>
+            <text x="870" y="80" text-anchor="middle" font-size="11" fill="#64748b">标量 + VRU 共用</text>
+
+            <rect x="20" y="140" width="920" height="170" rx="8" fill="#faf8f4" stroke="#e7e0d4"/>
+            <text x="40" y="164" font-size="12" font-weight="700" fill="#1e3a5f">向量 lane × N（彼此解耦，不锁步）</text>
+
+            <rect x="40" y="180" width="280" height="110" rx="6" fill="#fef3c7" stroke="#b45309"/>
+            <text x="180" y="206" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">VXU 执行单元</text>
+            <text x="180" y="228" text-anchor="middle" font-size="11" fill="#92400e">4 bank × 256×128b 1R1W SRAM</text>
+            <text x="180" y="246" text-anchor="middle" font-size="11" fill="#92400e">收缩期调度 · 操作数锁存</text>
+            <text x="180" y="264" text-anchor="middle" font-size="11" fill="#92400e">共享 FMA / 本地 ALU</text>
+
+            <rect x="340" y="180" width="200" height="110" rx="6" fill="#ede9fe" stroke="#7c3aed"/>
+            <text x="440" y="206" text-anchor="middle" font-size="13" font-weight="700" fill="#5b21b6">主 Sequencer</text>
+            <text x="440" y="228" text-anchor="middle" font-size="11" fill="#6d28d9">跨 lane 依赖</text>
+            <text x="440" y="246" text-anchor="middle" font-size="11" fill="#6d28d9">每 lane 自己推进</text>
+            <text x="440" y="264" text-anchor="middle" font-size="11" fill="#6d28d9">归约时再同步</text>
+
+            <rect x="560" y="180" width="350" height="110" rx="6" fill="#dbeafe" stroke="#2563eb"/>
+            <text x="735" y="206" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">VMU 存储单元</text>
+            <text x="735" y="228" text-anchor="middle" font-size="11" fill="#334155">128b 接口直连 L2</text>
+            <text x="735" y="246" text-anchor="middle" font-size="11" fill="#334155">翻译 · 合并 · 对齐</text>
+            <text x="735" y="264" text-anchor="middle" font-size="11" fill="#334155">乱序写回 VRF，可重启异常</text>
+
+            <rect x="20" y="330" width="920" height="80" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="480" y="358" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">Banked L2 · TileLink MESI · 双通道 LPDDR3（DRAMSim2）</text>
+            <text x="480" y="382" text-anchor="middle" font-size="12" fill="#64748b">子块访问减 gather/scatter 带宽；预取与后续访问合并；原子操作在 L2 bank ALU 上做</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6. Hwacha 解耦加速器。控制核只把命令丢进队列；VRU 跑在前面预取；标量单元消化 vf 块里的标量指令；各 lane 的 VXU/VMU 独立滑行，只在归约和一致分支时由主 sequencer 对齐。</p>
+
+      <h3>收缩期银行：用 1R1W SRAM 冒充多端口</h3>
+      <p>
+        每个 lane 四个 bank，每个 bank 一块 256×128-bit 的 1 读 1 写 8T SRAM，外加操作数锁存器。微操作（读寄存器、写入锁存、送到交叉开关、启动功能单元、写回）从 bank0 注入，每周期向下一个 bank 走一步。经过 n 拍启动延迟后，共享功能单元可持续每拍拿到 n 个操作数。向量链式执行来自不同 sequencer 操作的 μop 交错；lane sequencer 像非推测的乱序发射窗，按条带（8 个 64 位元素，即一轮扫过四个 bank）挑选无冲突操作。
+      </p>
+      <p>
+        VRU 的预取在多数情况下是非推测的：地址寄存器和向量长不能被 worker 改写。它最多占用 L2 未完成跟踪资源的三分之一。启动时故意丢掉前一两个 vf 块的预取，换稳态下更大的领先距离；再用“已解码但尚未被执行单元消耗的字节数”做节流，并在每个 vf 块结束时与谓词/一致分支造成的未执行访存对账。
+      </p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 评测：面积、性能、能耗</h2>
+      <p>
+        目标是用同一套 OpenCL 源码，比较真实 VLSI 数字和商业 GPU，而不是手写汇编自嗨。Hwacha 走 Chisel → 综合/布局布线 → 门级仿真拿周期和翻转，再结合版图做功耗；对照物是 ODROID-XU3 上的 Samsung Exynos 5422（ARM Mali-T628 MP6，同为 28 nm 量级）。SoC 参数按 Mali 对齐：16 KB L1、4×64 KB L2、双通道 933 MHz LPDDR3。Mali 以两核设备（Mali2）和四核设备（Mali4）分别跑；论文因时间只完整评了单 lane Hwacha，对 Hwacha 并不占便宜。
+      </p>
+
+      <h3>面积与频率</h3>
+      <table>
+        <thead>
+          <tr><th>配置</th><th>面积</th><th>频率</th><th>备注</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1-lane 基线（P&amp;R）</td><td>2.11–2.23 mm²</td><td>1.05–1.11 GHz</td><td>目标 1.2 GHz 以匹配 Mali 单核算术带宽</td></tr>
+          <tr><td>1-lane 混合精度（P&amp;R）</td><td>2.21–2.32 mm²</td><td>1.02–1.06 GHz</td><td>单 lane 混合精度面积开销约 4%</td></tr>
+          <tr><td>4-lane 混合精度（综合）</td><td>4.04 mm²</td><td>0.93 GHz</td><td>4-lane 混合精度面积开销约 12.5%</td></tr>
+          <tr><td>估算 6-lane + 256 KB L2</td><td>~6.2 mm²</td><td>—</td><td>Mali-T628 MP6 + 192 KB L2 约 30 mm²</td></tr>
+        </tbody>
+      </table>
+      <p>
+        即便保守假设图形专用单元（SFU 等）占 Mali 面积的 50%，混合精度 Hwacha 仍大约 <strong>3 倍面积效率</strong>。混合精度多出来的面积主要是额外 FMA、加宽的谓词寄存器文件，以及 sequencer 里为不等吞吐链式执行做区间冲突检查的比较器。
+      </p>
+
+      <h3>性能格局</h3>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>axpy：访存受限</h4>
+          <p>混合精度几乎没用。Mali2/Mali4 快 1.5–2×。论文归咎于外层内存调度器与 DRAMSim2 默认参数不匹配，而不是向量模型本身。</p>
+        </div>
+        <div class="tile">
+          <h4>gemm：计算 + 寄存器复用</h4>
+          <p>双精两边一样（FMA 数量相同）。半精提升最明显，但受 Amdahl 限制达不到理想 4×。手优汇编可把数据留在 VRF 跨 vf 块复用，比 OpenCL 快一个数量级（sdgemm-opt 约 14×，hsgemm-opt 最高 19×）——这被看作 OpenCL 编程模型的根本限制。</p>
+        </div>
+        <div class="tile">
+          <h4>filter / mask-filter</h4>
+          <p>基线与混合精度接近；半精有可见加速。Mali2 大约是 Hwacha 的一半，Mali4 与 Hwacha 持平。谓词化路径被 mask 版本直接练到。</p>
+        </div>
+      </div>
+      <div class="callout teal">
+        单 lane Hwacha 的算术带宽低于 Mali4（不到一半），也略低于 Mali2（时钟没到理想 1.2 GHz）。在这个前提下，gemm 和 filter 已经能打平或超过 Mali，说明效率来自更少的冗余、更好的寄存器利用和解耦预取，而不是堆执行单元。gemm 上 Mali 异常慢，论文怀疑工作集没进缓存，这一组对照不能算完全公平。
+      </div>
+      <p>
+        能耗与性能大体同形。Hwacha 用 1 V 超驱换 1 GHz，Mali 是 0.9 V。axpy 上 Mali 更省（与它更快一致）；降低精度时混合精度 Hwacha 的能耗优势逐渐显现。额外功能单元的时钟门控不够好，是混合精度在“没有性能收益”的双精 kernel 上更费能量的原因。
+      </p>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 贡献、边界与对后续架构的含义</h2>
+
+      <h3>三条贡献</h3>
+      <ol>
+        <li><strong>盘点数据并行汇编模型和分歧方案。</strong>Packed-SIMD、SIMT、传统向量、向量线程各自把宽度、标量、控制流放在不同层；分歧管理往往决定整机组织。</li>
+        <li><strong>标量化编译器。</strong>收敛+方差联合分析，把 SPMD 里的冗余收成每 warp 一份；线程感知谓词化把任意嵌套控制流映射到谓词和一致分支。两者都在 NVIDIA 生产 CUDA 工具链里落地，并在硅上量过。</li>
+        <li><strong>Hwacha 解耦向量取指。</strong>控制/工作双线程、非推测访问-执行解耦、可重配向量长、混合精度、可重启异常，Chisel 实现并在 28 nm 与 Mali 对照。</li>
+      </ol>
+
+      <h3>不要过度解读的边界</h3>
+      <ul>
+        <li>Hwacha 评测是微基准，不是完整应用；完整评测只有单 lane。</li>
+        <li>OpenCL 无法表达跨 vf 块的寄存器驻留，手优汇编和编译器代码之间有巨大鸿沟。</li>
+        <li>相对 Mali 的面积对比含估算（缩放到 6-lane、扣除图形单元），不是同功能单元的精确 iso-area。</li>
+        <li>软件分歧管理在占用率敏感的 kernel 上仍会输给硬件栈；论文自己也说寄存器分配和自适应一致性检查还没做完。</li>
+        <li>Hwacha ISA 后来没有成为 RISC-V 标准 V 扩展。论文第 7.3 节已预告：标准 V 会走传统向量（向量指令混在控制流里、32 位编码），以便和 AVX/NEON 类实现竞争。Hwacha 的 vf 解耦是更激进的另一条设计点。</li>
+      </ul>
+
+      <h3>对同封装 / 近存 / 加速器设计的含义</h3>
+      <div class="callout">
+        这篇论文真正可迁移的不是“再做一个 Hwacha”，而是那条编译器-硬件分界线：<strong>SPMD 的可编程性不必用硬件分歧栈和巨大线程状态来买</strong>。如果编译器能证明收敛和不变，硬件只需要一份标量、一份谓词和可重配的长向量；如果地址流在 vf 边界上冻结，预取可以既准确又便宜。后续 RISC-V Vector、以及各种把 SIMT 往“更像向量”拉的 GPU/NPU 设计，都走在这条线上。代价也同样清楚：编译器必须把控制流线性化做好，编程模型若不允许跨块寄存器复用，峰值效率会留在桌上。
+      </div>
+
+      <p>
+        谱系上，Hwacha 是 Berkeley 向量线的第四代：T0（1990s）→ Scale 向量线程（MIT）→ Maven（硬件管分歧）→ Hwacha v1–v4（本学位论文记录的是 v4：全部向量指令进 vf 块、全谓词、一致分支、四块 128-bit SRAM 翻倍吞吐）。它和 Raven（28 nm 片上 DC-DC）以及 EOS（45 nm）多次流片绑在一起，是 RISC-V 早期加速器生态里最完整的一次“编译器 + RTL + VLSI + 对照商业 GPU”闭环。
+      </p>
+    </section>
+
+    <footer>
+      分析基于 Yunsup Lee, <em>Decoupled Vector-Fetch Architecture with a Scalarizing Compiler</em>, Ph.D. dissertation, UC Berkeley, Spring 2016。<br />
+      图为根据论文第 2–9 章重绘的解释图，不是原文插图扫描。
+    </footer>
+  </div>
+</body>
+</html>

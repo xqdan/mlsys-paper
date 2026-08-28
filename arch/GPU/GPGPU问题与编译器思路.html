@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPGPU 的问题与编译器基本思路 | 从 Hwacha 论文抽出</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">从 Hwacha 论文抽出</span>
+        <span class="badge">GPGPU · SIMT · SPMD</span>
+        <span class="badge">CUDA 编译器</span>
+        <span class="badge ok">问题诊断</span>
+        <span class="badge ok">图解版</span>
+      </div>
+      <h1>GPGPU 的问题，以及编译器的基本思路</h1>
+      <p class="subtitle">程序员写的是「单线程」，机器执行的是「一捆线程」。中间全靠编译器和硬件把这层错位补上。</p>
+      <p class="meta">
+        <strong>依据：</strong>Yunsup Lee, <em>Decoupled Vector-Fetch Architecture with a Scalarizing Compiler</em>, UC Berkeley Ph.D., 2016<br />
+        <strong>相关全文分析：</strong><a href="Hwacha_论文分析.html">Hwacha_论文分析.html</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">错位：取指摊了，别的没摊</a></li>
+        <li><a href="#s-models">四种模型：SIMD / SIMT / 向量 / 向量线程</a></li>
+        <li><a href="#s2">问题一：跨线程冗余</a></li>
+        <li><a href="#s3">问题二：用多线程藏延迟</a></li>
+        <li><a href="#s4">问题三：硬件分歧栈</a></li>
+        <li><a href="#s5">问题四：没有标量通路</a></li>
+        <li><a href="#s6">生产编译器实际在做什么</a></li>
+        <li><a href="#s7">论文主张：标量化编译器</a></li>
+        <li><a href="#s8">两条哲学对照</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 错位：取指摊了，别的没摊</h2>
+      <p class="lead">
+        GPGPU 的根因不是「算得不够快」，而是 <strong>SPMD 对程序员友好，却把两类开销藏进了硬件</strong>。SIMT 只摊掉了取指：跨线程冗余、线程状态、控制流分歧，仍然按线程付账。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SIMT：取指一份，执行三十二份">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="460" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a5f">一条 SIMT 指令在 warp 上实际发生了什么</text>
+            <rect x="40" y="50" width="120" height="70" rx="6" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="100" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">I-cache</text>
+            <text x="100" y="100" text-anchor="middle" font-size="11" fill="#7c2d12">取 1 次</text>
+            <path d="M160 85 L210 85" stroke="#c2410c" stroke-width="2"/>
+            <polygon points="210,85 200,80 200,90" fill="#c2410c"/>
+            <rect x="220" y="50" width="140" height="70" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="290" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">译码 / 发射</text>
+            <text x="290" y="100" text-anchor="middle" font-size="11" fill="#7c2d12">摊到 32 线程</text>
+            <path d="M360 85 L410 85" stroke="#1e3a5f" stroke-width="2"/>
+            <polygon points="410,85 400,80 400,90" fill="#1e3a5f"/>
+
+            <!-- 32 lanes as small boxes -->
+            <g>
+              <rect x="420" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+              <rect x="452" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+              <rect x="484" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+              <rect x="516" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+              <rect x="548" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+              <rect x="580" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+              <rect x="612" y="48" width="28" height="74" rx="3" fill="#93c5fd" stroke="#2563eb"/>
+              <text x="626" y="90" text-anchor="middle" font-size="10" fill="#1e3a5f">…</text>
+              <rect x="644" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+              <text x="434" y="90" text-anchor="middle" font-size="9" fill="#1e3a5f">T0</text>
+              <text x="466" y="90" text-anchor="middle" font-size="9" fill="#1e3a5f">T1</text>
+              <text x="498" y="90" text-anchor="middle" font-size="9" fill="#1e3a5f">T2</text>
+              <text x="658" y="90" text-anchor="middle" font-size="9" fill="#1e3a5f">T31</text>
+            </g>
+            <text x="545" y="140" text-anchor="middle" font-size="12" fill="#1e3a5f">32 条 ALU 各做一遍  ·  32 份寄存器  ·  32 次地址计算</text>
+
+            <rect x="40" y="170" width="840" height="90" rx="8" fill="#faf8f4" stroke="#e7e0d4"/>
+            <text x="60" y="200" font-size="13" fill="#166534">✓ 摊掉了：程序计数器、取指、译码</text>
+            <text x="60" y="226" font-size="13" fill="#9a3412">✗ 没摊掉：标量值、循环记账、地址生成、控制流、线程状态</text>
+            <text x="60" y="248" font-size="12" fill="#78716c">论文的诊断从这里开始：SIMT 只解决了多线程最贵的那一层，SPMD 的其余开销还在</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1. SIMT 的真实摊销范围。取指是 1，执行仍是 32。后面所有问题都从这条缝里长出来。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="程序员接口到硬件的三层">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="280" height="170" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="160" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">程序员</text>
+            <text x="40" y="82" font-size="13" fill="#44403c">写一条线程的 kernel</text>
+            <text x="40" y="106" font-size="13" fill="#44403c">启动一个网格</text>
+            <text x="40" y="130" font-size="13" fill="#44403c">不能标注「这段相同」</text>
+            <text x="40" y="154" font-size="13" fill="#44403c">控制流按单线程来写</text>
+            <text x="160" y="178" text-anchor="middle" font-size="11" fill="#78716c">SPMD 接口</text>
+
+            <text x="330" y="105" text-anchor="middle" font-size="22" fill="#57534e">→</text>
+
+            <rect x="360" y="20" width="240" height="170" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="480" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">编译器</text>
+            <text x="380" y="82" font-size="13" fill="#44403c">当普通标量线程编译</text>
+            <text x="380" y="106" font-size="13" fill="#44403c">插分歧栈 token</text>
+            <text x="380" y="130" font-size="13" fill="#44403c">分配寄存器</text>
+            <text x="380" y="154" font-size="13" fill="#44403c">有限 if-conversion</text>
+            <text x="480" y="178" text-anchor="middle" font-size="11" fill="#64748b">保持假象</text>
+
+            <text x="630" y="105" text-anchor="middle" font-size="22" fill="#57534e">→</text>
+
+            <rect x="660" y="20" width="240" height="170" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="780" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">硬件</text>
+            <text x="680" y="82" font-size="13" fill="#44403c">绑成 warp 一起跑</text>
+            <text x="680" y="106" font-size="13" fill="#44403c">分歧栈管掩码</text>
+            <text x="680" y="130" font-size="13" fill="#44403c">切线程藏延迟</text>
+            <text x="680" y="154" font-size="13" fill="#44403c">动态 coalescing</text>
+            <text x="780" y="178" text-anchor="middle" font-size="11" fill="#0f766e">把假象做真</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2. 三层分工。可编程性买在「编译器不拆穿假象、硬件把假象执行掉」上。</p>
+    </section>
+
+    <section class="card" id="s-models">
+      <h2>四种模型：SIMD / SIMT / 向量 / 向量线程</h2>
+      <p class="lead">
+        同一段 CSAXPY（<code>if (cond[i]) y[i] = a*x[i]+y[i]</code>）可以落到四种汇编模型上。差别不在「能不能算」，而在：<strong>宽度写在哪、标量放哪、控制流谁管、指令流切几段</strong>。
+      </p>
+
+      <h3>先看一张总图：四种机器在干什么</h3>
+      <div class="fig">
+        <svg viewBox="0 0 960 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="四种数据并行模型总览">
+          <g font-family="Segoe UI, sans-serif">
+            <!-- SIMD -->
+            <rect x="16" y="16" width="228" height="398" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="130" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">Packed-SIMD</text>
+            <text x="130" y="62" text-anchor="middle" font-size="11" fill="#7c2d12">SSE / AVX / NEON</text>
+            <rect x="32" y="76" width="196" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="130" y="99" text-anchor="middle" font-size="11" fill="#9a3412">一条指令 = 固定宽打包</text>
+            <!-- 4-lane vector -->
+            <rect x="36" y="126" width="42" height="70" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="82" y="126" width="42" height="70" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="128" y="126" width="42" height="70" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="174" y="126" width="42" height="70" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="57" y="166" text-anchor="middle" font-size="10" fill="#7c2d12">e0</text>
+            <text x="103" y="166" text-anchor="middle" font-size="10" fill="#7c2d12">e1</text>
+            <text x="149" y="166" text-anchor="middle" font-size="10" fill="#7c2d12">e2</text>
+            <text x="195" y="166" text-anchor="middle" font-size="10" fill="#7c2d12">e3</text>
+            <text x="130" y="218" text-anchor="middle" font-size="11" fill="#44403c">宽度写进 opcode</text>
+            <text x="130" y="238" text-anchor="middle" font-size="11" fill="#44403c">vfma4 / vlw4 …</text>
+            <text x="130" y="262" text-anchor="middle" font-size="11" fill="#44403c">标量 a 必须 splat</text>
+            <text x="130" y="282" text-anchor="middle" font-size="11" fill="#44403c">成 4 份才进向量寄存器</text>
+            <text x="130" y="310" text-anchor="middle" font-size="11" fill="#9a3412">n 不是 4 的倍数</text>
+            <text x="130" y="328" text-anchor="middle" font-size="11" fill="#9a3412">→ 尾部单独处理</text>
+            <text x="130" y="356" text-anchor="middle" font-size="11" fill="#78716c">加宽 = 新 ISA</text>
+            <text x="130" y="376" text-anchor="middle" font-size="11" fill="#78716c">旧二进制吃不到</text>
+            <text x="130" y="400" text-anchor="middle" font-size="11" font-weight="700" fill="#9a3412">死在静态宽度</text>
+
+            <!-- SIMT -->
+            <rect x="256" y="16" width="228" height="398" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="370" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">GPU / SIMT</text>
+            <text x="370" y="62" text-anchor="middle" font-size="11" fill="#334155">warp 32 / wave 64</text>
+            <rect x="272" y="76" width="196" height="36" rx="4" fill="#dbeafe" stroke="#93c5fd"/>
+            <text x="370" y="99" text-anchor="middle" font-size="11" fill="#1e3a5f">一条指令，多线程各执行</text>
+            <rect x="276" y="126" width="22" height="70" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="300" y="126" width="22" height="70" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="324" y="126" width="22" height="70" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="348" y="126" width="22" height="70" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="372" y="126" width="22" height="70" rx="2" fill="#93c5fd" stroke="#2563eb"/>
+            <text x="383" y="166" text-anchor="middle" font-size="9" fill="#1e3a5f">…</text>
+            <rect x="396" y="126" width="22" height="70" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="420" y="126" width="22" height="70" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <rect x="444" y="126" width="22" height="70" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <text x="287" y="168" text-anchor="middle" font-size="8" fill="#1e3a5f">T0</text>
+            <text x="455" y="168" text-anchor="middle" font-size="8" fill="#1e3a5f">T31</text>
+            <text x="370" y="218" text-anchor="middle" font-size="11" fill="#44403c">元素 = 线程</text>
+            <text x="370" y="238" text-anchor="middle" font-size="11" fill="#44403c">每线程自己算地址</text>
+            <text x="370" y="262" text-anchor="middle" font-size="11" fill="#44403c">a 和基址复制 32 份</text>
+            <text x="370" y="282" text-anchor="middle" font-size="11" fill="#44403c">tid≥n 要写越界检查</text>
+            <text x="370" y="310" text-anchor="middle" font-size="11" fill="#1e3a5f">分歧栈管 if / 循环</text>
+            <text x="370" y="328" text-anchor="middle" font-size="11" fill="#1e3a5f">动态 coalescing 拼访存</text>
+            <text x="370" y="356" text-anchor="middle" font-size="11" fill="#78716c">宽度不进 opcode</text>
+            <text x="370" y="376" text-anchor="middle" font-size="11" fill="#78716c">没有标量执行通路</text>
+            <text x="370" y="400" text-anchor="middle" font-size="11" font-weight="700" fill="#1e3a5f">死在没有标量</text>
+
+            <!-- Vector -->
+            <rect x="496" y="16" width="228" height="398" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="610" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">传统向量</text>
+            <text x="610" y="62" text-anchor="middle" font-size="11" fill="#134e4a">Cray-1 · VLR</text>
+            <rect x="512" y="76" width="196" height="36" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="610" y="99" text-anchor="middle" font-size="11" fill="#115e59">vsetvl：动态向量长</text>
+            <rect x="516" y="126" width="188" height="28" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="610" y="145" text-anchor="middle" font-size="11" fill="#134e4a">标量核：指针、a、剥带</text>
+            <rect x="516" y="162" width="28" height="34" rx="2" fill="#5eead4" stroke="#0f766e"/>
+            <rect x="546" y="162" width="28" height="34" rx="2" fill="#5eead4" stroke="#0f766e"/>
+            <rect x="576" y="162" width="28" height="34" rx="2" fill="#5eead4" stroke="#0f766e"/>
+            <rect x="606" y="162" width="28" height="34" rx="2" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="636" y="162" width="28" height="34" rx="2" fill="#ccfbf1" stroke="#0f766e"/>
+            <rect x="666" y="162" width="38" height="34" rx="2" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="685" y="183" text-anchor="middle" font-size="9" fill="#0f766e">vl</text>
+            <text x="610" y="218" text-anchor="middle" font-size="11" fill="#44403c">指令不编码宽度</text>
+            <text x="610" y="238" text-anchor="middle" font-size="11" fill="#44403c">vl = min(AVL, HVL)</text>
+            <text x="610" y="262" text-anchor="middle" font-size="11" fill="#44403c">a 留在标量寄存器</text>
+            <text x="610" y="282" text-anchor="middle" font-size="11" fill="#44403c">地址每向量加一次</text>
+            <text x="610" y="310" text-anchor="middle" font-size="11" fill="#0f766e">谓词显式管分歧</text>
+            <text x="610" y="328" text-anchor="middle" font-size="11" fill="#0f766e">最后一趟 vl=尾部，无 fringe 码</text>
+            <text x="610" y="356" text-anchor="middle" font-size="11" fill="#78716c">同一份码任意硬件宽度</text>
+            <text x="610" y="376" text-anchor="middle" font-size="11" fill="#78716c">向量指令仍挤在控制流里</text>
+            <text x="610" y="400" text-anchor="middle" font-size="11" font-weight="700" fill="#0f766e">兼得宽度 + 标量</text>
+
+            <!-- Vector-thread -->
+            <rect x="736" y="16" width="208" height="398" rx="8" fill="#faf5ff" stroke="#6d28d9" stroke-width="1.5"/>
+            <text x="840" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#5b21b6">向量线程</text>
+            <text x="840" y="62" text-anchor="middle" font-size="11" fill="#6d28d9">Maven / Scale · vf</text>
+            <rect x="750" y="76" width="180" height="36" rx="4" fill="#ede9fe" stroke="#c4b5fd"/>
+            <text x="840" y="99" text-anchor="middle" font-size="11" fill="#5b21b6">指令流拆成两段</text>
+            <rect x="754" y="126" width="172" height="50" rx="4" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="840" y="146" text-anchor="middle" font-size="11" fill="#9a3412">控制线程剥带</text>
+            <text x="840" y="164" text-anchor="middle" font-size="10" fill="#7c2d12">vsetvl · 向量 load/store</text>
+            <path d="M840 176 L840 192" stroke="#6d28d9" stroke-width="1.5"/>
+            <polygon points="840,192 836,184 844,184" fill="#6d28d9"/>
+            <rect x="754" y="192" width="172" height="50" rx="4" fill="#ede9fe" stroke="#7c3aed"/>
+            <text x="840" y="212" text-anchor="middle" font-size="11" fill="#5b21b6">vf 块：算术 + 分支</text>
+            <text x="840" y="230" text-anchor="middle" font-size="10" fill="#6d28d9">每个元素跑同一段标量码</text>
+            <text x="840" y="262" text-anchor="middle" font-size="11" fill="#44403c">访存跑在前面预取</text>
+            <text x="840" y="282" text-anchor="middle" font-size="11" fill="#44403c">算术稍后消费数据</text>
+            <text x="840" y="310" text-anchor="middle" font-size="11" fill="#6d28d9">Maven：硬件管分歧</text>
+            <text x="840" y="328" text-anchor="middle" font-size="11" fill="#6d28d9">vf 块里难表达标量</text>
+            <text x="840" y="356" text-anchor="middle" font-size="11" fill="#78716c">Hwacha：全部进 vf</text>
+            <text x="840" y="376" text-anchor="middle" font-size="11" fill="#78716c">+ 标量 vs + 谓词</text>
+            <text x="840" y="400" text-anchor="middle" font-size="11" font-weight="700" fill="#5b21b6">再加解耦</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 A. 四种模型一句话。SIMD 把宽度写死；SIMT 把元素当成线程；向量用 VLR 动态定长；向量线程再把算术从剥带循环里拆出去。</p>
+
+      <h3>同一次剥带，谁在执行什么</h3>
+      <p>剥带（stripmine）= 把长度为 n 的应用向量切成硬件一次能吃下的块。四种模型切法不同。</p>
+      <div class="fig">
+        <svg viewBox="0 0 960 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="应用向量如何被切块">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="480" y="22" text-anchor="middle" font-size="13" fill="#44403c">应用向量长度 n（例如 100 个元素）</text>
+            <rect x="40" y="36" width="880" height="22" rx="4" fill="#e7e5e4" stroke="#a8a29e"/>
+            <text x="480" y="52" text-anchor="middle" font-size="11" fill="#57534e">0 ································· n-1</text>
+
+            <text x="40" y="86" font-size="12" font-weight="700" fill="#9a3412">SIMD 宽=4</text>
+            <rect x="160" y="72" width="28" height="22" rx="2" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="190" y="72" width="28" height="22" rx="2" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="220" y="72" width="28" height="22" rx="2" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="250" y="72" width="28" height="22" rx="2" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="320" y="88" font-size="11" fill="#44403c">… 整块循环 25 次 …</text>
+            <rect x="480" y="72" width="21" height="22" rx="2" fill="#fecaca" stroke="#dc2626"/>
+            <rect x="503" y="72" width="21" height="22" rx="2" fill="#fecaca" stroke="#dc2626"/>
+            <text x="540" y="88" font-size="11" fill="#9a3412">剩下 0–3 个：单独 fringe 代码（或标量核）</text>
+
+            <text x="40" y="130" font-size="12" font-weight="700" fill="#1e3a5f">SIMT warp=32</text>
+            <rect x="160" y="116" width="200" height="22" rx="2" fill="#bfdbfe" stroke="#3b82f6"/>
+            <text x="260" y="132" text-anchor="middle" font-size="10" fill="#1e3a5f">启动 4×32=128 线程</text>
+            <rect x="370" y="116" width="70" height="22" rx="2" fill="#fecaca" stroke="#dc2626"/>
+            <text x="405" y="132" text-anchor="middle" font-size="10" fill="#991b1b">28 条空转</text>
+            <text x="460" y="132" font-size="11" fill="#1e3a5f">每条线程：if (tid &lt; n) 才干活 · 网格必须对齐 warp</text>
+
+            <text x="40" y="174" font-size="12" font-weight="700" fill="#0f766e">向量 VLR</text>
+            <rect x="160" y="160" width="240" height="22" rx="2" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="280" y="176" text-anchor="middle" font-size="10" fill="#134e4a">vsetvl → 例如 vl=64</text>
+            <rect x="404" y="160" width="140" height="22" rx="2" fill="#5eead4" stroke="#0f766e"/>
+            <text x="474" y="176" text-anchor="middle" font-size="10" fill="#134e4a">下一趟 vl=36 尾部</text>
+            <text x="560" y="176" font-size="11" fill="#0f766e">同一段循环体，最后一趟自动变短，无 fringe 码</text>
+
+            <text x="40" y="218" font-size="12" font-weight="700" fill="#5b21b6">向量线程</text>
+            <rect x="160" y="204" width="240" height="22" rx="2" fill="#ddd6fe" stroke="#7c3aed"/>
+            <text x="280" y="220" text-anchor="middle" font-size="10" fill="#5b21b6">控制核：同样 vsetvl 剥带</text>
+            <rect x="410" y="204" width="160" height="22" rx="2" fill="#c4b5fd" stroke="#6d28d9"/>
+            <text x="490" y="220" text-anchor="middle" font-size="10" fill="#5b21b6">vf：vl 个元素跑算术块</text>
+            <text x="586" y="220" font-size="11" fill="#5b21b6">切块规则跟向量一样，只是算术不跟访存挤在同一指令流</text>
+
+            <rect x="40" y="250" width="880" height="72" rx="6" fill="#faf8f4" stroke="#e7e0d4"/>
+            <text x="60" y="276" font-size="13" fill="#44403c">SIMD：块大小写死在指令里，尾部是编译器的事。</text>
+            <text x="60" y="298" font-size="13" fill="#44403c">SIMT：块大小写死在启动网格上，尾部变成每条线程的越界 if。</text>
+            <text x="60" y="320" font-size="13" fill="#44403c">向量 / 向量线程：块大小是运行时 vl，软件不知道、也不必知道硬件向量长。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 B. n=100 时四种切法。SIMD 留下 0–3 的尾巴；SIMT 多启动空线程再自己 if 掉；向量把尾巴收进最后一次 <code>vsetvl</code>。</p>
+
+      <h3>CSAXPY 四种汇编长什么样</h3>
+      <div class="fig">
+        <svg viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CSAXPY 四种汇编结构">
+          <g font-family="Consolas, Cascadia Code, monospace">
+            <!-- SIMD -->
+            <rect x="12" y="12" width="228" height="396" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="126" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412" font-family="Segoe UI, sans-serif">SIMD</text>
+            <text x="24" y="60" font-size="11" fill="#44403c">vsplat4  vv0, a</text>
+            <text x="24" y="80" font-size="11" fill="#9a3412">loop:</text>
+            <text x="24" y="100" font-size="11" fill="#44403c">vlb4  cond</text>
+            <text x="24" y="120" font-size="11" fill="#44403c">vcmpez4 vp0</text>
+            <text x="24" y="140" font-size="11" fill="#0f766e">!vp0 vlw4 x</text>
+            <text x="24" y="160" font-size="11" fill="#0f766e">!vp0 vlw4 y</text>
+            <text x="24" y="180" font-size="11" fill="#0f766e">!vp0 vfma4</text>
+            <text x="24" y="200" font-size="11" fill="#0f766e">!vp0 vsw4 y</text>
+            <text x="24" y="220" font-size="11" fill="#44403c">ptr += 4 / 16</text>
+            <text x="24" y="240" font-size="11" fill="#44403c">blt loop</text>
+            <text x="24" y="270" font-size="11" fill="#dc2626"># fringe n%4</text>
+            <text x="24" y="290" font-size="11" fill="#dc2626"># 再写一遍或标量</text>
+            <text x="126" y="330" text-anchor="middle" font-size="11" fill="#9a3412" font-family="Segoe UI, sans-serif">4 写进每条向量指令</text>
+            <text x="126" y="350" text-anchor="middle" font-size="11" fill="#9a3412" font-family="Segoe UI, sans-serif">无向量-标量运算</text>
+            <text x="126" y="380" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">无谓词时还要 blend</text>
+
+            <!-- SIMT -->
+            <rect x="248" y="12" width="228" height="396" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="362" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f" font-family="Segoe UI, sans-serif">SIMT</text>
+            <text x="260" y="60" font-size="11" fill="#44403c">t0 = tid</text>
+            <text x="260" y="80" font-size="11" fill="#dc2626">bgeu t0, n, skip</text>
+            <text x="260" y="100" font-size="11" fill="#44403c">lb  cond[t0]</text>
+            <text x="260" y="120" font-size="11" fill="#dc2626">beqz  skip</text>
+            <text x="260" y="140" font-size="11" fill="#9a3412">slli t0, 2</text>
+            <text x="260" y="160" font-size="11" fill="#9a3412">x += t0; y += t0</text>
+            <text x="260" y="180" font-size="11" fill="#44403c">lw  x; lw y</text>
+            <text x="260" y="200" font-size="11" fill="#44403c">fma  a, x, y</text>
+            <text x="260" y="220" font-size="11" fill="#44403c">sw  y</text>
+            <text x="260" y="240" font-size="11" fill="#44403c">skip: stop</text>
+            <text x="362" y="290" text-anchor="middle" font-size="11" fill="#1e3a5f" font-family="Segoe UI, sans-serif">没有剥带循环</text>
+            <text x="362" y="310" text-anchor="middle" font-size="11" fill="#1e3a5f" font-family="Segoe UI, sans-serif">主机启动一堆线程</text>
+            <text x="362" y="330" text-anchor="middle" font-size="11" fill="#1e3a5f" font-family="Segoe UI, sans-serif">红字 = 每元素都做的开销</text>
+            <text x="362" y="360" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">if 靠硬件分歧栈</text>
+            <text x="362" y="380" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">汇编长得像标量线程</text>
+
+            <!-- Vector -->
+            <rect x="484" y="12" width="228" height="396" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="598" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59" font-family="Segoe UI, sans-serif">传统向量</text>
+            <text x="496" y="60" font-size="11" fill="#0f766e">loop:</text>
+            <text x="496" y="80" font-size="11" fill="#0f766e">vsetvl t0, n</text>
+            <text x="496" y="100" font-size="11" fill="#44403c">vlb  vv0, cond</text>
+            <text x="496" y="120" font-size="11" fill="#44403c">vcmpez vp0, vv0</text>
+            <text x="496" y="140" font-size="11" fill="#44403c">!vp0 vlw x</text>
+            <text x="496" y="160" font-size="11" fill="#44403c">!vp0 vlw y</text>
+            <text x="496" y="180" font-size="11" fill="#0f766e">!vp0 vfma  a   ← 标量</text>
+            <text x="496" y="200" font-size="11" fill="#44403c">!vp0 vsw y</text>
+            <text x="496" y="220" font-size="11" fill="#44403c">ptr += t0</text>
+            <text x="496" y="240" font-size="11" fill="#44403c">n -= t0</text>
+            <text x="496" y="260" font-size="11" fill="#44403c">bnez n, loop</text>
+            <text x="598" y="310" text-anchor="middle" font-size="11" fill="#0f766e" font-family="Segoe UI, sans-serif">结构像 SIMD</text>
+            <text x="598" y="330" text-anchor="middle" font-size="11" fill="#0f766e" font-family="Segoe UI, sans-serif">但指令没有宽度后缀</text>
+            <text x="598" y="360" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">无 fringe · a 不用 splat</text>
+            <text x="598" y="380" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">谓词写在汇编里</text>
+
+            <!-- VT -->
+            <rect x="720" y="12" width="228" height="396" rx="8" fill="#faf5ff" stroke="#6d28d9" stroke-width="1.5"/>
+            <text x="834" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#5b21b6" font-family="Segoe UI, sans-serif">向量线程</text>
+            <text x="732" y="60" font-size="11" fill="#9a3412">loop:  vsetvl</text>
+            <text x="732" y="80" font-size="11" fill="#9a3412">mtvtu / vmcs  a</text>
+            <text x="732" y="100" font-size="11" fill="#9a3412">vlb / vlw  访存</text>
+            <text x="732" y="120" font-size="11" fill="#6d28d9">vf  worker</text>
+            <text x="732" y="140" font-size="11" fill="#9a3412">vsw; ptr+=; loop</text>
+            <text x="732" y="170" font-size="11" fill="#5b21b6">worker:</text>
+            <text x="732" y="190" font-size="11" fill="#44403c">beqz v1, skip</text>
+            <text x="732" y="210" font-size="11" fill="#44403c">fma v3, v0, v2</text>
+            <text x="732" y="230" font-size="11" fill="#44403c">skip: stop</text>
+            <text x="834" y="280" text-anchor="middle" font-size="11" fill="#5b21b6" font-family="Segoe UI, sans-serif">Maven：访存留在循环</text>
+            <text x="834" y="300" text-anchor="middle" font-size="11" fill="#5b21b6" font-family="Segoe UI, sans-serif">算术抬进 vf 块</text>
+            <text x="834" y="330" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">vf 里看到的 v0</text>
+            <text x="834" y="348" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">对外是向量 vv0</text>
+            <text x="834" y="380" text-anchor="middle" font-size="11" fill="#5b21b6" font-family="Segoe UI, sans-serif">Hwacha 连访存也进 vf</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 C. 同一 CSAXPY 的四种汇编骨架。红/橙色是该模型多付的税：SIMD 的宽度和尾巴，SIMT 的越界和地址，向量线程则把税换成「两段指令流」。</p>
+
+      <h3>标量放哪、分歧谁管</h3>
+      <div class="fig">
+        <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="标量位置与分歧管理">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="240" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">标量 a、基址指针放哪</text>
+            <rect x="20" y="44" width="220" height="100" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="130" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">SIMD</text>
+            <text x="130" y="94" text-anchor="middle" font-size="11" fill="#44403c">标量核有 a</text>
+            <text x="130" y="114" text-anchor="middle" font-size="11" fill="#9a3412">但必须 splat 进向量</text>
+            <text x="130" y="132" text-anchor="middle" font-size="11" fill="#9a3412">不能 vfma(向量, 标量)</text>
+
+            <rect x="252" y="44" width="220" height="100" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="362" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">SIMT</text>
+            <text x="362" y="94" text-anchor="middle" font-size="11" fill="#44403c">没有共享标量寄存器</text>
+            <text x="362" y="114" text-anchor="middle" font-size="11" fill="#1e3a5f">每线程一份 a / 指针</text>
+            <text x="362" y="132" text-anchor="middle" font-size="11" fill="#1e3a5f">架构状态约 3×</text>
+
+            <rect x="484" y="44" width="220" height="100" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="594" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">向量</text>
+            <text x="594" y="94" text-anchor="middle" font-size="11" fill="#44403c">标量核一份 a</text>
+            <text x="594" y="114" text-anchor="middle" font-size="11" fill="#0f766e">向量指令直接读标量</text>
+            <text x="594" y="132" text-anchor="middle" font-size="11" fill="#0f766e">指针每条向量加一次</text>
+
+            <rect x="716" y="44" width="220" height="100" rx="6" fill="#faf5ff" stroke="#6d28d9"/>
+            <text x="826" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#5b21b6">向量线程</text>
+            <text x="826" y="94" text-anchor="middle" font-size="11" fill="#44403c">Maven：vf 块里像 SIMT</text>
+            <text x="826" y="114" text-anchor="middle" font-size="11" fill="#6d28d9">难表达共享标量</text>
+            <text x="826" y="132" text-anchor="middle" font-size="11" fill="#6d28d9">Hwacha 加 vs / va 修好</text>
+
+            <text x="240" y="172" text-anchor="middle" font-size="14" font-weight="700" fill="#1c1917">if (cond) 分歧谁管</text>
+            <rect x="20" y="188" width="220" height="96" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="130" y="216" text-anchor="middle" font-size="12" fill="#44403c">谓词或 blend</text>
+            <text x="130" y="238" text-anchor="middle" font-size="11" fill="#9a3412">AVX 很晚才有谓词</text>
+            <text x="130" y="258" text-anchor="middle" font-size="11" fill="#9a3412">桌面线常用 blend</text>
+
+            <rect x="252" y="188" width="220" height="96" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="362" y="216" text-anchor="middle" font-size="12" fill="#44403c">硬件分歧栈</text>
+            <text x="362" y="238" text-anchor="middle" font-size="11" fill="#1e3a5f">编译器只插会合点</text>
+            <text x="362" y="258" text-anchor="middle" font-size="11" fill="#1e3a5f">路径由硬件序列化</text>
+
+            <rect x="484" y="188" width="220" height="96" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="594" y="216" text-anchor="middle" font-size="12" fill="#44403c">编译器写谓词</text>
+            <text x="594" y="238" text-anchor="middle" font-size="11" fill="#0f766e">vp0 / !vp0 守卫</text>
+            <text x="594" y="258" text-anchor="middle" font-size="11" fill="#0f766e">可选 popcount 跳过全假</text>
+
+            <rect x="716" y="188" width="220" height="96" rx="6" fill="#faf5ff" stroke="#6d28d9"/>
+            <text x="826" y="216" text-anchor="middle" font-size="12" fill="#44403c">Maven：vf 里允许分支</text>
+            <text x="826" y="238" text-anchor="middle" font-size="11" fill="#6d28d9">PVFB 硬件记分歧</text>
+            <text x="826" y="258" text-anchor="middle" font-size="11" fill="#6d28d9">Hwacha：改回全谓词</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 D. 两个正交轴。上：标量是一份还是 32 份。下：分歧是硬件栈、编译器谓词，还是 vf 块里的线程分支。</p>
+
+      <h3>向量线程为什么要拆成两段（以及 Hwacha 改了什么）</h3>
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="向量线程解耦与 Hwacha 演进">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="300" height="240" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="170" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">传统向量：一条指令流</text>
+            <rect x="44" y="68" width="252" height="28" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="170" y="87" text-anchor="middle" font-size="11" fill="#134e4a">vsetvl</text>
+            <rect x="44" y="102" width="252" height="28" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="170" y="121" text-anchor="middle" font-size="11" fill="#134e4a">向量 load</text>
+            <rect x="44" y="136" width="252" height="28" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+            <text x="170" y="155" text-anchor="middle" font-size="11" fill="#92400e">向量算术  ← 可能卡住等 load</text>
+            <rect x="44" y="170" width="252" height="28" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="170" y="189" text-anchor="middle" font-size="11" fill="#134e4a">向量 store</text>
+            <rect x="44" y="204" width="252" height="28" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="170" y="223" text-anchor="middle" font-size="11" fill="#134e4a">指针 += vl · 循环</text>
+            <text x="170" y="248" text-anchor="middle" font-size="11" fill="#78716c">控制核取指带宽被向量指令占满</text>
+
+            <rect x="340" y="20" width="300" height="240" rx="8" fill="#faf5ff" stroke="#6d28d9"/>
+            <text x="490" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#5b21b6">Maven 向量线程</text>
+            <rect x="364" y="68" width="252" height="70" rx="4" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="490" y="90" text-anchor="middle" font-size="11" fill="#9a3412">控制流：vsetvl + 访存 + vf</text>
+            <text x="490" y="110" text-anchor="middle" font-size="11" fill="#7c2d12">访存可跑在算术前面预取</text>
+            <rect x="364" y="148" width="252" height="70" rx="4" fill="#ede9fe" stroke="#7c3aed"/>
+            <text x="490" y="170" text-anchor="middle" font-size="11" fill="#5b21b6">vf 块：fma / 分支 / stop</text>
+            <text x="490" y="190" text-anchor="middle" font-size="11" fill="#6d28d9">硬件 PVFB 管分歧</text>
+            <text x="490" y="228" text-anchor="middle" font-size="11" fill="#9a3412">代价：vf 里没有标量 · 分歧硬件难做对</text>
+
+            <rect x="660" y="20" width="280" height="240" rx="8" fill="#ecfdf5" stroke="#047857"/>
+            <text x="800" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">Hwacha</text>
+            <rect x="680" y="68" width="240" height="50" rx="4" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="800" y="90" text-anchor="middle" font-size="11" fill="#9a3412">控制：vsetcfg / vmca / vf</text>
+            <text x="800" y="108" text-anchor="middle" font-size="11" fill="#7c2d12">只做配置和剥带</text>
+            <rect x="680" y="128" width="240" height="90" rx="4" fill="#d1fae5" stroke="#059669"/>
+            <text x="800" y="150" text-anchor="middle" font-size="11" fill="#065f46">vf 块：访存 + 算术 + 谓词</text>
+            <text x="800" y="168" text-anchor="middle" font-size="11" fill="#047857">vs 共享标量 · va 只读地址</text>
+            <text x="800" y="186" text-anchor="middle" font-size="11" fill="#047857">VRU 非推测预取</text>
+            <text x="800" y="204" text-anchor="middle" font-size="11" fill="#047857">分歧交回编译器谓词</text>
+            <text x="800" y="240" text-anchor="middle" font-size="11" fill="#065f46">向量线程的形态 + 向量的效率</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 E. 向量线程要解决的是：让访存跑在算术前面。Maven 用「访存留循环、算术进 vf」换预取，但把分歧和标量搞砸了。Hwacha 把整段向量指令都放进 vf，用 <code>va</code> 只读保证预取安全，用谓词和 <code>vs</code> 把 Maven 的两个弱点补上。</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Packed-SIMD</th>
+            <th>GPU / SIMT</th>
+            <th>传统向量</th>
+            <th>向量线程 → Hwacha</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>元素是什么</td>
+            <td>打包进一条宽指令的 lane</td>
+            <td>一条线程</td>
+            <td>向量寄存器里的第 i 个元素</td>
+            <td>vf 块对每个元素跑一遍</td>
+          </tr>
+          <tr>
+            <td>宽度写在哪</td>
+            <td>opcode（<code>vlw4</code>）</td>
+            <td>启动网格 / warp 大小</td>
+            <td>运行时 <code>vsetvl</code></td>
+            <td>同样 <code>vsetvl</code></td>
+          </tr>
+          <tr>
+            <td>二进制兼容加宽</td>
+            <td>否，要重编译</td>
+            <td>网格量化仍绑 warp</td>
+            <td>是</td>
+            <td>是</td>
+          </tr>
+          <tr>
+            <td>标量 a / 基址</td>
+            <td>核上有，但要 splat</td>
+            <td>每线程复制</td>
+            <td>核上一份，指令直接读</td>
+            <td>Maven 弱；Hwacha 用 vs / va</td>
+          </tr>
+          <tr>
+            <td>尾部 n 不能整除</td>
+            <td>fringe 代码</td>
+            <td><code>if (tid &lt; n)</code></td>
+            <td>最后一趟缩短 vl</td>
+            <td>同向量</td>
+          </tr>
+          <tr>
+            <td>分歧</td>
+            <td>谓词或 blend</td>
+            <td>硬件分歧栈</td>
+            <td>编译器谓词</td>
+            <td>Maven 硬件；Hwacha 谓词</td>
+          </tr>
+          <tr>
+            <td>藏访存延迟</td>
+            <td>静态调度 / 乱序</td>
+            <td>切大量线程</td>
+            <td>长向量 + 链式</td>
+            <td>访问-执行解耦 / 预取</td>
+          </tr>
+          <tr>
+            <td>论文的判决</td>
+            <td>静态宽度是设计失误</td>
+            <td>可编程，但标量和状态太贵</td>
+            <td>模型更干净</td>
+            <td>再拆指令流，换便宜预取</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题一：跨线程冗余</h2>
+      <p>程序员只能写 kernel 和网格尺寸，无法声明「这段对所有线程相同」。于是每条线程各自保存循环计数、基址、标量 <code>a</code>，各自做地址计算，各自加载同一份系数。</p>
+
+      <h3>CSAXPY：同一条指令，32 份记账</h3>
+      <p>条件 SAXPY：<code>if (cond[i]) y[i] = a*x[i]+y[i]</code>。向量机上 <code>a</code>、三个基址只存一份，地址加一次。SIMT 上每条线程自己做。</p>
+      <div class="fig">
+        <svg viewBox="0 0 920 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CSAXPY 每线程复制标量状态">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="230" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">GPU / SIMT：每线程一份</text>
+            <!-- thread columns -->
+            <rect x="20" y="40" width="100" height="250" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="128" y="40" width="100" height="250" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="236" y="40" width="100" height="250" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="344" y="40" width="100" height="250" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="70" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#9a3412">T0</text>
+            <text x="178" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#9a3412">T1</text>
+            <text x="286" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#9a3412">T2</text>
+            <text x="394" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#9a3412">T31</text>
+            <text x="70" y="92" text-anchor="middle" font-size="10" fill="#7c2d12">tid=0</text>
+            <text x="70" y="114" text-anchor="middle" font-size="10" fill="#44403c">a</text>
+            <text x="70" y="134" text-anchor="middle" font-size="10" fill="#44403c">&amp;cond</text>
+            <text x="70" y="154" text-anchor="middle" font-size="10" fill="#44403c">&amp;x</text>
+            <text x="70" y="174" text-anchor="middle" font-size="10" fill="#44403c">&amp;y</text>
+            <text x="70" y="198" text-anchor="middle" font-size="10" fill="#9a3412">+ tid</text>
+            <text x="70" y="218" text-anchor="middle" font-size="10" fill="#9a3412">×4</text>
+            <text x="70" y="238" text-anchor="middle" font-size="10" fill="#9a3412">越界检查</text>
+            <text x="178" y="154" text-anchor="middle" font-size="10" fill="#78716c">同样的</text>
+            <text x="178" y="172" text-anchor="middle" font-size="10" fill="#78716c">a / 基址</text>
+            <text x="178" y="190" text-anchor="middle" font-size="10" fill="#78716c">各自再算</text>
+            <text x="286" y="154" text-anchor="middle" font-size="10" fill="#78716c">再算一遍</text>
+            <text x="230" y="308" text-anchor="middle" font-size="12" fill="#9a3412">架构状态 ≈ 3× 必要值</text>
+
+            <text x="500" y="160" text-anchor="middle" font-size="28" fill="#0f766e">→</text>
+
+            <text x="720" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">向量机：整条向量一份</text>
+            <rect x="560" y="40" width="140" height="250" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="630" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">标量核</text>
+            <text x="630" y="100" text-anchor="middle" font-size="11" fill="#134e4a">a × 1</text>
+            <text x="630" y="122" text-anchor="middle" font-size="11" fill="#134e4a">&amp;cond × 1</text>
+            <text x="630" y="144" text-anchor="middle" font-size="11" fill="#134e4a">&amp;x × 1</text>
+            <text x="630" y="166" text-anchor="middle" font-size="11" fill="#134e4a">&amp;y × 1</text>
+            <text x="630" y="196" text-anchor="middle" font-size="11" fill="#0f766e">指针 += vl</text>
+            <text x="630" y="218" text-anchor="middle" font-size="11" fill="#0f766e">一次记账</text>
+            <text x="630" y="250" text-anchor="middle" font-size="11" fill="#134e4a">无越界检查</text>
+            <text x="630" y="268" text-anchor="middle" font-size="11" fill="#134e4a">VLR 吃掉尾部</text>
+            <rect x="720" y="40" width="180" height="250" rx="6" fill="#fef3c7" stroke="#b45309"/>
+            <text x="810" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#b45309">向量寄存器</text>
+            <text x="810" y="110" text-anchor="middle" font-size="11" fill="#92400e">cond[0..vl)</text>
+            <text x="810" y="140" text-anchor="middle" font-size="11" fill="#92400e">x[0..vl)</text>
+            <text x="810" y="170" text-anchor="middle" font-size="11" fill="#92400e">y[0..vl)</text>
+            <text x="810" y="210" text-anchor="middle" font-size="11" fill="#92400e">谓词掩码</text>
+            <text x="720" y="308" text-anchor="middle" font-size="12" fill="#115e59">必要状态只存一份</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3. CSAXPY。SIMT 里每条线程复制 <code>a</code> 和三个基址，再各自做 <code>tid</code> 寻址和越界检查。向量机把这些留在标量核，每条向量指令只做一次。</p>
+
+      <h3>FIR：共享系数被加载 32 遍</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FIR 系数被每条线程重复加载">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="200" height="250" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="120" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">内存里的系数</text>
+            <rect x="50" y="70" width="140" height="28" rx="4" fill="#dbeafe" stroke="#93c5fd"/>
+            <rect x="50" y="104" width="140" height="28" rx="4" fill="#dbeafe" stroke="#93c5fd"/>
+            <rect x="50" y="138" width="140" height="28" rx="4" fill="#dbeafe" stroke="#93c5fd"/>
+            <rect x="50" y="172" width="140" height="28" rx="4" fill="#dbeafe" stroke="#93c5fd"/>
+            <text x="120" y="89" text-anchor="middle" font-size="11" fill="#1e3a5f">c[0]</text>
+            <text x="120" y="123" text-anchor="middle" font-size="11" fill="#1e3a5f">c[1]</text>
+            <text x="120" y="157" text-anchor="middle" font-size="11" fill="#1e3a5f">c[2]</text>
+            <text x="120" y="191" text-anchor="middle" font-size="11" fill="#1e3a5f">c[flen-1]</text>
+            <text x="120" y="240" text-anchor="middle" font-size="12" fill="#64748b">一份数据</text>
+
+            <path d="M230 100 L310 70" stroke="#c2410c" stroke-width="1.4"/>
+            <path d="M230 120 L310 140" stroke="#c2410c" stroke-width="1.4"/>
+            <path d="M230 140 L310 210" stroke="#c2410c" stroke-width="1.4"/>
+            <path d="M230 160 L310 250" stroke="#c2410c" stroke-width="1.4"/>
+
+            <rect x="320" y="40" width="90" height="70" rx="5" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="320" y="118" width="90" height="70" rx="5" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="320" y="196" width="90" height="70" rx="5" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="365" y="70" text-anchor="middle" font-size="11" fill="#9a3412">T0 再 load</text>
+            <text x="365" y="88" text-anchor="middle" font-size="11" fill="#9a3412">c[i]</text>
+            <text x="365" y="148" text-anchor="middle" font-size="11" fill="#9a3412">T1 再 load</text>
+            <text x="365" y="166" text-anchor="middle" font-size="11" fill="#9a3412">同一 c[i]</text>
+            <text x="365" y="226" text-anchor="middle" font-size="11" fill="#9a3412">T31 再 load</text>
+            <text x="365" y="244" text-anchor="middle" font-size="11" fill="#9a3412">同一 c[i]</text>
+
+            <text x="460" y="160" font-size="13" fill="#9a3412">×32</text>
+
+            <rect x="520" y="40" width="380" height="226" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="710" y="70" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">每轮循环 warp 实际做的事</text>
+            <text x="540" y="104" font-size="13" fill="#44403c">32 次加载同一系数</text>
+            <text x="540" y="128" font-size="13" fill="#44403c">32 次循环计数 ++</text>
+            <text x="540" y="152" font-size="13" fill="#44403c">32 次比较 i &lt; flen</text>
+            <text x="540" y="176" font-size="13" fill="#44403c">32 次推进 coeffs 指针</text>
+            <text x="540" y="200" font-size="13" fill="#44403c">只有 samples[tid+i] 和累加器是私有的</text>
+            <text x="710" y="240" text-anchor="middle" font-size="12" fill="#9a3412">有用功被记账淹没</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4. FIR。系数数组在内存里只有一份，SPMD 编码却让每条线程每轮都 load 一次。标量化后系数进共享标量，每 warp 只 load 一次。</p>
+
+      <div class="kpi">
+        <div>
+          <div class="n">288→70</div>
+          <div class="k">FIR、warp=32：寄存器槽</div>
+        </div>
+        <div>
+          <div class="n">256→39</div>
+          <div class="k">每轮动态操作</div>
+        </div>
+        <div>
+          <div class="n">64→2</div>
+          <div class="k">每轮地址条数</div>
+        </div>
+        <div>
+          <div class="n">−76%</div>
+          <div class="k">寄存器槽减少比例</div>
+        </div>
+      </div>
+      <div class="callout">
+        SIMT 的取指是一份，<strong>执行和寄存器仍按线程复制</strong>。这是 SPMD 编码方式的结构性开销，不是写得不够好那么简单。
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 问题二：用多线程藏延迟</h2>
+      <p>地址流常常已知，但 GPU 选择切线程而不是预取：load 没回来就换另一条线程。代价是除了目的寄存器，其余线程状态都得停在片上。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="切线程藏延迟：整份状态停在片上">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="230" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">GPU：切线程</text>
+            <!-- timeline -->
+            <line x1="40" y1="160" x2="430" y2="160" stroke="#a8a29e" stroke-width="1.5"/>
+            <text x="40" y="48" font-size="11" fill="#78716c">时间 →</text>
+            <rect x="50" y="70" width="70" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="85" y="93" text-anchor="middle" font-size="11" fill="#9a3412">W0 load</text>
+            <rect x="130" y="70" width="160" height="36" rx="4" fill="#fecaca" stroke="#dc2626" stroke-dasharray="4 3"/>
+            <text x="210" y="93" text-anchor="middle" font-size="11" fill="#991b1b">W0 等内存</text>
+            <rect x="130" y="118" width="70" height="28" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+            <text x="165" y="137" text-anchor="middle" font-size="10" fill="#1e3a5f">切到 W1</text>
+            <rect x="210" y="118" width="70" height="28" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+            <text x="245" y="137" text-anchor="middle" font-size="10" fill="#1e3a5f">切到 W2</text>
+            <rect x="300" y="70" width="70" height="36" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <text x="335" y="93" text-anchor="middle" font-size="11" fill="#166534">W0 回来</text>
+            <!-- parked state -->
+            <rect x="50" y="190" width="370" height="100" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="235" y="214" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">片上必须停着的东西</text>
+            <text x="70" y="242" font-size="12" fill="#44403c">W0、W1、W2… 每条 warp 的全部寄存器</text>
+            <text x="70" y="264" font-size="12" fill="#44403c">PC、谓词、分歧栈  ·  只有目的寄存器在等数据</text>
+            <text x="70" y="276" font-size="12" fill="#9a3412">其余全是开销</text>
+
+            <line x1="460" y1="40" x2="460" y2="300" stroke="#e7e0d4"/>
+
+            <text x="700" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">向量机：预取数据</text>
+            <line x1="500" y1="160" x2="890" y2="160" stroke="#a8a29e" stroke-width="1.5"/>
+            <rect x="510" y="70" width="90" height="36" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="555" y="93" text-anchor="middle" font-size="11" fill="#115e59">VRU 预取</text>
+            <rect x="610" y="70" width="140" height="36" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="680" y="93" text-anchor="middle" font-size="11" fill="#134e4a">数据进 L2 / 队列</text>
+            <rect x="760" y="70" width="90" height="36" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <text x="805" y="93" text-anchor="middle" font-size="11" fill="#166534">VXU 消费</text>
+            <rect x="510" y="190" width="370" height="100" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="695" y="214" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">片上只需停数据</text>
+            <text x="530" y="242" font-size="12" fill="#44403c">预取缓冲：即将用到的向量元素</text>
+            <text x="530" y="264" font-size="12" fill="#44403c">不必为「等待中的线程」复制整份状态</text>
+            <text x="530" y="276" font-size="12" fill="#0f766e">前提：地址流已知且冻结</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5. 藏延迟的两种付费方式。GPU 用并发 warp 填空洞，所以寄存器文件必须装下所有停着的线程；向量机用预取填空洞，片上只缓存数据。</p>
+
+      <h3>occupancy 被寄存器卡死</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="寄存器压力降低 occupancy">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="160" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">SM 上固定的物理寄存器池</text>
+            <!-- many small warps -->
+            <rect x="20" y="50" width="280" height="150" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <rect x="36" y="70" width="50" height="50" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <rect x="92" y="70" width="50" height="50" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <rect x="148" y="70" width="50" height="50" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <rect x="204" y="70" width="50" height="50" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <rect x="36" y="128" width="50" height="50" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <rect x="92" y="128" width="50" height="50" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <rect x="148" y="128" width="50" height="50" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <rect x="204" y="128" width="50" height="50" rx="4" fill="#d1fae5" stroke="#86efac"/>
+            <text x="160" y="215" text-anchor="middle" font-size="12" fill="#166534">每线程寄存器少 → warp 多 → 能切</text>
+
+            <text x="360" y="130" font-size="22" fill="#9a3412">→</text>
+            <text x="360" y="150" font-size="11" fill="#9a3412">多占几格</text>
+
+            <rect x="420" y="50" width="280" height="150" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="440" y="70" width="110" height="110" rx="4" fill="#fecaca" stroke="#dc2626"/>
+            <rect x="560" y="70" width="110" height="110" rx="4" fill="#fecaca" stroke="#dc2626"/>
+            <text x="495" y="128" text-anchor="middle" font-size="12" fill="#991b1b">W0 很大</text>
+            <text x="615" y="128" text-anchor="middle" font-size="12" fill="#991b1b">W1 很大</text>
+            <text x="560" y="215" text-anchor="middle" font-size="12" fill="#9a3412">每线程寄存器多 → warp 少 → 藏不住延迟</text>
+
+            <rect x="720" y="50" width="180" height="150" rx="8" fill="#faf8f4" stroke="#e7e0d4"/>
+            <text x="810" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#44403c">论文里的例子</text>
+            <text x="810" y="112" text-anchor="middle" font-size="12" fill="#44403c">bfs 多 11 / 23 个寄存器</text>
+            <text x="810" y="136" text-anchor="middle" font-size="12" fill="#44403c">srad 多 10 个</text>
+            <text x="810" y="160" text-anchor="middle" font-size="12" fill="#9a3412">occupancy 下降</text>
+            <text x="810" y="184" text-anchor="middle" font-size="12" fill="#9a3412">性能跟着掉</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6. 吞吐量机器用 occupancy 藏延迟。谓词化或未经标量化的冗余一旦多占寄存器，能同时驻留的 warp 变少，切线程策略自己把自己卡死。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 问题三：硬件分歧栈</h2>
+      <p>SPMD 允许任意嵌套 if、循环、虚函数、goto。对向量化编译器这是「优化失败就退回标量核」；对 GPU 这是<strong>功能正确性</strong>，没有退路。</p>
+
+      <h3>if-then-else：一边跑、一边压栈</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="分歧栈执行 if-then-else">
+          <g font-family="Segoe UI, sans-serif">
+            <!-- CFG -->
+            <rect x="20" y="20" width="280" height="340" rx="8" fill="#faf8f4" stroke="#e7e0d4"/>
+            <text x="160" y="46" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">程序 CFG</text>
+            <rect x="90" y="60" width="140" height="32" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+            <text x="160" y="81" text-anchor="middle" font-size="12" fill="#1e3a5f">if (p)</text>
+            <path d="M160 92 L90 130" stroke="#1e3a5f"/>
+            <path d="M160 92 L230 130" stroke="#1e3a5f"/>
+            <rect x="40" y="130" width="100" height="32" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <text x="90" y="151" text-anchor="middle" font-size="12" fill="#166534">then</text>
+            <rect x="180" y="130" width="100" height="32" rx="4" fill="#fecaca" stroke="#dc2626"/>
+            <text x="230" y="151" text-anchor="middle" font-size="12" fill="#991b1b">else</text>
+            <path d="M90 162 L160 200" stroke="#1e3a5f"/>
+            <path d="M230 162 L160 200" stroke="#1e3a5f"/>
+            <rect x="90" y="200" width="140" height="32" rx="4" fill="#e2e8f0" stroke="#94a3b8"/>
+            <text x="160" y="221" text-anchor="middle" font-size="12" fill="#334155">会合点</text>
+            <text x="160" y="260" text-anchor="middle" font-size="11" fill="#64748b">立即后支配点</text>
+            <text x="160" y="282" text-anchor="middle" font-size="11" fill="#64748b">编译器在此 push</text>
+            <text x="160" y="304" text-anchor="middle" font-size="11" fill="#64748b">reconverge token</text>
+            <text x="160" y="336" text-anchor="middle" font-size="11" fill="#9a3412">程序员以为两边可并行</text>
+
+            <!-- mask timeline -->
+            <text x="620" y="40" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">warp 8 线程的时间线（掩码）</text>
+            <text x="360" y="70" font-size="11" fill="#78716c">T0–T7</text>
+            <!-- t0 all active -->
+            <text x="340" y="100" font-size="11" fill="#44403c">① 分支前</text>
+            <rect x="430" y="86" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="454" y="86" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="478" y="86" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="502" y="86" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="526" y="86" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="550" y="86" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="574" y="86" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="598" y="86" width="22" height="22" rx="3" fill="#22c55e"/>
+            <text x="760" y="102" font-size="11" fill="#166534">mask=11111111  跑 then? 先压 else</text>
+
+            <text x="340" y="150" font-size="11" fill="#44403c">② 跑 then</text>
+            <rect x="430" y="136" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="454" y="136" width="22" height="22" rx="3" fill="#d6d3d1"/>
+            <rect x="478" y="136" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="502" y="136" width="22" height="22" rx="3" fill="#d6d3d1"/>
+            <rect x="526" y="136" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="550" y="136" width="22" height="22" rx="3" fill="#d6d3d1"/>
+            <rect x="574" y="136" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="598" y="136" width="22" height="22" rx="3" fill="#d6d3d1"/>
+            <text x="760" y="152" font-size="11" fill="#166534">10101010  一半 ALU 闲着</text>
+
+            <text x="340" y="200" font-size="11" fill="#44403c">③ pop，跑 else</text>
+            <rect x="430" y="186" width="22" height="22" rx="3" fill="#d6d3d1"/>
+            <rect x="454" y="186" width="22" height="22" rx="3" fill="#ef4444"/>
+            <rect x="478" y="186" width="22" height="22" rx="3" fill="#d6d3d1"/>
+            <rect x="502" y="186" width="22" height="22" rx="3" fill="#ef4444"/>
+            <rect x="526" y="186" width="22" height="22" rx="3" fill="#d6d3d1"/>
+            <rect x="550" y="186" width="22" height="22" rx="3" fill="#ef4444"/>
+            <rect x="574" y="186" width="22" height="22" rx="3" fill="#d6d3d1"/>
+            <rect x="598" y="186" width="22" height="22" rx="3" fill="#ef4444"/>
+            <text x="760" y="202" font-size="11" fill="#991b1b">01010101  另一半闲着</text>
+
+            <text x="340" y="250" font-size="11" fill="#44403c">④ 会合</text>
+            <rect x="430" y="236" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="454" y="236" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="478" y="236" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="502" y="236" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="526" y="236" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="550" y="236" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="574" y="236" width="22" height="22" rx="3" fill="#22c55e"/>
+            <rect x="598" y="236" width="22" height="22" rx="3" fill="#22c55e"/>
+            <text x="760" y="252" font-size="11" fill="#166534">11111111  恢复满宽</text>
+
+            <rect x="340" y="290" width="560" height="60" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="620" y="316" text-anchor="middle" font-size="13" fill="#9a3412">then 和 else 被硬件序列化，不是并行。分一次叉，有效宽度减半。</text>
+            <text x="620" y="336" text-anchor="middle" font-size="12" fill="#78716c">栈：先压会合点，再压未选边；pop 换边；再 pop 回到会合点。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7. 分歧栈把「看起来并行的 if」做成「先跑一半线程、再跑另一半」。灰色格子是关闭的通道，ALU 仍在，只是被掩掉。</p>
+
+      <h3>越分越窄，直到一次只跑一条</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="嵌套分歧使有效宽度减半">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="70" y="36" font-size="12" fill="#44403c">收敛</text>
+            <rect x="40" y="50" width="200" height="36" rx="4" fill="#22c55e"/>
+            <text x="140" y="73" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">32 / 32 活跃</text>
+            <text x="260" y="74" font-size="18" fill="#9a3412">→</text>
+            <text x="310" y="36" font-size="12" fill="#44403c">一层 if</text>
+            <rect x="300" y="50" width="140" height="36" rx="4" fill="#84cc16"/>
+            <text x="370" y="73" text-anchor="middle" font-size="12" fill="#14532d" font-weight="700">16 / 32</text>
+            <text x="460" y="74" font-size="18" fill="#9a3412">→</text>
+            <text x="500" y="36" font-size="12" fill="#44403c">嵌套 if</text>
+            <rect x="490" y="50" width="110" height="36" rx="4" fill="#eab308"/>
+            <text x="545" y="73" text-anchor="middle" font-size="12" fill="#713f12" font-weight="700">8 / 32</text>
+            <text x="620" y="74" font-size="18" fill="#9a3412">→</text>
+            <text x="670" y="36" font-size="12" fill="#44403c">再分</text>
+            <rect x="650" y="50" width="90" height="36" rx="4" fill="#f97316"/>
+            <text x="695" y="73" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">4 / 32</text>
+            <text x="760" y="74" font-size="18" fill="#9a3412">→</text>
+            <rect x="790" y="50" width="100" height="36" rx="4" fill="#dc2626"/>
+            <text x="840" y="73" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">1 / 32</text>
+            <text x="460" y="120" text-anchor="middle" font-size="13" fill="#9a3412">同 warp 内分歧线程之间没有并行，路径被栈串起来</text>
+            <text x="460" y="148" text-anchor="middle" font-size="12" fill="#78716c">分歧太深时硬件栈还会溢到 DRAM · 无结构控制流让后端极难保证正确</text>
+            <text x="460" y="176" text-anchor="middle" font-size="12" fill="#64748b">Maven 项目一半以上调试时间花在把硬件分歧做对</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 8. 有效 SIMD 宽度随嵌套分歧指数下降。这不是「有的线程没事做」那么简单，而是整个 warp 被锁进一条串行路径队列。</p>
+
+      <h3>短接：部分会合点被串行掉</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="短接表达式在分歧栈上无法部分会合">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="220" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">分歧栈实际执行</text>
+            <rect x="90" y="40" width="80" height="28" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+            <text x="130" y="59" text-anchor="middle" font-size="11" fill="#1e3a5f">N1</text>
+            <path d="M130 68 L70 100" stroke="#57534e"/>
+            <path d="M130 68 L190 100" stroke="#57534e"/>
+            <rect x="30" y="100" width="80" height="28" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+            <text x="70" y="119" text-anchor="middle" font-size="11" fill="#166534">N2</text>
+            <rect x="150" y="100" width="80" height="28" rx="4" fill="#fecaca" stroke="#dc2626"/>
+            <text x="190" y="119" text-anchor="middle" font-size="11" fill="#991b1b">N3</text>
+            <path d="M70 128 L70 160" stroke="#57534e"/>
+            <path d="M190 128 L190 160" stroke="#57534e"/>
+            <rect x="30" y="160" width="80" height="28" rx="4" fill="#e2e8f0" stroke="#94a3b8"/>
+            <text x="70" y="179" text-anchor="middle" font-size="11" fill="#334155">N4</text>
+            <rect x="150" y="160" width="80" height="28" rx="4" fill="#e2e8f0" stroke="#94a3b8"/>
+            <text x="190" y="179" text-anchor="middle" font-size="11" fill="#334155">N7</text>
+            <path d="M70 188 L130 220" stroke="#57534e"/>
+            <path d="M190 188 L130 220" stroke="#57534e"/>
+            <rect x="90" y="220" width="80" height="28" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+            <text x="130" y="239" text-anchor="middle" font-size="11" fill="#1e3a5f">N5 会合</text>
+            <text x="220" y="200" font-size="11" fill="#9a3412">N4 本可部分会合</text>
+            <text x="220" y="216" font-size="11" fill="#9a3412">栈却把 N4 串行执行</text>
+
+            <text x="700" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">谓词化可以在 N4 重新并行</text>
+            <rect x="520" y="50" width="360" height="180" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="700" y="84" text-anchor="middle" font-size="13" fill="#134e4a">N2、N3 的线程在 N4 汇合</text>
+            <text x="700" y="112" text-anchor="middle" font-size="13" fill="#134e4a">用谓词掩码同时执行 N4</text>
+            <text x="700" y="140" text-anchor="middle" font-size="13" fill="#134e4a">不必等立即后支配点 N5</text>
+            <text x="700" y="176" text-anchor="middle" font-size="12" fill="#0f766e">栈的会合规则太粗：只认立即后支配点</text>
+            <text x="700" y="200" text-anchor="middle" font-size="12" fill="#0f766e">编译器显式调度才能利用部分会合</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 9. 短接表达式。硬件栈在立即后支配点才会合，中间的 N4 即使两边都会走到，也被序列化。谓词化按控制依赖生成掩码，可以在 N4 重新并起来。</p>
+
+      <div class="grid-3">
+        <div class="tile">
+          <h4>语义也不真</h4>
+          <p>warp 内线程并非真正异步。同步只能按 warp/CTA。硬件选哪条边先走不确定，编译器无法对路径做强分析。</p>
+        </div>
+        <div class="tile">
+          <h4>和谓词同构</h4>
+          <p>GPU 已有谓词和 <code>cbranch.ifnone</code>，与向量机 popcount 后标量分支同构。当时后端几乎只用于小 if。</p>
+        </div>
+        <div class="tile">
+          <h4>不是性能必须</h4>
+          <p>系统谓词化相对纯栈只慢 2.7%。栈留下是因为「让编译器当普通线程编译」这条哲学，不是因为更快。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 问题四：没有标量通路，地址也各算各的</h2>
+      <p>论文做标量化实验时，真实 NVIDIA GPU 没有标量寄存器、也没有标量执行通路，只能跑内部模拟器。动态 coalescer 是同一症状：每线程自己算地址，硬件再把相邻访问拼回去。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="动态 coalescing：先拆再拼">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="160" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">每线程算地址</text>
+            <rect x="20" y="48" width="70" height="50" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="96" y="48" width="70" height="50" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="172" y="48" width="70" height="50" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+            <rect x="248" y="48" width="70" height="50" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="55" y="70" text-anchor="middle" font-size="10" fill="#9a3412">T0</text>
+            <text x="55" y="86" text-anchor="middle" font-size="9" fill="#7c2d12">base+0</text>
+            <text x="131" y="70" text-anchor="middle" font-size="10" fill="#9a3412">T1</text>
+            <text x="131" y="86" text-anchor="middle" font-size="9" fill="#7c2d12">base+4</text>
+            <text x="207" y="70" text-anchor="middle" font-size="10" fill="#9a3412">T2</text>
+            <text x="207" y="86" text-anchor="middle" font-size="9" fill="#7c2d12">base+8</text>
+            <text x="283" y="70" text-anchor="middle" font-size="10" fill="#9a3412">T31</text>
+            <text x="283" y="86" text-anchor="middle" font-size="9" fill="#7c2d12">base+124</text>
+            <text x="160" y="122" text-anchor="middle" font-size="12" fill="#9a3412">32 条标量地址</text>
+
+            <path d="M340 80 L400 80" stroke="#1e3a5f" stroke-width="2"/>
+            <polygon points="400,80 390,75 390,85" fill="#1e3a5f"/>
+            <text x="370" y="68" text-anchor="middle" font-size="10" fill="#1e3a5f">硬件</text>
+
+            <rect x="410" y="40" width="200" height="90" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="510" y="70" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">动态 coalescer</text>
+            <text x="510" y="94" text-anchor="middle" font-size="11" fill="#334155">发现相邻？拼成宽块</text>
+            <text x="510" y="114" text-anchor="middle" font-size="11" fill="#334155">一次 cache tag 检查</text>
+
+            <path d="M610 80 L670 80" stroke="#0f766e" stroke-width="2"/>
+            <polygon points="670,80 660,75 660,85" fill="#0f766e"/>
+
+            <rect x="680" y="40" width="220" height="90" rx="8" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="790" y="70" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">一次宽访存</text>
+            <text x="790" y="94" text-anchor="middle" font-size="11" fill="#134e4a">128B cache line</text>
+            <text x="790" y="114" text-anchor="middle" font-size="11" fill="#134e4a">本可以编译期看出来</text>
+
+            <rect x="20" y="160" width="880" height="100" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="460" y="190" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">问题不在「最后拼成了宽访问」，而在「先让每条线程假装自己在标量寻址」</text>
+            <text x="460" y="218" text-anchor="middle" font-size="13" fill="#44403c">若编译器证明 addr = base + sizeof(T)*tid.x，直接生成向量 load，地址生成从 32 次变成 1 次</text>
+            <text x="460" y="242" text-anchor="middle" font-size="12" fill="#78716c">论文 FIR：每轮 64 个独立地址 → 标量化后 2 个</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 10. 动态 coalescing 是在运行时修复 SPMD 造成的假象。单位步长本该是编译期事实，却被做成硬件通路。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三种架构对宽度和标量的取舍">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="280" height="180" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="160" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">Packed-SIMD</text>
+            <text x="40" y="84" font-size="13" fill="#44403c">有标量核</text>
+            <text x="40" y="108" font-size="13" fill="#44403c">宽度写进 opcode</text>
+            <text x="40" y="132" font-size="13" fill="#44403c">加宽就要新指令</text>
+            <text x="40" y="156" font-size="13" fill="#44403c">旧码吃不到新宽度</text>
+            <text x="160" y="184" text-anchor="middle" font-size="12" fill="#9a3412">死在静态宽度</text>
+
+            <rect x="320" y="20" width="280" height="180" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="460" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">GPU / SIMT</text>
+            <text x="340" y="84" font-size="13" fill="#44403c">宽度不进 opcode</text>
+            <text x="340" y="108" font-size="13" fill="#44403c">没有标量通路</text>
+            <text x="340" y="132" font-size="13" fill="#44403c">状态按线程复制</text>
+            <text x="340" y="156" font-size="13" fill="#44403c">靠多线程藏延迟</text>
+            <text x="460" y="184" text-anchor="middle" font-size="12" fill="#1e3a5f">死在没有标量</text>
+
+            <rect x="620" y="20" width="280" height="180" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="760" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">传统向量 / Hwacha</text>
+            <text x="640" y="84" font-size="13" fill="#44403c">vsetvl 动态向量长</text>
+            <text x="640" y="108" font-size="13" fill="#44403c">标量核记账一份</text>
+            <text x="640" y="132" font-size="13" fill="#44403c">同一份码任意宽度</text>
+            <text x="640" y="156" font-size="13" fill="#44403c">尾部不用特殊代码</text>
+            <text x="760" y="184" text-anchor="middle" font-size="12" fill="#0f766e">两边都要</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 11. Packed-SIMD 和 SIMT 的缺陷互补。传统向量用 VLR 同时要动态宽度和标量控制核。论文认为 GPU 为可编程性把分界划得太靠硬件。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 生产编译器实际在做什么</h2>
+      <p>CUDA 工具链在论文里的画像是：<strong>按普通标量线程编译，把「如何高效地一捆执行」尽量甩给硬件。</strong></p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CUDA 生产编译器流水线">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="30" y="20" width="200" height="80" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="130" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">CUDA / OpenCL</text>
+            <text x="130" y="74" text-anchor="middle" font-size="11" fill="#7c2d12">单线程 kernel + 网格</text>
+            <path d="M230 60 L290 60" stroke="#57534e" stroke-width="2"/>
+            <polygon points="290,60 280,55 280,65" fill="#57534e"/>
+            <rect x="300" y="20" width="200" height="80" rx="8" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="400" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">LLVM → PTX</text>
+            <text x="400" y="74" text-anchor="middle" font-size="11" fill="#7c2d12">虚寄存器、简单分支</text>
+            <path d="M500 60 L560 60" stroke="#57534e" stroke-width="2"/>
+            <polygon points="560,60 550,55 550,65" fill="#57534e"/>
+            <rect x="570" y="8" width="320" height="104" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="730" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">ptxas → SASS</text>
+            <text x="730" y="58" text-anchor="middle" font-size="11" fill="#334155">① 分配硬件寄存器 → occupancy</text>
+            <text x="730" y="78" text-anchor="middle" font-size="11" fill="#334155">② 插入 push / pop 会合点</text>
+            <text x="730" y="98" text-anchor="middle" font-size="11" fill="#334155">③ 有限 if-conversion 启发式</text>
+            <rect x="30" y="160" width="860" height="170" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="460" y="190" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">硬件 SIMT 接手之后</text>
+            <rect x="60" y="210" width="240" height="90" rx="6" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="180" y="244" text-anchor="middle" font-size="12" fill="#134e4a">一条指令取一次</text>
+            <text x="180" y="266" text-anchor="middle" font-size="12" fill="#134e4a">warp 32 线程一起执行</text>
+            <rect x="340" y="210" width="240" height="90" rx="6" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="460" y="244" text-anchor="middle" font-size="12" fill="#134e4a">分歧：编译器定会合点</text>
+            <text x="460" y="266" text-anchor="middle" font-size="12" fill="#134e4a">硬件管栈、选边、掩码</text>
+            <rect x="620" y="210" width="240" height="90" rx="6" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="740" y="244" text-anchor="middle" font-size="12" fill="#134e4a">访存：每线程算地址</text>
+            <text x="740" y="266" text-anchor="middle" font-size="12" fill="#134e4a">硬件动态 coalescing</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 12. 生产编译器流水线。会合点怎么选，编译器要配合；路径选择、掩码、再会合在硬件里。前端因此可以保持「就是在编译一条线程」。</p>
+      <ul>
+        <li>if-then-else 会合点 = 立即后支配点；循环 = 所有出口的后支配点。</li>
+        <li>谓词 + 一致分支已在 ISA 里，后端几乎只用于小 if；有限启发式平均几乎不改变性能。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 论文主张：标量化编译器</h2>
+      <p>方向和自动向量化相反：从已经显式并行的 SPMD 里，找出其实该只做一次的部分。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="向量化与标量化方向相反">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="30" y="30" width="180" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="120" y="60" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">单线程循环</text>
+            <text x="120" y="80" text-anchor="middle" font-size="11" fill="#7c2d12">for i in 0..n</text>
+            <rect x="30" y="140" width="180" height="70" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="120" y="170" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">SPMD kernel</text>
+            <text x="120" y="190" text-anchor="middle" font-size="11" fill="#334155">每线程一份 i=tid</text>
+            <rect x="710" y="30" width="180" height="70" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="800" y="60" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">标量核</text>
+            <text x="800" y="80" text-anchor="middle" font-size="11" fill="#134e4a">记账 / 共享值</text>
+            <rect x="710" y="140" width="180" height="70" rx="6" fill="#fef3c7" stroke="#b45309"/>
+            <text x="800" y="170" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">数据并行单元</text>
+            <text x="800" y="190" text-anchor="middle" font-size="11" fill="#92400e">真正不同的元素</text>
+            <path d="M220 65 C400 65, 520 65, 700 65" fill="none" stroke="#c2410c" stroke-width="2"/>
+            <path d="M220 175 C400 175, 520 80, 700 80" fill="none" stroke="#c2410c" stroke-width="2"/>
+            <text x="460" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#c2410c">向量化 → 挖并行</text>
+            <path d="M220 165 C400 165, 520 175, 700 175" fill="none" stroke="#1e3a5f" stroke-width="2"/>
+            <path d="M220 75 C400 75, 520 165, 700 165" fill="none" stroke="#1e3a5f" stroke-width="2"/>
+            <text x="460" y="220" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">← 标量化  挖「其实该标量」</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 13. 向量化从串行里挖并行；标量化从并行里挖冗余。失败时向量化可以退回标量核，SPMD 不能退。</p>
+
+      <table>
+        <thead>
+          <tr><th></th><th>向量化编译器</th><th>标量化编译器</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>输入</td><td>单线程循环</td><td>已经显式并行的 SPMD</td></tr>
+          <tr><td>要找的</td><td>哪些能并行</td><td>哪些其实该标量做</td></tr>
+          <tr><td>输出</td><td>标量核记账 + 向量算</td><td>共享标量 + 谓词化向量</td></tr>
+          <tr><td>失败时</td><td>退回标量核</td><td><strong>不能退</strong>，必须仍正确并行</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Pass 1：收敛 + 方差必须同一趟</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="收敛与方差联合传播">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="280" height="220" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="160" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">乐观起点</text>
+            <text x="40" y="80" font-size="12" fill="#134e4a">所有块 = 收敛</text>
+            <text x="40" y="104" font-size="12" fill="#134e4a">所有指令 = 线程不变</text>
+            <text x="40" y="140" font-size="12" fill="#0f766e">工作表只放入：</text>
+            <text x="40" y="164" font-size="12" fill="#44403c">读 tid</text>
+            <text x="40" y="186" font-size="12" fill="#44403c">atomic / volatile</text>
+            <text x="40" y="214" font-size="12" fill="#78716c">kernel 入口默认全收敛</text>
+
+            <rect x="320" y="20" width="280" height="220" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="460" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">传播</text>
+            <text x="340" y="80" font-size="12" fill="#44403c">沿 SSA：可变 → 后继可变</text>
+            <text x="340" y="110" font-size="12" fill="#44403c">若是条件分支：</text>
+            <text x="340" y="134" font-size="12" fill="#44403c">控制依赖后继 → 分歧</text>
+            <text x="340" y="158" font-size="12" fill="#44403c">块内指令全部入表</text>
+            <text x="340" y="190" font-size="12" fill="#9a3412">syncthreads 的块除外</text>
+            <text x="340" y="214" font-size="12" fill="#78716c">提前退出也可视为收敛</text>
+
+            <rect x="620" y="20" width="280" height="220" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="760" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">代码生成</text>
+            <text x="640" y="80" font-size="12" fill="#44403c">不变值 → 共享标量</text>
+            <text x="640" y="104" font-size="12" fill="#44403c">指令 → 每 warp 一次</text>
+            <text x="640" y="128" font-size="12" fill="#44403c">仿射地址 → ldvec / stvec</text>
+            <text x="640" y="164" font-size="12" fill="#1e3a5f">只看 CFG：32% 收敛</text>
+            <text x="640" y="186" font-size="12" fill="#1e3a5f">+ 方差：57%</text>
+            <text x="640" y="208" font-size="12" fill="#1e3a5f">+ 退出优化：66%</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 14. 收敛和方差分不开：块收敛当且仅当它只控制依赖于「收敛块且分支条件线程不变」。没被污染到的，就可以标量化。</p>
+
+      <h3>Pass 2：谓词化按控制依赖生成掩码</h3>
+      <div class="fig">
+        <svg viewBox="0 0 920 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="谓词化与分歧栈对照">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="430" height="180" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="235" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">分歧栈</text>
+            <text x="40" y="80" font-size="13" fill="#44403c">硬件选边、压栈、换边、会合</text>
+            <text x="40" y="106" font-size="13" fill="#44403c">执行顺序不确定</text>
+            <text x="40" y="132" font-size="13" fill="#44403c">部分会合点被串行</text>
+            <text x="40" y="158" font-size="13" fill="#44403c">编译器当普通线程编译</text>
+            <text x="40" y="184" font-size="12" fill="#9a3412">假象留给硬件</text>
+            <rect x="470" y="20" width="430" height="180" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="685" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">线程感知谓词化</text>
+            <text x="490" y="80" font-size="13" fill="#44403c">CDG 上插谓词节点</text>
+            <text x="490" y="106" font-size="13" fill="#44403c">循环：loop / continue / exit mask</text>
+            <text x="490" y="132" font-size="13" fill="#44403c">静态一致：去掉守卫，保留分支</text>
+            <text x="490" y="158" font-size="13" fill="#44403c">运行时一致：全假则整段不取指</text>
+            <text x="490" y="184" font-size="12" fill="#0f766e">顺序确定，硅上只慢 2.7%</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 15. 谓词化不是单线程 if-conversion：所有路径必须部分执行，分歧后必须会合，还不能把 occupancy 打爆。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 两条哲学对照</h2>
+      <div class="fig">
+        <svg viewBox="0 0 920 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="两条编译器哲学">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="430" height="200" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="235" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">GPGPU 默认哲学</text>
+            <text x="40" y="88" font-size="13" fill="#44403c">保持「单线程编译」的假象</text>
+            <text x="40" y="114" font-size="13" fill="#44403c">SIMT 摊取指</text>
+            <text x="40" y="140" font-size="13" fill="#44403c">分歧栈管控制流</text>
+            <text x="40" y="166" font-size="13" fill="#44403c">多线程 + 超大寄存器文件藏延迟</text>
+            <text x="40" y="192" font-size="13" fill="#44403c">动态 coalescing 补地址</text>
+            <rect x="470" y="20" width="430" height="200" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="685" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#115e59">论文主张的哲学</text>
+            <text x="490" y="88" font-size="13" fill="#44403c">SPMD 只是程序员接口</text>
+            <text x="490" y="114" font-size="13" fill="#44403c">证明何时收敛、何值不变</text>
+            <text x="490" y="140" font-size="13" fill="#44403c">冗余收成标量，控制流收成谓词</text>
+            <text x="490" y="166" font-size="13" fill="#44403c">硬件：一份标量 + 一份谓词 + 长向量</text>
+            <text x="490" y="192" font-size="13" fill="#44403c">地址冻结后做非推测预取</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 16. 可编程性被买贵了：贵在把本该由编译器静态完成的标量化和分歧管理，做成了运行时硬件。</p>
+      <p>Hwacha 是这条哲学落到向量机上的结果。对 GPGPU 本身，诊断已经够用：不是不能做 SPMD，而是不该让硬件独自消化 SPMD 的全部假象。</p>
+    </section>
+
+    <footer>
+      抽出自 Yunsup Lee, <em>Decoupled Vector-Fetch Architecture with a Scalarizing Compiler</em>, Ph.D. dissertation, UC Berkeley, 2016。<br />
+      全文结构分析见 <a href="Hwacha_论文分析.html">Hwacha_论文分析.html</a>。图为解释图，不是原文插图扫描。
+    </footer>
+  </div>
+</body>
+</html>
