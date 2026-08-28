@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AMPD 论文分析 | arXiv:2602.14516</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .fig {
+      margin: 22px 0 6px;
+      background: #faf8f4;
+      border: 1px solid var(--line);
+      padding: 18px 14px 10px;
+      overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center;
+      margin: 6px 0 20px; line-height: 1.55;
+    }
+    .fig-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 6px;
+    }
+    .fig-row .fig { margin: 0; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv:2602.14516v2</span>
+        <span class="badge">ICML 2026 · PMLR 306</span>
+        <span class="badge">PD 拆分 · 多轮 Agent / RAG</span>
+        <span class="badge ok">SJTU · Cambridge · PKU · Ant</span>
+        <span class="badge ok">Dynamo + NIXL</span>
+      </div>
+      <h1>多轮推理把 PD 拆分开了：增量 Prefill 该回 P 还是就地做</h1>
+      <p class="subtitle">Efficient Multi-round LLM Inference over Disaggregated Serving</p>
+      <p class="meta">
+        <strong>作者：</strong>Wenhao He、Youhe Jiang、Penghao Zhao、Quanqing Xu、Eiko Yoneki、Bin Cui、Fangcheng Fu<br />
+        <strong>单位：</strong>上海交通大学 · 东南大学 · University of Cambridge · 北京大学 · OceanBase / 蚂蚁<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2602.14516" target="_blank" rel="noopener">arXiv:2602.14516</a>
+        · HTML <a href="https://arxiv.org/html/2602.14516v2" target="_blank" rel="noopener">v2</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：交错 PD 打穿现有拆分假设</a></li>
+        <li><a href="#s3">系统：离线规划 + 在线协调</a></li>
+        <li><a href="#s4">自适应路由：本地还是远端</a></li>
+        <li><a href="#s5">Prefill 重排：窗口内最大化 SLO</a></li>
+        <li><a href="#s6">离线 ILP：P/D 副本与张量并行</a></li>
+        <li><a href="#s7">实现与实验</a></li>
+        <li><a href="#s8">局限和对近存 / 拆分部署的含义</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">
+        Agent 和迭代检索不是“一次 Prefill + 一长串 Decode”。它们在同一次会话里反复插入<strong>增量 Prefill</strong>。现有 PD 拆分要么把所有 Prefill 扔回 P 实例（TTFT 和 KV 传输变差），要么按单轮的提示/输出长度去规划副本，都会配错。AMPD 用实时 TTFT/ITL 窗口决定增量 Prefill 在 Decode 实例就地做还是送回 Prefill 实例，再用窗口重排压 TTFT 尾部；离线用 ILP 配 P/D 的副本数和张量并行。相对 Dynamo，SLO 达成平均 +67%；相对 vLLM 平均 +340%。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">+67%</div>
+          <div class="k">相对 Dynamo（纯拆分）平均 SLO</div>
+        </div>
+        <div>
+          <div class="n">+340%</div>
+          <div class="k">相对 vLLM（同卡混部）平均 SLO</div>
+        </div>
+        <div>
+          <div class="n">14–32%</div>
+          <div class="k">增量 Prefill 走 Decode 本地</div>
+        </div>
+        <div>
+          <div class="n">α=0.9 / β=0.85</div>
+          <div class="k">默认松弛阈值；w=3 重排窗口</div>
+        </div>
+      </div>
+      <div class="callout">
+        这篇工作不发明新的 PD 互连，也不改模型。它站在 DistServe / Splitwise / Mooncake / Dynamo 已经把 P 和 D 拆开的前提上，专门补<strong>多轮交错</strong>：增量 Prefill 的落点、队列顺序、以及按交错负载而不是单轮长度来规划 GPU。
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 980 268" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AMPD 在三套选择中的位置">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <rect x="16" y="16" width="300" height="232" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="166" y="44" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">同卡混部 · vLLM</text>
+            <rect x="40" y="60" width="252" height="28" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="166" y="79" text-anchor="middle" font-size="12">P 和 D 抢同一批 GPU</text>
+            <text x="166" y="114" text-anchor="middle" font-size="12.5" fill="#57534e">TTFT 通常更好</text>
+            <text x="166" y="136" text-anchor="middle" font-size="12.5" fill="#9a3412">ITL 被 Prefill 打断</text>
+            <text x="166" y="172" text-anchor="middle" font-size="11.5" fill="#78716c">Continuum：同会话优先</text>
+            <text x="166" y="192" text-anchor="middle" font-size="11.5" fill="#78716c">能缩短排队，ITL 不变</text>
+            <text x="166" y="224" text-anchor="middle" font-size="12" fill="#9a3412">多轮里 P 更重，更吃亏</text>
+
+            <rect x="340" y="16" width="300" height="232" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="490" y="44" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">纯拆分 · Dynamo</text>
+            <rect x="364" y="60" width="252" height="28" rx="4" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="490" y="79" text-anchor="middle" font-size="12">所有 Prefill 永远回 P</text>
+            <text x="490" y="114" text-anchor="middle" font-size="12.5" fill="#57534e">ITL 稳态、干扰小</text>
+            <text x="490" y="136" text-anchor="middle" font-size="12.5" fill="#1e3a5f">TTFT 被排队 + KV 传输卡住</text>
+            <text x="490" y="172" text-anchor="middle" font-size="11.5" fill="#78716c">规划只看提示/输出长度</text>
+            <text x="490" y="192" text-anchor="middle" font-size="11.5" fill="#78716c">看不见中间那串增量 Prefill</text>
+            <text x="490" y="224" text-anchor="middle" font-size="12" fill="#1e3a5f">GAIA 超长增量时更糟</text>
+
+            <rect x="664" y="16" width="300" height="232" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="814" y="44" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">AMPD</text>
+            <rect x="688" y="60" width="252" height="28" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="814" y="79" text-anchor="middle" font-size="12">仍拆 P / D，会话钉在 D</text>
+            <text x="814" y="114" text-anchor="middle" font-size="12.5" fill="#115e59">增量 Prefill：本地或远端</text>
+            <text x="814" y="136" text-anchor="middle" font-size="12.5" fill="#0f766e">窗口重排压 TTFT 尾部</text>
+            <text x="814" y="172" text-anchor="middle" font-size="11.5" fill="#78716c">离线 ILP 按交错负载配卡</text>
+            <text x="814" y="192" text-anchor="middle" font-size="11.5" fill="#78716c">14–32% Prefill 走 D 本地</text>
+            <text x="814" y="224" text-anchor="middle" font-size="12" fill="#0f766e">保住 ITL，把 TTFT 拉回来</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1 · 混部赢 TTFT、纯拆分赢 ITL。AMPD 不取消拆分，只把「增量 Prefill 永远回 P」改成按窗口松弛切换，并用 ILP 按多轮形状配 GPU。</p>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：交错 PD 打穿现有拆分假设</h2>
+      <p>LLM 推理仍是两段：Prefill 一次吃完整提示、算 KV，算力密集，决定 TTFT；Decode 逐步吐 token，带宽/显存密集，决定 ITL。同卡混部会互相抢资源。PD 拆分（DistServe、Splitwise、TetriInfer 等）把两段放到不同 GPU，已被 Dynamo 等生产框架采用。后续还有弹性扩缩、异构卡、多模态拆分。这些工作的负载模型几乎都是<strong>一轮</strong>：提示长度管 P，输出长度管 D。</p>
+      <p>多轮工作流打破这个模型。ReAct 式 Agent 在生成中插工具调用；迭代 RAG 在生成中再检索。环境返回的文本变成下一轮输入，于是同一次请求呈现 Prefill–Decode–增量 Prefill–Decode…。文中 TTFT 同时度量首次和增量 Prefill。</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="单轮与多轮时间线对照">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <text x="20" y="28" font-size="13" font-weight="700" fill="#1e3a5f">单轮（现有 PD 规划假设）</text>
+            <rect x="20" y="42" width="140" height="36" rx="4" fill="#c2410c"/>
+            <text x="90" y="65" text-anchor="middle" font-size="12" fill="#fff">Prefill</text>
+            <rect x="164" y="42" width="520" height="36" rx="4" fill="#0f766e"/>
+            <text x="424" y="65" text-anchor="middle" font-size="12" fill="#fff">Decode · token 逐步生成</text>
+            <text x="700" y="65" font-size="11.5" fill="#78716c">规划只看提示长 / 输出长</text>
+
+            <text x="20" y="118" font-size="13" font-weight="700" fill="#9a3412">多轮 Agent / 迭代 RAG（同一次会话）</text>
+            <rect x="20" y="132" width="88" height="36" rx="4" fill="#c2410c"/>
+            <text x="64" y="155" text-anchor="middle" font-size="11" fill="#fff">首轮 P</text>
+            <rect x="112" y="132" width="70" height="36" rx="4" fill="#0f766e"/>
+            <text x="147" y="155" text-anchor="middle" font-size="11" fill="#fff">Decode</text>
+            <rect x="186" y="132" width="78" height="36" rx="4" fill="#b45309"/>
+            <text x="225" y="155" text-anchor="middle" font-size="11" fill="#fff">Tool 1</text>
+            <rect x="268" y="132" width="96" height="36" rx="4" fill="#ea580c"/>
+            <text x="316" y="155" text-anchor="middle" font-size="11" fill="#fff">增量 P</text>
+            <rect x="368" y="132" width="86" height="36" rx="4" fill="#0f766e"/>
+            <text x="411" y="155" text-anchor="middle" font-size="11" fill="#fff">Decode</text>
+            <rect x="458" y="132" width="78" height="36" rx="4" fill="#b45309"/>
+            <text x="497" y="155" text-anchor="middle" font-size="11" fill="#fff">Tool 2</text>
+            <rect x="540" y="132" width="96" height="36" rx="4" fill="#ea580c"/>
+            <text x="588" y="155" text-anchor="middle" font-size="11" fill="#fff">增量 P</text>
+            <rect x="640" y="132" width="110" height="36" rx="4" fill="#0f766e"/>
+            <text x="695" y="155" text-anchor="middle" font-size="11" fill="#fff">Decode …</text>
+            <text x="770" y="155" font-size="11.5" fill="#9a3412">TTFT 覆盖每次增量 P</text>
+
+            <rect x="20" y="192" width="16" height="14" rx="2" fill="#c2410c"/>
+            <text x="42" y="204" font-size="11.5" fill="#57534e">首次 Prefill（历史长 = 0）</text>
+            <rect x="250" y="192" width="16" height="14" rx="2" fill="#ea580c"/>
+            <text x="272" y="204" font-size="11.5" fill="#57534e">增量 Prefill（工具/检索返回）</text>
+            <rect x="520" y="192" width="16" height="14" rx="2" fill="#0f766e"/>
+            <text x="542" y="204" font-size="11.5" fill="#57534e">Decode（KV 主副本钉在绑定的 D）</text>
+            <rect x="20" y="220" width="16" height="14" rx="2" fill="#b45309"/>
+            <text x="42" y="232" font-size="11.5" fill="#57534e">环境交互：D 侧后台 CPU，完成后通知 Coordinator 再路由</text>
+
+            <text x="20" y="268" font-size="12.5" fill="#1e3a5f">问题不在「要不要拆」，而在每次橙色块该回 P 还是就地打断 D。现有系统没有这把开关。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2 · 对应论文 Figure 1。单轮是一段 P 加一长串 D；多轮在生成中间反复插入增量 Prefill。规划如果还按提示/输出长度配卡，等于假装没有中间那些橙色块。</p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>缺自适应调度</h4>
+          <p>为避免 PD 干扰，增量 Prefill 本应回 P 实例。但 SLO 要求按实时负载决定：要不要在已绑定的 Decode 实例本地做；若否，送到哪个 P；P 队列怎么排。现有系统没有这套开关。</p>
+        </div>
+        <div class="tile">
+          <h4>缺多轮感知的部署</h4>
+          <p>P/D 各几副本、每副本切几卡，强烈依赖负载形状。只看提示和输出长度，等于假装没有中间那一串增量 Prefill，资源配比和并行度都会偏。</p>
+        </div>
+      </div>
+      <p>相关的多轮优化（InferCept 的 KV 丢/换/留、KVFlow 的多 Agent 前缀缓存、vLLM-Continuum 的工具等待 TTL、MARS/AugServe 的长度与显存预测）都在<strong>同卡混部</strong>上做。把 Decode 任务塞进 P 实例的混合拆分，在多轮里也不合适——这时 P 侧已经更重。</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TTFT 与 ITL 的权衡">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <line x1="80" y1="210" x2="920" y2="210" stroke="#a8a29e" stroke-width="1.5"/>
+            <line x1="80" y1="210" x2="80" y2="28" stroke="#a8a29e" stroke-width="1.5"/>
+            <text x="500" y="242" text-anchor="middle" font-size="12" fill="#57534e">ITL 更好 →</text>
+            <text x="18" y="128" transform="rotate(-90 18 128)" font-size="12" fill="#57534e">TTFT 更好 →</text>
+
+            <circle cx="210" cy="72" r="18" fill="#fed7aa" stroke="#c2410c" stroke-width="2"/>
+            <text x="210" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">混部</text>
+            <text x="210" y="130" text-anchor="middle" font-size="11" fill="#78716c">TTFT 优先</text>
+            <text x="210" y="146" text-anchor="middle" font-size="11" fill="#78716c">ITL 尖峰</text>
+
+            <circle cx="760" cy="168" r="18" fill="#cbd5e1" stroke="#1e3a5f" stroke-width="2"/>
+            <text x="760" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">永远远端</text>
+            <text x="760" y="90" text-anchor="middle" font-size="11" fill="#78716c">ITL 稳态</text>
+            <text x="760" y="74" text-anchor="middle" font-size="11" fill="#78716c">KV + P 排队伤 TTFT</text>
+
+            <circle cx="520" cy="78" r="22" fill="#5eead4" stroke="#0f766e" stroke-width="2.5"/>
+            <text x="520" y="118" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">AMPD</text>
+            <text x="520" y="138" text-anchor="middle" font-size="11" fill="#0f766e">本地缓解 TTFT</text>
+            <text x="520" y="154" text-anchor="middle" font-size="11" fill="#0f766e">远端保住 ITL</text>
+
+            <path d="M240 88 C 340 70, 430 68, 498 80" fill="none" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <path d="M542 90 C 640 120, 700 150, 742 168" fill="none" stroke="#1e3a5f" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+            <text x="400" y="36" font-size="12" fill="#57534e">HotpotQA / DuReader / ToolBench：ITL 往往决定 SLO，纯拆分能赢混部</text>
+            <text x="400" y="52" font-size="12" fill="#57534e">GAIA 超长增量 Prefill：混部 TTFT 更有竞争力，Dynamo 反而落后</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3 · 对应论文 Figure 6 的拆解逻辑。两端都被单一目标钉死；AMPD 用实时松弛在两点之间滑动，而不是固定落在某一端。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 系统：离线规划 + 在线协调</h2>
+      <p>请求一到，Coordinator 先按显存把会话<strong>绑定</strong>到某个 Decode Worker：KV 主副本和所有 Decode 都在那里。之后每次需要 Prefill（首轮或工具返回后），走自适应路由：</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AMPD 离线在线架构">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <rect x="16" y="16" width="948" height="86" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="32" y="40" font-size="13" font-weight="700" fill="#9a3412">离线</text>
+            <rect x="36" y="52" width="200" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="136" y="75" text-anchor="middle" font-size="12">Profiler · 分段 α-β</text>
+            <polygon points="244,70 262,70 262,62 286,70 262,78 262,70" fill="#c2410c"/>
+            <rect x="294" y="52" width="250" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="419" y="75" text-anchor="middle" font-size="12">ILP · min 最差 P95 · SCIP</text>
+            <polygon points="552,70 570,70 570,62 594,70 570,78 570,70" fill="#c2410c"/>
+            <rect x="602" y="52" width="330" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="767" y="75" text-anchor="middle" font-size="12">P/D 副本数 × TP ∈ {1,2,4,8}</text>
+
+            <rect x="16" y="118" width="948" height="206" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="32" y="142" font-size="13" font-weight="700" fill="#115e59">在线</text>
+            <rect x="36" y="158" width="150" height="52" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="111" y="180" text-anchor="middle" font-size="12" font-weight="700">Coordinator</text>
+            <text x="111" y="198" text-anchor="middle" font-size="10.5" fill="#115e59">绑定 · 路由</text>
+
+            <rect x="220" y="158" width="170" height="52" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="305" y="180" text-anchor="middle" font-size="12" font-weight="700">Prefill Workers</text>
+            <text x="305" y="198" text-anchor="middle" font-size="10.5" fill="#115e59">队列 + 窗口 TTFT</text>
+
+            <rect x="420" y="158" width="170" height="52" rx="4" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="505" y="180" text-anchor="middle" font-size="12" font-weight="700">Decode Workers</text>
+            <text x="505" y="198" text-anchor="middle" font-size="10.5" fill="#115e59">KV 主副本 · 窗口 ITL</text>
+
+            <rect x="620" y="158" width="150" height="52" rx="4" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="695" y="180" text-anchor="middle" font-size="12" font-weight="700">Redis</text>
+            <text x="695" y="198" text-anchor="middle" font-size="10.5" fill="#57534e">队列与统计共享</text>
+
+            <rect x="794" y="158" width="148" height="52" rx="4" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="868" y="180" text-anchor="middle" font-size="12" font-weight="700">NIXL RDMA</text>
+            <text x="868" y="198" text-anchor="middle" font-size="10.5" fill="#57534e">P ↔ D 传增量 KV</text>
+
+            <text x="36" y="244" font-size="12" fill="#57534e">会话生命周期：绑定 D → 路由 Prefill → 队列重排 → Decode → 工具（CPU）→ 增量 Prefill → 再路由，直到结束。</text>
+            <text x="36" y="268" font-size="12" fill="#57534e">窗口默认近 10 秒平均 TTFT / ITL。元数据并发读，路由平均 0.39 ms，重排平均 0.45 ms，相对 Prefill/Decode 可忽略。</text>
+            <text x="36" y="300" font-size="12" fill="#0f766e">实现叠在 NVIDIA Dynamo 上。远端只先发元数据，真正轮到执行才懒读历史 KV，并与上一任务计算重叠。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4 · 对应论文 Figure 2。离线给出部署；在线只做两件事：增量 Prefill 去哪、队列里谁先跑。KV 主副本不随路由搬家。</p>
+      <ul>
+        <li><strong>本地执行：</strong>在绑定的 Decode Worker 上做 Prefill。省去 KV 过网、减轻 P 负担，但要打断正在跑的 Decode batch。实现上沿用 vLLM：Prefill 优先于 Decode，以免堵住后续生成。</li>
+        <li><strong>远端执行：</strong>送到某个 Prefill Worker。Decode 可以继续稳态生成，但要搬 KV：执行前如有必要从 D 读历史 KV；执行后把<strong>增量 KV</strong> 写回 D。Decode 侧有本地前缀缓存，只传增量。</li>
+      </ul>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="本地执行与远端执行的 KV 路径">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <rect x="16" y="16" width="460" height="218" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="246" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">本地 · 在绑定的 D 上 Prefill</text>
+            <rect x="48" y="62" width="396" height="46" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="246" y="82" text-anchor="middle" font-size="12">Decode Worker（KV 已在本地）</text>
+            <text x="246" y="98" text-anchor="middle" font-size="11" fill="#9a3412">打断当前 Decode batch · Prefill 优先</text>
+            <text x="246" y="140" text-anchor="middle" font-size="12" fill="#57534e">无 KV 过网 · P 队列变轻 · TTFT 受益</text>
+            <text x="246" y="164" text-anchor="middle" font-size="12" fill="#9a3412">代价：ITL 尖峰</text>
+            <text x="246" y="196" text-anchor="middle" font-size="11.5" fill="#78716c">适合：P 已紧、D 窗口 ITL 仍有松弛</text>
+
+            <rect x="504" y="16" width="460" height="218" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="734" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">远端 · 送到某个 P</text>
+            <rect x="536" y="58" width="160" height="40" rx="4" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="616" y="83" text-anchor="middle" font-size="12">Decode · 继续生成</text>
+            <rect x="772" y="58" width="160" height="40" rx="4" fill="#94a3b8" stroke="#1e3a5f"/>
+            <text x="852" y="83" text-anchor="middle" font-size="12">Prefill Worker</text>
+            <path d="M696 78 L760 78" stroke="#c2410c" stroke-width="1.8"/>
+            <polygon points="760,73 772,78 760,83" fill="#c2410c"/>
+            <text x="734" y="118" text-anchor="middle" font-size="11" fill="#9a3412">① 必要时 D→P 读历史 KV（懒读）</text>
+            <path d="M772 132 L696 132" stroke="#0f766e" stroke-width="1.8"/>
+            <text x="734" y="158" text-anchor="middle" font-size="12" fill="#0f766e">② 只回传增量 KV（前缀缓存在 D）</text>
+            <text x="734" y="188" text-anchor="middle" font-size="12" fill="#1e3a5f">ITL 不受打断 · TTFT 含传输+排队</text>
+            <text x="734" y="214" text-anchor="middle" font-size="11.5" fill="#78716c">适合：某个 P 窗口 TTFT 仍 ≤ α·阈值</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5 · 本地零传输、打断 Decode；远端保 ITL，但历史 KV 可能先过去、增量 KV 必须回来。论文 Figure 3 用「传输/计算」比说明永远远端并不免费。</p>
+      <p>工具调用由 Decode Worker 后台 CPU 处理；完成后组成增量 Prefill，再通知 Coordinator 回到路由。Profiler 离线建分段 α-β 性能模型，三类时间：</p>
+      <div class="eq">
+        T<sub>pre</sub>(ℓ<sub>hist</sub>, ℓ<sub>incr</sub>; θ)　·　T<sub>dec</sub>(b; θ)　·　T<sub>kv</sub>(ℓ<sub>ctx</sub>; θ<sub>src</sub>, θ<sub>dst</sub>)
+      </div>
+      <p>首轮 Prefill 的历史长度为 0。θ 是该 Worker 的并行策略。队列与近 10 秒窗口 TTFT/ITL 放在分布式共享内存里，全局可读。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 自适应路由：本地还是远端</h2>
+      <p>永远远端：ITL 好，但 KV 传输和 P 排队伤 TTFT。永远本地：TTFT 好，Decode 被 Prefill 打断，ITL 出现尖峰。AMPD 用窗口统计做 SLO 导向的三级决策（算法 1）：</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="自适应路由决策树">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <rect x="300" y="12" width="380" height="40" rx="6" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="490" y="37" text-anchor="middle" font-size="13" font-weight="700">增量 Prefill 到达 · 随机打乱 P Worker</text>
+
+            <path d="M490 52 L490 68" stroke="#57534e"/>
+            <rect x="260" y="68" width="460" height="40" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="490" y="94" text-anchor="middle" font-size="12.5">某个 P 的窗口 TTFT ≤ α · TTFT 阈值？　α = 0.9</text>
+
+            <path d="M360 108 L200 128" stroke="#0f766e"/>
+            <path d="M620 108 L780 128" stroke="#9a3412"/>
+            <text x="250" y="124" font-size="11" fill="#0f766e">是</text>
+            <text x="700" y="124" font-size="11" fill="#9a3412">否 · 所有 P 都紧</text>
+
+            <rect x="40" y="136" width="280" height="52" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="180" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">远端到该 P</text>
+            <text x="180" y="176" text-anchor="middle" font-size="11" fill="#0f766e">P 还有松弛，优先不打断 D</text>
+
+            <rect x="660" y="136" width="280" height="52" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="800" y="158" text-anchor="middle" font-size="12.5">本 D 的窗口 ITL ≤ β · ITL 阈值？</text>
+            <text x="800" y="176" text-anchor="middle" font-size="11" fill="#9a3412">β = 0.85</text>
+
+            <path d="M720 188 L200 214" stroke="#0f766e"/>
+            <path d="M800 188 L800 214" stroke="#9a3412"/>
+            <text x="430" y="206" font-size="11" fill="#0f766e">是 · D 有松弛</text>
+            <text x="810" y="210" font-size="11" fill="#9a3412">否</text>
+
+            <rect x="40" y="220" width="280" height="52" rx="6" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="180" y="242" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">本地执行</text>
+            <text x="180" y="260" text-anchor="middle" font-size="11" fill="#0f766e">打断 Decode，换 TTFT</text>
+
+            <rect x="660" y="220" width="280" height="64" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="800" y="244" text-anchor="middle" font-size="12.5" font-weight="700" fill="#9a3412">两边都紧 · 估时选最小</text>
+            <text x="800" y="264" text-anchor="middle" font-size="11" fill="#78716c">argmin { t_local, t_remote_i }</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6 · 算法 1。先找有松弛的 P，再看 D 是否扛得住打断，最后才动性能模型。α、β 略小于 1，是为了在真正撞 SLO 之前就开始挪负载。</p>
+      <ol>
+        <li>随机打乱 P Worker。若某个窗口 TTFT ≤ α · TTFT 阈值，直接远端到它（P 还有松弛）。</li>
+        <li>若所有 P 都紧，再看本 Decode 的窗口 ITL。若 ≤ β · ITL 阈值，走本地（D 还有松弛）。</li>
+        <li>两边都紧，用性能模型估时延，选最小者。</li>
+      </ol>
+      <div class="eq">
+        t<sub>local</sub> = T<sub>pre</sub>(ℓ<sub>hist</sub>, ℓ<sub>incr</sub>; θ<sub>d</sub>) + Σ<sub>队列</sub> T<sub>pre</sub>(·; θ<sub>d</sub>)<br />
+        t<sub>remote,i</sub> = T<sub>pre</sub>(·; θ<sub>pᵢ</sub>) + T<sub>kv</sub>(ℓ<sub>hist</sub>; D→P) + T<sub>kv</sub>(ℓ<sub>incr</sub>; P→D) + 排队
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="本地与远端时延构成">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <text x="20" y="28" font-size="13" font-weight="700" fill="#9a3412">t_local</text>
+            <rect x="140" y="12" width="420" height="32" rx="3" fill="#c2410c"/>
+            <text x="350" y="33" text-anchor="middle" font-size="12" fill="#fff">本任务 Prefill 计算（θ_d）</text>
+            <rect x="564" y="12" width="280" height="32" rx="3" fill="#ea580c"/>
+            <text x="704" y="33" text-anchor="middle" font-size="12" fill="#fff">D 上 Prefill 排队</text>
+            <text x="860" y="33" font-size="11" fill="#78716c">无 KV 项</text>
+
+            <text x="20" y="88" font-size="13" font-weight="700" fill="#1e3a5f">t_remote_i</text>
+            <rect x="140" y="72" width="250" height="32" rx="3" fill="#1e3a5f"/>
+            <text x="265" y="93" text-anchor="middle" font-size="12" fill="#fff">P 上 Prefill 计算</text>
+            <rect x="394" y="72" width="170" height="32" rx="3" fill="#c2410c"/>
+            <text x="479" y="93" text-anchor="middle" font-size="11" fill="#fff">KV 历史 D→P</text>
+            <rect x="568" y="72" width="150" height="32" rx="3" fill="#0f766e"/>
+            <text x="643" y="93" text-anchor="middle" font-size="11" fill="#fff">增量 KV P→D</text>
+            <rect x="722" y="72" width="200" height="32" rx="3" fill="#64748b"/>
+            <text x="822" y="93" text-anchor="middle" font-size="12" fill="#fff">P 排队</text>
+
+            <text x="20" y="140" font-size="12.5" fill="#57534e">首轮 Prefill 历史长度为 0，第一项 KV 可忽略。Decode 侧前缀缓存让回程只走增量。</text>
+            <text x="20" y="164" font-size="12.5" fill="#57534e">排队估计（式 2）不算重排；窗口相对整队很小，作者认为不影响路由。</text>
+            <text x="20" y="196" font-size="12.5" fill="#0f766e">α 太小会过早放弃 P、P 吃不饱；β 太小会过早打断 Decode。默认 0.9 / 0.85 是给两边留一点提前量。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7 · 式 (1)(2) 的构成。两边都紧时，比较的就是这两根堆叠条，而不是再猜「Prefill 该不该属于 P 池」。</p>
+      <p>元数据并发收集，估时很快，作者称开销可忽略。默认 α=0.9、β=0.85：略小于 1，让系统在真正撞 SLO 之前就开始挪负载。α 太小会过早放弃 P、P 吃不饱；β 太小会过早打断 Decode。</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="α 与 β 松弛带">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <text x="20" y="24" font-size="12" fill="#57534e">窗口统计相对 SLO 阈值</text>
+            <rect x="40" y="44" width="700" height="28" rx="4" fill="#f5f5f4" stroke="#e7e0d4"/>
+            <rect x="40" y="44" width="595" height="28" rx="4" fill="#ccfbf1"/>
+            <rect x="40" y="44" width="630" height="28" rx="4" fill="none" stroke="#0f766e" stroke-dasharray="4 3"/>
+            <line x1="670" y1="40" x2="670" y2="80" stroke="#1e3a5f" stroke-width="2"/>
+            <text x="670" y="98" text-anchor="middle" font-size="11" fill="#1e3a5f">阈值 = 1.0</text>
+            <line x1="635" y1="40" x2="635" y2="80" stroke="#0f766e"/>
+            <text x="600" y="98" text-anchor="middle" font-size="11" fill="#0f766e">α=0.9</text>
+            <line x1="595" y1="40" x2="595" y2="80" stroke="#9a3412"/>
+            <text x="530" y="98" text-anchor="middle" font-size="11" fill="#9a3412">β=0.85</text>
+            <text x="200" y="62" font-size="11" fill="#115e59">松弛：可接任务 / 可本地打断</text>
+            <text x="780" y="62" font-size="12" fill="#9a3412">已撞或将撞 SLO</text>
+            <text x="40" y="128" font-size="12" fill="#57534e">α 太小 → 过早放弃 P；β 太小 → 过早打断 D。论文 Figure 8：w=2…5 差在 3% 内，中等 α/β 最好。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 8 · 松弛带。路由先问「还有没有提前量」，估时是最后一档。阈值按 trace 手调，所以跨负载不能比绝对 TTFT/ITL。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. Prefill 重排：窗口内最大化 SLO</h2>
+      <p>路由解决“去哪”。队列里还有“谁先跑”。若某任务离 TTFT SLO 还远，可以往后排，把更危急的提前。对队列头 w 个任务枚举可行排列（w 实践上 &lt;5，默认 3），预测完成时刻</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="窗口重排对照 FIFO">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <text x="20" y="28" font-size="13" font-weight="700" fill="#1e3a5f">窗口 w = 3 · 队头三个任务</text>
+            <rect x="20" y="44" width="120" height="44" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="80" y="64" text-anchor="middle" font-size="12" font-weight="700">A</text>
+            <text x="80" y="80" text-anchor="middle" font-size="10.5" fill="#9a3412">松弛大</text>
+            <rect x="152" y="44" width="120" height="44" rx="4" fill="#fecaca" stroke="#b91c1c"/>
+            <text x="212" y="64" text-anchor="middle" font-size="12" font-weight="700">B</text>
+            <text x="212" y="80" text-anchor="middle" font-size="10.5" fill="#b91c1c">快撞 SLO</text>
+            <rect x="284" y="44" width="120" height="44" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="344" y="64" text-anchor="middle" font-size="12" font-weight="700">C</text>
+            <text x="344" y="80" text-anchor="middle" font-size="10.5" fill="#9a3412">中等</text>
+            <text x="430" y="70" font-size="12" fill="#78716c">后面队列不动 · 枚举窗口内排列</text>
+
+            <text x="20" y="122" font-size="12.5" font-weight="700" fill="#57534e">FIFO</text>
+            <rect x="140" y="104" width="90" height="28" rx="3" fill="#fed7aa"/>
+            <text x="185" y="123" text-anchor="middle" font-size="12">A</text>
+            <rect x="236" y="104" width="90" height="28" rx="3" fill="#fecaca"/>
+            <text x="281" y="123" text-anchor="middle" font-size="12">B 错过</text>
+            <rect x="332" y="104" width="90" height="28" rx="3" fill="#ffedd5"/>
+            <text x="377" y="123" text-anchor="middle" font-size="12">C</text>
+            <text x="440" y="123" font-size="12" fill="#b91c1c">S_π = 2 · B 的等待把完成时刻推出阈值</text>
+
+            <text x="20" y="172" font-size="12.5" font-weight="700" fill="#0f766e">SLO 重排</text>
+            <rect x="140" y="154" width="90" height="28" rx="3" fill="#fecaca"/>
+            <text x="185" y="173" text-anchor="middle" font-size="12">B 先跑</text>
+            <rect x="236" y="154" width="90" height="28" rx="3" fill="#fed7aa"/>
+            <text x="281" y="173" text-anchor="middle" font-size="12">A</text>
+            <rect x="332" y="154" width="90" height="28" rx="3" fill="#ffedd5"/>
+            <text x="377" y="173" text-anchor="middle" font-size="12">C</text>
+            <text x="440" y="173" font-size="12" fill="#0f766e">S_π = 3 · 选使达标个数最大的排列</text>
+
+            <text x="20" y="220" font-size="12.5" fill="#57534e">完成时刻 C_π(k) = Σ_{j=1…k} t_pre^(π(j))。达标当且仅当 (现在 − 入队) + C ≤ TTFT 阈值。</text>
+            <text x="20" y="244" font-size="12.5" fill="#57534e">每个任务最多被推迟 w 次，防止饥饿。w=2…5 时 SLO 差在 3% 内，短窗口就够。</text>
+            <text x="20" y="266" font-size="12.5" fill="#0f766e">消融：重排单独再抬 13–15% SLO，主要砍 TTFT 尾部。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 9 · 算法 2。不在整队上做全局调度，只在队头窗口里最大化「还能赶上 TTFT」的个数。A 虽然先到，但松弛大，可以让路。</p>
+      <div class="eq">
+        C<sub>π(k)</sub> = Σ<sub>j=1…k</sub> t<sub>pre</sub><sup>(π(j))</sup><br />
+        S<sub>π</sub> = |{ k : (T<sub>now</sub> − T<sub>enq</sub>) + C<sub>π(k)</sub> ≤ TTFT<sub>thres</sub> }|
+      </div>
+      <p>选使 S 最大的排列。每个任务最多被推迟 w 次，防止饥饿。排队时延估计（式 2）不算重排，但窗口相对整队很小，作者认为不影响路由。消融里重排单独再抬 13–15% SLO，主要砍 TTFT 尾部。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 离线 ILP：P/D 副本与张量并行</h2>
+      <p>拆分部署要同时定：每类 Worker 的数据并行（副本数）和模型并行（每副本切几卡，通常 1/2/4/8）。决策变量 x<sup>(n)</sup>、y<sup>(n)</sup> 分别是 TP=n 的 Prefill / Decode 副本数。目标不是直接最大化 SLO（0/1，不好进线性规划），而是最小化所有已实例化 Worker 的最差 P95 时延 Z：</p>
+      <div class="eq">
+        min Z<br />
+        s.t.　Z ≥ τ<sub>pre</sub>(n)　∀ n 且 x<sup>(n)</sup>≥1<br />
+        　　　Z ≥ τ<sub>dec</sub>(n)　∀ n 且 y<sup>(n)</sup>≥1<br />
+        　　　Σ n(x<sup>(n)</sup>+y<sup>(n)</sup>) ≤ N<sub>GPU</sub>
+      </div>
+      <p>τ 来自模拟器：先 profile 算子，再模拟连续 batch、复制、模型并行、PD 拆分和 α-β 的 KV 传输，并嵌入第 4 节的本地/远端决策。这是无界背包的多维版，用 SCIP 在 256 GPU 规模约 1 分钟。附录表 2 显示规划器排出的 Top-3 配置与实测最优一致。例如 Llama-3.1-70B + DuReader：P 侧 TP=4 DP=2，D 侧 TP=8 DP=1；GAIA 这种超长多轮则两侧都 TP=8 DP=2。</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ILP 把 GPU 预算拆成 P/D 的 TP 与副本">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <text x="20" y="26" font-size="13" font-weight="700" fill="#1e3a5f">决策变量：x^(n)、y^(n) = TP=n 的 P / D 副本数　n ∈ {1,2,4,8}</text>
+            <text x="20" y="48" font-size="12" fill="#57534e">目标 min Z（所有已实例化 Worker 的最差 P95）。约束：Z ≥ τ_pre(n)、Z ≥ τ_dec(n)、Σ n(x+y) ≤ N_GPU</text>
+
+            <rect x="16" y="64" width="460" height="214" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="246" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">DuReader · 16 GPU · Llama-70B</text>
+            <text x="36" y="118" font-size="12" fill="#57534e">Prefill</text>
+            <rect x="120" y="102" width="80" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="160" y="118" text-anchor="middle" font-size="11">TP4</text>
+            <text x="160" y="132" text-anchor="middle" font-size="10" fill="#9a3412">副本 1</text>
+            <rect x="208" y="102" width="80" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="248" y="118" text-anchor="middle" font-size="11">TP4</text>
+            <text x="248" y="132" text-anchor="middle" font-size="10" fill="#9a3412">副本 2</text>
+            <text x="300" y="124" font-size="11" fill="#78716c">8 卡</text>
+            <text x="36" y="168" font-size="12" fill="#57534e">Decode</text>
+            <rect x="120" y="152" width="168" height="36" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="204" y="168" text-anchor="middle" font-size="11">TP8 · DP1</text>
+            <text x="204" y="182" text-anchor="middle" font-size="10" fill="#0f766e">8 卡 · KV 更吃切分</text>
+            <text x="36" y="220" font-size="12" fill="#9a3412">P 要并发吃增量 Prefill → 多副本中等 TP</text>
+            <text x="36" y="242" font-size="12" fill="#0f766e">D 要扛长上下文 KV → 少副本大 TP</text>
+            <text x="36" y="264" font-size="11.5" fill="#78716c">Top-2：P TP2×DP4，D 仍 TP8×DP1</text>
+
+            <rect x="504" y="64" width="460" height="214" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="734" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">GAIA · 32 GPU · 超长多轮</text>
+            <text x="524" y="118" font-size="12" fill="#57534e">Prefill</text>
+            <rect x="600" y="102" width="140" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="670" y="118" text-anchor="middle" font-size="11">TP8</text>
+            <text x="670" y="132" text-anchor="middle" font-size="10" fill="#9a3412">副本 1</text>
+            <rect x="748" y="102" width="140" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="818" y="118" text-anchor="middle" font-size="11">TP8</text>
+            <text x="818" y="132" text-anchor="middle" font-size="10" fill="#9a3412">副本 2</text>
+            <text x="524" y="168" font-size="12" fill="#57534e">Decode</text>
+            <rect x="600" y="152" width="140" height="36" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="670" y="168" text-anchor="middle" font-size="11">TP8</text>
+            <text x="670" y="182" text-anchor="middle" font-size="10" fill="#0f766e">副本 1</text>
+            <rect x="748" y="152" width="140" height="36" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="818" y="168" text-anchor="middle" font-size="11">TP8</text>
+            <text x="818" y="182" text-anchor="middle" font-size="10" fill="#0f766e">副本 2</text>
+            <text x="524" y="220" font-size="12" fill="#57534e">两侧都 16 卡。11.3 轮、Prefill 均长 6161</text>
+            <text x="524" y="242" font-size="12" fill="#57534e">不能再按「短提示 + 长输出」配 D 多 P 少</text>
+            <text x="524" y="264" font-size="11.5" fill="#78716c">模拟器里嵌了本地/远端决策，不是单轮模型</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 10 · 对应论文 Figure 4 与附录表 2。同一套 ILP，负载形状一变，P/D 的切分就换。GAIA 两侧都要大 TP，正是「多轮感知部署」相对单轮规划的差别。</p>
+      <div class="callout teal">
+        用 P95 代理 SLO 是工程妥协。好处是能全局搜副本×切分；坏处是目标与在线真正优化的“达标率”不一致。作者用“规划结果碰巧等于实测最优”来辩护，没有给出代理间隙的理论界。
+      </div>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 实现与实验</h2>
+      <p>实现叠在 NVIDIA Dynamo 上：Redis 共享队列与窗口统计，SCIP 解 ILP，NIXL 做 P↔D 的 RDMA。远端只先发元数据，真正轮到执行才懒读历史 KV，并与上一任务计算重叠。</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="懒读 KV 与计算重叠">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <text x="20" y="26" font-size="13" font-weight="700" fill="#1e3a5f">远端路径上的时间线</text>
+            <rect x="20" y="44" width="140" height="28" rx="3" fill="#e2e8f0" stroke="#64748b"/>
+            <text x="90" y="63" text-anchor="middle" font-size="11">路由：只发元数据</text>
+            <rect x="172" y="44" width="220" height="28" rx="3" fill="#94a3b8"/>
+            <text x="282" y="63" text-anchor="middle" font-size="11" fill="#fff">P 队列 + 重排</text>
+            <rect x="404" y="44" width="240" height="28" rx="3" fill="#1e3a5f"/>
+            <text x="524" y="63" text-anchor="middle" font-size="11" fill="#fff">当前任务 Prefill 计算</text>
+            <rect x="404" y="84" width="200" height="28" rx="3" fill="#c2410c"/>
+            <text x="504" y="103" text-anchor="middle" font-size="11" fill="#fff">下一任务懒读历史 KV</text>
+            <rect x="656" y="44" width="200" height="28" rx="3" fill="#0f766e"/>
+            <text x="756" y="63" text-anchor="middle" font-size="11" fill="#fff">下一任务 Prefill</text>
+            <text x="20" y="136" font-size="12.5" fill="#57534e">KV 传输与上一任务计算重叠。依赖机间 IB 200 GB/s；更慢的跨机链路会把分界推向更多本地执行。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 11 · 实现细节。路由阶段不搬 KV；只有轮到执行才读历史。这降低了「远端」的可见开销，也让路由估时必须把 T_kv 算进去。</p>
+      <p>硬件：4 机 × 8×H20 96GB；机内 NVLink 900 GB/s，机间 IB 200 GB/s。模型：Qwen3-32B、Llama-3.1-70B、Mixtral-8x7B。基线：Dynamo（永远拆分）、vLLM、vLLM-Continuum。到达为泊松过程。基线的部署手工调到最好；AMPD 用自己的规划器。</p>
+      <table>
+        <thead>
+          <tr><th>Trace</th><th>轮数</th><th>Prefill 长</th><th>Decode 长</th><th>GPU 规模</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>ToolBench（Agent）</td><td>3.96</td><td>704</td><td>50</td><td>8</td></tr>
+          <tr><td>GAIA（Agent）</td><td>11.32</td><td>6161</td><td>529</td><td>32</td></tr>
+          <tr><td>HotpotQA（迭代 RAG）</td><td>3</td><td>1570</td><td>80</td><td>8</td></tr>
+          <tr><td>DuReader（迭代 RAG）</td><td>3</td><td>3081</td><td>150</td><td>16</td></tr>
+        </tbody>
+      </table>
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="四条 trace 的轮数与长度">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <text x="20" y="24" font-size="13" font-weight="700" fill="#1e3a5f">四条 trace 不是同一个形状</text>
+            <text x="200" y="48" text-anchor="middle" font-size="11" fill="#78716c">轮数</text>
+            <text x="500" y="48" text-anchor="middle" font-size="11" fill="#78716c">Prefill 均长</text>
+            <text x="780" y="48" text-anchor="middle" font-size="11" fill="#78716c">Decode 均长</text>
+
+            <text x="70" y="76" text-anchor="end" font-size="12">ToolBench</text>
+            <rect x="80" y="62" width="52" height="18" rx="2" fill="#fed7aa"/>
+            <text x="138" y="75" font-size="11">3.96</text>
+            <rect x="320" y="62" width="41" height="18" rx="2" fill="#c2410c"/>
+            <text x="366" y="75" font-size="11">704 · 8 GPU</text>
+            <rect x="700" y="62" width="13" height="18" rx="2" fill="#0f766e"/>
+            <text x="718" y="75" font-size="11">50</text>
+
+            <text x="70" y="108" text-anchor="end" font-size="12">GAIA</text>
+            <rect x="80" y="94" width="148" height="18" rx="2" fill="#ea580c"/>
+            <text x="234" y="107" font-size="11">11.32</text>
+            <rect x="320" y="94" width="360" height="18" rx="2" fill="#c2410c"/>
+            <text x="500" y="107" text-anchor="middle" font-size="11" fill="#fff">6161 · 32 GPU</text>
+            <rect x="700" y="94" width="140" height="18" rx="2" fill="#0f766e"/>
+            <text x="846" y="107" font-size="11">529</text>
+
+            <text x="70" y="140" text-anchor="end" font-size="12">HotpotQA</text>
+            <rect x="80" y="126" width="39" height="18" rx="2" fill="#fed7aa"/>
+            <text x="124" y="139" font-size="11">3</text>
+            <rect x="320" y="126" width="92" height="18" rx="2" fill="#c2410c"/>
+            <text x="418" y="139" font-size="11">1570 · 8 GPU</text>
+            <rect x="700" y="126" width="21" height="18" rx="2" fill="#0f766e"/>
+            <text x="726" y="139" font-size="11">80</text>
+
+            <text x="70" y="172" text-anchor="end" font-size="12">DuReader</text>
+            <rect x="80" y="158" width="39" height="18" rx="2" fill="#fed7aa"/>
+            <text x="124" y="171" font-size="11">3</text>
+            <rect x="320" y="158" width="180" height="18" rx="2" fill="#c2410c"/>
+            <text x="506" y="171" font-size="11">3081 · 16 GPU</text>
+            <rect x="700" y="158" width="40" height="18" rx="2" fill="#0f766e"/>
+            <text x="746" y="171" font-size="11">150</text>
+
+            <text x="20" y="206" font-size="12" fill="#57534e">比例按列内最大值缩放。GAIA 把「增量 Prefill 很重」推到极端，所以混部 TTFT 能反过来压 Dynamo。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 12 · 表 1 的形状。规划器和路由都要面对这种异构，而不是一个平均提示长度。</p>
+      <p>主结果：AMPD 在全部配置上 SLO 最高。相对 Dynamo 最高 +968%、平均 +67%；相对 vLLM 最高 +3435%、平均 +340%。拆解符合故事：混部 TTFT 好、ITL 差；纯拆分 ITL 好、TTFT 被 P 资源和 KV 传输卡住。HotpotQA/DuReader/ToolBench 上拆分往往赢在 ITL；GAIA 超长增量 Prefill 让混部的 TTFT 更有竞争力，Dynamo 反而落后。AMPD 保住拆分的 ITL，再用本地执行+重排把 TTFT 拉回来。</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="相对 SLO 增益示意">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <text x="20" y="24" font-size="13" font-weight="700" fill="#1e3a5f">相对增益（原文报相对值，不是绝对 SLO%）</text>
+            <text x="140" y="52" font-size="12" fill="#57534e">相对 Dynamo 平均</text>
+            <rect x="320" y="36" width="268" height="28" rx="3" fill="#1e3a5f"/>
+            <text x="600" y="55" font-size="13" font-weight="700" fill="#1e3a5f">+67%</text>
+            <text x="680" y="55" font-size="11" fill="#78716c">最高 +968%</text>
+            <text x="140" y="96" font-size="12" fill="#57534e">相对 vLLM 平均</text>
+            <rect x="320" y="80" width="520" height="28" rx="3" fill="#c2410c"/>
+            <text x="852" y="99" font-size="13" font-weight="700" fill="#9a3412">+340%</text>
+            <text x="140" y="132" font-size="11" fill="#78716c">最高 +3435%（极端低基线，不宜当「四倍好」来读）</text>
+            <line x1="80" y1="168" x2="900" y2="168" stroke="#e7e0d4"/>
+            <text x="20" y="188" font-size="12.5" fill="#57534e">四条 trace 形状差很大：ToolBench 短轮、GAIA 11 轮超长、RAG 三条检索。GPU 规模 8 / 16 / 32 按负载匹配。</text>
+            <text x="20" y="212" font-size="12.5" fill="#57534e">vLLM-Continuum 同会话优先能缩短 TTFT，ITL 不变；很多设置下 SLO 并不比 vLLM 好多少。</text>
+            <text x="20" y="236" font-size="12.5" fill="#0f766e">端到端时延与 Dynamo 接近，有时 Dynamo 略低——这篇优化的是 SLO 达标率，不是平均时延。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 13 · 对应论文 Figure 5。柱长按平均相对增益示意，不是把各 trace 的绝对达标率画出来。读论文主图时仍以原文曲线为准。</p>
+      <p>vLLM-Continuum 按会话优先、复用 KV，能缩短排队和 TTFT，ITL 不变；很多设置下 SLO 并不比 vLLM 好多少。消融（Llama-70B，2 req/s）：13.9–31.7% 的 Prefill 本地执行，自适应路由单独 +27–350% SLO；加上重排再 +13–15%。端到端时延与 Dynamo 接近，有时 Dynamo 略低，但 SLO 才是这篇的优化目标。</p>
+      <div class="fig-row">
+        <div class="fig">
+          <svg viewBox="0 0 460 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="消融拆解">
+            <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+              <text x="230" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">消融 · Llama-70B · 2 req/s</text>
+              <text x="20" y="58" font-size="12" fill="#57534e">纯拆分 Dynamo</text>
+              <rect x="160" y="44" width="80" height="22" rx="3" fill="#cbd5e1"/>
+              <text x="20" y="96" font-size="12" fill="#57534e">+ 自适应路由</text>
+              <rect x="160" y="82" width="200" height="22" rx="3" fill="#fed7aa"/>
+              <text x="370" y="98" font-size="11" fill="#9a3412">+27–350%</text>
+              <text x="20" y="134" font-size="12" fill="#57534e">+ 窗口重排</text>
+              <rect x="160" y="120" width="240" height="22" rx="3" fill="#5eead4"/>
+              <text x="410" y="136" font-size="11" fill="#0f766e">再 +13–15%</text>
+              <text x="20" y="176" font-size="11.5" fill="#57534e">合起来 +44–402%。路由解决相位不平衡，</text>
+              <text x="20" y="196" font-size="11.5" fill="#57534e">重排主要砍 TTFT 尾部。</text>
+            </g>
+          </svg>
+        </div>
+        <div class="fig">
+          <svg viewBox="0 0 460 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="本地与远端比例">
+            <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+              <text x="230" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">增量 Prefill 落点</text>
+              <rect x="40" y="50" width="380" height="36" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+              <rect x="40" y="50" width="95" height="36" rx="4" fill="#0f766e"/>
+              <text x="87" y="73" text-anchor="middle" font-size="11" fill="#fff">本地</text>
+              <text x="280" y="73" text-anchor="middle" font-size="12" fill="#115e59">远端 68–86%</text>
+              <text x="230" y="116" text-anchor="middle" font-size="22" font-weight="700" fill="#0f766e">14–32%</text>
+              <text x="230" y="140" text-anchor="middle" font-size="12" fill="#57534e">走 Decode 本地（13.9–31.7%）</text>
+              <text x="230" y="172" text-anchor="middle" font-size="11.5" fill="#78716c">不是「大半改回混部」</text>
+              <text x="230" y="192" text-anchor="middle" font-size="11.5" fill="#78716c">只在 P 紧、D 松时借 D 的算力</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <p class="figcap">图 14 · 对应论文 Figure 7。本地比例不高，但足够把 P 从过载里拽出来。这解释了为什么永远远端和永远本地都不如自适应。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 局限和对近存 / 拆分部署的含义</h2>
+      <ul>
+        <li>SLO 阈值按 trace 手调（如图中 TTFT 130ms–5s、ITL 20–50ms），跨负载不可直接比绝对值。</li>
+        <li>HotpotQA/DuReader 用 Qwen3-32B 跑迭代检索录的 trace，再在 70B/MoE 上重放，长度分布与真实 70B Agent 可能不同。</li>
+        <li>绑定 Decode Worker 之后 KV 不迁移；负载倾斜只能靠后续 Prefill 的本地/远端来补。</li>
+        <li>规划是离线一次性，没有运行期改 TP/副本。和弹性 PD 扩缩（BlitzScale、TokenScale）是正交的，文中声称可组合，但没合在一起测。</li>
+        <li>懒读 KV + 与前一任务重叠，依赖机间 200 GB/s IB；更慢的跨机链路会改变本地/远端分界。</li>
+      </ul>
+      <div class="fig">
+        <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="增量 KV 与整段历史对照">
+          <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+            <rect x="16" y="16" width="460" height="196" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="246" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">不要每次搬整段历史</text>
+            <rect x="48" y="62" width="396" height="28" rx="3" fill="#fecaca"/>
+            <text x="246" y="81" text-anchor="middle" font-size="12">历史 KV（已在 D / 近存）</text>
+            <rect x="48" y="96" width="140" height="28" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="118" y="115" text-anchor="middle" font-size="11">增量上下文</text>
+            <text x="246" y="150" text-anchor="middle" font-size="12" fill="#57534e">永远远端会把历史也拖去 P</text>
+            <text x="246" y="172" text-anchor="middle" font-size="12" fill="#9a3412">带宽和 TTFT 一起坏</text>
+            <text x="246" y="194" text-anchor="middle" font-size="11.5" fill="#78716c">论文 Figure 3：传输/计算比不可忽略</text>
+
+            <rect x="504" y="16" width="460" height="196" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="734" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">历史驻留，链路上只走增量</text>
+            <rect x="536" y="62" width="396" height="28" rx="3" fill="#99f6e4"/>
+            <text x="734" y="81" text-anchor="middle" font-size="12">历史 KV 钉在绑定的 D</text>
+            <rect x="536" y="96" width="140" height="28" rx="3" fill="#0f766e"/>
+            <text x="606" y="115" text-anchor="middle" font-size="11" fill="#fff">增量 KV 回传</text>
+            <text x="734" y="150" text-anchor="middle" font-size="12" fill="#57534e">GPU PD：增量 Prefill 在 P 实例与 D 实例间切换</text>
+            <text x="734" y="172" text-anchor="middle" font-size="12" fill="#0f766e">近存：译码注意力钉模块，打满再上送统计量</text>
+            <text x="734" y="194" text-anchor="middle" font-size="11.5" fill="#78716c">规划按交错负载配模块数，不按单轮提示长</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 15 · 多轮的关键流量是增量上下文。AMPD 的前缀缓存与近存「历史驻留、链路只走增量」是同一条原则，差别只在计算落点。</p>
+      <div class="callout navy">
+        对同封装近存或机架级 PD：多轮的关键流量不是“整段历史 KV 每次都搬”，而是<strong>增量上下文</strong>。AMPD 只回传增量 KV、Decode 侧保留前缀，和“历史 KV 驻留近存、链路上只走激活/增量”是同一条原则。差别在落点：这篇把增量 Prefill 在 GPU P 实例和 GPU D 实例之间切换；近存架构则可能把译码注意力钉在近存模块，只有当本地矩阵阵列或链路打满时才把局部 Softmax 统计量送到中央。规划器按交错负载配 P/D 卡数，对应近存侧按头所有权/会话数配模块数，而不是按单轮提示长度。
+      </div>
+      <p>可迁移的三条：用 TTFT/ITL 松弛而不是静态规则决定增量计算落点；队列按“谁快撞 SLO”而不是 FIFO；部署目标要对准瓶颈相位的尾部时延，而不是平均吞吐。不必照搬 ILP 的 P95 代理，也不必假定 Prefill 永远属于 P 池。</p>
+    </section>
+
+    <footer>
+      分析依据 arXiv:2602.14516v2 全文 · 保存于 <code>llm inference/AMPD_论文分析.html</code> · 15 张示意图 · 2026-08-28
+    </footer>
+  </div>
+</body>
+</html>
