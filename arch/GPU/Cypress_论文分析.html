@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cypress 论文分析 | Task-Based Tensor Computations on Modern GPUs</title>
+  <style>
+    :root {
+      --bg: #f4f1ea; --paper: #fffdf8; --ink: #1c1917; --muted: #57534e;
+      --line: #e7e0d4; --accent: #9a3412; --teal: #0f766e; --navy: #1e3a5f;
+      --gold: #b45309; --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta { font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13.5px; color: var(--muted); }
+    .meta strong { color: var(--ink); }
+    nav.toc { background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px; }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n { font-size: 22px; font-weight: 700; color: var(--accent); font-family: "Segoe UI", sans-serif; line-height: 1.15; }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig { margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line); padding: 18px 14px 10px; overflow-x: auto; }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">PLDI 2025</span>
+        <span class="badge">Stanford × NVIDIA</span>
+        <span class="badge">Hopper · TMA · Tensor Core</span>
+        <span class="badge ok">Cypress 任务模型</span>
+        <span class="badge ok">顺序语义 · 静态调度</span>
+      </div>
+      <h1>应用代码里不要再写 TMA、barrier 和 warp 特化</h1>
+      <p class="subtitle">Task-Based Tensor Computations on Modern GPUs</p>
+      <p class="meta">
+        <strong>作者：</strong>Rohan Yadav（Stanford）、Michael Garland（NVIDIA）、Alex Aiken（Stanford）、Michael Bauer（NVIDIA）<br />
+        <strong>发表：</strong>PACMPL 9(PLDI) Article 163，2025 · DOI <a href="https://doi.org/10.1145/3729262">10.1145/3729262</a> · arXiv:2504.07004<br />
+        <strong>系统：</strong>Cypress —— Python 嵌入式 DSL → MLIR → warp 特化 CUDA C++
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话与数字</a></li>
+        <li><a href="#s2">Ampere 还能 bulk-sync，Hopper 不行了</a></li>
+        <li><a href="#s3">中间道路：逻辑任务 + 映射规格</a></li>
+        <li><a href="#s4">机器模型与 GEMM 任务树</a></li>
+        <li><a href="#s5">编译器：从事件图到静态循环</a></li>
+        <li><a href="#s6">评测：能打专家库，打赢 Triton 启发式</a></li>
+        <li><a href="#s7">和 Sequoia / Halide / Triton 怎么站</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话与数字</h2>
+      <p class="lead">
+        Hopper 上打满 Tensor Core，必须写「DMA warp 喂 TMA、四个 warp 一起发 <code>wgmma</code>、共享内存 barrier 串流水线」。Cypress 让程序员只写<strong>顺序任务 + 张量划分</strong>，把「跑在哪一级线程、数据落在哪块内存、管多深」单独写成映射；编译器推出全部拷贝与同步，生成接近 CUTLASS 主循环的静态代码。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">0.88–1.06×</div>
+          <div class="k">FP16 GEMM 相对 cuBLAS</div>
+        </div>
+        <div>
+          <div class="n">0.80–0.98×</div>
+          <div class="k">Flash Attention 3 相对当时最好实现</div>
+        </div>
+        <div>
+          <div class="n">0.99–2.18×</div>
+          <div class="k">相对 Triton；融合核拉开最大</div>
+        </div>
+        <div>
+          <div class="n">0</div>
+          <div class="k">应用代码里的显式搬数 / 异步 / 同步</div>
+        </div>
+      </div>
+      <div class="callout">
+        目标不是再做一个「全自动、启发式决定一切」的 Triton，也不是再做一个「模板里全是 barrier」的 CUTLASS。主张是：<strong>难写且易错的（拷贝、同步、warp 特化）交给编译器；决定峰值的（切块、层级、内存落点、流水深度）留给人。</strong>映射只影响性能，不影响正确性。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. Ampere 还能 bulk-sync，Hopper 不行了</h2>
+      <p>
+        Tensor Core 六年从 Volta 的 8×8×4 长到 Hopper 的 64×256×16。Volta/Ampere 是 8 或 32 个线程对寄存器发 MMA；Hopper 每个 SM 一块 Tensor Core，必须 <strong>128 线程（一个 warpgroup）协同发出</strong>，操作数拆在寄存器和共享内存两边。要喂饱它，还得用异步搬数单元 <strong>TMA</strong>。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 960 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ampere 与 Hopper GEMM 结构对照">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="16" width="450" height="278" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="245" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">Ampere · 全体线程同一套循环</text>
+            <rect x="48" y="58" width="394" height="36" rx="4" fill="#dbeafe" stroke="#3b82f6"/>
+            <text x="245" y="81" text-anchor="middle" font-size="12" fill="#1e3a5f">全体线程：global → shared 预取</text>
+            <rect x="48" y="104" width="394" height="36" rx="4" fill="#bfdbfe" stroke="#3b82f6"/>
+            <text x="245" y="127" text-anchor="middle" font-size="12" fill="#1e3a5f">全体线程：shared → 寄存器 fragment</text>
+            <rect x="48" y="150" width="394" height="36" rx="4" fill="#93c5fd" stroke="#2563eb"/>
+            <text x="245" y="173" text-anchor="middle" font-size="12" fill="#1e3a5f">warp 级 MMA（对寄存器）</text>
+            <text x="48" y="214" font-size="12" fill="#334155">双缓冲 swap · 软件流水</text>
+            <text x="48" y="236" font-size="12" fill="#334155">还是 bulk-synchronous CUDA</text>
+            <text x="48" y="268" font-size="12" fill="#64748b">难在切块和指令交错，难不在角色分裂</text>
+
+            <rect x="490" y="16" width="450" height="278" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="715" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">Hopper · warp 特化生产者–消费者</text>
+            <rect x="518" y="58" width="180" height="88" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="608" y="88" text-anchor="middle" font-size="12" fill="#9a3412">DMA warp</text>
+            <text x="608" y="108" text-anchor="middle" font-size="11" fill="#7c2d12">1 个线程发 TMA</text>
+            <text x="608" y="126" text-anchor="middle" font-size="11" fill="#7c2d12">等 cons · 到 prod</text>
+            <rect x="720" y="58" width="196" height="88" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="818" y="84" text-anchor="middle" font-size="12" fill="#115e59">4 warp = warpgroup</text>
+            <text x="818" y="104" text-anchor="middle" font-size="11" fill="#134e4a">等 prod · 齐发 wgmma</text>
+            <text x="818" y="122" text-anchor="middle" font-size="11" fill="#134e4a">等 Tensor Core · 到 cons</text>
+            <text x="518" y="172" font-size="12" fill="#9a3412">PIPE 级共享内存环形缓冲</text>
+            <text x="518" y="194" font-size="12" fill="#9a3412">TMA 与 Tensor Core 都是异步大宗操作</text>
+            <text x="518" y="216" font-size="12" fill="#7c2d12">寄存器尽量留给计算 warp（更大累加器）</text>
+            <text x="518" y="248" font-size="12" fill="#78716c">漏一个 arrive / wait = 数据竞争或空转</text>
+            <text x="518" y="270" font-size="12" fill="#78716c">这已经不是「大家执行同一串指令」</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1. 论文 Figure 1 的结构对照。Ampere 主循环仍是全体线程同一套预取–计算；Hopper 必须把线程拆成专职 DMA 与专职计算，再用 prod/cons barrier 对齐两条异步流水线。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TMA 与 Tensor Core 流水线">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="80" y="28" font-size="13" fill="#57534e">时间 →</text>
+            <text x="24" y="78" font-size="12" fill="#9a3412">TMA</text>
+            <rect x="70" y="58" width="90" height="36" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="115" y="81" text-anchor="middle" font-size="11" fill="#9a3412">k=0</text>
+            <rect x="200" y="58" width="90" height="36" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="245" y="81" text-anchor="middle" font-size="11" fill="#9a3412">k=1</text>
+            <rect x="330" y="58" width="90" height="36" rx="3" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="375" y="81" text-anchor="middle" font-size="11" fill="#9a3412">k=2</text>
+            <rect x="460" y="58" width="90" height="36" rx="3" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="505" y="81" text-anchor="middle" font-size="11" fill="#9a3412">k=3</text>
+            <text x="24" y="138" font-size="12" fill="#0f766e">WGMMA</text>
+            <rect x="200" y="118" width="90" height="36" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="245" y="141" text-anchor="middle" font-size="11" fill="#115e59">k=0</text>
+            <rect x="330" y="118" width="90" height="36" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="375" y="141" text-anchor="middle" font-size="11" fill="#115e59">k=1</text>
+            <rect x="460" y="118" width="90" height="36" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="505" y="141" text-anchor="middle" font-size="11" fill="#115e59">k=2</text>
+            <path d="M115 94 L245 118" stroke="#78716c" stroke-dasharray="4 3"/>
+            <path d="M245 94 L375 118" stroke="#78716c" stroke-dasharray="4 3"/>
+            <path d="M375 94 L505 118" stroke="#78716c" stroke-dasharray="4 3"/>
+            <text x="70" y="188" font-size="12" fill="#44403c">DMA warp 超前 PIPE 拍 · 共享内存槽按 k % PIPE 复用</text>
+            <text x="70" y="208" font-size="12" fill="#78716c">向后边（cons）保证「计算还在用的槽，TMA 不能覆盖」</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2. Hopper 峰值要求深流水：TMA 吞吐量高、Tensor Core 吞吐量也高，任一侧露出延迟都会掉峰值。线程自己还要一边等固定功能单元、一边干 SIMT 活（softmax、reduction）。</p>
+
+      <div class="grid-3">
+        <div class="tile">
+          <h4>CUTLASS / ThunderKittens</h4>
+          <p>人写拷贝、barrier、warp 特化。模板拼 GEMM 很省事；一离开 GEMM 主循环（比如 Flash Attention），细节全砸在人身上。漏同步就是数据竞争。</p>
+        </div>
+        <div class="tile">
+          <h4>Triton</h4>
+          <p>人只写 block 级 tile，编译器启发式决定其余。省事，但 TMA 默认不用好、张量常被塞进次优内存。第 5 节融合核因此掉到 Cypress 的一半。</p>
+        </div>
+        <div class="tile">
+          <h4>Cypress</h4>
+          <p>人决定怎么切、映射到哪一级、数据落哪块内存；编译器保证顺序语义并插入全部异步与同步。中间道路。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 中间道路：逻辑任务 + 映射规格</h2>
+      <p>
+        多数任务系统（Legion、StarPU）靠<strong>运行时</strong>调度任务图。SM 里指令级没有这份开销的空间。Cypress 学 Sequoia：任务树必须能被<strong>完全静态分析</strong>，最后消掉任务抽象，只剩静态循环。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 960 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="逻辑程序与映射分离">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="360" height="210" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="200" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">逻辑描述（正确性）</text>
+            <text x="40" y="80" font-size="13" fill="#134e4a">task / tensor / privilege</text>
+            <text x="40" y="104" font-size="13" fill="#134e4a">inner：只切分、只 launch 子任务</text>
+            <text x="40" y="128" font-size="13" fill="#134e4a">leaf：碰数据、调 CuTe / C++</text>
+            <text x="40" y="152" font-size="13" fill="#134e4a">srange 顺序 · prange 并行（无别名写）</text>
+            <text x="40" y="176" font-size="13" fill="#134e4a">partition：blocks 或 mma 花式切</text>
+            <text x="40" y="204" font-size="12" fill="#0f766e">看不见地址、拷贝、barrier</text>
+
+            <text x="430" y="125" font-size="28" fill="#9a3412">+</text>
+
+            <rect x="480" y="20" width="460" height="210" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="710" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">映射规格（性能）</text>
+            <text x="500" y="80" font-size="13" fill="#7c2d12">这一实例跑在 HOST / BLOCK / WARPGROUP / …</text>
+            <text x="500" y="104" font-size="13" fill="#7c2d12">每个张量落 GLOBAL / SHARED / REGISTER / NONE</text>
+            <text x="500" y="128" font-size="13" fill="#7c2d12">tunable：tile 256×256、K 块 64、2 个 warpgroup</text>
+            <text x="500" y="152" font-size="13" fill="#7c2d12">warp-specialize = true · pipeline = 3</text>
+            <text x="500" y="176" font-size="13" fill="#7c2d12">子任务 dispatch 到哪棵实例</text>
+            <text x="500" y="204" font-size="12" fill="#9a3412">改映射不改算法；编译器保证仍顺序等价</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3. 程序两半。inner 变体禁止读张量内容，避免在「还没决定落哪块内存」时偷偷访问；leaf 不再 launch，可以把 PTX 交给 CuTe。NONE 内存表示「这一层不要物化整块累加器」，只允许往下分区后出现在寄存器里——做不到编译器报错。</p>
+      <table>
+        <thead>
+          <tr><th>构件</th><th>作用</th><th>为什么必须有</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>privilege（read / write / rw）</td>
+            <td>声明任务对张量的效应</td>
+            <td>依赖分析据此插事件；只读并行、写后读串起来</td>
+          </tr>
+          <tr>
+            <td>prange vs srange</td>
+            <td>算法上的并行 vs 必须按序（如 K 归约）</td>
+            <td>语义上 prange 效果等于 srange；实现上才能静态并行</td>
+          </tr>
+          <tr>
+            <td>blocks 划分</td>
+            <td>规则切块（SM / warpgroup 面板）</td>
+            <td>层级分解的通用手段</td>
+          </tr>
+          <tr>
+            <td>mma 划分</td>
+            <td>Hopper wgmma 规定的非连续花式布局</td>
+            <td>输出按 16 行分给 4 个 warp，列在 warp 内 swizzle，避免 bank 冲突</td>
+          </tr>
+          <tr>
+            <td>variant + tunable</td>
+            <td>同一任务名、不同层级不同算法</td>
+            <td>host 切大块、block 沿 K 累加、thread 发 wgmma，签名保持一致</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 机器模型与 GEMM 任务树</h2>
+      <p>
+        不把 Tensor Core 画成单独处理器，而引入 <strong>warpgroup</strong>：能对 Tensor Core 发活的那一组线程。Blackwell 上「两 SM 共享更大 Tensor Core + 新的输出内存」可以用再加一层处理器、再加一种内存来接——模型故意做成可长层级的。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hopper 机器层级与内存可见性">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="40" y="20" width="140" height="40" rx="6" fill="#1e3a5f"/>
+            <text x="110" y="45" text-anchor="middle" font-size="13" fill="#fff">HOST</text>
+            <rect x="40" y="80" width="140" height="40" rx="6" fill="#334155"/>
+            <text x="110" y="105" text-anchor="middle" font-size="13" fill="#fff">BLOCK (SM)</text>
+            <rect x="40" y="140" width="140" height="40" rx="6" fill="#0f766e"/>
+            <text x="110" y="165" text-anchor="middle" font-size="13" fill="#fff">WARPGROUP</text>
+            <rect x="40" y="200" width="140" height="40" rx="6" fill="#115e59"/>
+            <text x="110" y="225" text-anchor="middle" font-size="13" fill="#fff">WARP / THREAD</text>
+            <path d="M110 60 L110 80" stroke="#78716c"/>
+            <path d="M110 120 L110 140" stroke="#78716c"/>
+            <path d="M110 180 L110 200" stroke="#78716c"/>
+
+            <rect x="260" y="20" width="200" height="240" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="360" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">Global</text>
+            <text x="360" y="72" text-anchor="middle" font-size="12" fill="#475569">全体可见</text>
+            <rect x="280" y="96" width="160" height="70" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="360" y="126" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">Shared</text>
+            <text x="360" y="148" text-anchor="middle" font-size="12" fill="#134e4a">仅本 block 及以下</text>
+            <rect x="300" y="180" width="120" height="60" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="360" y="206" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">Register</text>
+            <text x="360" y="226" text-anchor="middle" font-size="12" fill="#7c2d12">线程私有</text>
+
+            <text x="500" y="50" font-size="13" fill="#44403c">和 Sequoia 的关键差别：</text>
+            <text x="500" y="78" font-size="13" fill="#44403c">Sequoia 是严格一层处理器配一层内存。</text>
+            <text x="500" y="106" font-size="13" fill="#44403c">GPU 上 warpgroup / warp / thread 都能碰 shared，</text>
+            <text x="500" y="134" font-size="13" fill="#44403c">block 也能直接碰 global。</text>
+            <text x="500" y="162" font-size="13" fill="#9a3412">这套交叉可见性，才允许「累加器 NONE、</text>
+            <text x="500" y="186" font-size="13" fill="#9a3412">A/B 在 shared、C fragment 在 register」这种 Hopper 映射。</text>
+            <text x="500" y="230" font-size="13" fill="#78716c">作者之一 Bauer 正是 CudaDMA / Legion 那条线；</text>
+            <text x="500" y="254" font-size="13" fill="#78716c">Cypress 把任务模型压进 SM 内部、去掉运行时。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4. H100 机器模型（论文 Figure 2）。层级是给程序员对齐切分用的概念，不是再引入一套动态调度器。</p>
+
+      <h3>Hopper GEMM 在 Cypress 里长什么样</h3>
+      <p>同一任务名 <code>gemm</code>，每一级换一个变体。映射把树钉死：host 256×256 并行切块 → block 沿 K 顺序累加并请求 warp 特化、3 级流水 → tile 再按行分给 2 个 warpgroup → mma 划分到 warp/thread → leaf 调 <code>CuTe_warpgroup_gemm</code>。</p>
+      <div class="fig">
+        <svg viewBox="0 0 960 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GEMM 任务树">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="330" y="12" width="280" height="44" rx="6" fill="#1e3a5f"/>
+            <text x="470" y="40" text-anchor="middle" font-size="13" fill="#fff">gemm_host · prange 切 C 的 U×V 块</text>
+            <path d="M470 56 L470 72" stroke="#78716c"/>
+            <rect x="300" y="72" width="340" height="48" rx="6" fill="#334155"/>
+            <text x="470" y="92" text-anchor="middle" font-size="13" fill="#fff">gemm_block · srange 沿 K · 累加器 Cacc</text>
+            <text x="470" y="110" text-anchor="middle" font-size="11" fill="#cbd5e1">映射：warp-specialize · pipeline=3 · mem=GLOBAL</text>
+            <path d="M470 120 L470 136" stroke="#78716c"/>
+            <rect x="280" y="136" width="380" height="48" rx="6" fill="#0f766e"/>
+            <text x="470" y="156" text-anchor="middle" font-size="13" fill="#fff">gemm_tile · 行切 2 个 warpgroup</text>
+            <text x="470" y="174" text-anchor="middle" font-size="11" fill="#ccfbf1">A/B → SHARED · C → NONE（整块不物化）</text>
+            <path d="M470 184 L470 200" stroke="#78716c"/>
+            <rect x="260" y="200" width="420" height="44" rx="6" fill="#115e59"/>
+            <text x="470" y="227" text-anchor="middle" font-size="13" fill="#fff">gemm_inner ×2 · mma 划分到 warp 再 thread</text>
+            <path d="M470 244 L470 260" stroke="#78716c"/>
+            <rect x="300" y="260" width="340" height="44" rx="6" fill="#c2410c"/>
+            <text x="470" y="288" text-anchor="middle" font-size="13" fill="#fff">gemm_thread · leaf · REGISTER + SHARED · wgmma</text>
+            <text x="40" y="40" font-size="12" fill="#78716c">GLOBAL→SHARED</text>
+            <text x="40" y="58" font-size="12" fill="#78716c">的落差 = 自动插 TMA</text>
+            <text x="40" y="160" font-size="12" fill="#0f766e">两 warpgroup：大 tile</text>
+            <text x="40" y="178" font-size="12" fill="#0f766e">时降低每线程寄存器</text>
+            <text x="40" y="278" font-size="12" fill="#9a3412">leaf 不做分析</text>
+            <text x="40" y="296" font-size="12" fill="#9a3412">任意 CUDA/CuTe</text>
+            <text x="700" y="92" font-size="12" fill="#44403c">clear / copy 子树同构</text>
+            <text x="700" y="156" font-size="12" fill="#44403c">改「单 warpgroup → 双」</text>
+            <text x="700" y="174" font-size="12" fill="#44403c">只需加变体 + 改映射</text>
+            <text x="700" y="192" font-size="12" fill="#44403c">已有变体不用动</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5. 论文 Figure 5 的 GEMM 任务树。GLOBAL→SHARED 的映射变化本身就意味着通信；编译器用 TMA 实现。这就是「映射只改性能」的具体含义：换内存层级会改变插入的拷贝，但顺序语义由事件图兜住。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 编译器：从事件图到静态循环</h2>
+      <p>原型走 MLIR，生成 CUDA C++（生产实现可以下到 NVVM）。SM 内没有动态运行时：任务抽象必须被消掉。</p>
+      <div class="fig">
+        <svg viewBox="0 0 960 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="编译器六段">
+          <g font-family="Segoe UI, sans-serif" font-size="11">
+            <rect x="8" y="40" width="145" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="80" y="70" text-anchor="middle" font-weight="700" fill="#9a3412">1 依赖分析</text>
+            <text x="80" y="90" text-anchor="middle" fill="#7c2d12">copy-in/out + 事件</text>
+            <rect x="165" y="40" width="145" height="70" rx="6" fill="#ffedd5" stroke="#ea580c"/>
+            <text x="237" y="70" text-anchor="middle" font-weight="700" fill="#9a3412">2 向量化</text>
+            <text x="237" y="90" text-anchor="middle" fill="#7c2d12">压扁 warp/thread 环</text>
+            <rect x="322" y="40" width="145" height="70" rx="6" fill="#fef3c7" stroke="#d97706"/>
+            <text x="394" y="70" text-anchor="middle" font-weight="700" fill="#92400e">3 消拷贝</text>
+            <text x="394" y="90" text-anchor="middle" fill="#78350f">顺带能消的同步</text>
+            <rect x="479" y="40" width="145" height="70" rx="6" fill="#d1fae5" stroke="#059669"/>
+            <text x="551" y="70" text-anchor="middle" font-weight="700" fill="#065f46">4 资源分配</text>
+            <text x="551" y="90" text-anchor="middle" fill="#064e3b">SMEM 干涉图</text>
+            <rect x="636" y="40" width="145" height="70" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="708" y="70" text-anchor="middle" font-weight="700" fill="#115e59">5 warp 特化</text>
+            <text x="708" y="90" text-anchor="middle" fill="#134e4a">图划分 + 流水</text>
+            <rect x="793" y="40" width="155" height="70" rx="6" fill="#e0e7ff" stroke="#4338ca"/>
+            <text x="870" y="70" text-anchor="middle" font-weight="700" fill="#3730a3">6 生成 CUDA</text>
+            <text x="870" y="90" text-anchor="middle" fill="#312e81">事件 → 硬件同步</text>
+            <text x="480" y="140" text-anchor="middle" font-size="12" fill="#57534e">前三段从任务表示里把信息榨出来再扔掉任务；后两段做优化；最后把 IR 事件落到 TMA barrier / wgmma wait / named barrier</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6. 编译器通路（论文 Figure 6）。事件只活在 IR 里，运行时不做依赖跟踪。</p>
+
+      <h3>依赖分析：先无脑 copy-in/copy-out</h3>
+      <p>
+        按映射钉好的任务树先序遍历。每个 launch：为被调任务在指定内存新建一块；读则 copy-in；递归降被调变体；写则 copy-out。这样分析始终局部，编译器简单；多余拷贝交给后面消。并行组用事件数组的 <code>[:]</code> 广播表示「这一维全部完成」。
+      </p>
+
+      <h3>向量化：GPU 里那些隐式的 pfor</h3>
+      <p>
+        warp / thread 上的并行循环在 SIMT 里本来就是「每条线程跑自己那份」。压扁后，循环变量换成 <code>warp_id()</code> / <code>thread_id()</code>，事件数组多一维。点对点依赖写成 <code>e[i,j]</code>；循环后同步写成 <code>e[i,:]</code>。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="事件数组广播与点对点">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="20" width="440" height="160" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="240" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">点对点 e3[i,j] → e4[i,j]</text>
+            <text x="40" y="80" font-size="13" fill="#134e4a">每个线程清自己的寄存器 fragment</text>
+            <text x="40" y="104" font-size="13" fill="#134e4a">再 copy 到自己那片划分</text>
+            <text x="40" y="128" font-size="13" fill="#134e4a">SSA 顺序已经保证，生成代码时可删事件</text>
+            <text x="40" y="156" font-size="12" fill="#0f766e">不必 __syncwarp</text>
+
+            <rect x="500" y="20" width="440" height="160" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="720" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">广播 e4[i,:] 再 copy 整块</text>
+            <text x="520" y="80" font-size="13" fill="#7c2d12">整 warp 的 fragment 都写完</text>
+            <text x="520" y="104" font-size="13" fill="#7c2d12">才能把这一行面板交给上一层</text>
+            <text x="520" y="128" font-size="13" fill="#7c2d12">thread 维广播 → __syncwarp</text>
+            <text x="520" y="156" font-size="12" fill="#9a3412">warp/warpgroup 维 → named barrier</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7. 事件数组是向量化能保住依赖的关键（论文 Figure 9）。索引模式决定最后落到哪种硬件同步。</p>
+
+      <h3>消拷贝：连同步一起偷走</h3>
+      <p>
+        模式类似 Sequoia：自拷贝删除、重复 copy-in 删除、spill 消除（子←父←子同一划分）、spill 外提（循环里反复父子互拷）。同一划分上的 copy-out 紧跟 copy-in，不但能删拷贝，还能把「先折叠事件数组再继续」还原成点对点——否则会留下多余的全员同步。模式顺序有讲究：能消事件的 spill 类要先于必须保留依赖的自拷贝类。作者提到 e-graph 等式饱和可以去掉这套启发式，但 MLIR 当时还没接。
+      </p>
+
+      <h3>共享内存：从完全干涉图往回松</h3>
+      <p>
+        Tensor Core 一块 tile 已经占掉很大一份 SMEM，多 CTA 占用还要再切。用户在映射里给每 block 一个 SMEM 上限；编译器先给所有张量两两加辅助边（强迫各用各的缓冲），再按 Knight 等人的静态分配策略逐步去掉辅助边，直到塞得进上限——等价于<strong>在预算内最少别名</strong>。别上同一物理缓冲的逻辑张量，要在「上一块最后读者」和「下一块第一写者」之间补事件，避免 WAR。
+      </p>
+
+      <h3>warp 特化 = 依赖图二分</h3>
+      <div class="fig">
+        <svg viewBox="0 0 960 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="warp 特化图划分">
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="20" y="16" width="300" height="218" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="170" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">DMA warp</text>
+            <rect x="50" y="60" width="240" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="170" y="83" text-anchor="middle" font-size="12" fill="#9a3412">copy A global→shared</text>
+            <rect x="50" y="110" width="240" height="36" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="170" y="133" text-anchor="middle" font-size="12" fill="#9a3412">copy B global→shared</text>
+            <rect x="50" y="160" width="240" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="170" y="183" text-anchor="middle" font-size="12" fill="#9a3412">（流水：超前 PIPE 拍）</text>
+
+            <rect x="400" y="16" width="540" height="218" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="670" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">Compute warps</text>
+            <rect x="430" y="60" width="200" height="36" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="530" y="83" text-anchor="middle" font-size="12" fill="#134e4a">partition / index</text>
+            <rect x="650" y="60" width="250" height="36" rx="4" fill="#5eead4" stroke="#0f766e"/>
+            <text x="775" y="83" text-anchor="middle" font-size="12" fill="#134e4a">MMA / leaf 任务</text>
+            <rect x="430" y="110" width="470" height="36" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="665" y="133" text-anchor="middle" font-size="12" fill="#134e4a">copy-out 累加器 · yield</text>
+            <text x="430" y="172" font-size="12" fill="#0f766e">跨分区的边 → 共享内存 barrier</text>
+            <text x="430" y="194" font-size="12" fill="#0f766e">循环按 PIPE 展开再压回，槽用 k % PIPE</text>
+            <text x="430" y="216" font-size="12" fill="#9a3412">虚线回边：消费者没用完，TMA 不能覆盖该槽</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 8. 论文 Figure 12。全局到共享的拷贝一律划给 DMA；其余给计算。换一种划分策略就可以换一种特化（例如更多专职 warp）。作者发现「按 PIPE 压回」比真展开循环更省寄存器和 I-cache。</p>
+      <div class="callout teal">
+        生成阶段：TMA 完成事件 → TMA 会 arrive 的 shared barrier；Tensor Core 完成 → <code>wgmma</code> 等待指令；跨 warp 边 → shared barrier（Hopper 多 CTA TMA multicast 必须用这种，而不是老的 named barrier）。仅含处理器下标的事件数组可以直接删——点对点已被 SSA 顺序满足。
+      </div>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 评测：能打专家库，打赢 Triton 启发式</h2>
+      <p>平台：H100 80GB SXM5。GEMM 类用同一随机分布，压掉功耗墙抖动。Flash Attention 各系统对 CUDA 版本敏感，各自取最好的（FA3/cuDNN 偏爱 12.3.1）。Cypress 的映射是作者按已有算法手工调的，不是自动搜索。</p>
+      <table>
+        <thead>
+          <tr><th>内核</th><th>对照</th><th>Cypress</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>FP16 GEMM / Batched-GEMM</td>
+            <td>cuBLAS、Triton</td>
+            <td>cuBLAS 的 0.88–1.06×；Triton 的 1.05–1.11×</td>
+            <td>块内多 warpgroup 喂独立流水；最大 batched 甚至略超 cuBLAS</td>
+          </tr>
+          <tr>
+            <td>Dual-GEMM（GLU：A·B1 与 A·B2）</td>
+            <td>Triton</td>
+            <td>1.36–1.40×，吞吐接近普通 GEMM</td>
+            <td>Triton 没把 B2 的 load 和 A·B1 部分重叠，默认也不走 TMA</td>
+          </tr>
+          <tr>
+            <td>GEMM+Reduction</td>
+            <td>Triton</td>
+            <td>2.02–2.18×</td>
+            <td>Triton 等 Tensor Core 完才做 reduction，还把累加器启发式放进 SMEM；Cypress 映射进寄存器。把 Cypress 映射改糟，就能复现 Triton 的慢</td>
+          </tr>
+          <tr>
+            <td>Flash Attention 2</td>
+            <td>ThunderKittens、Triton</td>
+            <td>TK 的 0.87–1.06×，明显快于 Triton</td>
+            <td>人看不见 warp 特化 / TMA / barrier</td>
+          </tr>
+          <tr>
+            <td>Flash Attention 3</td>
+            <td>官方 FA3、cuDNN</td>
+            <td>最好实现的 0.80–0.98×</td>
+            <td>算法里手写的交错通信，编译器从流水化后的主循环推断出来。短序列落后主要因为还没做 persistent CTA</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="fig">
+        <svg viewBox="0 0 960 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="评测格局示意">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="40" y="30" font-size="13" fill="#57534e">相对表现（示意，非原图坐标）</text>
+            <rect x="40" y="50" width="880" height="22" rx="3" fill="#e7e5e4"/>
+            <rect x="40" y="50" width="792" height="22" rx="3" fill="#0f766e"/>
+            <text x="50" y="66" font-size="12" fill="#fff">GEMM vs cuBLAS ≈ 0.9–1.06</text>
+            <rect x="40" y="86" width="880" height="22" rx="3" fill="#e7e5e4"/>
+            <rect x="40" y="86" width="880" height="22" rx="3" fill="#b45309"/>
+            <text x="50" y="102" font-size="12" fill="#fff">Dual-GEMM vs Triton ≈ 1.36–1.40</text>
+            <rect x="40" y="122" width="880" height="22" rx="3" fill="#e7e5e4"/>
+            <rect x="40" y="122" width="880" height="22" rx="3" fill="#c2410c"/>
+            <text x="50" y="138" font-size="12" fill="#fff">GEMM+Reduction vs Triton ≈ 2.0–2.18　← 异步 + 寄存器累加器</text>
+            <rect x="40" y="158" width="880" height="22" rx="3" fill="#e7e5e4"/>
+            <rect x="40" y="158" width="792" height="22" rx="3" fill="#1e3a5f"/>
+            <text x="50" y="174" font-size="12" fill="#fff">FA3 vs 专家实现 ≈ 0.80–0.98</text>
+            <text x="40" y="214" font-size="13" fill="#44403c">标准 GEMM 大家都会调；一融合、一要重叠 SIMT 与 Tensor Core，启发式就开始输。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 9. 第 5 节格局。标准 BLAS 打平专家库；Triton 的启发式在 Dual-GEMM / GEMM+Reduction 上露馅。这正是「映射必须能被程序员拧」的实验证据。</p>
+
+      <div class="callout navy">
+        一个反直觉结果：FA2 用<strong>三个消费 warpgroup</strong>（ThunderKittens 那套参数），靠调度器交错 Tensor Core 与 SIMT，不再保存第一段 GEMM 累加器副本，就能接近 FA3。说明这条性能地貌很陡，最快内核不好搜。短序列差距来自 persistent kernel——把映射到 BLOCK 的 <code>prange</code> 降到「每 SM 一个常驻 CTA」在模型里是说得通的，只是还没做。
+      </div>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 和 Sequoia / Halide / Triton 怎么站</h2>
+      <div class="fig">
+        <svg viewBox="0 0 960 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="相关工作谱">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="480" y="28" text-anchor="middle" font-size="13" fill="#57534e">程序员承担的异步/搬数细节 →</text>
+            <rect x="30" y="50" width="170" height="80" rx="6" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="115" y="82" text-anchor="middle" font-size="12" fill="#115e59">Triton / Pallas</text>
+            <text x="115" y="104" text-anchor="middle" font-size="11" fill="#134e4a">block 以下全启发式</text>
+            <rect x="220" y="50" width="200" height="80" rx="6" fill="#bbf7d0" stroke="#16a34a"/>
+            <text x="320" y="74" text-anchor="middle" font-size="12" fill="#166534">Cypress</text>
+            <text x="320" y="94" text-anchor="middle" font-size="11" fill="#14532d">每级都切分</text>
+            <text x="320" y="112" text-anchor="middle" font-size="11" fill="#14532d">映射显式 · 同步自动</text>
+            <rect x="440" y="50" width="190" height="80" rx="6" fill="#fde68a" stroke="#b45309"/>
+            <text x="535" y="82" text-anchor="middle" font-size="12" fill="#92400e">Halide / TVM / Exo</text>
+            <text x="535" y="104" text-anchor="middle" font-size="11" fill="#78350f">schedule 变换循环</text>
+            <rect x="650" y="50" width="140" height="80" rx="6" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="720" y="82" text-anchor="middle" font-size="12" fill="#9a3412">ThunderKittens</text>
+            <text x="720" y="104" text-anchor="middle" font-size="11" fill="#7c2d12">简洁 API，同步仍手写</text>
+            <rect x="810" y="50" width="130" height="80" rx="6" fill="#fecaca" stroke="#dc2626"/>
+            <text x="875" y="82" text-anchor="middle" font-size="12" fill="#991b1b">CUTLASS</text>
+            <text x="875" y="104" text-anchor="middle" font-size="11" fill="#7f1d1d">离开 GEMM 全手工</text>
+            <text x="40" y="160" font-size="13" fill="#44403c">Sequoia：静态任务树鼻祖，但内存必须「一层处理器配一层」——描述不了 GPU。</text>
+            <text x="40" y="184" font-size="13" fill="#44403c">Legion / Regent / StarPU：动态运行时，指令级用不起。划分灵感来自 Regent；生成代码里的布局代数靠 CuTe。</text>
+            <text x="40" y="208" font-size="13" fill="#44403c">Graphene 能表达复杂 data-to-thread 映射，但不处理 Hopper 的异步。RISE/ELEVATE 还没演示 TMA / Hopper Tensor Core。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 10. Cypress 把 Triton「只在 block 切一刀」递归做到每一级，再用单独映射代替启发式；同时把 CUTLASS 里那些 barrier 藏进编译器。</p>
+
+      <h3>写起来怎样</h3>
+      <ul>
+        <li>加功能不怕和新划分打架：编译器维持顺序语义。</li>
+        <li>单 warpgroup 改双 warpgroup：加变体、改映射，旧代码不动。</li>
+        <li>代价是啰嗦——每次用张量都要写清划分，映射里多棵树会重复。CUTLASS 划分一次就能复用，但也因此一改就容易漏同步。</li>
+        <li>调优主要改映射：变体组合、是否特化、流水深度、数据落点。CUTLASS 里数据落点往往要改代码；Triton 里这些旋钮根本拧不到。</li>
+      </ul>
+      <div class="callout">
+        结论可以收成一句：固定功能单元会继续变（Blackwell 已经在变），bulk-synchronous 不够用了。把计算写成顺序任务，把机器写成可长的层级，把异步交给静态事件图——这是 Cypress 给「库作者 / 新内核作者」的中间层，不是给最终用户再包一层框架。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 Rohan Yadav, Michael Garland, Alex Aiken, Michael Bauer，
+      <em>Task-Based Tensor Computations on Modern GPUs</em>，PLDI 2025（PACMPL 9:163）。<br />
+      图为按第 2–6 章重绘的解释图，评测条为示意而非原论文坐标轴截取。
+    </footer>
+  </div>
+</body>
+</html>

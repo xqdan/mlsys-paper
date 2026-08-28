@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AMD CDNA5 SIMT 实现机制 | SIMD + EXEC mask</title>
+  <style>
+    :root {
+      --bg: #f4f1ea; --paper: #fffdf8; --ink: #1c1917; --muted: #57534e;
+      --line: #e7e0d4; --accent: #9a3412; --teal: #0f766e; --navy: #1e3a5f;
+      --gold: #b45309; --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+      --on: #0f766e; --off: #a8a29e; --save: #1e3a5f; --vcc: #b45309;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta { font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13.5px; color: var(--muted); }
+    .meta strong { color: var(--ink); }
+    nav.toc { background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px; }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n { font-size: 22px; font-weight: 700; color: var(--accent); font-family: "Segoe UI", sans-serif; line-height: 1.15; }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig { margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line); padding: 18px 14px 10px; overflow-x: auto; }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre {
+      font-family: "Cascadia Code", Consolas, "Sarasa Mono SC", monospace;
+      font-size: 12.5px; line-height: 1.55; background: #1c1917; color: #f5f0e6;
+      padding: 16px 18px; overflow-x: auto; margin: 12px 0 16px; border: 1px solid #292524;
+    }
+    pre .c { color: #a8a29e; }
+    pre .k { color: #5eead4; }
+    pre .n { color: #fdba74; }
+    pre .s { color: #93c5fd; }
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 12.5px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--muted); margin: 8px 0 4px; }
+    .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; border: 1px solid #44403c; }
+    .step { border: 1px solid var(--line); background: #fff; padding: 14px 16px; margin: 10px 0 16px; }
+    .step h4 { margin: 0 0 8px; font-size: 15px; color: var(--navy); }
+    .mono { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">CDNA5 · Instinct MI450/MI455X</span>
+        <span class="badge">ISA Reference Guide · 27-July-2026</span>
+        <span class="badge ok">Wave32 only</span>
+        <span class="badge ok">SIMD32 + EXEC mask</span>
+        <span class="badge">823 页 ISA</span>
+      </div>
+      <h1>AMD 的 SIMT 不是硬件多线程，而是 SIMD + EXEC mask</h1>
+      <p class="subtitle">CDNA5 如何用一条向量指令、一张 32-bit 执行掩码，把「每条 lane 独立控制流」模拟出来</p>
+      <p class="meta">
+        <strong>依据：</strong>《"CDNA5" Instruction Set Architecture: Reference Guide》（Asciidoctor PDF，2026-07-27）第 2–7、15 章<br />
+        <strong>核心条款：</strong>§2 Shader Concepts · §3.2.2 EXECute Mask · §5.5 Branching · §6 SAVEEXEC · §7 VALU / SIMD32
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">硬件把 SIMT 拆成什么</a></li>
+        <li><a href="#s3">EXEC mask：真正的「线程开关」</a></li>
+        <li><a href="#s4">例子：if / else 如何被 mask 模拟</a></li>
+        <li><a href="#s5">关键 ISA：SAVEEXEC、CMPX、CBRANCH</a></li>
+        <li><a href="#s6">嵌套、循环、waterfall</a></li>
+        <li><a href="#s7">CDNA5 相对前代改了什么</a></li>
+        <li><a href="#s8">和 NVIDIA 比：差别与好处</a></li>
+        <li><a href="#s9">对性能意味着什么</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">
+        HIP/OpenCL 程序员看到的是 SIMT：每个 work-item 好像有自己的 PC，可以独立走 if/else。
+        CDNA5 硬件并没有给 32 条 lane 各配一套取指。它发的是<strong>一条向量指令</strong>，用一张
+        <code>EXEC</code> 位掩码决定哪些 lane 真正写结果、哪些当成 NOP。
+        分歧控制流由编译器用 SALU 改 mask、用标量分支跳过整波，而不是硬件为每条线程改 PC。
+      </p>
+      <div class="callout teal">
+        ISA 原文（§2）：「Conceptually, the shader program is executed independently on every work-item,
+        but in reality the processor groups up to 32 work-items into a wave, that executes the shader
+        program on all 32 work-items in one pass ("wave32"). … Active work-items execute the vector
+        instruction, and dormant ones treat the instruction as a NOP.」
+      </div>
+      <div class="kpi">
+        <div><div class="n">Wave32</div><div class="k">本代只支持 32 条 work-item / wave；文档若写 wave64 仅作对照</div></div>
+        <div><div class="n">SIMD32</div><div class="k">VALU 一拍处理 32 lane；WGP 内 4 个 SIMD32</div></div>
+        <div><div class="n">EXEC[31:0]</div><div class="k">寄存器仍是 64-bit，硬件只认低 32 位</div></div>
+        <div><div class="n">1 PC / wave</div><div class="k">标量分支改整波 PC；lane 分歧只改 mask</div></div>
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 硬件把 SIMT 拆成什么</h2>
+      <p>
+        CDNA5 的调度粒度是 <strong>wave</strong>，不是单条线程。一条 wave 绑在某一个 SIMD32 上，
+        共享一份 PC、一份 SGPR 文件、一份 EXEC。VGPR 才是 per-lane 的：每条 work-item 有自己的
+        <code>v0…v1023</code>（32-bit × 32 lane）。
+      </p>
+
+      <h3>2.1 层次</h3>
+      <div class="fig">
+        <svg viewBox="0 0 980 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CDNA5 调度层次">
+          <rect x="8" y="18" width="964" height="62" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="490" y="44" text-anchor="middle" font-size="15" font-family="Georgia, serif" fill="#9a3412">Dispatch Grid（1D / 2D / 3D work-item 网格）</text>
+          <text x="490" y="64" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">硬件按网格切成 wave，每条 work-item 带自己的全局 index</text>
+          <rect x="70" y="102" width="840" height="52" fill="#f0f4f8" stroke="#1e3a5f"/>
+          <text x="490" y="124" text-anchor="middle" font-size="14" font-family="Georgia, serif" fill="#1e3a5f">Work-group Cluster（可选，最多 16 个 WG，同 Shader Engine）</text>
+          <text x="490" y="142" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">集群屏障 + multicast load · 每个 WG 跑在不同 WGP 上</text>
+          <rect x="160" y="172" width="660" height="44" fill="#f0fdfa" stroke="#0f766e"/>
+          <text x="490" y="200" text-anchor="middle" font-size="14" font-family="Georgia, serif" fill="#0f766e">Work-group ≤ 1024 work-item（= 32 条 wave32）· 共享最多 320 kB LDS · 同一 WGP</text>
+          <rect x="250" y="234" width="480" height="40" fill="#1c1917"/>
+          <text x="490" y="260" text-anchor="middle" font-size="14" font-family="Segoe UI, sans-serif" fill="#fffdf8">Wave32 = 32 lane 锁步 · 1 个 PC · 1 张 EXEC · 跑在 1 个 SIMD32 上</text>
+        </svg>
+      </div>
+      <p class="figcap">图 1. ISA 给出的网格层次：Grid → Cluster → Work-group → Wave → Work-item。SIMT 幻觉发生在最底层 wave 内部。</p>
+
+      <h3>2.2 一个 WGP 里有什么</h3>
+      <p>
+        ISA 把 Work-group Processor 定义为「基本计算单元」，有时也叫 Double Compute Unit。
+        每个 WGP 有 <strong>4 个 SIMD32</strong>（两个 CU，每个 CU 两条 SIMD32 共享一条访存通路）。
+        同一 work-group 的 wave 可以分布在这 4 个 SIMD 上，靠 LDS / WGP$ 通信、靠 barrier 同步。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="WGP 内部结构">
+          <rect x="10" y="10" width="960" height="400" fill="#fffdf8" stroke="#e7e0d4"/>
+          <text x="30" y="36" font-size="16" font-family="Georgia, serif" fill="#1c1917">WGP（Work-group Processor）</text>
+          <text x="250" y="36" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">4 × SIMD32  ·  SALU 管控制流  ·  LDS / WGP$ 最多 320 kB</text>
+          <g font-family="Segoe UI, sans-serif">
+            <rect x="28" y="56" width="220" height="168" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="138" y="78" text-anchor="middle" font-size="13" fill="#0f766e">SIMD32 #0</text>
+            <text x="138" y="98" text-anchor="middle" font-size="11" fill="#57534e">VALU · 32 lane / cycle</text>
+            <rect x="44" y="112" width="188" height="28" fill="#1c1917"/>
+            <text x="138" y="131" text-anchor="middle" font-size="11" fill="#f5f0e6">VGPR file（per-lane）</text>
+            <rect x="44" y="148" width="188" height="22" fill="#fff7ed" stroke="#fdba74"/>
+            <text x="138" y="163" text-anchor="middle" font-size="11" fill="#9a3412">多条 wave 驻留，轮转发射</text>
+            <text x="138" y="204" text-anchor="middle" font-size="10" fill="#57534e">一条 wave 绑死在这一条 SIMD</text>
+
+            <rect x="262" y="56" width="220" height="168" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="372" y="78" text-anchor="middle" font-size="13" fill="#0f766e">SIMD32 #1</text>
+            <text x="372" y="98" text-anchor="middle" font-size="11" fill="#57534e">同 CU，共享访存端口</text>
+            <rect x="278" y="112" width="188" height="28" fill="#1c1917"/>
+            <text x="372" y="131" text-anchor="middle" font-size="11" fill="#f5f0e6">VGPR file</text>
+            <rect x="278" y="148" width="188" height="22" fill="#fff7ed" stroke="#fdba74"/>
+            <text x="372" y="163" text-anchor="middle" font-size="11" fill="#9a3412">wave slots</text>
+
+            <rect x="496" y="56" width="220" height="168" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="606" y="78" text-anchor="middle" font-size="13" fill="#1e3a5f">SIMD32 #2</text>
+            <text x="606" y="98" text-anchor="middle" font-size="11" fill="#57534e">另一半 CU</text>
+            <rect x="512" y="112" width="188" height="28" fill="#1c1917"/>
+            <text x="606" y="131" text-anchor="middle" font-size="11" fill="#f5f0e6">VGPR file</text>
+            <rect x="512" y="148" width="188" height="22" fill="#fff7ed" stroke="#fdba74"/>
+            <text x="606" y="163" text-anchor="middle" font-size="11" fill="#9a3412">wave slots</text>
+
+            <rect x="730" y="56" width="220" height="168" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="840" y="78" text-anchor="middle" font-size="13" fill="#1e3a5f">SIMD32 #3</text>
+            <text x="840" y="98" text-anchor="middle" font-size="11" fill="#57534e">另一半 CU</text>
+            <rect x="746" y="112" width="188" height="28" fill="#1c1917"/>
+            <text x="840" y="131" text-anchor="middle" font-size="11" fill="#f5f0e6">VGPR file</text>
+            <rect x="746" y="148" width="188" height="22" fill="#fff7ed" stroke="#fdba74"/>
+            <text x="840" y="163" text-anchor="middle" font-size="11" fill="#9a3412">wave slots</text>
+          </g>
+          <rect x="28" y="242" width="454" height="68" fill="#1c1917"/>
+          <text x="255" y="268" text-anchor="middle" font-size="13" fill="#5eead4" font-family="Segoe UI, sans-serif">SALU / 标量通路（wave 共享）</text>
+          <text x="255" y="290" text-anchor="middle" font-size="11" fill="#e7e5e4" font-family="Segoe UI, sans-serif">SGPR · PC · EXEC · SCC · 分支 · SAVEEXEC</text>
+          <rect x="496" y="242" width="454" height="68" fill="#fff7ed" stroke="#c2410c"/>
+          <text x="723" y="268" text-anchor="middle" font-size="13" fill="#9a3412" font-family="Segoe UI, sans-serif">LDS + WGP$ + TDM</text>
+          <text x="723" y="290" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">组内共享 / 缓存 / 张量搬移 · 4 条 SIMD 都能访问</text>
+          <text x="490" y="346" text-anchor="middle" font-size="13" font-family="Georgia, serif" fill="#1c1917">一条指令进来：SALU 改整波状态；VALU 按 EXEC 对 32 条 lane 同时算（或 NOP）</text>
+          <text x="490" y="368" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">CDNA1–4 是 4×SIMD16、Wave64 分 4 拍；CDNA5 改成 4×SIMD32、Wave32 一拍发完，并废弃 Wave64</text>
+        </svg>
+      </div>
+      <p class="figcap">图 2. WGP 内部：向量算在 SIMD32 上，控制流算在 SALU 上。EXEC 是 wave 状态，不属于单条 lane 的「私有 PC」。</p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>标量侧（整波一份）</h4>
+          <p>SALU、SMEM、PC、SGPR、SCC、EXEC、分支、barrier。ISA 明确：EXEC <em>不影响</em> 标量执行和分支。</p>
+        </div>
+        <div class="tile">
+          <h4>向量侧（32 lane 一份数据）</h4>
+          <p>VALU、VMEM、LDS。受 EXEC 过滤：mask=0 的 lane 当 NOP，不写 VGPR / 不发有效访存。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. EXEC mask：真正的「线程开关」</h2>
+      <p>
+        <code>EXEC</code> 是 64-bit 寄存器，每位对应一条 lane：<code>1</code> = 执行，<code>0</code> = 不执行。
+        Wave32 只用 <code>EXEC[31:0]</code>，高 32 位硬件不看。配套有一位摘要 <code>EXECZ</code>
+        （低 32 位是否全 0），专门给 <code>s_cbranch_execz</code> 做「整波都没人活着，直接跳过这段」的快路径。
+      </p>
+
+      <h3>3.1 一条向量指令实际在干什么</h3>
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SIMD 加 mask 执行一条指令">
+          <text x="20" y="28" font-size="14" font-family="Georgia, serif" fill="#1c1917">发射：v_add_f32 v2, v0, v1　　（wave 里只有这一条 PC）</text>
+          <text x="20" y="70" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">lane</text>
+          <g font-family="Segoe UI, sans-serif" font-size="11">
+            <text x="20" y="108" fill="#57534e">EXEC</text>
+            <text x="20" y="168" fill="#57534e">v0</text>
+            <text x="20" y="208" fill="#57534e">v1</text>
+            <text x="20" y="268" fill="#57534e">v2</text>
+          </g>
+          <!-- lane labels -->
+          <g font-family="Segoe UI, sans-serif" font-size="11" text-anchor="middle">
+            <text x="110" y="70" fill="#57534e">0</text><text x="170" y="70">1</text><text x="230" y="70">2</text>
+            <text x="290" y="70">3</text><text x="350" y="70">4</text><text x="410" y="70">5</text>
+            <text x="470" y="70">6</text><text x="530" y="70">7</text>
+            <text x="620" y="70" fill="#a8a29e">…</text>
+            <text x="700" y="70">31</text>
+          </g>
+          <!-- EXEC bits -->
+          <g font-family="Segoe UI, sans-serif" font-size="13" text-anchor="middle" font-weight="700">
+            <rect x="86" y="86" width="48" height="32" fill="#0f766e"/><text x="110" y="107" fill="#fff">1</text>
+            <rect x="146" y="86" width="48" height="32" fill="#0f766e"/><text x="170" y="107" fill="#fff">1</text>
+            <rect x="206" y="86" width="48" height="32" fill="#a8a29e"/><text x="230" y="107" fill="#fff">0</text>
+            <rect x="266" y="86" width="48" height="32" fill="#0f766e"/><text x="290" y="107" fill="#fff">1</text>
+            <rect x="326" y="86" width="48" height="32" fill="#a8a29e"/><text x="350" y="107" fill="#fff">0</text>
+            <rect x="386" y="86" width="48" height="32" fill="#0f766e"/><text x="410" y="107" fill="#fff">1</text>
+            <rect x="446" y="86" width="48" height="32" fill="#0f766e"/><text x="470" y="107" fill="#fff">1</text>
+            <rect x="506" y="86" width="48" height="32" fill="#a8a29e"/><text x="530" y="107" fill="#fff">0</text>
+            <rect x="676" y="86" width="48" height="32" fill="#0f766e"/><text x="700" y="107" fill="#fff">1</text>
+          </g>
+          <!-- v0 v1 -->
+          <g font-family="Segoe UI, sans-serif" font-size="12" text-anchor="middle">
+            <rect x="86" y="148" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="110" y="167">3</text>
+            <rect x="146" y="148" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="170" y="167">8</text>
+            <rect x="206" y="148" width="48" height="28" fill="#f5f5f4" stroke="#e7e0d4"/><text x="230" y="167" fill="#a8a29e">1</text>
+            <rect x="266" y="148" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="290" y="167">4</text>
+            <rect x="326" y="148" width="48" height="28" fill="#f5f5f4" stroke="#e7e0d4"/><text x="350" y="167" fill="#a8a29e">9</text>
+            <rect x="386" y="148" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="410" y="167">2</text>
+            <rect x="446" y="148" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="470" y="167">7</text>
+            <rect x="506" y="148" width="48" height="28" fill="#f5f5f4" stroke="#e7e0d4"/><text x="530" y="167" fill="#a8a29e">5</text>
+            <rect x="676" y="148" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="700" y="167">6</text>
+
+            <rect x="86" y="188" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="110" y="207">10</text>
+            <rect x="146" y="188" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="170" y="207">1</text>
+            <rect x="206" y="188" width="48" height="28" fill="#f5f5f4" stroke="#e7e0d4"/><text x="230" y="207" fill="#a8a29e">2</text>
+            <rect x="266" y="188" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="290" y="207">5</text>
+            <rect x="326" y="188" width="48" height="28" fill="#f5f5f4" stroke="#e7e0d4"/><text x="350" y="207" fill="#a8a29e">0</text>
+            <rect x="386" y="188" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="410" y="207">8</text>
+            <rect x="446" y="188" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="470" y="207">3</text>
+            <rect x="506" y="188" width="48" height="28" fill="#f5f5f4" stroke="#e7e0d4"/><text x="530" y="207" fill="#a8a29e">4</text>
+            <rect x="676" y="188" width="48" height="28" fill="#fff" stroke="#e7e0d4"/><text x="700" y="207">2</text>
+
+            <rect x="86" y="248" width="48" height="32" fill="#0f766e"/><text x="110" y="269" fill="#fff">13</text>
+            <rect x="146" y="248" width="48" height="32" fill="#0f766e"/><text x="170" y="269" fill="#fff">9</text>
+            <rect x="206" y="248" width="48" height="32" fill="#f5f5f4" stroke="#a8a29e"/><text x="230" y="269" fill="#a8a29e">旧</text>
+            <rect x="266" y="248" width="48" height="32" fill="#0f766e"/><text x="290" y="269" fill="#fff">9</text>
+            <rect x="326" y="248" width="48" height="32" fill="#f5f5f4" stroke="#a8a29e"/><text x="350" y="269" fill="#a8a29e">旧</text>
+            <rect x="386" y="248" width="48" height="32" fill="#0f766e"/><text x="410" y="269" fill="#fff">10</text>
+            <rect x="446" y="248" width="48" height="32" fill="#0f766e"/><text x="470" y="269" fill="#fff">10</text>
+            <rect x="506" y="248" width="48" height="32" fill="#f5f5f4" stroke="#a8a29e"/><text x="530" y="269" fill="#a8a29e">旧</text>
+            <rect x="676" y="248" width="48" height="32" fill="#0f766e"/><text x="700" y="269" fill="#fff">8</text>
+          </g>
+          <text x="780" y="120" font-size="12" font-family="Segoe UI, sans-serif" fill="#0f766e">mask=1：算并写回</text>
+          <text x="780" y="260" font-size="12" font-family="Segoe UI, sans-serif" fill="#a8a29e">mask=0：不写 VGPR</text>
+        </svg>
+      </div>
+      <p class="figcap">图 3. 同一条 <code>v_add_f32</code> 对 32 条 lane 一起发射。灰色 lane 的加法硬件可以算也可以不算，但<strong>写回被禁止</strong>，看起来就像这条线程没执行。</p>
+
+      <div class="callout navy">
+        ISA §3.2.2：EXEC 影响 VALU、向量访存、LDS；<strong>不影响标量执行和分支</strong>。
+        所以 <code>s_add</code>、<code>s_cbranch_*</code> 永远按「整波」语义走——分歧不能靠标量指令「只跳一部分线程」。
+      </div>
+
+      <h3>3.2 EXEC==0 时硬件可以整条跳过</h3>
+      <p>
+        若当前 EXEC 全 0，再跑 then/else 体是浪费。ISA §3.2.2.1 允许硬件把部分向量指令直接 skip，
+        效果与「执行但 EXEC=0」相同：波状态不变。规则很细：
+      </p>
+      <ul>
+        <li>普通 VALU：EXEC==0 时可跳过；但<strong>写 SGPR/VCC 的 VALU 不跳</strong>（比较结果仍要写 mask）。</li>
+        <li>WMMA 不跳；<code>V_NOP / V_READLANE / V_WRITELANE</code> 等不跳。</li>
+        <li>VMEM 仅当 EXEC==0 且相关 outstanding 计数为 0 才可跳，以免搞乱 <code>LOADcnt / STOREcnt</code>。</li>
+        <li><code>V_CMPX</code> 之后是否跳过取决于时序，不保证。</li>
+      </ul>
+      <p>
+        编译器通常还会先发 <code>s_cbranch_execz</code>，从软件上把「全灭」的基本块剪掉。
+        硬件 skip 是锦上添花，不是控制流的主机制。
+      </p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 例子：if / else 如何被 mask 模拟</h2>
+      <p>
+        下面用 <strong>8 条 lane</strong> 把 wave32 缩起来看（真实 CDNA5 是 32 位，算法一样）。
+        源程序每个线程都像有自己的 if；机器上是：先向量比较得到 VCC，再把 EXEC 切成 then-mask 和 else-mask，
+        <strong>then 和 else 串行各跑一遍</strong>，最后把 EXEC 还原。
+      </p>
+
+<pre><span class="c">// HIP / 程序员看到的 SIMT</span>
+<span class="k">if</span> (x[tid] &gt; 0)
+    y[tid] =  x[tid] * 2;     <span class="c">// then：lane 0,1,2,5,6</span>
+<span class="k">else</span>
+    y[tid] = -x[tid];         <span class="c">// else：lane 3,4,7</span>
+</pre>
+
+      <table>
+        <thead>
+          <tr><th>lane</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>x</td><td>3</td><td>5</td><td>1</td><td>−2</td><td>−4</td><td>8</td><td>2</td><td>−1</td></tr>
+          <tr><td>x&gt;0 ?</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td></tr>
+          <tr><td>程序员以为的路径</td><td>then</td><td>then</td><td>then</td><td>else</td><td>else</td><td>then</td><td>then</td><td>else</td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.1 时间线：同一 PC，换 mask 跑两遍</h3>
+
+      <div class="step">
+        <h4>时刻 T0 — 汇合处，所有人活着</h4>
+        <p class="mono">EXEC = 1 1 1 1 1 1 1 1　　PC 指向比较指令</p>
+        <div class="fig" style="margin:8px 0 0;padding:10px;">
+          <svg viewBox="0 0 760 70" xmlns="http://www.w3.org/2000/svg">
+            <g font-family="Segoe UI, sans-serif" font-size="12" text-anchor="middle">
+              <rect x="10" y="16" width="80" height="36" fill="#0f766e"/><text x="50" y="39" fill="#fff">L0</text>
+              <rect x="100" y="16" width="80" height="36" fill="#0f766e"/><text x="140" y="39" fill="#fff">L1</text>
+              <rect x="190" y="16" width="80" height="36" fill="#0f766e"/><text x="230" y="39" fill="#fff">L2</text>
+              <rect x="280" y="16" width="80" height="36" fill="#0f766e"/><text x="320" y="39" fill="#fff">L3</text>
+              <rect x="370" y="16" width="80" height="36" fill="#0f766e"/><text x="410" y="39" fill="#fff">L4</text>
+              <rect x="460" y="16" width="80" height="36" fill="#0f766e"/><text x="500" y="39" fill="#fff">L5</text>
+              <rect x="550" y="16" width="80" height="36" fill="#0f766e"/><text x="590" y="39" fill="#fff">L6</text>
+              <rect x="640" y="16" width="80" height="36" fill="#0f766e"/><text x="680" y="39" fill="#fff">L7</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="step">
+        <h4>时刻 T1 — 向量比较：写出 VCC，PC 仍是整波一份</h4>
+<pre>v_cmp_gt_i32 vcc, v0, 0     <span class="c">; VCC[i] = (x[i] &gt; 0)。写的是 mask，不是跳转</span></pre>
+        <p class="mono">VCC  = 1 1 1 0 0 1 1 0</p>
+        <p>比较本身受当时 EXEC 约束，但 ISA 规定写 VCC 的 VALU 在 EXEC==0 时<strong>也不会被 skip</strong>，保证 mask 语义完整。</p>
+      </div>
+
+      <div class="step">
+        <h4>时刻 T2 — 进入 then：保存旧 EXEC，新 EXEC = 旧 EXEC ∧ VCC</h4>
+<pre>s_and_saveexec_b32 s0, vcc
+<span class="c">; 原子地：s0 = EXEC;  EXEC = EXEC &amp; VCC;  SCC = (EXEC != 0)</span>
+s_xor_b32 s0, s0, exec
+<span class="c">; s0 变成 else-mask = 旧EXEC ⊕ then-mask = 旧EXEC ∧ ¬VCC</span>
+s_cbranch_execz ELSE        <span class="c">; 若 then 全灭，整波跳过 then 体</span></pre>
+        <p class="mono">s0   = 0 0 0 1 1 0 0 1　（else 的人，稍后用）<br/>EXEC = 1 1 1 0 0 1 1 0　（只留下 then 的人）</p>
+        <div class="fig" style="margin:8px 0 0;padding:10px;">
+          <svg viewBox="0 0 760 70" xmlns="http://www.w3.org/2000/svg">
+            <g font-family="Segoe UI, sans-serif" font-size="12" text-anchor="middle">
+              <rect x="10" y="16" width="80" height="36" fill="#0f766e"/><text x="50" y="39" fill="#fff">then</text>
+              <rect x="100" y="16" width="80" height="36" fill="#0f766e"/><text x="140" y="39" fill="#fff">then</text>
+              <rect x="190" y="16" width="80" height="36" fill="#0f766e"/><text x="230" y="39" fill="#fff">then</text>
+              <rect x="280" y="16" width="80" height="36" fill="#d6d3d1"/><text x="320" y="39" fill="#57534e">NOP</text>
+              <rect x="370" y="16" width="80" height="36" fill="#d6d3d1"/><text x="410" y="39" fill="#57534e">NOP</text>
+              <rect x="460" y="16" width="80" height="36" fill="#0f766e"/><text x="500" y="39" fill="#fff">then</text>
+              <rect x="550" y="16" width="80" height="36" fill="#0f766e"/><text x="590" y="39" fill="#fff">then</text>
+              <rect x="640" y="16" width="80" height="36" fill="#d6d3d1"/><text x="680" y="39" fill="#57534e">NOP</text>
+            </g>
+          </svg>
+        </div>
+        <p style="margin-top:10px;">此时执行 <code>v_mul_i32 v1, v0, 2</code>：lane 3/4/7 的 <code>y</code> 保持原值，假装「没走进 if」。</p>
+      </div>
+
+      <div class="step">
+        <h4>时刻 T3 — 切换到 else：用保存的 mask 把 then 关掉、把 else 打开</h4>
+<pre>ELSE:
+s_or_saveexec_b32 s0, s0
+<span class="c">; s0' = 当前 EXEC（then 残留）; EXEC = EXEC | else-mask  → 暂时全开</span>
+s_xor_b32 exec, exec, s0
+<span class="c">; EXEC = 全开 ⊕ then残留 = 只剩 else</span>
+s_cbranch_execz JOIN        <span class="c">; else 全灭则跳过</span></pre>
+        <p class="mono">EXEC = 0 0 0 1 1 0 0 1</p>
+        <div class="fig" style="margin:8px 0 0;padding:10px;">
+          <svg viewBox="0 0 760 70" xmlns="http://www.w3.org/2000/svg">
+            <g font-family="Segoe UI, sans-serif" font-size="12" text-anchor="middle">
+              <rect x="10" y="16" width="80" height="36" fill="#d6d3d1"/><text x="50" y="39" fill="#57534e">NOP</text>
+              <rect x="100" y="16" width="80" height="36" fill="#d6d3d1"/><text x="140" y="39" fill="#57534e">NOP</text>
+              <rect x="190" y="16" width="80" height="36" fill="#d6d3d1"/><text x="230" y="39" fill="#57534e">NOP</text>
+              <rect x="280" y="16" width="80" height="36" fill="#b45309"/><text x="320" y="39" fill="#fff">else</text>
+              <rect x="370" y="16" width="80" height="36" fill="#b45309"/><text x="410" y="39" fill="#fff">else</text>
+              <rect x="460" y="16" width="80" height="36" fill="#d6d3d1"/><text x="500" y="39" fill="#57534e">NOP</text>
+              <rect x="550" y="16" width="80" height="36" fill="#d6d3d1"/><text x="590" y="39" fill="#57534e">NOP</text>
+              <rect x="640" y="16" width="80" height="36" fill="#b45309"/><text x="680" y="39" fill="#fff">else</text>
+            </g>
+          </svg>
+        </div>
+        <p style="margin-top:10px;">执行 <code>v_sub_i32 v1, 0, v0</code>。then 的 lane 被关掉，不会把刚才的 <code>2x</code> 覆盖成 <code>-x</code>。</p>
+      </div>
+
+      <div class="step">
+        <h4>时刻 T4 — 汇合：OR 回保存的 mask，整波重新对齐</h4>
+<pre>JOIN:
+s_or_b32 exec, exec, s0     <span class="c">; EXEC |= 进入分支前还活着的人</span></pre>
+        <p class="mono">EXEC = 1 1 1 1 1 1 1 1　　PC 再次对所有人相同</p>
+        <p>结果 <code>y = [6, 10, 2, 2, 4, 16, 4, 1]</code>，与「每条线程自己走 if」完全一致——代价是 then 和 else 的向量指令都发过一遍。</p>
+      </div>
+
+      <div class="legend">
+        <span><i style="background:#0f766e"></i>EXEC=1，正在执行 then</span>
+        <span><i style="background:#b45309"></i>EXEC=1，正在执行 else</span>
+        <span><i style="background:#d6d3d1"></i>EXEC=0，向量指令当 NOP</span>
+      </div>
+
+      <h3>4.2 控制流图：不是两套 PC，是一条 PC 扫过两块代码</h3>
+      <div class="fig">
+        <svg viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="if-else CFG">
+          <rect x="360" y="12" width="260" height="48" fill="#f0fdfa" stroke="#0f766e"/>
+          <text x="490" y="32" text-anchor="middle" font-size="13" font-family="Georgia, serif">汇合 / 比较</text>
+          <text x="490" y="50" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">v_cmp → VCC　　PC 唯一</text>
+          <path d="M490 60 L490 88" stroke="#1c1917" fill="none"/>
+          <rect x="300" y="88" width="380" height="52" fill="#fff7ed" stroke="#c2410c"/>
+          <text x="490" y="110" text-anchor="middle" font-size="13" font-family="Georgia, serif">s_and_saveexec + xor</text>
+          <text x="490" y="128" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">切开 then-mask / else-mask，存在 SGPR</text>
+          <path d="M400 140 L220 168" stroke="#0f766e" fill="none"/>
+          <path d="M580 140 L760 168" stroke="#b45309" fill="none"/>
+          <rect x="70" y="168" width="300" height="70" fill="#f0fdfa" stroke="#0f766e"/>
+          <text x="220" y="192" text-anchor="middle" font-size="13" font-family="Georgia, serif" fill="#0f766e">THEN 体（串行第一遍）</text>
+          <text x="220" y="212" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif">EXEC=then-mask</text>
+          <text x="220" y="228" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">else 的 lane 跟着走，但是 NOP</text>
+          <rect x="610" y="168" width="300" height="70" fill="#fff7ed" stroke="#b45309"/>
+          <text x="760" y="192" text-anchor="middle" font-size="13" font-family="Georgia, serif" fill="#b45309">ELSE 体（串行第二遍）</text>
+          <text x="760" y="212" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif">EXEC=else-mask</text>
+          <text x="760" y="228" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">then 的 lane 跟着走，但是 NOP</text>
+          <path d="M220 238 L220 268 L490 268" stroke="#0f766e" fill="none"/>
+          <path d="M760 238 L760 268 L490 268" stroke="#b45309" fill="none"/>
+          <rect x="360" y="278" width="260" height="48" fill="#1c1917"/>
+          <text x="490" y="298" text-anchor="middle" font-size="13" fill="#fff" font-family="Georgia, serif">JOIN：s_or 恢复 EXEC</text>
+          <text x="490" y="316" text-anchor="middle" font-size="11" fill="#d6d3d1" font-family="Segoe UI, sans-serif">所有活着的 lane 再次锁步</text>
+        </svg>
+      </div>
+      <p class="figcap">图 4. 软件 SIMT 的本质：CFG 上 then/else 是<strong>时间上先后</strong>的两段向量代码，靠 mask 保证各 lane 只提交自己那一段的写回。</p>
+
+      <div class="callout">
+        这就是「SIMD + mask 模拟 SIMT」：SIMD 提供 32 路数据并行；mask 提供「这条线程不该写」；
+        编译器提供 mask 的压栈/切分/还原。没有任何一条 lane 拥有独立 PC。
+      </div>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 关键 ISA：SAVEEXEC、CMPX、CBRANCH</h2>
+
+      <h3>5.1 SAVEEXEC 家族：一拍完成「压栈 + 切 mask」</h3>
+      <p>
+        ISA §6 / §15.3 把这类 SOP1 写成统一语义（B32 用于 wave32）：
+      </p>
+<pre>saveexec = EXEC
+EXEC     = S0  &lt;op&gt;  EXEC
+D        = saveexec          <span class="c">; 旧 mask 存进 SGPR</span>
+SCC      = (EXEC != 0)</pre>
+      <table>
+        <thead>
+          <tr><th>指令</th><th>新 EXEC</th><th>典型用途</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>s_and_saveexec_b32 D, S0</code></td><td><code>S0 &amp; EXEC</code></td><td>进入 if：只留下条件为真的 lane</td></tr>
+          <tr><td><code>s_or_saveexec_b32</code></td><td><code>S0 | EXEC</code></td><td>else 切换时先并上另一半</td></tr>
+          <tr><td><code>s_xor_saveexec_b32</code></td><td><code>S0 ^ EXEC</code></td><td>切到互补集合</td></tr>
+          <tr><td><code>s_and_not0_saveexec_b32</code></td><td><code>~S0 &amp; EXEC</code></td><td>关掉 S0 里为 1 的 lane（离开 then）</td></tr>
+          <tr><td><code>s_and_not1_saveexec_b32</code></td><td><code>S0 &amp; ~EXEC</code></td><td>从 S0 里取出当前没在跑的那些</td></tr>
+          <tr><td><code>s_*_wrexec_b32</code></td><td>结果同时写入 D 和 EXEC</td><td>waterfall：D 与 EXEC 必须相同</td></tr>
+        </tbody>
+      </table>
+      <p>
+        注意：<code>WREXEC</code> 与 <code>SAVEEXEC</code> 的差别是目的寄存器。SAVEEXEC 的 D 是<strong>旧</strong> EXEC；
+        WREXEC 的 D 是<strong>新</strong> EXEC。ISA 写明 WREXEC「intended to help accelerate waterfalling」。
+      </p>
+
+      <h3>5.2 V_CMP 写 VCC，V_CMPX 直接写 EXEC</h3>
+      <p>
+        §3.4.7：<code>V_CMP</code> 产生 per-lane 1-bit 结果，可写到 VCC、任意 SGPR、或 EXEC，但<strong>不能同时写 EXEC 和 SGPR</strong>。
+        Wave32 只写低 32 位。<code>VCCZ</code> 是「当前波宽下 VCC 是否全 0」，给 <code>s_cbranch_vccz</code> 用。
+      </p>
+      <p>
+        <code>V_CMPX_*</code> 把比较结果直接打进 EXEC（<code>EXEC[laneId] = pred</code>），少一次 SAVEEXEC，
+        适合已经不需要旧 mask、或旧 mask 已另存的场景。ISA 警告：CMPX 之后的 EXEC==0 skip 是时序相关的。
+      </p>
+
+      <h3>5.3 分支改的是整波 PC</h3>
+      <p>ISA §5.5：「Branching … affects the entire wave, not just individual work-items。」可用条件：</p>
+      <table>
+        <thead><tr><th>指令</th><th>何时跳</th><th>SIMT 角色</th></tr></thead>
+        <tbody>
+          <tr><td><code>s_cbranch_execz / execnz</code></td><td>EXEC 全 0 / 非全 0</td><td>剪掉空的 then/else/loop 体</td></tr>
+          <tr><td><code>s_cbranch_vccz / vccnz</code></td><td>VCC 全 0 / 非全 0</td><td>比较后整波 early-exit</td></tr>
+          <tr><td><code>s_cbranch_scc0 / scc1</code></td><td>标量条件</td><td>wave-uniform 的 if（所有 lane 同一决策）</td></tr>
+          <tr><td><code>s_branch</code></td><td>无条件</td><td>汇合、循环回边</td></tr>
+        </tbody>
+      </table>
+      <p>
+        偏移按「下一条指令的 PC + SIMM16×4」计算，<code>s_branch 0</code> 等于 NOP，不会死循环。
+        这再次说明：lane 分歧绝不能靠 <code>s_cbranch</code> 实现，否则 32 条线程会一起跳走。
+      </p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 嵌套、循环、waterfall</h2>
+
+      <h3>6.1 嵌套 if：SGPR 当 mask 栈</h3>
+      <p>
+        没有硬件 reconvergence stack。编译器把每一层的「进入前 EXEC」和「else-mask」放进 SGPR。
+        嵌套两层就占两个标量槽（wave32 下各 32-bit）。深度过大或 SGPR 不够时，才会溢到 scratch。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg">
+          <text x="20" y="28" font-size="14" font-family="Georgia, serif">外层 if (A) { 内层 if (B) { … } }</text>
+          <g font-family="Segoe UI, sans-serif" font-size="12">
+            <rect x="20" y="50" width="940" height="36" fill="#0f766e"/>
+            <text x="490" y="73" text-anchor="middle" fill="#fff">进入前 EXEC_all（存在 s0）</text>
+            <rect x="20" y="96" width="620" height="36" fill="#115e59"/>
+            <text x="330" y="119" text-anchor="middle" fill="#fff">外层 then = EXEC ∧ A（当前 EXEC）</text>
+            <rect x="650" y="96" width="310" height="36" fill="#d6d3d1"/>
+            <text x="805" y="119" text-anchor="middle" fill="#44403c">外层 else 等人（存在 s1）</text>
+            <rect x="20" y="142" width="360" height="36" fill="#134e4a"/>
+            <text x="200" y="165" text-anchor="middle" fill="#fff">内层 then = EXEC ∧ B</text>
+            <rect x="390" y="142" width="250" height="36" fill="#a8a29e"/>
+            <text x="515" y="165" text-anchor="middle" fill="#fff">内层 else / NOP</text>
+            <rect x="20" y="198" width="940" height="36" fill="#1c1917"/>
+            <text x="490" y="221" text-anchor="middle" fill="#fff">内层 OR 回 s2 → 外层 OR 回 s0，由内向外弹出 mask 栈</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5. 嵌套分歧 = 把 EXEC 一次次 AND 窄化，用 SGPR 记住每一层被切掉的人，结束时从内向外 OR 回去。</p>
+
+      <h3>6.2 循环：活着的人越来越少，直到 EXECZ</h3>
+      <p>
+        <code>while (cond) { … }</code> 编译成：循环头向量比较 → <code>s_and_saveexec</code> 关掉退出的 lane →
+        体 → <code>s_cbranch_execnz</code> 跳回。已经退出的 lane 仍跟着波转，只是一直 NOP，直到全员退出才真正离开。
+        这就是「一条线程死循环会拖死整 wave」的硬件原因：PC 只有一份。
+      </p>
+
+      <h3>6.3 Waterfall：把「每 lane 不同标量」串行化</h3>
+      <p>
+        有些操作必须 wave-uniform（例如用 SGPR 做 descriptor）。ISA 给出的标准瀑布循环（§15.3 注释）：
+      </p>
+<pre><span class="c">; v0 = 每 lane 的 index</span>
+s_mov_b64 s2, exec          <span class="c">; 最终要恢复的 EXEC</span>
+s_mov_b64 s4, exec          <span class="c">; 尚未处理的 lane</span>
+loop:
+  v_readfirstlane_b32 s0, v0   <span class="c">; 取出当前还活着的最低编号 lane 的 index</span>
+  v_cmpx_eq s0, v0             <span class="c">; EXEC ← 所有 index 相同的 lane</span>
+  &lt;OP&gt;                         <span class="c">; 用这个统一的 s0 做标量/资源操作</span>
+  s_andn2_wrexec_b64 s4, s4    <span class="c">; 从「剩余集合」里抠掉刚处理的人，写回 EXEC</span>
+  s_cbranch_scc1 loop          <span class="c">; 还有剩余就继续</span>
+s_mov_b64 exec, s2</pre>
+      <p>
+        不同 index 的 lane 被<strong>分成若干批、批与批串行</strong>。这是 mask-SIMT 的极端形式：
+        当数据相关无法向量化时，用 EXEC 做软件调度器。WREXEC 把原来的
+        <code>andn2</code> + <code>mov exec</code> 收成一条。
+      </p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. CDNA5 相对前代改了什么</h2>
+      <p>
+        文档开篇写明：「This document may make reference to "wave64" but this device supports only wave32。」
+        目录里也不再有 RDNA 那种「§2.1 Wave32 and Wave64」。和 CDNA1–4（GCN 系 4×SIMD16）对比：
+      </p>
+      <table>
+        <thead>
+          <tr><th></th><th>CDNA1–4（GCN 系）</th><th>CDNA5（本 ISA）</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>波宽</td><td>Wave64 为主</td><td>仅 Wave32，Wave64 废弃</td></tr>
+          <tr><td>SIMD</td><td>CU 内 4×SIMD16，一条 Wave64 分 4 拍</td><td>WGP 内 4×SIMD32，一条 Wave32 一拍</td></tr>
+          <tr><td>EXEC</td><td>64-bit 全用</td><td>仍是 64-bit 寄存器，硬件只看 [31:0]</td></tr>
+          <tr><td>VGPR</td><td>典型每 lane 最多 256</td><td>每 lane 最多 1024（文件仍约 128 kB / SIMD，波宽减半故可编址加倍）</td></tr>
+          <tr><td>双发射</td><td>无 VOPD</td><td>§7.8 Dual Issue VALU（VOPD / VOPD3）</td></tr>
+          <tr><td>矩阵</td><td>MFMA</td><td>WMMA；EXEC==0 时 WMMA 不跳过</td></tr>
+          <tr><td>新层次</td><td>无 cluster</td><td>Workgroup Cluster：跨 WGP 的屏障与 multicast load</td></tr>
+        </tbody>
+      </table>
+      <p>
+        废弃 Wave64 的工程理由（与公开访谈一致）：Wave64 在 SIMD32 上要拆成高低两半，
+        分歧时浪费更大，寄存器压力也更高。CDNA5 把 SIMT 宽度钉死在 32，和 VALU 物理宽度对齐，
+        mask 操作全部走 <code>*_B32</code> 即可。
+      </p>
+      <div class="callout teal">
+        机制本身没变：从 GCN 到 CDNA5，SIMT 始终是「共享 PC + EXEC + 编译器改 mask」。
+        变的是波宽与 SIMD 宽度对齐的方式，以及 SAVEEXEC/WREXEC 等标量辅助指令的完备程度。
+      </div>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 和 NVIDIA 比：差别与好处</h2>
+      <p class="lead">
+        数据通路两边其实是一类东西：都是 32 宽 SIMD + 活跃掩码。真正分叉的是
+        <strong>PC 归谁管、uniform 值放哪、控制流有没有单独的标量核</strong>。
+        AMD 把「线程独立」尽量下放到编译器和一张 EXEC 上，把省下来的面积做成 SALU / SGPR；
+        NVIDIA 从 Volta 起把「线程独立」做进硬件（每线程 PC），换的是前向进度和分歧调用。
+      </p>
+
+      <h3>8.1 先看两边相同的部分</h3>
+      <p>
+        一条 warp / wave 发射时，硬件仍然只取<strong>一条</strong>指令，按 mask 决定哪些 lane 写回。
+        不活跃 lane 不会变成真正的多发射标量核。所以「SIMT」在两边都是编程模型，不是 32 套完整流水线。
+        分歧时 then/else 的向量工作仍然要分时占用同一套 SIMD。
+      </p>
+
+      <h3>8.2 真正的三点不同</h3>
+      <table>
+        <thead>
+          <tr><th></th><th>AMD CDNA5</th><th>NVIDIA（Volta 及以后）</th><th>NVIDIA（Pascal 及以前）</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PC</td>
+            <td>整 wave 一份。分歧只改 EXEC，then/else 必须整段串行跑完</td>
+            <td>每线程一份 PC + 调用栈。调度器按「当前停在同一 PC 的子集」发射</td>
+            <td>整 warp 一份 PC + <em>硬件</em> SIMT 栈（reconverge PC / 活跃 mask）</td>
+          </tr>
+          <tr>
+            <td>汇合谁负责</td>
+            <td>编译器：SAVEEXEC 把 mask 压进 SGPR，结束时 OR 回来</td>
+            <td>硬件按 PC 聚类；warp 内原语仍要 <code>__syncwarp</code></td>
+            <td>编译器插汇合点，硬件弹栈</td>
+          </tr>
+          <tr>
+            <td>uniform 与控制流</td>
+            <td>独立 SALU + SGPR：一份值、一条标量指令、可与 VALU 同拍发射</td>
+            <td>没有对等的标量寄存器堆；uniform 通常在 32 份线程寄存器里各存一份</td>
+            <td>同左</td>
+          </tr>
+          <tr>
+            <td>分歧时的进度</td>
+            <td>先跑完 A 再跑 B。A 里若空等 B，会死锁</td>
+            <td>A、B 可交错发射，warp 内锁 / 生产-消费能向前走</td>
+            <td>与 AMD 类似：路径串行，同样有 intra-warp 死锁坑</td>
+          </tr>
+          <tr>
+            <td>分歧函数调用</td>
+            <td>wave 一份返回地址；分歧调用要 mask / waterfall</td>
+            <td>每线程栈，调用可以各走各的</td>
+            <td>锁步调用，分歧调用受限制</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>8.3 分歧时序：串行 vs 交错</h3>
+      <p>
+        同一段 <code>if (cond) A(); else B();</code>。假设 4 条 lane 走 A、4 条走 B，A 和 B 各 3 条向量指令。
+        SIMD 总功一样都是 6 次发射；差在<strong>中间能不能换路径</strong>。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AMD串行 vs NV交错">
+          <text x="20" y="24" font-size="14" font-family="Georgia, serif" fill="#1c1917">AMD：一份 PC，A 整段 → B 整段</text>
+          <g font-family="Segoe UI, sans-serif" font-size="11" text-anchor="middle">
+            <rect x="20" y="40" width="90" height="36" fill="#0f766e"/><text x="65" y="62" fill="#fff">A1</text>
+            <rect x="118" y="40" width="90" height="36" fill="#0f766e"/><text x="163" y="62" fill="#fff">A2</text>
+            <rect x="216" y="40" width="90" height="36" fill="#0f766e"/><text x="261" y="62" fill="#fff">A3</text>
+            <rect x="314" y="40" width="90" height="36" fill="#b45309"/><text x="359" y="62" fill="#fff">B1</text>
+            <rect x="412" y="40" width="90" height="36" fill="#b45309"/><text x="457" y="62" fill="#fff">B2</text>
+            <rect x="510" y="40" width="90" height="36" fill="#b45309"/><text x="555" y="62" fill="#fff">B3</text>
+          </g>
+          <text x="620" y="62" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">B 侧 lane 在 A1–A3 全程 NOP</text>
+          <text x="20" y="118" font-size="14" font-family="Georgia, serif" fill="#1c1917">NVIDIA Volta+：可按 PC 子集交错（示意）</text>
+          <g font-family="Segoe UI, sans-serif" font-size="11" text-anchor="middle">
+            <rect x="20" y="134" width="90" height="36" fill="#0f766e"/><text x="65" y="156" fill="#fff">A1</text>
+            <rect x="118" y="134" width="90" height="36" fill="#b45309"/><text x="163" y="156" fill="#fff">B1</text>
+            <rect x="216" y="134" width="90" height="36" fill="#0f766e"/><text x="261" y="156" fill="#fff">A2</text>
+            <rect x="314" y="134" width="90" height="36" fill="#b45309"/><text x="359" y="156" fill="#fff">B2</text>
+            <rect x="412" y="134" width="90" height="36" fill="#0f766e"/><text x="457" y="156" fill="#fff">A3</text>
+            <rect x="510" y="134" width="90" height="36" fill="#b45309"/><text x="555" y="156" fill="#fff">B3</text>
+          </g>
+          <text x="620" y="156" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">A 若在等 B，B 有机会先跑完</text>
+          <rect x="20" y="196" width="940" height="64" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="40" y="222" font-size="13" font-family="Georgia, serif" fill="#9a3412">总 SIMD 功不变：两边都是 6 次向量发射，不活跃 lane 照样空着。</text>
+          <text x="40" y="244" font-size="13" font-family="Georgia, serif" fill="#1c1917">交错的价值不在峰值 FLOP，而在「一条路径卡住时，另一条还能动」——锁、warp 内握手、分歧调用。</text>
+        </svg>
+      </div>
+      <p class="figcap">图 6. 分歧并不会让 32 路变成 32 个独立标量核。NVIDIA 多出来的是调度自由度，不是额外的 ALU 宽度。</p>
+
+      <h3>8.4 AMD 这套设计的好处</h3>
+      <p>好处几乎都来自「故意不把线程做成硬件实体」，把预算给标量核和更简单的调度。</p>
+
+      <div class="grid-2">
+        <div class="tile">
+          <h4>1. SALU + SGPR：uniform 只算一次、只存一份</h4>
+          <p>
+            循环下标、kernel 参数、描述符、wave 内相同的地址基址，都进 SGPR。
+            NVIDIA 同类值往往在 32 个线程寄存器里复制 32 份。
+            结果是：占用更少、功耗更低，而且 SALU 可以和 VALU 同一拍发射（控制流不堵数据通路）。
+          </p>
+        </div>
+        <div class="tile">
+          <h4>2. 标量访存（SMEM）一次打整波</h4>
+          <p>
+            常量、内核参数走 scalar data cache → SGPR，不是 32 条向量 load。
+            这是 GCN 系相对 CUDA 核「看起来寄存器少、却能撑很高占用」的重要原因。
+          </p>
+        </div>
+        <div class="tile">
+          <h4>3. 硬件更简单，调度确定</h4>
+          <p>
+            不必为 32 个 PC / 32 份调用栈做记分牌和选取逻辑。
+            EXEC 对编译器完全可见：<code>s_cbranch_execz</code> 剪空块、DPP / permute / ballot 在锁步下语义干净，不必到处插 <code>__syncwarp</code>。
+          </p>
+        </div>
+        <div class="tile">
+          <h4>4. 编译器能「标量化」控制流</h4>
+          <p>
+            证明整波条件相同后，走 SCC + <code>s_cbranch</code>，连 EXEC 都不切。
+            NVIDIA 也能优化 uniform 分支，但没有对等的标量条件码与标量 ALU 作为一等公民。
+          </p>
+        </div>
+      </div>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SGPR vs 复制寄存器">
+          <text x="20" y="26" font-size="14" font-family="Georgia, serif">同一份「blockDim × blockIdx」基址</text>
+          <rect x="20" y="46" width="430" height="150" fill="#f0fdfa" stroke="#0f766e"/>
+          <text x="235" y="72" text-anchor="middle" font-size="13" font-family="Georgia, serif" fill="#0f766e">AMD：一份 SGPR</text>
+          <rect x="80" y="92" width="280" height="44" fill="#1c1917"/>
+          <text x="220" y="120" text-anchor="middle" font-size="13" fill="#5eead4" font-family="Segoe UI, sans-serif">s6 = blockDim * blockIdx</text>
+          <text x="235" y="164" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">SALU 算一次 · 32 lane 共享读</text>
+          <text x="235" y="182" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">再 v_add 上 threadIdx（VGPR）</text>
+          <rect x="530" y="46" width="430" height="150" fill="#fff7ed" stroke="#c2410c"/>
+          <text x="745" y="72" text-anchor="middle" font-size="13" font-family="Georgia, serif" fill="#9a3412">NVIDIA：32 份线程寄存器</text>
+          <g font-family="Segoe UI, sans-serif" font-size="11" text-anchor="middle">
+            <rect x="550" y="96" width="44" height="28" fill="#b45309"/><text x="572" y="115" fill="#fff">t0</text>
+            <rect x="600" y="96" width="44" height="28" fill="#b45309"/><text x="622" y="115" fill="#fff">t1</text>
+            <rect x="650" y="96" width="44" height="28" fill="#b45309"/><text x="672" y="115" fill="#fff">t2</text>
+            <rect x="700" y="96" width="44" height="28" fill="#b45309"/><text x="722" y="115" fill="#fff">t3</text>
+            <rect x="750" y="96" width="80" height="28" fill="#e7e5e4"/><text x="790" y="115" fill="#57534e">… t31</text>
+          </g>
+          <text x="745" y="164" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">同一常数占 32× 寄存器文件带宽</text>
+          <text x="745" y="182" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">算术也在 CUDA core 上各算一遍（或广播）</text>
+        </svg>
+      </div>
+      <p class="figcap">图 7. AMD 把「wave 内相同」从向量世界里抠出来：这是相对 NVIDIA 最硬的微架构好处，和 EXEC 模拟 SIMT 是配套的——既然 PC 已经共享，值也该共享。</p>
+
+      <h3>8.5 好处的代价（也就是 NVIDIA ITS 赢的地方）</h3>
+      <ul>
+        <li><strong>warp 内握手</strong>：<code>if (lane==0) produce; else spin until ready;</code> 在 AMD 上，else 要等 then 整段结束才开始。若 then 里的人反过来等 else，直接死锁。Volta 的独立调度就是为这个前向进度加的。</li>
+        <li><strong>分歧调用 / 间接跳转</strong>：每线程栈让 CUDA 的 divergent call 自然成立；AMD 要靠 mask 或 waterfall，编译器更累，间接调用开销更明显。</li>
+        <li><strong>不可约 CFG</strong>：硬件按 PC 聚类能「碰到谁算谁」；AMD 必须由编译器排出合法的 mask 栈，复杂控制流容易多切几次 EXEC。</li>
+        <li><strong>mask 栈占 SGPR</strong>：嵌套分歧越深，标量寄存器越紧。NVIDIA 把汇合状态放进硬件，不跟用户 SGPR 抢。</li>
+      </ul>
+
+      <div class="callout teal">
+        对 CDNA 这类训练/推理负载，uniform 地址、统一控制流、矩阵核占主导，SALU/SGPR 的收益通常大于「分歧交错」。
+        图形和带锁的不规则计算更吃 NVIDIA 的每线程 PC。CDNA5 把波宽收到 32，是在
+        <em>不改「一份 PC」这个前提</em>下，把分歧浪费从 64 路降到 32 路，向 NVIDIA 的 warp 尺寸靠拢，而不是改成 ITS。
+      </div>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 对性能意味着什么</h2>
+      <ul>
+        <li><strong>分歧的代价是串行发两遍（或多遍）向量指令</strong>，不是「部分 lane 自己跑去别处」。then 和 else 一样长时，吞吐近似减半；再嵌套就按活跃子集继续串行。</li>
+        <li><strong>全波 uniform 的 if</strong> 应落成 <code>scc</code> + <code>s_cbranch</code>，不要走 VCC/EXEC，避免无谓的 mask 切分。</li>
+        <li><strong>EXEC 全 0 要尽快剪掉</strong>：编译器插 <code>s_cbranch_execz</code>，硬件再对 VALU 做 opportunistic skip。漏掉就会对着空 mask 烧周期。</li>
+        <li><strong>一条 lane 不退出，整 wave 不能走</strong>。循环、锁、warp 内同步都必须按「共享 PC」来想。</li>
+        <li><strong>访存仍走 EXEC</strong>：不活跃 lane 不应发有效 global/LDS 事务；这也是为什么 VMEM skip 要看 outstanding 计数。</li>
+        <li><strong>CDNA5 把波宽缩到 32</strong>，同样的 if/else 最多浪费 32 路而不是 64 路，对 AI 里常见的短分歧更友好；但 32 路仍是锁步，算法层面的 warp divergence 并没有消失。</li>
+      </ul>
+
+      <h3>把机制收成一张表</h3>
+      <table>
+        <thead>
+          <tr><th>程序员以为</th><th>CDNA5 实际</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>32 个独立线程各有 PC</td><td>1 个 PC，32 个数据通路</td></tr>
+          <tr><td><code>if</code> 跳到另一段代码</td><td>改 EXEC，then/else 依次向量执行</td></tr>
+          <tr><td>未走入的分支「没运行」</td><td>指令照发，该 lane 写回被 mask 掉（或整波 skip）</td></tr>
+          <tr><td>线程在分支结束自动汇合</td><td>编译器 <code>s_or</code> 恢复 EXEC；忘了恢复就是错误的 SIMT</td></tr>
+          <tr><td>比较产生跳转</td><td>比较产生 VCC/EXEC 位；跳转是事后的整波 <code>s_cbranch</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      依据 AMD 《"CDNA5" Instruction Set Architecture: Reference Guide》（27-July-2026）§1–3、§5–7、§15 整理。
+      示例用 8 lane 代替 32 lane，仅便于画图；真实 EXEC 为 <code>EXEC[31:0]</code>。
+    </footer>
+  </div>
+</body>
+</html>

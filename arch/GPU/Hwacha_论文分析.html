@@ -235,7 +235,7 @@
       <p>
         上层语言主要是两类：隐式并行的自动向量化（写串行循环，编译器抽并行），以及显式并行的 SPMD（CUDA / OpenCL，程序员写单线程 kernel 再网格启动）。SPMD 对程序员友好，但把大量负担甩给硬件：跨线程冗余无法表达、复杂控制流必须被正确执行。汇编层则决定这些负担落在谁身上。
       </p>
-      <p>论文用带条件的 SAXPY（CSAXPY：<code>if (cond[i]) y[i] = a*x[i] + y[i]</code>）把四种模型摊开对比。</p>
+      <p>论文用带条件的 SAXPY（CSAXPY：<code>if (cond[i]) y[i] = a*x[i] + y[i]</code>）把四种模型并列对比。</p>
 
       <div class="fig">
         <svg viewBox="0 0 980 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="四种数据并行汇编模型对比">
@@ -251,7 +251,7 @@
             <rect x="28" y="200" width="198" height="90" rx="4" fill="#ffedd5" stroke="#fdba74"/>
             <text x="127" y="228" text-anchor="middle" font-size="12" fill="#9a3412">代价：静态宽度</text>
             <text x="127" y="250" text-anchor="middle" font-size="11" fill="#78716c">优点：有标量控制核</text>
-            <text x="127" y="272" text-anchor="middle" font-size="11" fill="#78716c">地址计算摊到 SIMD 宽</text>
+            <text x="127" y="272" text-anchor="middle" font-size="11" fill="#78716c">地址计算按 SIMD 宽度做一次</text>
             <text x="127" y="390" text-anchor="middle" font-size="11" fill="#78716c">谓词支持 historically 弱</text>
 
             <rect x="254" y="12" width="230" height="396" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
@@ -351,7 +351,7 @@
       <div class="grid-2">
         <div class="tile">
           <h4>开销 1：跨线程冗余</h4>
-          <p>程序员只写 kernel 和网格尺寸，无法声明“这段对所有线程相同”。循环计数、基址、系数加载、共享行向量会被每条线程各做一遍。SIMT 只摊了取指，执行和寄存器仍然按线程复制。</p>
+          <p>SIMT 前端只做一次：warp 共用一个 PC，<code>mul</code> 只取一次、译码一次。后端仍各做一遍：<code>a</code>、基址、循环计数即使对所有线程相同，仍各存一份、各算一遍——硬件没有标量通路可放它们。程序员又无法标注“这段相同”，编译器也就当 32 份标量程序来编。</p>
         </div>
         <div class="tile">
           <h4>开销 2：复杂控制流</h4>

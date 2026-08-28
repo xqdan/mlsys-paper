@@ -152,7 +152,7 @@
     <nav class="toc">
       <h2>目录</h2>
       <ol>
-        <li><a href="#s1">错位：取指摊了，别的没摊</a></li>
+        <li><a href="#s1">错位：取指只做一次，别的各做一遍</a></li>
         <li><a href="#s-models">四种模型：SIMD / SIMT / 向量 / 向量线程</a></li>
         <li><a href="#s2">问题一：跨线程冗余</a></li>
         <li><a href="#s3">问题二：用多线程藏延迟</a></li>
@@ -165,52 +165,80 @@
     </nav>
 
     <section class="card" id="s1">
-      <h2>1. 错位：取指摊了，别的没摊</h2>
+      <h2>1. 错位：取指只做一次，别的各做一遍</h2>
       <p class="lead">
-        GPGPU 的根因不是「算得不够快」，而是 <strong>SPMD 对程序员友好，却把两类开销藏进了硬件</strong>。SIMT 只摊掉了取指：跨线程冗余、线程状态、控制流分歧，仍然按线程付账。
+        SIMT 只把<strong>前端</strong>（取指、译码、一个 PC）做成一份；<strong>后端</strong>仍按 32 个独立线程付账——相同的 <code>a</code>、相同的基址、相同的循环计数，各存一份、各算一遍。这就是错位：看起来像向量机，用起来还是 32 份标量程序。
       </p>
 
+      <h3>先看一句会误导的话</h3>
+      <p>
+        GPU 常被说成「32 条线程锁步执行同一条指令」。这句话只对了一半。对的是：warp 共用一个程序计数器，I-cache 只取一次、<code>mul</code> 只译码一次。错的是：人们以为「同一条指令」等于「相同的数据也只做一次」。硬件并没有标量通路——它不知道 <code>a</code> 对 32 条线程是同一个数，于是 32 个寄存器文件里各放一份 <code>a</code>，32 条 ALU 各乘一次。
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>只做一次 = 前端像向量</h4>
+          <p>32 条线程共享 1 个 PC。取指、译码、发射各一次，结果广播给 32 条 lane。这是 SIMT 相对「32 个独立 CPU 线程」真正省下来的东西。</p>
+        </div>
+        <div class="tile">
+          <h4>各做一遍 = 后端仍是 SPMD</h4>
+          <p>每条线程自己的寄存器、自己的地址、自己的 <code>if (i &lt; n)</code>。即便值相同，硬件也当 32 个私有变量。没有地方写「这份只做一次」。</p>
+        </div>
+      </div>
+
       <div class="fig">
-        <svg viewBox="0 0 920 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SIMT：取指一份，执行三十二份">
+        <svg viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SAXPY 上什么只做一次、什么各做一遍">
           <g font-family="Segoe UI, sans-serif">
-            <text x="460" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a5f">一条 SIMT 指令在 warp 上实际发生了什么</text>
-            <rect x="40" y="50" width="120" height="70" rx="6" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
-            <text x="100" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">I-cache</text>
-            <text x="100" y="100" text-anchor="middle" font-size="11" fill="#7c2d12">取 1 次</text>
-            <path d="M160 85 L210 85" stroke="#c2410c" stroke-width="2"/>
-            <polygon points="210,85 200,80 200,90" fill="#c2410c"/>
-            <rect x="220" y="50" width="140" height="70" rx="6" fill="#ffedd5" stroke="#c2410c"/>
-            <text x="290" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">译码 / 发射</text>
-            <text x="290" y="100" text-anchor="middle" font-size="11" fill="#7c2d12">摊到 32 线程</text>
-            <path d="M360 85 L410 85" stroke="#1e3a5f" stroke-width="2"/>
-            <polygon points="410,85 400,80 400,90" fill="#1e3a5f"/>
+            <text x="480" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">kernel：y[i] = a * x[i] + y[i]　　i 因线程而异，a / n / 基址对所有线程相同</text>
 
-            <!-- 32 lanes as small boxes -->
-            <g>
-              <rect x="420" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
-              <rect x="452" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
-              <rect x="484" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
-              <rect x="516" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
-              <rect x="548" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
-              <rect x="580" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
-              <rect x="612" y="48" width="28" height="74" rx="3" fill="#93c5fd" stroke="#2563eb"/>
-              <text x="626" y="90" text-anchor="middle" font-size="10" fill="#1e3a5f">…</text>
-              <rect x="644" y="48" width="28" height="74" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
-              <text x="434" y="90" text-anchor="middle" font-size="9" fill="#1e3a5f">T0</text>
-              <text x="466" y="90" text-anchor="middle" font-size="9" fill="#1e3a5f">T1</text>
-              <text x="498" y="90" text-anchor="middle" font-size="9" fill="#1e3a5f">T2</text>
-              <text x="658" y="90" text-anchor="middle" font-size="9" fill="#1e3a5f">T31</text>
-            </g>
-            <text x="545" y="140" text-anchor="middle" font-size="12" fill="#1e3a5f">32 条 ALU 各做一遍  ·  32 份寄存器  ·  32 次地址计算</text>
+            <rect x="20" y="48" width="450" height="350" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="245" y="76" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">✓ 只做一次：这条 mul 只取一次</text>
+            <rect x="50" y="96" width="390" height="44" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="245" y="124" text-anchor="middle" font-size="13" fill="#134e4a">I-cache → 译码 → 一个 PC 指向 mul</text>
+            <text x="50" y="168" font-size="12" fill="#0f766e">然后广播给 32 条 ALU，这没问题：x[i] 本来就该各乘各的。</text>
+            <rect x="50" y="188" width="36" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="92" y="188" width="36" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="134" y="188" width="36" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="176" y="188" width="36" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="248" y="228" font-size="16" fill="#0f766e">…</text>
+            <rect x="280" y="188" width="36" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="68" y="228" text-anchor="middle" font-size="10" fill="#134e4a">T0</text>
+            <text x="110" y="228" text-anchor="middle" font-size="10" fill="#134e4a">T1</text>
+            <text x="298" y="228" text-anchor="middle" font-size="10" fill="#134e4a">T31</text>
+            <text x="50" y="290" font-size="13" fill="#134e4a">相对 32 个 CPU 线程：少了 31 次取指。</text>
+            <text x="50" y="314" font-size="13" fill="#134e4a">这是 GPU 能把 SIMT 做宽的原因。</text>
+            <text x="50" y="350" font-size="12" fill="#78716c">论文承认这一层已经只做一次了。</text>
+            <text x="50" y="372" font-size="12" fill="#78716c">诊断不在这里。</text>
 
-            <rect x="40" y="170" width="840" height="90" rx="8" fill="#faf8f4" stroke="#e7e0d4"/>
-            <text x="60" y="200" font-size="13" fill="#166534">✓ 摊掉了：程序计数器、取指、译码</text>
-            <text x="60" y="226" font-size="13" fill="#9a3412">✗ 没摊掉：标量值、循环记账、地址生成、控制流、线程状态</text>
-            <text x="60" y="248" font-size="12" fill="#78716c">论文的诊断从这里开始：SIMT 只解决了多线程最贵的那一层，SPMD 的其余开销还在</text>
+            <rect x="490" y="48" width="450" height="350" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="715" y="76" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">✗ 各做一遍：相同的值仍做 32 遍</text>
+            <text x="510" y="108" font-size="13" fill="#7c2d12">a　—— 32 个寄存器各一份</text>
+            <text x="510" y="132" font-size="13" fill="#7c2d12">&amp;x, &amp;y　—— 32 次基址计算</text>
+            <text x="510" y="156" font-size="13" fill="#7c2d12">n、i &lt; n　—— 32 次比较 + 分歧栈</text>
+            <text x="510" y="180" font-size="13" fill="#7c2d12">循环计数 / 系数（FIR）—— 每线程各加、各 load</text>
+            <rect x="510" y="200" width="70" height="88" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="590" y="200" width="70" height="88" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <rect x="670" y="200" width="70" height="88" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="760" y="250" font-size="16" fill="#c2410c">… ×32</text>
+            <text x="545" y="228" text-anchor="middle" font-size="11" fill="#9a3412">a</text>
+            <text x="545" y="246" text-anchor="middle" font-size="10" fill="#7c2d12">base</text>
+            <text x="545" y="264" text-anchor="middle" font-size="10" fill="#7c2d12">i, n</text>
+            <text x="625" y="228" text-anchor="middle" font-size="11" fill="#9a3412">a</text>
+            <text x="625" y="246" text-anchor="middle" font-size="10" fill="#7c2d12">base</text>
+            <text x="625" y="264" text-anchor="middle" font-size="10" fill="#7c2d12">i, n</text>
+            <text x="705" y="228" text-anchor="middle" font-size="11" fill="#9a3412">a</text>
+            <text x="705" y="246" text-anchor="middle" font-size="10" fill="#7c2d12">base</text>
+            <text x="705" y="264" text-anchor="middle" font-size="10" fill="#7c2d12">i, n</text>
+            <text x="510" y="318" font-size="13" fill="#9a3412">向量机：这些进标量核，只做一次。</text>
+            <text x="510" y="342" font-size="13" fill="#9a3412">GPU：没有标量核可放，只能复制。</text>
+            <text x="510" y="372" font-size="12" fill="#78716c">occupancy 也按「每线程一份状态」计。</text>
           </g>
         </svg>
       </div>
-      <p class="figcap">图 1. SIMT 的真实摊销范围。取指是 1，执行仍是 32。后面所有问题都从这条缝里长出来。</p>
+      <p class="figcap">图 1. 同一条 <code>mul</code>：取指是 1，<code>a</code> 的存放和无关地址计算仍是 32。错位 = 前端按向量计费，后端按线程计费。</p>
+
+      <div class="callout">
+        对照着想：32 个 CPU 线程跑同一段 SAXPY，取指也是 32 次，更贵。SIMT 把这一层修好了。论文要说的是下一步还没修——<strong>和元素无关的那些活</strong>（系数、基址、循环记账、越界比较）在向量机上属于标量核，在 GPU 上仍混在每条线程里。后面「跨线程冗余」「没有标量通路」都是这条缝的具体表现。
+      </div>
 
       <div class="fig">
         <svg viewBox="0 0 920 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="程序员接口到硬件的三层">
@@ -245,7 +273,7 @@
           </g>
         </svg>
       </div>
-      <p class="figcap">图 2. 三层分工。可编程性买在「编译器不拆穿假象、硬件把假象执行掉」上。</p>
+      <p class="figcap">图 2. 三层分工。程序员写单线程；编译器按单线程编；硬件只在取指这一层把 32 条捆在一起。错位发生在「捆在一起」没有继续传到寄存器和标量计算上。</p>
     </section>
 
     <section class="card" id="s-models">
@@ -1276,7 +1304,7 @@
             <rect x="20" y="20" width="430" height="200" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
             <text x="235" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">GPGPU 默认哲学</text>
             <text x="40" y="88" font-size="13" fill="#44403c">保持「单线程编译」的假象</text>
-            <text x="40" y="114" font-size="13" fill="#44403c">SIMT 摊取指</text>
+            <text x="40" y="114" font-size="13" fill="#44403c">SIMT 取指只做一次</text>
             <text x="40" y="140" font-size="13" fill="#44403c">分歧栈管控制流</text>
             <text x="40" y="166" font-size="13" fill="#44403c">多线程 + 超大寄存器文件藏延迟</text>
             <text x="40" y="192" font-size="13" fill="#44403c">动态 coalescing 补地址</text>
