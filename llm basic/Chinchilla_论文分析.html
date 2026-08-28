@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chinchilla 论文分析 | arXiv:2203.15556</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 24px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv:2203.15556</span>
+        <span class="badge">DeepMind · 2022-03</span>
+        <span class="badge">NeurIPS 2022</span>
+        <span class="badge ok">算力最优 · Chinchilla</span>
+        <span class="badge ok">对照 Kaplan 2020</span>
+      </div>
+      <h1>同样算力，小模型多数据：把 Kaplan 的分配反过来</h1>
+      <p class="subtitle">Training Compute-Optimal Large Language Models</p>
+      <p class="meta">
+        <strong>作者：</strong>Jordan Hoffmann<sup>★</sup>、Sebastian Borgeaud<sup>★</sup>、Arthur Mensch<sup>★</sup>、Laurent Sifre<sup>★</sup> 等（DeepMind）<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2203.15556" target="_blank" rel="noopener">arXiv:2203.15556</a>
+        · PDF <a href="https://arxiv.org/pdf/2203.15556" target="_blank" rel="noopener">2203.15556</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：固定 FLOP 怎么拆成 N 和 D</a></li>
+        <li><a href="#s3">Kaplan 错在哪</a></li>
+        <li><a href="#s4">三种估法，同一条前沿</a></li>
+        <li><a href="#s5">参数化损失与约 20 token/参数</a></li>
+        <li><a href="#s6">Chinchilla：70B × 1.4T</a></li>
+        <li><a href="#s7">下游结果</a></li>
+        <li><a href="#s8">局限、毒性与数据</a></li>
+        <li><a href="#s9">和上一篇 Scaling Laws 怎么对读</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">
+        给定训练 FLOP 预算，模型参数 <em>N</em> 与训练 token 数 <em>D</em> 应<strong>近似同比放大</strong>：模型翻倍，token 也翻倍。当时的 GPT-3、Gopher、Jurassic-1、MT-NLG 都大约只训了 300B token，相对自己的规模严重欠训。用 Gopher 同一笔算力训一个 70B、1.4T token 的 Chinchilla，全面超过 280B 的 Gopher，也超过更大的 175B–530B 模型，推理还便宜四倍。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">N∝C<sup>0.50</sup></div>
+          <div class="k">三种方法都接近等比；Kaplan 是 0.73</div>
+        </div>
+        <div>
+          <div class="n">~20×</div>
+          <div class="k">算力最优大约 20 token / 参数</div>
+        </div>
+        <div>
+          <div class="n">67.6%</div>
+          <div class="k">MMLU 5-shot；Gopher 60.0%，+7.6 点</div>
+        </div>
+        <div>
+          <div class="n">4×</div>
+          <div class="k">同 FLOP：模型缩小 4×，数据放大 4×</div>
+        </div>
+      </div>
+      <div class="callout">
+        与 <a href="ScalingLaws_论文分析.html">Kaplan et al. 2020</a> 的共识是：大模型不要训到最低损失才算算力最优，固定算力应提前停。分歧在<strong>停之前预算怎么分</strong>。Kaplan：算力 ×10，模型 ×5.5、token ×1.8。这里：两边都大约 ×√10。口号从“大模型比大数据重要”改成“高质量数据必须跟规模一起涨”。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：固定 FLOP 怎么拆成 N 和 D</h2>
+      <p>加速器数量和能跑多久通常事先已知，超大模型往往只能训一次，所以要在开训前选定 <em>N</em> 和 <em>D</em>。目标是：</p>
+      <div class="eq">
+        N<sub>opt</sub>(C), D<sub>opt</sub>(C) = arg min<sub>N,D</sub> L(N, D)　s.t.　FLOPs(N, D) = C
+      </div>
+      <p>他们用平滑后的训练损失当测试损失的无偏估计——因为所有缩放实验都不到一个 epoch（“无限数据”体制）。FLOP 按完整前向+反向计，<strong>包含嵌入</strong>，参数计数也含嵌入；大模型上嵌入占比很小。与 Kaplan 的 <code>C≈6ND</code> 相比，他们的精确计数只差几个百分点（表 A4 比值约 0.99–1.10），不改变结论。Gopher 用更精确算法约 6.3×10<sup>23</sup> FLOP，文中投影仍常用 5.76×10<sup>23</sup>。</p>
+      <p>实验：400+ 个 dense Transformer，约 70M–16B 参数，5B–500B token，每种配置多个训练地平线。学习率余弦在目标步数上衰减 10×；周期比实际步数长超过 25% 会明显变差（附录 B）。因此 Kaplan 那种“所有模型共用收到 130B 的日程、再读中间点”会系统高估短训损失。</p>
+      <table>
+        <thead>
+          <tr><th>模型</th><th>参数</th><th>训练 token</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>LaMDA</td><td>137B</td><td>168B</td></tr>
+          <tr><td>GPT-3 / Jurassic-1</td><td>175B / 178B</td><td>~300B</td></tr>
+          <tr><td>Gopher</td><td>280B</td><td>300B</td></tr>
+          <tr><td>MT-NLG</td><td>530B</td><td>270B</td></tr>
+          <tr><td><strong>Chinchilla</strong></td><td><strong>70B</strong></td><td><strong>1.4T</strong></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. Kaplan 错在哪</h2>
+      <p>作者认为差异主要来自实验设计，不是“幂律这个想法错了”。</p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>学习率日程与中间点</h4>
+          <p>Kaplan 对所有模型用固定 token 预算和同一套余弦。中间损失是“日程还对准更长地平线”时的损失，会高估短训效果，从而低估“少数据、把模型训完日程”的收益，推出 N 应比 D 涨得更快。</p>
+        </div>
+        <div class="tile">
+          <h4>模型太小、前沿有弯曲</h4>
+          <p>Kaplan 多数 run 远小于 100M；这里大多数 &gt;500M，最大 16B。FLOP–损失前沿在高端有轻微凹性，用很小的模型外推会高估超大模型的最优规模。</p>
+        </div>
+      </div>
+      <p>在 10<sup>21</sup> FLOP 上头对头：Kaplan 配方给出约 4.7B，Approach 1 给出约 2.8B；同深宽比下他们的预测终点损失更好（图 A4）。C4 与 GitHub 上的 IsoFLOP 得到几乎同一对指数（0.50/0.50 与 0.53/0.47），说明结论不太绑死 MassiveText，前提是仍不超过一个 epoch。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 三种估法，同一条前沿</h2>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>1. 训练曲线包络</h4>
+          <p>70M–10B，每个规模 4 个余弦周期（token 地平线差 16×）。平滑插值后，每个 FLOP 取最低损失的那条曲线，再对 N(C)、D(C) 拟合幂律。得到 a=0.50，b=0.50。选中点几乎都在训练最后 15%。</p>
+        </div>
+        <div class="tile">
+          <h4>2. IsoFLOP 剖面</h4>
+          <p>9 个固定 FLOP（6×10<sup>18</sup>–3×10<sup>21</sup>），改模型大小、令 token 使总 FLOP 恒定，余弦对准该预算。损失对 N 呈山谷，二次拟合找谷底。a=0.49，b=0.51。模型用到 16B。</p>
+        </div>
+        <div class="tile">
+          <h4>3. 参数化损失</h4>
+          <p>把 Approach 1+2 的终点损失拟合成 L̂(N,D)。Huber+L-BFGS，小 FLOP 点当离群。前沿 a=0.46，b=0.54，大算力时主张<strong>更小</strong>的模型。Gopher 预算被投到约 40B。</p>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>方法</th><th>N ∝ C<sup>a</sup></th><th>D ∝ C<sup>b</sup></th></tr>
+        </thead>
+        <tbody>
+          <tr><td>曲线包络</td><td>0.50 (0.488–0.502)</td><td>0.50 (0.501–0.512)</td></tr>
+          <tr><td>IsoFLOP</td><td>0.49 (0.462–0.534)</td><td>0.51 (0.483–0.529)</td></tr>
+          <tr><td>参数拟合</td><td>0.46 (0.454–0.455)</td><td>0.54 (0.542–0.543)</td></tr>
+          <tr><td>Kaplan et al. (2020)</td><td>0.73</td><td>0.27</td></tr>
+        </tbody>
+      </table>
+      <p>括号是对 80% 数据 bootstrap 100 次的 10/90 分位。方法 3 的区间极窄，是拟合过程把权重放在大 FLOP 点上的结果，不是测量更准。作者仍假定幂律；附录 E 显示若只用前沿最后三分之一，最优模型还会更小。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 参数化损失与约 20 token/参数</h2>
+      <p>风险分解：贝叶斯风险（文本熵）+ 有限假设空间的函数逼近 + 单 epoch、有限步的优化次优。于是</p>
+      <div class="eq">
+        L̂(N, D) = E + A / N<sup>α</sup> + B / D<sup>β</sup>
+      </div>
+      <p>经验拟合 E=1.69，A=406.4，B=410.7，α≈0.34，β≈0.28。两指数都低于常见 1/2 下界，作者认为更好的架构/优化应把它们抬上去。约束 FLOPs≈6ND 后，最优前沿是 log-log 直线，两项（容量项与数据项）被配平。</p>
+      <p>Approach 1 的投影（表 3）把“约 20 token/参数”写得很死：</p>
+      <table>
+        <thead>
+          <tr><th>参数</th><th>最优 token</th><th>相对 Gopher FLOP</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>400M</td><td>8.0B</td><td>1/29968</td></tr>
+          <tr><td>1B</td><td>20.2B</td><td>1/4761</td></tr>
+          <tr><td>10B</td><td>205B</td><td>1/46</td></tr>
+          <tr><td>67B</td><td>1.5T</td><td>1×（Gopher 预算）</td></tr>
+          <tr><td>175B</td><td>3.7T</td><td>6.7×</td></tr>
+          <tr><td>280B</td><td>5.9T</td><td>17×</td></tr>
+          <tr><td>1T</td><td>21.2T</td><td>221×</td></tr>
+        </tbody>
+      </table>
+      <p>没有约 10<sup>26</sup> FLOP（Gopher 的 250 倍以上），1T 参数模型几乎不可能算力最优。175B 应看约 4×10<sup>24</sup> FLOP 和 4T+ token，而不是 300B token。</p>
+      <div class="callout teal">
+        后来有工作指出 Chinchilla 的“参数”定义有几种读法（差到约 15%），三条方法的外推也不完全重合。但“同比放大、大约二十个 token 换一个参数”在扰动下仍然稳，已经成为训练配方的默认尺，而不是方法 3 里那组很紧的 α、β。
+      </div>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. Chinchilla：70B × 1.4T</h2>
+      <p>Gopher 预算下最优规模落在 40–70B。他们选区间上沿 70B、训 1.4T token：数据集效率与算力效率的折中（方法 3 更偏向 40B）。与 Gopher 同架构家族，关键差别：</p>
+      <ul>
+        <li>同一 MassiveText，采样略改以支撑更多 token；MassiveWeb 与 Wikipedia 超过 1 epoch（表 A1：Web 1.24 epoch，Wiki 3.40）。缩放律实验本身仍是单 epoch。</li>
+        <li>AdamW 替代 Adam：约在余弦 80% 处才反超，终点明显更好。</li>
+        <li>SentencePiece 不做 NFKC，94.15% token 与 Gopher 相同，数学/化学表示更好。</li>
+        <li>前向 bfloat16，优化器里存 float32 权重副本（ZeRO）。</li>
+        <li>70B：80 层，64 头，d<sub>model</sub>=8192，max LR 1e-4，batch 1.5M→3M token。Gopher 280B：80 层，128 头，d<sub>model</sub>=16384，max LR 4e-5，batch 3M→6M。两边都在中途把 batch 加倍。</li>
+      </ul>
+      <p>训在 TPUv3/v4 + JAX/Haiku。更小模型让微调与推理的内存和算力大约降到 1/4，这才是“算力最优”的第二笔账：训练 FLOP 相同，但生命周期成本低得多。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 下游结果</h2>
+      <p>评测对齐 Gopher（Rae et al. 2021）。语言建模上 The Pile 全部子集 bpb 都更好；WikiText-103 困惑度 7.16 vs 7.75。作者提醒 4× 数据可能有泄漏，所以更看重 MMLU、BIG-bench、闭卷 QA。</p>
+      <table>
+        <thead>
+          <tr><th>任务</th><th>Chinchilla 70B</th><th>Gopher 280B</th><th>其他参照</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>MMLU 5-shot 均值</td><td>67.6%</td><td>60.0%</td><td>GPT-3 43.9%；人类专家 89.8%；2023 预测 63.4%</td></tr>
+          <tr><td>BIG-bench（62 项）</td><td>65.1%</td><td>54.4%</td><td>+10.7 点；仅 4 项更差</td></tr>
+          <tr><td>LAMBADA</td><td>77.4%</td><td>74.5%</td><td>MT-NLG 530B 76.6%</td></tr>
+          <tr><td>RACE-m / RACE-h</td><td>86.8% / 82.3%</td><td>75.1% / 71.6%</td><td>提示格式与 GPT-3 不可比</td></tr>
+          <tr><td>Natural Questions 5/64-shot</td><td>31.5% / 35.5%</td><td>24.5% / 28.2%</td><td>GPT-3 64-shot 29.9%</td></tr>
+          <tr><td>TriviaQA unfiltered 5-shot</td><td>73.2%</td><td>63.6%</td><td>GPT-3 64-shot 71.2%</td></tr>
+          <tr><td>TruthfulQA 0/10-shot</td><td>43.6% / 66.7%</td><td>29.5% / 43.7%</td><td>说明更好拟合预训练数据也能抬真实性</td></tr>
+        </tbody>
+      </table>
+      <p>MMLU 上 51/57 项更好，4 项持平或更差（college_mathematics、econometrics、moral_scenarios、formal_logic）。四项超过 90%（high_school_gov_and_politics、international_law、sociology、us_foreign_policy）。常识基准上全面不低于 Gopher/GPT-3，除 PIQA 外也压过 MT-NLG 530B。Winogender 整体更好，但对女性/中性代词的提升大于男性，gotcha 例子上改善也不均匀——算力更优不等于偏见同步消失。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 局限、毒性与数据</h2>
+      <ul>
+        <li>大尺度只有 Chinchilla 与 Gopher 一对对照，没有中间规模的第二次检验。</li>
+        <li>前沿被写成幂律，但高端已有凹性，可能仍高估超大模型的最优 N。</li>
+        <li>分析几乎全是单 epoch；多 epoch 体制留给后续。Chinchilla 自己已对部分子集走了多 epoch。</li>
+        <li>无提示生成的 PerspectiveAPI 毒性与 Gopher 几乎相同（均值 0.087 vs 0.081）。更好的损失不等于更毒，也不等于更安全。</li>
+        <li>万亿 token 会放大有毒文本、偏见和隐私泄漏的<strong>绝对量</strong>。作者强调下一步瓶颈是高质量数据收集与查重，而不是只堆参数。</li>
+      </ul>
+      <p>MoE / 检索被放在相关工作里：路由模型的算力优势随稠密规模增大而减弱（Clark et al. 2022）；RETRO 一类检索相当于把“看见的 token”再放大约 10×，侧面支持“数据比原先以为的更重要”。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 和上一篇 Scaling Laws 怎么对读</h2>
+      <table>
+        <thead>
+          <tr><th></th><th>Kaplan 2020</th><th>Chinchilla 2022</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>仍成立</td><td>损失随规模光滑；形状次要；大模型更省样本；固定算力不要训到收敛</td><td>同意，并在下游任务上用 70B 打赢 280B 来验证“欠训”</td></tr>
+          <tr><td>算力分配</td><td>N∝C<sup>0.73</sup>，D∝C<sup>0.27</sup></td><td>N∝C<sup>~0.5</sup>，D∝C<sup>~0.5</sup></td></tr>
+          <tr><td>N 的定义</td><td>非嵌入参数</td><td>含嵌入；大模型上差别小</td></tr>
+          <tr><td>学习率</td><td>共用长余弦，读中间点</td><td>余弦必须对准目标 token</td></tr>
+          <tr><td>经验口令</td><td>D ≳ 5×10<sup>3</sup> N<sup>0.74</sup>（防过拟合，不是算力最优）</td><td>算力最优 ≈ 20 D/N</td></tr>
+          <tr><td>外推警告</td><td>C<sub>*</sub>~10<sup>4</sup> PF-day 处与 L(D) 相交</td><td>没有 10<sup>26</sup> FLOP 就不要上 1T 稠密模型</td></tr>
+        </tbody>
+      </table>
+      <div class="callout navy">
+        读这两篇时不要混用两条 D(N)。Kaplan 的 N<sup>0.74</sup> 是“再加大模型而不明显过拟合需要多少数据”；Chinchilla 的 ~20 token/参数是“这笔 FLOP 买最大下游能力时 N 和 D 怎么配”。前者允许数据涨得比模型慢；后者要求一起涨。GPT-3 之后那一代按前者配了 300B token，所以被这篇判定为欠训。
+      </div>
+      <p>对系统/近存方向：Chinchilla 把瓶颈从“训练时的峰值算力”部分挪到“数据管道、重复使用、高质量语料”和“更小模型的推理带宽”。同算力下选 70B 而非 280B，激活、KV、权重搬运都按约 1/4 降，这比单纯把 Kaplan 的大模型再做近存更划算。</p>
+    </section>
+
+    <footer>
+      分析依据 arXiv:2203.15556 全文 · 保存于 <code>llm basic/Chinchilla_论文分析.html</code> · 可与同目录 <a href="ScalingLaws_论文分析.html">ScalingLaws_论文分析.html</a> 对读 · 2026-08-28
+    </footer>
+  </div>
+</body>
+</html>

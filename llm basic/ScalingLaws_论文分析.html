@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scaling Laws 论文分析 | arXiv:2001.08361</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 24px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv:2001.08361</span>
+        <span class="badge">2020-01-23</span>
+        <span class="badge">OpenAI + JHU</span>
+        <span class="badge ok">Transformer 缩放律</span>
+        <span class="badge ok">交叉熵 / nats</span>
+      </div>
+      <h1>规模几乎就是一切：语言模型的经验幂律</h1>
+      <p class="subtitle">Scaling Laws for Neural Language Models</p>
+      <p class="meta">
+        <strong>作者：</strong>Jared Kaplan<sup>*</sup>、Sam McCandlish<sup>*</sup>、Tom Henighan、Tom B. Brown、Benjamin Chess、Rewon Child、Scott Gray、Alec Radford、Jeffrey Wu、Dario Amodei<br />
+        <strong>单位：</strong>OpenAI · Johns Hopkins University（* 共同一作）<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2001.08361" target="_blank" rel="noopener">arXiv:2001.08361</a>
+        · PDF <a href="https://arxiv.org/pdf/2001.08361" target="_blank" rel="noopener">2001.08361</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">设定：N、D、C 怎么数</a></li>
+        <li><a href="#s3">三条单因子幂律</a></li>
+        <li><a href="#s4">过拟合：N 与 D 必须一起涨</a></li>
+        <li><a href="#s5">学习曲线与临界 batch</a></li>
+        <li><a href="#s6">算力怎么分：大模型、少步数</a></li>
+        <li><a href="#s7">自相矛盾与熵的猜想</a></li>
+        <li><a href="#s8">形状、LSTM、泛化</a></li>
+        <li><a href="#s9">Caveat 与 Chinchilla 修正</a></li>
+        <li><a href="#s10">今天还该怎么用这篇</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">
+        Transformer 语言模型的交叉熵，在不被另外两个因子卡住时，对<strong>非嵌入参数 N、数据量 D、最优分配后的训练算力 C<sub>min</sub></strong> 各自服从幂律，趋势跨过六个数量级以上。形状（深宽比、头数、FFN 比）几乎无关。大模型显著更省样本。固定算力时，最优做法是把预算主要花在更大的模型上，数据只温和增加，并<strong>远早于收敛就停</strong>。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">α<sub>N</sub>≈0.076</div>
+          <div class="k">参数翻倍，损失约 ×0.95</div>
+        </div>
+        <div>
+          <div class="n">N∝C<sup>0.73</sup></div>
+          <div class="k">算力涨 10×，最优模型约 ×5.5</div>
+        </div>
+        <div>
+          <div class="n">D∝C<sup>0.27</sup></div>
+          <div class="k">同预算下 token 只约 ×1.8</div>
+        </div>
+        <div>
+          <div class="n">+10%</div>
+          <div class="k">算力最优停在收敛损失上方约 10%</div>
+        </div>
+      </div>
+      <div class="callout">
+        这篇工作把“堆规模就变好”写成可外推的方程，直接塑造了 GPT-3 之后几年的训练配方。两年后 Chinchilla 证明：在他们的设定下，<strong>参数与 token 应近似等比增长</strong>，Kaplan 把过多预算给了模型、把模型训得太短。下面先按原文讲清他们测到了什么，再标出后来被改写的那一条。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 设定：N、D、C 怎么数</h2>
+      <p>任务是自回归语言建模，指标是 1024 token 上下文上的平均交叉熵（nats）。数据是 WebText2：Reddit 外链 scrape，约 20.3M 文档、96 GB 文本、BPE 词表 50257，共 2.29×10<sup>10</sup> token，其中 6.6×10<sup>8</sup> 作测试。另在 Books、Common Crawl、Wikipedia、Internet Books 上测迁移。主模型是 decoder-only Transformer；对照 LSTM 与 Universal Transformer。优化器用 Adam（&gt;1B 用 Adafactor），默认 2.5×10<sup>5</sup> 步、batch 512×1024 token，3000 步线性升温后余弦衰减到 0。</p>
+
+      <table>
+        <thead>
+          <tr><th>符号</th><th>含义</th><th>这篇里怎么取</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><em>L</em></td><td>交叉熵（nats/token）</td><td>上下文内平均；有时按位置拆开</td></tr>
+          <tr><td><em>N</em></td><td>模型规模</td><td><strong>不含</strong>词表与位置嵌入。标准形状下 <code>N ≈ 12 n<sub>layer</sub> d<sub>model</sub>²</code></td></tr>
+          <tr><td><em>D</em></td><td>数据集 token 数</td><td>22M–23B；过拟合实验用早停测试损失</td></tr>
+          <tr><td><em>C</em></td><td>训练算力</td><td>非嵌入：<code>C ≈ 6NBS</code>（前向约 2N、反向约 2×）。单位 PF-day = 8.64×10<sup>19</sup> FLOP</td></tr>
+          <tr><td><em>C<sub>min</sub></em></td><td>最小算力</td><td>若 batch ≪ 临界 batch，达到同一 <em>L</em> 所需算力</td></tr>
+          <tr><td><em>S<sub>min</sub></em></td><td>最少更新步</td><td>若 batch ≫ 临界 batch 时的步数</td></tr>
+        </tbody>
+      </table>
+      <p>前向每 token 约 <code>C<sub>forward</sub> ≈ 2N + 2 n<sub>layer</sub> n<sub>ctx</sub> d<sub>model</sub></code>。当 <code>d<sub>model</sub> ≫ n<sub>ctx</sub>/12</code> 时，注意力对上下文的二次项相对很小，所以训练算力里不把 <em>n<sub>ctx</sub></em> 项算进去。超长上下文时这条会偏。</p>
+      <div class="callout teal">
+        不把嵌入算进 <em>N</em> 是这篇能画出干净幂律的关键。把嵌入算进去，深度会看起来像一个独立轴；去掉之后，不同深度塌到同一条 <em>L(N)</em> 上。少于 2 层或极端深宽比才会明显偏离。
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 三条单因子幂律</h2>
+      <p>当另外两个因子不构成瓶颈时，测试损失可以单独写成：</p>
+      <div class="eq">
+        L(N) = (N<sub>c</sub> / N)<sup>α<sub>N</sub></sup>，α<sub>N</sub> ≈ 0.076，N<sub>c</sub> ≈ 8.8×10<sup>13</sup><br />
+        L(D) = (D<sub>c</sub> / D)<sup>α<sub>D</sub></sup>，α<sub>D</sub> ≈ 0.095，D<sub>c</sub> ≈ 5.4×10<sup>13</sup><br />
+        L(C<sub>min</sub>) = (C<sub>c</sub><sup>min</sup> / C<sub>min</sub>)<sup>α<sub>C</sub><sup>min</sup></sup>，α<sub>C</sub><sup>min</sup> ≈ 0.050，C<sub>c</sub><sup>min</sup> ≈ 3.1×10<sup>8</sup> PF-days
+      </div>
+      <p>覆盖范围大约是：<em>C<sub>min</sub></em> 八个数量级、<em>N</em> 六个数量级、<em>D</em> 两个多数量级。上限未见拐弯，但损失必须在到达 0 之前变平——自然语言熵不为零。N<sub>c</sub>、D<sub>c</sub> 随词表和分词变，没有普适物理含义；指数才是“规模换多少损失”的量。</p>
+      <p>固定 batch 的经验 <em>L(C)</em> 也近似幂律（α<sub>C</sub>≈0.057），但外推该用按临界 batch 校正后的 <em>C<sub>min</sub></em>。1 层到 2 层在约 10<sup>−5</sup> PF-day 处有一个鼓包，拟合时丢掉 1 层网络。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 过拟合：N 与 D 必须一起涨</h2>
+      <p>单独放大 <em>N</em> 或 <em>D</em> 会进入收益递减。他们把两条单因子律合成一个解析式，要求：(1) 改词表只整体缩放损失；(2) <em>D→∞</em> 回到 <em>L(N)</em>，<em>N→∞</em> 回到 <em>L(D)</em>；(3) 在 <em>D=∞</em> 解析，从而有整数幂的 1/<em>D</em> 展开（过拟合应随数据方差 ~1/<em>D</em>）。于是 <em>N</em> 与 <em>D</em> 不对称：</p>
+      <div class="eq">
+        L(N, D) = [ (N<sub>c</sub>/N)<sup>α<sub>N</sub>/α<sub>D</sub></sup> + D<sub>c</sub>/D ]<sup>α<sub>D</sub></sup>
+      </div>
+      <p>联合拟合约 α<sub>N</sub>=0.076、α<sub>D</sub>=0.103、N<sub>c</sub>=6.4×10<sup>13</sup>、D<sub>c</sub>=1.8×10<sup>13</sup>（与单因子拟合略有差别）。过拟合程度 δL = L(N,D)/L(N,∞)−1 几乎只取决于比值 N<sup>α<sub>N</sub>/α<sub>D</sub></sup>/D。要把过拟合压在随机种子涨落（约 0.02）以内：</p>
+      <div class="eq">
+        D ≳ (5×10<sup>3</sup>) N<sup>0.74</sup>
+      </div>
+      <p>模型每放大 8×，数据大约只需 5×。22B token 的 WebText2 够训到约 10<sup>9</sup> 参数而不明显过拟合；再大就会轻度过拟合。他们没有随 N、D 系统调 dropout（固定 10%）和数据增强，所以这条是“当前配方下的过拟合边界”，不是信息论极限。</p>
+      <p>最小的 22M token 子集（一轮大约 40 次更新）拟合很差，作者认为那是另一个小数据体制。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 学习曲线与临界 batch</h2>
+      <p>沿用 McCandlish 等的大 batch 理论：存在临界 batch <em>B<sub>crit</sub></em>。小于它，加大 batch 几乎不损失算力效率；超过它，回报递减。对任意固定损失 <em>L</em>，步数 <em>S</em> 与处理样本数 <em>E=BS</em> 满足</p>
+      <div class="eq">
+        (S / S<sub>min</sub> − 1)(E / E<sub>min</sub> − 1) = 1，&nbsp; B<sub>crit</sub>(L) ≡ E<sub>min</sub>/S<sub>min</sub>
+      </div>
+      <p>在 <em>B≈B<sub>crit</sub></em> 训练，大约用 2S<sub>min</sub> 步、处理 2E<sub>min</sub> 样本，是时间与算力的折中。实验上 <em>B<sub>crit</sub></em> <strong>不直接依赖模型大小</strong>，只依赖已达到的损失；梯度噪声尺度能大致预测它。损失每降约 13%，<em>B<sub>crit</sub></em> 大约翻倍：</p>
+      <div class="eq">
+        B<sub>crit</sub>(L) ≈ B<sub>*</sub> / L<sup>1/α<sub>B</sub></sup>，B<sub>*</sub> ≈ 2×10<sup>8</sup> token，α<sub>B</sub> ≈ 0.21
+      </div>
+      <p>最大模型收敛时，理想 batch 大约 1–2M token。因未知的最小损失 L<sub>min</sub> 远小于已达到的 <em>L</em>，他们把发散点放在 <em>L→0</em>。</p>
+      <p>无限数据、过完 warmup 之后，学习曲线可拟合为：</p>
+      <div class="eq">
+        L(N, S<sub>min</sub>) = (N<sub>c</sub>/N)<sup>α<sub>N</sub></sup> + (S<sub>c</sub> / S<sub>min</sub>)<sup>α<sub>S</sub></sup><br />
+        α<sub>N</sub>≈0.077，α<sub>S</sub>≈0.76，N<sub>c</sub>≈6.5×10<sup>13</sup>，S<sub>c</sub>≈2.1×10<sup>3</sup>
+      </div>
+      <p>幂律在训练后期更准；早期瞬态对不上。α<sub>S</sub> 的普适性被解读为：损失后期近似二次时，Hessian 特征值密度大致不随模型大小变。数据有限时，早停步数有下界 S<sub>stop</sub> ≳ S<sub>c</sub> [L(N,D)−L(N,∞)]<sup>1/α<sub>S</sub></sup>，真实会更晚，因为有限数据下测试损失降得更慢。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 算力怎么分：大模型、少步数</h2>
+      <p>把 <em>S<sub>min</sub> = C<sub>min</sub>/(6N B<sub>crit</sub>)</em> 代入 <em>L(N,S)</em>，对固定 <em>C</em> 求最优 <em>N</em>，得到</p>
+      <div class="eq">
+        α<sub>C</sub><sup>min</sup> = 1 / (1/α<sub>S</sub> + 1/α<sub>B</sub> + 1/α<sub>N</sub>) ≈ 0.050–0.054<br />
+        N ∝ C<sup>α<sub>C</sub><sup>min</sup>/α<sub>N</sub></sup> ≈ C<sup>0.71–0.73</sup>，B ∝ C<sup>0.24</sup>，S ∝ C<sup>0.03</sup>，D = B·S
+      </div>
+      <p>经验拟合：N<sub>opt</sub> = 1.3×10<sup>9</sup> C<sub>min</sub><sup>0.73</sup>，S<sub>min</sub> 指数小到可能为 0。算力增加时，绝大部分应变成更大的 <em>N</em>；多出来的数据多半用来加大 batch（并行），串行步数几乎不涨。</p>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>算力最优停点</h4>
+          <p>应停在收敛损失上方固定比例 α<sub>N</sub>/α<sub>S</sub>≈10%。不是“看起来已经平了”。</p>
+        </div>
+        <div class="tile">
+          <h4>对比“训到快收敛”</h4>
+          <p>若别人训到偏离 2%，算力最优配方用 2.7× 参数、7.7× 更少更新、65% 更少算力达到同一损失。</p>
+        </div>
+        <div class="tile">
+          <h4>模型选错也不惨</h4>
+          <p>0.6×–2.2× 最优规模只需大约多 20% 算力。大 2.2× 可少约 45% 步（更多并行），但极大型号上此式不可信。</p>
+        </div>
+      </div>
+      <p>硬件上人们常把小模型训得过长，因为模型并行难、数据并行易。作者因此强调：宽网络更好切分；流水线最终仍要加大 batch；稀疏/分支可换更多模型并行；训练中长模型或许能一直贴着算力前沿。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 自相矛盾与熵的猜想</h2>
+      <p>算力最优下若不重复数据，D(C<sub>min</sub>) ∝ C<sup>0.26</sup>。但避免过拟合需要 D ∝ N<sup>0.74</sup> ∝ C<sup>0.54</sup>。前者更慢，意味着即使每个 token 只用一次，最终仍会过拟合。数据瓶颈时 L ∝ D<sup>−0.095</sup> 变成 L ∝ C<sup>−0.03</sup>，会与 L ∝ C<sup>−0.050</sup> 相交。交点大约：</p>
+      <div class="eq">
+        C<sub>*</sub> ∼ 10<sup>4</sup> PF-days，N<sub>*</sub> ∼ 10<sup>12</sup>，D<sub>*</sub> ∼ 10<sup>12</sup> token，L<sub>*</sub> ∼ 1.7 nats/token
+      </div>
+      <p>数值对指数极敏感，上下一个数量级都可能。最稳妥的读法：幂律必须在此之前失效。作者还猜想：这或许是 Transformer 从自然语言里能挖到的可靠信息上限，<em>L<sub>*</sub></em> 粗估每 token 熵（WebText2 约 1.4 token/词、4.3 字符/token）。给每个上下文后接随机噪声只会整体抬高损失，交点位置（除绝对 <em>L</em>）不变。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 形状、LSTM、泛化</h2>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>形状几乎不重要</h4>
+          <p>固定非嵌入 <em>N</em>，扫深度、头数、d<sub>ff</sub>/d<sub>model</sub>，损失只变几个百分点。深宽比差 40× 仍可接近 GPT-2 用的 (48, 1600)。(6, 4288) 相对其损失差距约 3%。作者援引 ResNet“深网是浅网集成”。</p>
+        </div>
+        <div class="tile">
+          <h4>学习率也不敏感</h4>
+          <p>只要总学习率够大、有 warmup、最后收到接近 0，余弦/线性/其他衰减差不多。种子涨落约 0.02–0.05。更大模型需要更小学习率；经验式 LR(N)≈0.003239−0.0001395 log(N)，在 N&gt;10<sup>10</sup> 会坏掉。</p>
+        </div>
+      </div>
+      <p>LSTM 在上下文很早的 token 上能跟上 Transformer，后面的 token 跟不上；Transformer 优势来自长上下文。按位置 <em>T</em> 的损失本身也是幂律，更大模型不仅终点更好，对早期 token 也学得更快。短上下文 n<sub>ctx</sub>=8 的中等模型，在最前面几个位置可以压过 n<sub>ctx</sub>=1024 的最大模型。Universal Transformer 复用参数，同样 <em>N</em> 略好、同样 FLOP 略差。</p>
+      <p>只在 WebText2 上训练，其他语料上的损失几乎是训练分布损失加一个缓慢增长的常数偏移；与训练阶段、是否接近收敛、深度（固定 <em>N</em>）基本无关。12 层在 Internet Books 上过拟合是个孤立现象。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. Caveat 与 Chinchilla 修正</h2>
+      <p>作者自己列出的限制：没有任何一条幂律有坚实理论；<em>B<sub>crit</sub></em> 外推不可靠；小数据与正则没扫完；算力估计忽略 <em>n<sub>ctx</sub></em>；未充分调初始化/动量；短训本可用更大学习率。幂律拟合比对数明显更好，但仍是经验曲线。</p>
+      <div class="callout navy">
+        <strong>Chinchilla（Hoffmann 等，2022）改写了第 6 节的分配。</strong>Kaplan：N<sub>opt</sub>∝C<sup>0.73</sup>、D<sub>opt</sub>∝C<sup>0.27</sup>，口号是“大模型比大数据更重要”。Chinchilla：N 与 D 都应 ∝ C<sup>0.5</sup>，许多随后的大模型欠训。后来的调和指出：Kaplan 只计非嵌入参数、模型相对较小、学习率余弦收到 0（短训与长训不可比）、以及逐步数而非按 token 预算。今天做训练配方，应把这篇当“损失随规模光滑、形状次要、大模型更省样本”的证据，<strong>不要</strong>再按其 0.73/0.27 去分预算。
+      </div>
+      <p>相关工作里，Hestness 等曾报数据随模型超线性增长，这里是次线性；EfficientNet 主张深度宽度不同指数，这里语言建模放大时应大致保持宽深比，且超参远不如总规模。他们没有看到过参数化“堵塞相变”。</p>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 今天还该怎么用这篇</h2>
+      <ul>
+        <li><strong>报告规模时分开嵌入。</strong>词表项会搅乱 <em>L(N)</em>。比较架构先对齐非嵌入参数或非嵌入 FLOP。</li>
+        <li><strong>算力账用 C≈6N×token。</strong>这是至今默认的 Transformer 训练 FLOP 口算；超长上下文要把注意力项加回来。</li>
+        <li><strong>光滑外推仍可用，最优配比不能照抄。</strong>损失对 N/D/C 的单调幂律在更大尺度上大体还在；“固定算力该把模型堆多大、数据留多少”以 Chinchilla 及后续修正为准。</li>
+        <li><strong>样本效率随宽度/深度一起涨</strong>这一点没有被推翻：同样损失，更大模型用更少步、更少 token。这与推理侧“大模型一次算对”的直觉一致，但训练停点仍要按 token 预算重算。</li>
+        <li><strong>迁移 ≈ 训练损失 + 常数。</strong>换域先把源域交叉熵打下去，比在目标域上单独调深度更有效——至少在他们测过的英文网页/书/百科上如此。</li>
+        <li>作者把这些关系比作理想气体定律：宏观量之间的经验约束，不管微观细节。下一步应是能推出指数的统计力学，以及确认损失下降是否对应任务能力的质变（“多即不同”）。</li>
+      </ul>
+    </section>
+
+    <footer>
+      分析依据 arXiv:2001.08361 全文 · 保存于 <code>llm basic/ScalingLaws_论文分析.html</code> · 2026-08-28
+    </footer>
+  </div>
+</body>
+</html>
