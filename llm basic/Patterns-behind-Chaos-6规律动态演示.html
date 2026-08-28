@@ -1,0 +1,1735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Patterns behind Chaos · 6 条 Expert 激活规律 · 直观动画</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #161616;
+    --surface-2: #1f1f1f;
+    --text: #fafafa;
+    --text-secondary: #a3a3a3;
+    --text-dim: #737373;
+    --border: #2a2a2a;
+    --border-strong: #404040;
+
+    --accent: #818cf8;
+    --hot: #ef4444;
+    --warm: #f97316;
+    --cool: #38bdf8;
+    --good: #22c55e;
+    --token: #fbbf24;
+    --prefill: #60a5fa;
+    --decode: #ec4899;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 19px; font-weight: 700; }
+  header p { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+
+  .tabs {
+    display: flex; gap: 4px; padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto; background: var(--surface);
+  }
+  .tab {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+    transition: .15s;
+  }
+  .tab:hover { color: var(--text); border-color: var(--border-strong); }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .tab b { margin-right: 4px; }
+
+  main { padding: 20px 24px 60px; max-width: 1200px; margin: 0 auto; }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: fade .3s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .panel-head { margin-bottom: 16px; }
+  .panel-head h2 { font-size: 19px; font-weight: 700; }
+  .panel-head .sub { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+
+  .scene {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .scene-title {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .scene-title h3 { font-size: 14px; font-weight: 600; }
+  .scene-title .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 4px;
+    background: var(--surface-2); color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+  .scene-title .badge.bad { background: rgba(239,68,68,.15); color: var(--hot); border-color: var(--hot); }
+  .scene-title .badge.good { background: rgba(34,197,94,.15); color: var(--good); border-color: var(--good); }
+
+  canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-bottom: 14px;
+  }
+  .btn {
+    padding: 7px 14px; border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2); color: var(--text);
+    cursor: pointer; font-size: 13px;
+    transition: .15s;
+  }
+  .btn:hover { background: var(--surface); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.primary:hover { background: #6366f1; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .stats {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    margin-bottom: 14px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .stat.good .v { color: var(--good); }
+  .stat.bad .v { color: var(--hot); }
+  .stat.hi .v { color: var(--accent); }
+
+  .narration {
+    background: rgba(129,140,248,.08);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text);
+    min-height: 38px;
+    transition: .2s;
+  }
+  .narration .step {
+    color: var(--accent);
+    font-weight: 700;
+    margin-right: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .narration .why {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    font-size: 12px; color: var(--text-secondary);
+    margin-top: 10px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 800px) { .compare { grid-template-columns: 1fr; } }
+
+  .takeaway {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 12px;
+  }
+  .takeaway h4 {
+    font-size: 12px; font-weight: 700;
+    color: var(--accent); text-transform: uppercase; letter-spacing: .08em;
+    margin-bottom: 6px;
+  }
+  .takeaway p { font-size: 13px; color: var(--text-secondary); }
+  .takeaway b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Patterns behind Chaos · MoE 专家激活的 6 条规律</h1>
+  <p>ISCA 2026 · 24,000+ 请求 × 4 个 200B–1000B 模型 profiling · <b>所有方案同屏并排自动循环对比，无需点击</b></p>
+</header>
+
+<div class="tabs" id="tabs"></div>
+
+<main id="main"></main>
+
+<script>
+const PANELS = [
+  { id: 'i1', title: 'I1 · Prefill 阶段就能预测 Decode 的热门 expert', sub: '一个请求里，prefill 处理输入 token 时统计到的 hot expert，和 decode 生成 token 时的几乎一致。' },
+  { id: 'i2', title: 'I2 · 短近的放小仓库，长远的放大仓库', sub: '相邻层间 expert 复用快（短 reuse → LLC）；相邻 token 同层 expert 复用慢（长 reuse → 本地 HBM）。' },
+  { id: 'i3', title: 'I3 · 负载均衡组合拳：调度 + 复制', sub: '同一批 token，三种策略并行：① 盲调度 ② 只 placement-aware（不复制） ③ placement-aware + hot expert 复制。看 ③ 为什么必须组合。' },
+  { id: 'i4', title: 'I4 · 把 hot expert 复制到多个 GPU', sub: '少数 expert 占绝大多数请求。复制到多个 unit，token 自动分流。' },
+  { id: 'i5', title: 'I5 · 把"老搭档"分到两个 die，可以并行算', sub: 'Top 10% expert pair 占 60–80% 共激活。共址→串行；分离→并行（但增加 EP 通信）。' },
+  { id: 'i6', title: 'I6 · 不同任务/语言激活完全不同的 expert', sub: '同一道题英文 vs 中文，top-10 hot expert 只重叠 2 个。' },
+];
+
+// build tabs
+const tabsEl = document.getElementById('tabs');
+const mainEl = document.getElementById('main');
+PANELS.forEach((p, idx) => {
+  const t = document.createElement('button');
+  t.className = 'tab' + (idx === 0 ? ' active' : '');
+  t.innerHTML = `<b>${p.id.toUpperCase()}</b>${p.title.split('·')[1].trim()}`;
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(p.id).classList.add('active');
+  };
+  tabsEl.appendChild(t);
+});
+
+// ─────────── helpers ───────────
+function makePanel(p, builder) {
+  const sec = document.createElement('section');
+  sec.className = 'panel' + (p.id === 'i1' ? ' active' : '');
+  sec.id = p.id;
+  sec.innerHTML = `<div class="panel-head"><h2>${p.title}</h2><div class="sub">${p.sub}</div></div>`;
+  mainEl.appendChild(sec);
+  builder(sec);
+}
+
+function setupCanvas(canvas) {
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const w = canvas.clientWidth;
+  const h = parseInt(canvas.dataset.h || 320);
+  canvas.style.height = h + 'px';
+  canvas.width = w * ratio;
+  canvas.height = h * ratio;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  return { ctx, w, h };
+}
+
+// =================================================
+// I1: Prefill → Decode prediction
+// =================================================
+makePanel(PANELS[0], (root) => {
+  root.innerHTML += `
+    <div class="scene">
+      <div class="scene-title">
+        <h3>一个请求的生命周期：8 个输入 token → 生成 6 个输出 token</h3>
+        <span class="badge" id="i1-stage">自动循环</span>
+      </div>
+      <canvas id="i1-canvas" data-h="340"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--prefill)"></i>Prefill token</span>
+        <span><i style="background:var(--decode)"></i>Decode token</span>
+        <span><i style="background:var(--hot)"></i>Hot expert（已被多次选中）</span>
+        <span><i style="background:var(--good)"></i>Decode 命中 prefill 预测的 expert</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat hi"><div class="v" id="i1-pre-hot">—</div><div class="l">Prefill 识别的 Top-5 hot expert</div></div>
+      <div class="stat good"><div class="v" id="i1-hit">—</div><div class="l">Decode 命中预测率</div></div>
+      <div class="stat"><div class="v" id="i1-tok">0 / 14</div><div class="l">已处理 token</div></div>
+    </div>
+    <div class="narration" id="i1-narr"><span class="step">运行中</span>自动循环演示一个请求：prefill 期间统计 expert 频率 → decode 验证预测命中率。</div>
+    <div class="takeaway">
+      <h4>设计启示</h4>
+      <p>PD 分离部署时，prefill 卡把 <b>expert 选择直方图</b> 随 KV cache 一起传给 decode 卡，decode 启动时立刻用它做 expert placement，<b>不必等 EPLB 等 3000 步</b>。论文在 8×H100 上获 1.25× 加速。</p>
+    </div>
+  `;
+  const canvas = root.querySelector('#i1-canvas');
+  const stageEl = root.querySelector('#i1-stage');
+  const narr = root.querySelector('#i1-narr');
+  const TOTAL_EXPERTS = 16;
+  const PREFILL_N = 8, DECODE_N = 6;
+  // 固定路由模式：模型偏好少数 expert
+  const HOT_POOL = [2, 5, 9, 12, 14];
+  const COLD_POOL = [0, 1, 3, 4, 6, 7, 8, 10, 11, 13, 15];
+  function pickExpert(seed, hotProb) {
+    const r = ((seed * 9301 + 49297) % 233280) / 233280;
+    if (r < hotProb) return HOT_POOL[Math.floor(r * 100) % HOT_POOL.length];
+    return COLD_POOL[Math.floor(r * 1000) % COLD_POOL.length];
+  }
+
+  let state = { phase: 'idle', tokenIdx: 0, freq: new Array(TOTAL_EXPERTS).fill(0), hit: 0, decoded: 0, prefillTop5: [] };
+  let raf, lastTime = 0, stepInterval = 700;
+
+  function render() {
+    const { ctx, w, h } = setupCanvas(canvas);
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+
+    // Layout: expert grid in middle, prefill tokens on left, decode on right
+    const cell = Math.min(60, (w - 240) / 8);
+    const gridW = cell * 8, gridH = cell * 2;
+    const gx = (w - gridW) / 2, gy = 100;
+
+    // Title
+    ctx.fillStyle = '#a3a3a3';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('Prefill 输入区', 20, 30);
+    ctx.fillText('Decode 输出区', w - 110, 30);
+    ctx.fillText('16 个 Expert（router 池）', gx, gy - 12);
+
+    // Prefill tokens
+    for (let i = 0; i < PREFILL_N; i++) {
+      const cx = 30, cy = 50 + i * 28;
+      const done = state.phase !== 'idle' && i < state.tokenIdx && state.phase === 'prefill' || state.phase !== 'prefill' && state.phase !== 'idle';
+      ctx.fillStyle = done ? 'rgba(96,165,250,0.3)' : '#60a5fa';
+      ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('T' + i, cx, cy + 3);
+    }
+
+    // Decode tokens
+    for (let i = 0; i < DECODE_N; i++) {
+      const cx = w - 30, cy = 50 + i * 28;
+      const done = state.phase === 'decode' && i < state.decoded;
+      const isCurrent = state.phase === 'decode' && i === state.decoded;
+      if (done || isCurrent) {
+        ctx.fillStyle = done ? '#ec4899' : 'rgba(236,72,153,0.4)';
+      } else {
+        ctx.strokeStyle = '#3f3f46'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.stroke();
+        continue;
+      }
+      ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('O' + i, cx, cy + 3);
+    }
+
+    // Expert grid
+    const maxFreq = Math.max(1, ...state.freq);
+    for (let i = 0; i < TOTAL_EXPERTS; i++) {
+      const col = i % 8, row = Math.floor(i / 8);
+      const x = gx + col * cell, y = gy + row * cell;
+      const heat = state.freq[i] / Math.max(maxFreq, 4);
+      const isHot = state.phase !== 'idle' && state.freq[i] >= 2;
+      const isTop5 = state.prefillTop5.includes(i);
+
+      // Background heat
+      ctx.fillStyle = `rgba(239, 68, 68, ${heat * 0.7})`;
+      ctx.fillRect(x + 2, y + 2, cell - 4, cell - 4);
+      // Border
+      ctx.strokeStyle = isTop5 && state.phase === 'decode' ? '#22c55e' : (isHot ? '#ef4444' : '#3f3f46');
+      ctx.lineWidth = isTop5 && state.phase === 'decode' ? 2.5 : 1;
+      ctx.strokeRect(x + 2, y + 2, cell - 4, cell - 4);
+
+      // Label
+      ctx.fillStyle = isHot ? '#fff' : '#737373';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('E' + i, x + cell / 2, y + cell / 2 + 4);
+      // Frequency
+      if (state.freq[i] > 0) {
+        ctx.fillStyle = '#fcd34d';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('×' + state.freq[i], x + cell / 2, y + cell - 6);
+      }
+    }
+
+    ctx.textAlign = 'left';
+  }
+
+  function step() {
+    if (state.phase === 'prefill') {
+      if (state.tokenIdx < PREFILL_N) {
+        // Each token picks top-2 experts
+        for (let k = 0; k < 2; k++) {
+          const e = pickExpert(state.tokenIdx * 7 + k, 0.85);
+          state.freq[e]++;
+        }
+        state.tokenIdx++;
+        narr.innerHTML = `<span class="step">Prefill ${state.tokenIdx}/${PREFILL_N}</span>第 ${state.tokenIdx} 个 prefill token 路由到 expert，更新频率统计。<span class="why">每个 token 选 top-2 expert（论文设定）。Hot expert 会被反复选中。</span>`;
+        stageEl.textContent = 'PREFILL · 处理输入'; stageEl.className = 'badge';
+      } else {
+        // finalize prefill top5
+        const indexed = state.freq.map((v, i) => ({ v, i }));
+        indexed.sort((a, b) => b.v - a.v);
+        state.prefillTop5 = indexed.slice(0, 5).map(x => x.i);
+        root.querySelector('#i1-pre-hot').textContent = state.prefillTop5.map(e => 'E' + e).join(', ');
+        state.phase = 'decode';
+        narr.innerHTML = `<span class="step">Prefill 完成</span>Top-5 hot expert：${state.prefillTop5.map(e => 'E' + e).join(', ')}。<span class="why">这就是 prefill 给 decode 的"作弊小抄"——decode 应该会高频复用这些 expert。</span>`;
+        stageEl.textContent = '切换到 DECODE'; stageEl.className = 'badge good';
+      }
+    } else if (state.phase === 'decode') {
+      if (state.decoded < DECODE_N) {
+        const picked = [];
+        for (let k = 0; k < 2; k++) {
+          const e = pickExpert(100 + state.decoded * 11 + k, 0.85);
+          state.freq[e]++;
+          picked.push(e);
+          if (state.prefillTop5.includes(e)) state.hit++;
+        }
+        state.decoded++;
+        const hitRate = Math.round(state.hit / (state.decoded * 2) * 100);
+        root.querySelector('#i1-hit').textContent = hitRate + '%';
+        const isHit = picked.some(e => state.prefillTop5.includes(e));
+        narr.innerHTML = `<span class="step">Decode ${state.decoded}/${DECODE_N}</span>新 token 选了 ${picked.map(e => 'E' + e).join('、')}。${isHit ? '<b style="color:var(--good)">✓ 命中 prefill 预测</b>' : '<b style="color:var(--warm)">○ 未命中（少数情况）</b>'}<span class="why">绿框的就是 prefill 标记过的 hot expert。命中率说明 prefill 的预测有效。</span>`;
+        stageEl.textContent = `DECODE · 生成 ${state.decoded}/${DECODE_N}`; stageEl.className = 'badge good';
+      } else {
+        state.phase = 'done';
+        const finalRate = Math.round(state.hit / (DECODE_N * 2) * 100);
+        narr.innerHTML = `<span class="step">完成</span>本次请求 decode 阶段 ${finalRate}% 的 expert 选择落在 prefill 标记的 top-5 内。<span class="why">论文跨 4 个模型测量：Spearman ρ ≥ 0.7，top-5 prefill 覆盖 ~60% decode top-5，top-20 覆盖 ~90%。</span>`;
+        stageEl.textContent = '完成'; stageEl.className = 'badge good';
+      }
+    }
+    root.querySelector('#i1-tok').textContent = (state.tokenIdx + state.decoded) + ' / ' + (PREFILL_N + DECODE_N);
+    render();
+  }
+
+  function startRequest() {
+    state = { phase: 'prefill', tokenIdx: 0, freq: new Array(TOTAL_EXPERTS).fill(0), hit: 0, decoded: 0, prefillTop5: [] };
+    root.querySelector('#i1-pre-hot').textContent = '统计中...';
+    root.querySelector('#i1-hit').textContent = '—';
+    lastTime = 0;
+  }
+
+  function loop(ts) {
+    if (state.phase === 'done') {
+      // 等 2 秒后自动开始下一轮
+      cancelAnimationFrame(raf);
+      setTimeout(() => {
+        startRequest();
+        raf = requestAnimationFrame(loop);
+      }, 2200);
+      return;
+    }
+    if (ts - lastTime > stepInterval) { lastTime = ts; step(); }
+    raf = requestAnimationFrame(loop);
+  }
+
+  startRequest();
+  setTimeout(() => { render(); raf = requestAnimationFrame(loop); }, 50);
+  window.addEventListener('resize', render);
+});
+
+// =================================================
+// I2: Memory hierarchy - timeline + reuse arcs
+// =================================================
+makePanel(PANELS[1], (root) => {
+  root.innerHTML += `
+    <div class="scene">
+      <div class="scene-title">
+        <h3>三层"仓库"：放 expert 权重的地方</h3>
+        <span class="badge">类比：桌面便签 → 抽屉 → 档案室</span>
+      </div>
+      <canvas id="i2-cache" data-h="170"></canvas>
+    </div>
+
+    <div class="scene">
+      <div class="scene-title">
+        <h3>时间轴：每个 token 依次经过每一层，每层选一个 expert</h3>
+        <span class="badge" id="i2-stage">等待开始</span>
+      </div>
+      <canvas id="i2-timeline" data-h="240"></canvas>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:var(--good)"></i>短弧 = 几步内重复 → LLC 命中</span>
+      <span><i style="background:var(--warm)"></i>长弧 = 跨多层重复 → HBM 命中</span>
+      <span><i style="background:var(--hot)"></i>无弧 = 首次出现 → 远程 fetch</span>
+      <span><i style="background:var(--token)"></i>当前正在调用</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat good"><div class="v" id="i2-llc">0</div><div class="l">LLC 命中（弧线短）</div></div>
+      <div class="stat hi"><div class="v" id="i2-hbm">0</div><div class="l">HBM 命中（弧线长）</div></div>
+      <div class="stat bad"><div class="v" id="i2-miss">0</div><div class="l">远程 fetch（无弧）</div></div>
+      <div class="stat"><div class="v" id="i2-avg">—</div><div class="l">平均访问延迟（相对）</div></div>
+    </div>
+
+    <div class="narration" id="i2-narr"><span class="step">就绪</span>把 expert 想成"工具"：刚用过的还在桌面便签上拿（LLC，最快）；上几个 token 用过的还在抽屉里（HBM，中等）；没用过的要去档案室搬（远程，最慢）。</div>
+
+    <div class="takeaway">
+      <h4>设计启示</h4>
+      <p><b>弧线越短</b> ⇒ 缓存就能越小越快：layer 间的快速复用只需 <b>几 MB 的 LLC</b>。<b>弧线越长</b> ⇒ 需要更大但慢一点的存储兜底：token 间的隔层复用需 <b>本地 HBM</b>。Wafer-scale GPU 加 PDU 预测表后 6.6× 加速正是这种分层带来的。</p>
+    </div>
+  `;
+
+  const cacheCanvas = root.querySelector('#i2-cache');
+  const tlCanvas = root.querySelector('#i2-timeline');
+  const narr = root.querySelector('#i2-narr');
+  const stageEl = root.querySelector('#i2-stage');
+
+  // 6 步序列，4 token，简化为 token×layer = 12 次调用
+  // 设计模式：
+  //  - 短 reuse (LLC)：相邻层重复 → 弧长 = 1
+  //  - 长 reuse (HBM)：跨 token 同层重复 → 弧长 ≈ 6 (=LAYERS)
+  //  - miss：首次出现
+  const LAYERS = 6;
+  const TOKENS = 2;
+  const sequence = []; // [{ token, layer, expert }]
+  const route = [
+    [3, 3, 7, 7, 9, 11],  // T0: 短 reuse 多（E3-E3 / E7-E7）
+    [5, 3, 7, 11, 9, 11], // T1: 与 T0 同层重复 (E3@L1, E7@L2, E9@L4) → 长 reuse
+  ];
+  for (let t = 0; t < TOKENS; t++)
+    for (let L = 0; L < LAYERS; L++)
+      sequence.push({ token: t, layer: L, expert: route[t][L] });
+
+  const TOTAL = sequence.length;
+  const LLC_CAP = 2;  // 桌面便签
+  const HBM_CAP = 5;  // 抽屉
+
+  let state, raf, lastTime = 0, interval = 900;
+
+  function reset() {
+    state = {
+      idx: -1,
+      running: false,
+      llc: [],
+      hbm: [],
+      hits: { llc: 0, hbm: 0, miss: 0 },
+      trail: [], // { idx, token, layer, expert, hit, prevIdx }
+    };
+  }
+
+  // ─── 缓存可视化（顶部） ───
+  function renderCache() {
+    const { ctx, w, h } = setupCanvas(cacheCanvas);
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+
+    function drawShelf(y, label, sub, color, cap, items, latency) {
+      // box
+      const boxX = 20, boxW = w - 40, boxH = 38;
+      ctx.fillStyle = color + '15';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.fillRect(boxX, y, boxW, boxH);
+      ctx.strokeRect(boxX, y, boxW, boxH);
+
+      // label
+      ctx.fillStyle = color;
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, boxX + 12, y + 16);
+      ctx.fillStyle = '#a3a3a3';
+      ctx.font = '11px sans-serif';
+      ctx.fillText(sub, boxX + 12, y + 31);
+
+      // latency badge
+      ctx.fillStyle = '#a3a3a3';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('延迟 ' + latency, w - 32, y + 16);
+      ctx.fillStyle = color;
+      ctx.font = '10px sans-serif';
+      ctx.fillText(items.length + ' / ' + (cap === Infinity ? '∞' : cap), w - 32, y + 31);
+
+      // slots
+      const slotsX = 200;
+      const slotW = 38, slotGap = 6;
+      const maxSlots = cap === Infinity ? 16 : cap;
+      for (let i = 0; i < maxSlots; i++) {
+        const sx = slotsX + i * (slotW + slotGap);
+        if (sx + slotW > w - 100) break;
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.fillRect(sx, y + 6, slotW, boxH - 12);
+        ctx.strokeRect(sx, y + 6, slotW, boxH - 12);
+        if (items[i] !== undefined) {
+          ctx.fillStyle = color;
+          ctx.fillRect(sx + 1, y + 7, slotW - 2, boxH - 14);
+          ctx.fillStyle = '#0f0f0f';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('E' + items[i], sx + slotW / 2, y + boxH / 2 + 4);
+        }
+      }
+    }
+
+    drawShelf(10, '📋 桌面便签 (LLC)', '小·最快·只装 2 件', '#22c55e', LLC_CAP, state.llc, '1');
+    drawShelf(60, '🗄️ 办公抽屉 (本地 HBM)', '中·中速·装 5 件', '#f97316', HBM_CAP, state.hbm, '3');
+    drawShelf(110, '🏬 档案室 (远程 / DRAM)', '大·慢·什么都有', '#ef4444', Infinity, [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], '10');
+
+    ctx.textAlign = 'left';
+  }
+
+  // ─── 时间轴可视化（底部） ───
+  function renderTimeline() {
+    const { ctx, w, h } = setupCanvas(tlCanvas);
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+
+    // step boxes
+    const padX = 30, padTop = 130, padBottom = 40;
+    const usableW = w - padX * 2;
+    const step = usableW / (TOTAL - 1);
+    const boxW = Math.min(56, step * 0.85);
+    const boxH = 50;
+
+    // background grid line
+    ctx.strokeStyle = '#1f1f1f';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padX, padTop + boxH + 4);
+    ctx.lineTo(w - padX, padTop + boxH + 4);
+    ctx.stroke();
+
+    // arcs above (for reuse)
+    state.trail.forEach(item => {
+      if (item.prevIdx === -1) return; // first occurrence
+      const x1 = padX + item.prevIdx * step;
+      const x2 = padX + item.idx * step;
+      const arcLen = item.idx - item.prevIdx;
+      const isLLC = arcLen <= LLC_CAP;
+      const color = isLLC ? '#22c55e' : '#f97316';
+
+      // arc above the timeline
+      const cx = (x1 + x2) / 2;
+      const radiusY = Math.min(80, 12 + arcLen * 9);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, padTop);
+      ctx.bezierCurveTo(x1, padTop - radiusY, x2, padTop - radiusY, x2, padTop);
+      ctx.stroke();
+
+      // label at apex
+      if (item.idx === state.idx) {
+        ctx.fillStyle = color;
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(isLLC ? '短' + arcLen + ' 步' : '长 ' + arcLen + ' 步', cx, padTop - radiusY - 6);
+      }
+    });
+
+    // step boxes
+    sequence.forEach((s, i) => {
+      const x = padX + i * step - boxW / 2;
+      const y = padTop;
+      const past = i <= state.idx;
+      const current = i === state.idx;
+      const trail = state.trail.find(t => t.idx === i);
+
+      let fill = '#1a1a1a', stroke = '#2a2a2a';
+      if (current) { fill = 'rgba(251,191,36,0.4)'; stroke = '#fbbf24'; }
+      else if (past && trail) {
+        if (trail.hit === 'llc') { fill = 'rgba(34,197,94,0.25)'; stroke = '#22c55e'; }
+        else if (trail.hit === 'hbm') { fill = 'rgba(249,115,22,0.25)'; stroke = '#f97316'; }
+        else { fill = 'rgba(239,68,68,0.2)'; stroke = '#ef4444'; }
+      }
+
+      ctx.fillStyle = fill;
+      ctx.fillRect(x, y, boxW, boxH);
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = current ? 2 : 1;
+      ctx.strokeRect(x, y, boxW, boxH);
+
+      if (past) {
+        ctx.fillStyle = '#fafafa';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('E' + s.expert, x + boxW / 2, y + 22);
+        ctx.fillStyle = '#737373';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('T' + s.token + '·L' + s.layer, x + boxW / 2, y + 38);
+      } else {
+        ctx.fillStyle = '#525252';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('T' + s.token + '·L' + s.layer, x + boxW / 2, y + boxH / 2 + 4);
+      }
+    });
+
+    // token segments labels (bottom)
+    ctx.textAlign = 'center';
+    for (let t = 0; t < TOKENS; t++) {
+      const startIdx = t * LAYERS;
+      const endIdx = (t + 1) * LAYERS - 1;
+      const x1 = padX + startIdx * step - boxW / 2;
+      const x2 = padX + endIdx * step + boxW / 2;
+      ctx.strokeStyle = '#3f3f46';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x1, padTop + boxH + 14);
+      ctx.lineTo(x2, padTop + boxH + 14);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x1, padTop + boxH + 10); ctx.lineTo(x1, padTop + boxH + 18);
+      ctx.moveTo(x2, padTop + boxH + 10); ctx.lineTo(x2, padTop + boxH + 18);
+      ctx.stroke();
+      ctx.fillStyle = '#a3a3a3';
+      ctx.font = '12px sans-serif';
+      ctx.fillText('Token ' + t + '（依次过 L0–L' + (LAYERS - 1) + '）', (x1 + x2) / 2, padTop + boxH + 32);
+    }
+
+    // explanation up top
+    ctx.fillStyle = '#737373';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('↑ 弧线 = 同一个 expert 被重复使用；弧线跨度 = 两次使用之间隔了多少步', padX, 18);
+    ctx.fillText('  弧线越短 → 越容易留在桌面便签（LLC）；弧线越长 → 已被挤进抽屉（HBM）', padX, 34);
+    ctx.textAlign = 'left';
+  }
+
+  function render() { renderCache(); renderTimeline(); }
+
+  function step() {
+    state.idx++;
+    if (state.idx >= TOTAL) {
+      state.running = false;
+      stageEl.textContent = '完成 · 即将重启';
+      stageEl.className = 'badge good';
+      const total = state.hits.llc + state.hits.hbm + state.hits.miss;
+      const avgLat = total > 0 ? ((state.hits.llc * 1 + state.hits.hbm * 3 + state.hits.miss * 10) / total).toFixed(1) : '—';
+      root.querySelector('#i2-avg').textContent = avgLat + ' (相对)';
+      narr.innerHTML = `<span class="step">完成</span>LLC ${state.hits.llc} 次（短弧）· HBM ${state.hits.hbm} 次（长弧）· 远程 ${state.hits.miss} 次（无弧）。<span class="why">如果只有一个大档案室、没有便签和抽屉，每次都要走 10 步——这就是没有分层缓存的代价。2 秒后自动重启。</span>`;
+      render();
+      // 自动重启
+      setTimeout(() => { reset(); state.running = true; lastTime = 0; raf = requestAnimationFrame(loop); }, 2200);
+      return;
+    }
+
+    const s = sequence[state.idx];
+    // find previous occurrence
+    let prevIdx = -1;
+    for (let i = state.idx - 1; i >= 0; i--) {
+      if (sequence[i].expert === s.expert) { prevIdx = i; break; }
+    }
+
+    let hit = 'miss';
+    if (state.llc.includes(s.expert)) hit = 'llc';
+    else if (state.hbm.includes(s.expert)) hit = 'hbm';
+
+    // update caches (LRU-ish)
+    state.llc = state.llc.filter(e => e !== s.expert);
+    state.hbm = state.hbm.filter(e => e !== s.expert);
+    state.llc.push(s.expert);
+    if (state.llc.length > LLC_CAP) {
+      const evicted = state.llc.shift();
+      state.hbm.push(evicted);
+      if (state.hbm.length > HBM_CAP) state.hbm.shift();
+    }
+    state.hbm.push(s.expert);
+    state.hbm = [...new Set(state.hbm)]; // dedupe
+    if (state.hbm.length > HBM_CAP) state.hbm = state.hbm.slice(-HBM_CAP);
+
+    state.hits[hit]++;
+    state.trail.push({ idx: state.idx, token: s.token, layer: s.layer, expert: s.expert, hit, prevIdx });
+
+    // narration
+    let msg;
+    const arcLen = state.idx - prevIdx;
+    if (hit === 'llc') {
+      msg = `<span class="step">第 ${state.idx + 1}/${TOTAL} 步 · T${s.token}·L${s.layer} → E${s.expert}</span>${arcLen} 步前刚用过 → <b style="color:var(--good)">桌面便签里还有</b>，伸手就拿。<span class="why">这就是 <b>layer-level 短 reuse</b>：相邻层经常用同一 expert（论文 Ob1）。</span>`;
+    } else if (hit === 'hbm') {
+      msg = `<span class="step">第 ${state.idx + 1}/${TOTAL} 步 · T${s.token}·L${s.layer} → E${s.expert}</span>${arcLen} 步前用过，便签上已被挤掉，但<b style="color:var(--warm)">抽屉里还在</b>。<span class="why">这就是 <b>token-level 长 reuse</b>：不同 token 在同一层选同一 expert，要走 ${LAYERS} 步才会再用（论文 Ob2 diagonal）。</span>`;
+    } else {
+      msg = `<span class="step">第 ${state.idx + 1}/${TOTAL} 步 · T${s.token}·L${s.layer} → E${s.expert}</span>第一次见到 E${s.expert}，<b style="color:var(--hot)">只能去档案室搬</b>。<span class="why">第一次访问总是 miss，搬回来后会先进便签。</span>`;
+    }
+    narr.innerHTML = msg;
+
+    stageEl.textContent = `Token ${s.token} · Layer ${s.layer}`;
+    stageEl.className = 'badge';
+
+    root.querySelector('#i2-llc').textContent = state.hits.llc;
+    root.querySelector('#i2-hbm').textContent = state.hits.hbm;
+    root.querySelector('#i2-miss').textContent = state.hits.miss;
+    const total = state.hits.llc + state.hits.hbm + state.hits.miss;
+    const avgLat = ((state.hits.llc * 1 + state.hits.hbm * 3 + state.hits.miss * 10) / total).toFixed(1);
+    root.querySelector('#i2-avg').textContent = avgLat;
+
+    render();
+  }
+
+  function loop(ts) {
+    if (!state.running) return;
+    if (ts - lastTime > interval) { lastTime = ts; step(); }
+    raf = requestAnimationFrame(loop);
+  }
+
+  reset();
+  state.running = true;
+  setTimeout(() => { render(); raf = requestAnimationFrame(loop); }, 50);
+  window.addEventListener('resize', render);
+});
+
+// =================================================
+// I3: 负载均衡三栏对比 (盲 vs 只调度 vs 调度+复制)
+// =================================================
+makePanel(PANELS[2], (root) => {
+  root.innerHTML += `
+    <div class="compare" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="scene">
+        <div class="scene-title"><h3>A · 盲调度</h3><span class="badge bad">基线</span></div>
+        <div class="sub" style="padding:0 8px 6px;font-size:11px;color:var(--text-dim)">CP 不看 expert 在哪，按 hash 分</div>
+        <canvas id="i3a-canvas" data-h="240"></canvas>
+        <div class="stat bad" style="margin:6px 8px;text-align:center"><div class="v" id="i3-a-time" style="font-size:20px">—</div><div class="l">完成 tick</div></div>
+      </div>
+      <div class="scene">
+        <div class="scene-title"><h3>B · 只 I3（不复制）</h3><span class="badge">改善有限</span></div>
+        <div class="sub" style="padding:0 8px 6px;font-size:11px;color:var(--text-dim)">看 expert 在哪，但 hot expert 仍单副本</div>
+        <canvas id="i3b-canvas" data-h="240"></canvas>
+        <div class="stat" style="margin:6px 8px;text-align:center"><div class="v" id="i3-b-time" style="font-size:20px">—</div><div class="l">完成 tick</div></div>
+      </div>
+      <div class="scene">
+        <div class="scene-title"><h3>C · I3 + I4（调度+复制）</h3><span class="badge good">真正均衡</span></div>
+        <div class="sub" style="padding:0 8px 6px;font-size:11px;color:var(--text-dim)">Hot expert 复制到多 die + 调度感知</div>
+        <canvas id="i3c-canvas" data-h="240"></canvas>
+        <div class="stat good" style="margin:6px 8px;text-align:center"><div class="v" id="i3-c-time" style="font-size:20px">—</div><div class="l">完成 tick</div></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:var(--hot)"></i>Hot expert E7（70% token 要它）</span>
+      <span><i style="background:var(--cool)"></i>普通 expert</span>
+      <span><i style="background:var(--good)"></i>Hot expert 副本</span>
+      <span><i style="background:var(--token)"></i>队列中的 token</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v" id="i3-ab">—</div><div class="l">B vs A 加速比</div></div>
+      <div class="stat hi"><div class="v" id="i3-ca">—</div><div class="l">C vs A 加速比</div></div>
+      <div class="stat good"><div class="v" id="i3-cb">—</div><div class="l">C vs B 加速比（"复制"的纯收益）</div></div>
+    </div>
+
+    <div class="narration" id="i3-narr"><span class="step">就绪</span>120 个 token，70% 要去 hot expert E7。三种策略并发跑，对比 die 队列堆叠和完成时间。</div>
+
+    <div class="takeaway">
+      <h4>设计启示</h4>
+      <p><b>I3 单独做收益有限</b>——再聪明的调度也只有一个 E7 副本，hot die 还是排队（B 接近 A）。<br>
+      <b>I4 单独做也救不了</b>——光复制不感知调度，可能全堆一个副本。<br>
+      <b>I3 + I4 必须组合</b>：先用 EPE 找出 hot expert（I4 复制谁）→ Global MoE Scheduler 按副本分布做 placement-aware（I3 怎么送）→ 才能达到 ~3× 收益。</p>
+    </div>
+  `;
+
+  const DIES = 4;
+  const TOKENS_N = 120;
+  const HOT_RATIO = 0.7;
+  // Expert 布局：
+  //   方案 A、B：E7 只在 die 0（其他 die 是 E1/E3/E5）→ hot 必须去 die 0
+  //   方案 C：E7 复制到 die 0/1/2 → 任一即可
+  function genTokens(seed) {
+    const arr = [];
+    let r = seed;
+    for (let i = 0; i < TOKENS_N; i++) {
+      r = (r * 9301 + 49297) % 233280;
+      const isHot = (r / 233280) < HOT_RATIO;
+      arr.push({ id: i, isHot, hashDie: i % DIES });
+    }
+    return arr;
+  }
+
+  let states, raf3, lastTick = 0;
+
+  function makeState() {
+    return { dies: [0,0,0,0], processed: [0,0,0,0], tick: 0, done: false, history: [] };
+  }
+
+  function dispatch(strategy, tokens) {
+    const s = makeState();
+    tokens.forEach(t => {
+      let target;
+      if (strategy === 'A') {
+        // 盲调度: hash 到任意 die，但 hot 的 token 在 die ≠ 0 时还得等转发 → 简化为：
+        // 盲调度按 hash 分，若该 die 上没有它要的 expert，就被转发到 die 0
+        target = t.isHot ? 0 : t.hashDie; // 70% hot 都到 die 0，30% 各 die
+      } else if (strategy === 'B') {
+        // I3 only: 看 expert 在哪。hot expert 只在 die 0 → hot token 必须去 die 0
+        // 非 hot token 可以智能分到最空的 die
+        if (t.isHot) target = 0;
+        else {
+          // pick 最空的非 die0
+          let min = Infinity, idx = 1;
+          for (let d = 1; d < DIES; d++) if (s.dies[d] < min) { min = s.dies[d]; idx = d; }
+          target = idx;
+        }
+      } else {
+        // C: I3 + I4，hot expert 复制到 die 0/1/2 → hot token 可去任一最空副本
+        if (t.isHot) {
+          let min = Infinity, idx = 0;
+          for (let d = 0; d <= 2; d++) if (s.dies[d] < min) { min = s.dies[d]; idx = d; }
+          target = idx;
+        } else {
+          target = 3; // 普通 expert 在 die 3
+        }
+      }
+      s.dies[target]++;
+    });
+    return s;
+  }
+
+  function drawScene(canvasId, state, strategy) {
+    const canvas = root.querySelector('#' + canvasId);
+    const { ctx, w, h } = setupCanvas(canvas);
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+
+    const dieW = (w - 30) / DIES;
+    const dieY = 32;
+    const dieH = h - 50;
+    const expertY = dieY + 4;
+    const expertH = 22;
+
+    // expert layout per strategy
+    function expertOnDie(d) {
+      if (strategy === 'A' || strategy === 'B') {
+        return d === 0 ? { label: 'E7', hot: true, repl: false } : { label: 'E' + (d * 2 + 1), hot: false, repl: false };
+      } else {
+        if (d <= 2) return { label: 'E7', hot: true, repl: d > 0 };
+        return { label: 'E1', hot: false, repl: false };
+      }
+    }
+
+    for (let d = 0; d < DIES; d++) {
+      const x = 12 + d * dieW;
+
+      ctx.fillStyle = '#1a1a1a';
+      ctx.strokeStyle = '#2a2a2a';
+      ctx.lineWidth = 1;
+      ctx.fillRect(x, dieY, dieW - 6, dieH);
+      ctx.strokeRect(x, dieY, dieW - 6, dieH);
+
+      // die label
+      ctx.fillStyle = '#a3a3a3';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Die ' + d, x + (dieW - 6) / 2, 14);
+
+      // expert tag inside die
+      const exp = expertOnDie(d);
+      ctx.fillStyle = exp.hot ? (exp.repl ? '#22c55e' : '#ef4444') : '#38bdf8';
+      ctx.fillRect(x + 4, expertY, dieW - 14, expertH);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(exp.label + (exp.repl ? ' 副本' : ''), x + (dieW - 6) / 2, expertY + 15);
+
+      // queue (token dots stacked from bottom, capped)
+      const queued = Math.max(0, state.dies[d]);
+      const queueAreaTop = expertY + expertH + 6;
+      const queueAreaBottom = dieY + dieH - 18;
+      const queueAreaH = queueAreaBottom - queueAreaTop;
+      const fillRatio = Math.min(1, queued / 90);
+      // bar
+      const barH = queueAreaH * fillRatio;
+      const barColor = queued > 60 ? '#ef4444' : (queued > 30 ? '#f97316' : (queued > 0 ? '#22c55e' : '#2a2a2a'));
+      ctx.fillStyle = barColor;
+      ctx.fillRect(x + 4, queueAreaBottom - barH, dieW - 14, barH);
+
+      // count
+      ctx.fillStyle = '#fafafa';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(queued + '', x + (dieW - 6) / 2, dieY + dieH + 14);
+    }
+    ctx.textAlign = 'left';
+  }
+
+  function update() {
+    drawScene('i3a-canvas', states.A, 'A');
+    drawScene('i3b-canvas', states.B, 'B');
+    drawScene('i3c-canvas', states.C, 'C');
+  }
+
+  function tick() {
+    // 每个 die 每 tick 处理 1 个 token
+    ['A','B','C'].forEach(k => {
+      const s = states[k];
+      if (s.done) return;
+      let any = false;
+      for (let d = 0; d < DIES; d++) {
+        if (s.dies[d] > 0) { s.dies[d]--; s.processed[d]++; any = true; }
+      }
+      if (any) s.tick++;
+      else s.done = true;
+    });
+
+    update();
+
+    const narr = root.querySelector('#i3-narr');
+    if (states.A.done && states.B.done && states.C.done) {
+      root.querySelector('#i3-a-time').textContent = states.A.tick;
+      root.querySelector('#i3-b-time').textContent = states.B.tick;
+      root.querySelector('#i3-c-time').textContent = states.C.tick;
+      root.querySelector('#i3-ab').textContent = (states.A.tick / states.B.tick).toFixed(2) + '×';
+      root.querySelector('#i3-ca').textContent = (states.A.tick / states.C.tick).toFixed(2) + '×';
+      root.querySelector('#i3-cb').textContent = (states.B.tick / states.C.tick).toFixed(2) + '×';
+      narr.innerHTML = `<span class="step">完成</span>A 盲调度用 ${states.A.tick} tick；B 只 placement-aware 用 ${states.B.tick} tick（几乎没变）；C 调度+复制只用 ${states.C.tick} tick。<span class="why">B 几乎追平 A 是关键观察：<b>瓶颈在 die 0 那一个 E7</b>，再聪明的调度也只能往那送。只有 C 加了复制副本，token 才真正能分流。这就是为什么"I3 + I4 必须组合"。</span>`;
+    } else {
+      narr.innerHTML = `<span class="step">运行中 tick ${Math.max(states.A.tick, states.B.tick, states.C.tick)}</span>A die0 队列 ${states.A.dies[0]}、B die0 队列 ${states.B.dies[0]}、C 三个副本均摊（${states.C.dies.slice(0,3).join('/')}）。<span class="why">注意 A 和 B 的 die0 一直最长——hot expert 单副本 = 单点瓶颈。</span>`;
+    }
+  }
+
+  function startCycle() {
+    clearTimeout(raf3);
+    const tokens = genTokens(42);
+    states = { A: dispatch('A', tokens), B: dispatch('B', tokens), C: dispatch('C', tokens) };
+    update();
+    raf3 = setTimeout(loop, 100);
+  }
+
+  function loop() {
+    if (states.A.done && states.B.done && states.C.done) {
+      update();
+      // 等待 2 秒后自动重启
+      raf3 = setTimeout(startCycle, 2200);
+      return;
+    }
+    tick();
+    raf3 = setTimeout(loop, 70);
+  }
+
+  states = { A: makeState(), B: makeState(), C: makeState() };
+  setTimeout(startCycle, 100);
+  window.addEventListener('resize', update);
+});
+
+// =================================================
+// I4: 单副本 vs 多副本 同屏赛跑对比（批次模式）
+// =================================================
+makePanel(PANELS[3], (root) => {
+  root.innerHTML += `
+    <div class="scene">
+      <div class="scene-title">
+        <h3>同一批 80 个 token（70% 要 E7）灌入两套布局，看谁先处理完</h3>
+        <span class="badge" id="i4-stage">运行中</span>
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="scene">
+        <div class="scene-title"><h3>左 · 单副本（E7 只在 GPU0）</h3><span class="badge bad">单点瓶颈</span></div>
+        <canvas id="i4a-canvas" data-h="280"></canvas>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <div class="stat bad" style="flex:1;text-align:center"><div class="v" id="i4-a-done" style="font-size:22px">0</div><div class="l">已完成 / 80</div></div>
+          <div class="stat bad" style="flex:1;text-align:center"><div class="v" id="i4-a-time" style="font-size:22px">—</div><div class="l">完成 tick</div></div>
+        </div>
+      </div>
+      <div class="scene">
+        <div class="scene-title"><h3>右 · 3 副本（E7 在 GPU0/1/2）</h3><span class="badge good">三路分流</span></div>
+        <canvas id="i4b-canvas" data-h="280"></canvas>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <div class="stat good" style="flex:1;text-align:center"><div class="v" id="i4-b-done" style="font-size:22px">0</div><div class="l">已完成 / 80</div></div>
+          <div class="stat good" style="flex:1;text-align:center"><div class="v" id="i4-b-time" style="font-size:22px">—</div><div class="l">完成 tick</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:var(--hot)"></i>E7 原副本</span>
+      <span><i style="background:var(--good)"></i>E7 复制副本</span>
+      <span><i style="background:var(--cool)"></i>普通 expert</span>
+      <span><i style="background:var(--hot)"></i>队列堵塞</span>
+      <span><i style="background:var(--good)"></i>队列正常</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat bad"><div class="v" id="i4-a-peak">0</div><div class="l">左 · 最大队列长度</div></div>
+      <div class="stat good"><div class="v" id="i4-b-peak">0</div><div class="l">右 · 最大队列长度</div></div>
+      <div class="stat hi"><div class="v" id="i4-speedup">—</div><div class="l">复制后加速比</div></div>
+    </div>
+
+    <div class="narration" id="i4-narr"><span class="step">运行中</span>左边 56 个 hot token 全堆在 GPU0；右边 56 个 hot token 分到 GPU0/1/2 三个副本。看右边的进度条远远跑在前面。</div>
+
+    <div class="takeaway">
+      <h4>设计启示</h4>
+      <p>每个 GPU 预留 R 个 <b>expert 复制槽</b>（默认 +8 expert/GPU）。tokens 在副本间均匀 dispatch（DeepEP dynamic）。配合 EPLB 或离线 profiling 自动选哪些 expert 复制。<b>本图：复制后吞吐 ≈ 3×。</b></p>
+    </div>
+  `;
+
+  const canvasA = root.querySelector('#i4a-canvas');
+  const canvasB = root.querySelector('#i4b-canvas');
+  const narr = root.querySelector('#i4-narr');
+  const stageEl = root.querySelector('#i4-stage');
+
+  const GPUS = 4;
+  const BATCH = 80;
+  const HOT_RATIO = 0.7;
+
+  // 生成固定的 token 序列（两边用同一份，保证公平）
+  function genBatch() {
+    const arr = [];
+    let r = 12345;
+    for (let i = 0; i < BATCH; i++) {
+      r = (r * 9301 + 49297) % 233280;
+      arr.push({ id: i, isHot: (r / 233280) < HOT_RATIO });
+    }
+    return arr;
+  }
+
+  function makeSim(replicated, tokens) {
+    // 把 token 预先 dispatch 到各 GPU 队列
+    const queues = [[], [], [], []];
+    let pIdx = 0;
+    tokens.forEach(t => {
+      let g;
+      if (t.isHot) {
+        if (replicated) { g = pIdx % 3; pIdx++; }
+        else g = 0;
+      } else {
+        g = 3;
+      }
+      queues[g].push(t);
+    });
+    return {
+      replicated,
+      queues,
+      initialLen: queues.map(q => q.length),
+      processed: [0, 0, 0, 0],
+      done: 0,
+      tick: 0,
+      doneTick: null,
+      peak: Math.max(...queues.map(q => q.length)),
+    };
+  }
+
+  let A, B;
+  let batchTokens;
+
+  function newBatch() {
+    batchTokens = genBatch();
+    A = makeSim(false, batchTokens);
+    B = makeSim(true, batchTokens);
+  }
+
+  function stepSim(sim) {
+    if (sim.done >= BATCH) {
+      if (sim.doneTick === null) sim.doneTick = sim.tick;
+      return;
+    }
+    sim.tick++;
+    // 每个 GPU 每 tick 处理 1 个 token
+    for (let g = 0; g < GPUS; g++) {
+      if (sim.queues[g].length > 0) {
+        sim.queues[g].shift();
+        sim.processed[g]++;
+        sim.done++;
+      }
+    }
+  }
+
+  function renderSim(canvas, sim, isReplicated) {
+    const { ctx, w, h } = setupCanvas(canvas);
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+
+    const gw = (w - 30) / GPUS;
+    const gpuY = 50;
+    const gpuH = h - 110;
+    const maxQueue = Math.max(8, ...sim.initialLen);
+
+    for (let g = 0; g < GPUS; g++) {
+      const x = 12 + g * gw;
+      const isHotSlot = (g === 0) || (isReplicated && (g === 1 || g === 2));
+      const isReplica = isReplicated && (g === 1 || g === 2);
+
+      // die label
+      ctx.fillStyle = '#a3a3a3';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('GPU ' + g, x + (gw - 6) / 2, 16);
+
+      // expert chip
+      ctx.fillStyle = isHotSlot ? (isReplica ? '#22c55e' : '#ef4444') : '#38bdf8';
+      ctx.fillRect(x + 4, 24, gw - 14, 22);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(isHotSlot ? (isReplica ? 'E7 副本' : 'E7') : 'E' + (g * 2 + 1), x + (gw - 6) / 2, 39);
+
+      // queue frame
+      ctx.fillStyle = '#1a1a1a';
+      ctx.strokeStyle = '#2a2a2a';
+      ctx.fillRect(x + 4, gpuY, gw - 14, gpuH);
+      ctx.strokeRect(x + 4, gpuY, gw - 14, gpuH);
+
+      // queue bar (length proportional to remaining tokens)
+      const remaining = sim.queues[g].length;
+      const ratio = remaining / maxQueue;
+      const barH = gpuH * ratio;
+      const color = remaining > 30 ? '#ef4444' : remaining > 10 ? '#f97316' : remaining > 0 ? '#22c55e' : '#1a1a1a';
+      ctx.fillStyle = color;
+      ctx.fillRect(x + 6, gpuY + gpuH - barH, gw - 18, barH);
+
+      // dots in the queue (top of bar) for visual texture
+      const dotsToShow = Math.min(remaining, Math.floor(gpuH / 7));
+      for (let d = 0; d < dotsToShow; d++) {
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.fillRect(x + 8, gpuY + gpuH - 6 - d * 7, gw - 22, 2);
+      }
+
+      // count label
+      ctx.fillStyle = remaining > 0 ? '#fafafa' : '#525252';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(remaining + '', x + (gw - 6) / 2, gpuY + gpuH + 16);
+
+      // processed label
+      ctx.fillStyle = '#737373';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('已做 ' + sim.processed[g], x + (gw - 6) / 2, gpuY + gpuH + 30);
+    }
+
+    // big progress bar at bottom
+    const pbY = h - 28, pbX = 12, pbW = w - 24, pbH = 14;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.strokeStyle = '#2a2a2a';
+    ctx.fillRect(pbX, pbY, pbW, pbH);
+    ctx.strokeRect(pbX, pbY, pbW, pbH);
+    const progressW = (sim.done / BATCH) * pbW;
+    ctx.fillStyle = isReplicated ? '#22c55e' : '#ef4444';
+    ctx.fillRect(pbX + 1, pbY + 1, progressW - 2, pbH - 2);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(sim.done + ' / ' + BATCH + (sim.doneTick !== null ? ` · 完成 ${sim.doneTick} tick` : ` · ${sim.tick} tick`), pbX + pbW / 2, pbY + pbH - 3);
+
+    ctx.textAlign = 'left';
+  }
+
+  function update() {
+    stepSim(A);
+    stepSim(B);
+    renderSim(canvasA, A, false);
+    renderSim(canvasB, B, true);
+
+    root.querySelector('#i4-a-done').textContent = A.done;
+    root.querySelector('#i4-b-done').textContent = B.done;
+    root.querySelector('#i4-a-time').textContent = A.doneTick !== null ? A.doneTick : A.tick + '*';
+    root.querySelector('#i4-b-time').textContent = B.doneTick !== null ? B.doneTick : B.tick + '*';
+    root.querySelector('#i4-a-peak').textContent = A.peak;
+    root.querySelector('#i4-b-peak').textContent = B.peak;
+
+    if (A.doneTick !== null && B.doneTick !== null) {
+      const sp = (A.doneTick / B.doneTick).toFixed(2);
+      root.querySelector('#i4-speedup').textContent = sp + '×';
+      stageEl.textContent = '完成 · 即将重启';
+      stageEl.className = 'badge good';
+      narr.innerHTML = `<span class="step">一轮完成</span>左单副本用 <b>${A.doneTick} tick</b>（GPU0 一直在啃 ${A.peak} 长队列），右 3 副本用 <b>${B.doneTick} tick</b> → <b style="color:var(--good)">${sp}× 加速</b>。<span class="why">单副本 80 个 hot token 全堆 GPU0；3 副本把这 56 个 hot token 均分到 GPU0/1/2，每个只剩 ~19 个 → tick 数 ÷3。2 秒后开始下一轮。</span>`;
+    } else if (B.doneTick !== null) {
+      narr.innerHTML = `<span class="step">右先完成 · 左还在排队</span>右 3 副本仅用 ${B.doneTick} tick 处理完，左单副本 GPU0 还剩 <b style="color:var(--hot)">${A.queues[0].length}</b> 个 token 没消化。<span class="why">左边 GPU0 的红色高条 = "单点瓶颈"；右边三个副本各自的小绿条 = "三路分流"。</span>`;
+    } else {
+      narr.innerHTML = `<span class="step">运行中</span>左 GPU0 队列 <b style="color:var(--hot)">${A.queues[0].length}</b>（巨长一条红柱）；右副本队列 <b style="color:var(--good)">${B.queues[0].length} / ${B.queues[1].length} / ${B.queues[2].length}</b>（三个小绿柱）。<span class="why">同一批 token，右边三路分流，吞吐立刻 ×3。</span>`;
+    }
+  }
+
+  function loop() {
+    update();
+    if (A.doneTick !== null && B.doneTick !== null) {
+      setTimeout(() => { newBatch(); stageEl.textContent = '运行中'; stageEl.className = 'badge'; raf4 = setTimeout(loop, 180); }, 2400);
+      return;
+    }
+    raf4 = setTimeout(loop, 180);
+  }
+
+  let raf4;
+  newBatch();
+  setTimeout(() => { update(); raf4 = setTimeout(loop, 180); }, 50);
+  window.addEventListener('resize', () => { renderSim(canvasA, A, false); renderSim(canvasB, B, true); });
+});
+
+// =================================================
+// I5: 共址 vs 分离 同屏并排自动对照
+// =================================================
+makePanel(PANELS[4], (root) => {
+  root.innerHTML += `
+    <div class="compare">
+      <div class="scene">
+        <div class="scene-title"><h3>左 · 共址（E3 + E17 在同一 die）</h3><span class="badge bad">必须串行</span></div>
+        <canvas id="i5a-canvas" data-h="280"></canvas>
+      </div>
+      <div class="scene">
+        <div class="scene-title"><h3>右 · 分离（E3 在 Die A，E17 在 Die B）</h3><span class="badge good">并行</span></div>
+        <canvas id="i5b-canvas" data-h="280"></canvas>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:var(--hot)"></i>E3（一个 expert）</span>
+      <span><i style="background:#a78bfa"></i>E17（另一个 expert）</span>
+      <span><i style="background:var(--token)"></i>等待 / 处理中的 token</span>
+      <span><i style="background:var(--good)"></i>处理完成</span>
+      <span><i style="background:var(--warm)"></i>EP all-to-all 通信</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat bad"><div class="v" id="i5-co-tick">0</div><div class="l">左 · 共址完成 tick</div></div>
+      <div class="stat good"><div class="v" id="i5-sep-tick">0</div><div class="l">右 · 分离完成 tick</div></div>
+      <div class="stat hi"><div class="v" id="i5-speed">—</div><div class="l">分离加速比</div></div>
+      <div class="stat"><div class="v" id="i5-cost">+ all-to-all</div><div class="l">代价：每 token 多一跳通信</div></div>
+    </div>
+
+    <div class="narration" id="i5-narr"><span class="step">运行中</span>8 个 token 都要被 E3 和 E17 处理。左边只有一个 die，每个 token 必须先算 E3 再算 E17（串行）；右边两个 die 同时算（并行），代价是中间多一次 EP 通信。</div>
+
+    <div class="takeaway">
+      <h4>设计启示</h4>
+      <p>Top 10% expert pair 占 60–80% 共激活。<b>分离 pair 提升并行度</b>，但<b>增加 EP all-to-all 通信</b>。batch 大、互联带宽充足时分离划算；batch 小、带宽紧张时共址更优。Scheduler 可按 batch size 动态选。</p>
+    </div>
+  `;
+
+  const canvasA = root.querySelector('#i5a-canvas');
+  const canvasB = root.querySelector('#i5b-canvas');
+  const narr = root.querySelector('#i5-narr');
+  const TOKENS = 8;
+  const STEPS_PER_PHASE = 18;
+  // 共址：每 token 占 2 个阶段（E3，然后 E17）
+  // 分离：每 token 占 1 个阶段（两 die 同时算）+ EP 通信半阶段
+
+  function makeSim(mode) {
+    return {
+      mode,                            // 'co' | 'sep'
+      tokens: Array.from({ length: TOKENS }, (_, i) => ({
+        id: i, phase: 'wait', // wait → e3 → comm → e17 → done (co); wait → both → done (sep)
+        progress: 0,
+      })),
+      tick: 0,
+      activeIdx: 0,
+      done: 0,
+      doneTick: null,
+    };
+  }
+
+  let A = makeSim('co'), B = makeSim('sep');
+
+  function stepSim(sim) {
+    if (sim.done >= TOKENS) {
+      if (sim.doneTick === null) sim.doneTick = sim.tick;
+      return;
+    }
+    sim.tick++;
+    if (sim.mode === 'co') {
+      // 单 die 串行：一次只能处理 1 个 token
+      const t = sim.tokens[sim.activeIdx];
+      if (t.phase === 'wait') { t.phase = 'e3'; t.progress = 0; }
+      t.progress++;
+      if (t.phase === 'e3' && t.progress >= STEPS_PER_PHASE) {
+        t.phase = 'e17'; t.progress = 0;
+      } else if (t.phase === 'e17' && t.progress >= STEPS_PER_PHASE) {
+        t.phase = 'done';
+        sim.done++;
+        sim.activeIdx++;
+      }
+    } else {
+      // 双 die 并行：所有 token 同时被 E3 和 E17 处理
+      // 但每个 token 需要先 E3，把结果通过 all-to-all 到 E17 那个 die
+      // 简化：每 token 一个总阶段（包含 E3 / comm / E17 三段）
+      // 为了好看，我们让所有 token 并发推进（无队列限制）但每 token 仍需 STEPS_PER_PHASE 时间
+      // 实际是单波次，所有 token 同步完成
+      let allDone = true;
+      sim.tokens.forEach(t => {
+        if (t.phase === 'done') return;
+        if (t.phase === 'wait') { t.phase = 'both'; t.progress = 0; }
+        t.progress++;
+        // 分离的时长 = 1 个 E3 + EP 通信开销
+        const SEP_DURATION = STEPS_PER_PHASE + Math.round(STEPS_PER_PHASE * 0.25);
+        if (t.progress >= SEP_DURATION) {
+          t.phase = 'done';
+          sim.done++;
+        } else {
+          allDone = false;
+        }
+      });
+      if (allDone) sim.done = TOKENS;
+    }
+  }
+
+  function renderCo(canvas, sim) {
+    const { ctx, w, h } = setupCanvas(canvas);
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+
+    // queue at left
+    ctx.fillStyle = '#a3a3a3';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Token 队列', 12, 14);
+
+    sim.tokens.forEach((t, i) => {
+      const qx = 30;
+      const qy = 30 + i * 20;
+      ctx.fillStyle = t.phase === 'done' ? '#22c55e' : (t.phase === 'wait' ? '#404040' : '#fbbf24');
+      ctx.beginPath();
+      ctx.arc(qx, qy, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = t.phase === 'wait' ? '#737373' : '#0f0f0f';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('T' + i, qx, qy + 3);
+    });
+
+    // single die in center-right
+    const dx = w * 0.42, dy = 16, dw = w * 0.5, dh = h - 50;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5;
+    ctx.fillRect(dx, dy, dw, dh);
+    ctx.strokeRect(dx, dy, dw, dh);
+    ctx.fillStyle = '#ef4444';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Die 0（共址）', dx + dw / 2, dy - 4);
+
+    // two expert blocks vertically
+    const ex = dx + 20, ew = dw - 40, eh = (dh - 70) / 2;
+    const e3Y = dy + 30, e17Y = e3Y + eh + 20;
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(ex, e3Y, ew, eh);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('E3', dx + dw / 2, e3Y + eh / 2 + 5);
+
+    ctx.fillStyle = '#a78bfa';
+    ctx.fillRect(ex, e17Y, ew, eh);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('E17', dx + dw / 2, e17Y + eh / 2 + 5);
+
+    // current token traveling
+    if (sim.activeIdx < TOKENS) {
+      const t = sim.tokens[sim.activeIdx];
+      const startX = 30;
+      const startY = 30 + sim.activeIdx * 20;
+      let tx, ty;
+      if (t.phase === 'e3') {
+        const p = t.progress / STEPS_PER_PHASE;
+        const targetY = e3Y + eh / 2;
+        tx = startX + (dx + dw / 2 - startX) * Math.min(1, p * 2);
+        ty = startY + (targetY - startY) * Math.min(1, p * 2);
+      } else if (t.phase === 'e17') {
+        const p = t.progress / STEPS_PER_PHASE;
+        tx = dx + dw / 2;
+        ty = e3Y + eh / 2 + (e17Y + eh / 2 - e3Y - eh / 2) * p;
+      }
+      if (tx !== undefined) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(tx, ty, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0f0f0f';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText('T' + t.id, tx, ty + 3);
+      }
+    }
+
+    // hint
+    ctx.fillStyle = '#a3a3a3';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('每个 token 必须先 E3 再 E17 → 串行', dx + dw / 2, dy + dh + 16);
+    ctx.textAlign = 'left';
+  }
+
+  function renderSep(canvas, sim) {
+    const { ctx, w, h } = setupCanvas(canvas);
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+
+    // queue at left
+    ctx.fillStyle = '#a3a3a3';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Token 队列', 12, 14);
+
+    sim.tokens.forEach((t, i) => {
+      const qx = 30;
+      const qy = 30 + i * 20;
+      ctx.fillStyle = t.phase === 'done' ? '#22c55e' : (t.phase === 'wait' ? '#404040' : '#fbbf24');
+      ctx.beginPath();
+      ctx.arc(qx, qy, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = t.phase === 'wait' ? '#737373' : '#0f0f0f';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('T' + i, qx, qy + 3);
+    });
+
+    // two dies side by side
+    const baseX = w * 0.32;
+    const innerW = w - baseX - 20;
+    const dieW = (innerW - 40) / 2;
+    const dieY = 24, dieH = h - 60;
+    const dieAX = baseX, dieBX = baseX + dieW + 40;
+
+    ctx.fillStyle = '#1a1a1a';
+    ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5;
+    ctx.fillRect(dieAX, dieY, dieW, dieH);
+    ctx.strokeRect(dieAX, dieY, dieW, dieH);
+    ctx.fillRect(dieBX, dieY, dieW, dieH);
+    ctx.strokeRect(dieBX, dieY, dieW, dieH);
+
+    ctx.fillStyle = '#22c55e';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Die A', dieAX + dieW / 2, dieY - 4);
+    ctx.fillText('Die B', dieBX + dieW / 2, dieY - 4);
+
+    // experts
+    const ex = 12, ey = dieY + 24, eh = dieH - 50;
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(dieAX + ex, ey, dieW - 24, eh);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText('E3', dieAX + dieW / 2, ey + eh / 2 + 5);
+
+    ctx.fillStyle = '#a78bfa';
+    ctx.fillRect(dieBX + ex, ey, dieW - 24, eh);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('E17', dieBX + dieW / 2, ey + eh / 2 + 5);
+
+    // EP arrow with animation
+    const epY = ey + eh / 2;
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 2;
+    const dashOffset = ((performance.now() / 60) % 9);
+    ctx.setLineDash([5, 4]);
+    ctx.lineDashOffset = -dashOffset;
+    ctx.beginPath();
+    ctx.moveTo(dieAX + dieW, epY);
+    ctx.lineTo(dieBX, epY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
+    ctx.fillStyle = '#f97316';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('EP all-to-all', (dieAX + dieW + dieBX) / 2, epY - 6);
+
+    // all in-progress tokens go to both dies at once
+    sim.tokens.forEach((t, i) => {
+      if (t.phase !== 'both') return;
+      const SEP_DURATION = STEPS_PER_PHASE + Math.round(STEPS_PER_PHASE * 0.25);
+      const p = Math.min(1, t.progress / SEP_DURATION);
+      const startX = 30, startY = 30 + i * 20;
+
+      // 一个粒子飞往 Die A，一个飞往 Die B
+      const tgA = { x: dieAX + dieW / 2, y: ey + eh / 2 };
+      const tgB = { x: dieBX + dieW / 2, y: ey + eh / 2 };
+      const ease = p < 0.5 ? p * 2 : 1;
+
+      [tgA, tgB].forEach((tg, k) => {
+        const x = startX + (tg.x - startX) * ease;
+        const y = startY + (tg.y - startY) * ease;
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    });
+
+    // hint
+    ctx.fillStyle = '#a3a3a3';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('所有 token 同时进 Die A 和 Die B → 并行（多一跳 EP 通信）', baseX + innerW / 2, dieY + dieH + 16);
+    ctx.textAlign = 'left';
+  }
+
+  function loop() {
+    stepSim(A); stepSim(B);
+    renderCo(canvasA, A);
+    renderSep(canvasB, B);
+
+    root.querySelector('#i5-co-tick').textContent = A.doneTick !== null ? A.doneTick : A.tick;
+    root.querySelector('#i5-sep-tick').textContent = B.doneTick !== null ? B.doneTick : B.tick;
+
+    if (A.doneTick !== null && B.doneTick !== null) {
+      const sp = (A.doneTick / B.doneTick).toFixed(2);
+      root.querySelector('#i5-speed').textContent = sp + '×';
+      narr.innerHTML = `<span class="step">完成</span>共址 ${A.doneTick} tick；分离 ${B.doneTick} tick → <b>${sp}× 加速</b>。<span class="why">代价：分离要为每 token 多走一跳 all-to-all。当 batch 小、互联慢时反而吃亏，所以这是个 scheduler 决策。</span>`;
+      // pause briefly then restart for endless loop
+      setTimeout(() => { A = makeSim('co'); B = makeSim('sep'); }, 2200);
+    } else {
+      narr.innerHTML = `<span class="step">运行中</span>共址进度 ${A.done}/${TOKENS} token · 分离进度 ${B.done}/${TOKENS} token。<span class="why">左边一次只能处理 1 个 token（串行），右边 8 个 token 同时被两 die 处理（并行）。</span>`;
+    }
+
+    raf5 = requestAnimationFrame(loop);
+  }
+
+  let raf5;
+  setTimeout(() => { raf5 = requestAnimationFrame(loop); }, 50);
+  window.addEventListener('resize', () => { renderCo(canvasA, A); renderSep(canvasB, B); });
+});
+
+// =================================================
+// I6: 4 个任务自动轮换 + 历史对比
+// =================================================
+makePanel(PANELS[5], (root) => {
+  root.innerHTML += `
+    <canvas id="i6-canvas" data-h="380"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--good)"></i>当前任务的 hot expert</span>
+      <span><i style="background:var(--warm)"></i>与上一任务重叠的 hot</span>
+      <span><i style="background:#3f3f46"></i>非 hot</span>
+      <span><i style="background:var(--accent)"></i>正在运行的任务</span>
+    </div>
+    <div class="stats">
+      <div class="stat hi"><div class="v" id="i6-cur">—</div><div class="l">当前任务</div></div>
+      <div class="stat"><div class="v" id="i6-prev">—</div><div class="l">上一任务</div></div>
+      <div class="stat good"><div class="v" id="i6-overlap">—</div><div class="l">Top-10 重叠</div></div>
+      <div class="stat bad"><div class="v" id="i6-diff">—</div><div class="l">新激活的 expert 数</div></div>
+    </div>
+    <div class="narration" id="i6-narr"><span class="step">运行中</span>每 3 秒自动切换一个任务（英文·数学 → 英文·代码 → 中文·数学 → 中文·代码 → 循环），看 32 个 expert 的"热门集合"如何整体平移。</div>
+    <div class="takeaway">
+      <h4>设计启示</h4>
+      <p>服务入口带 <b>task/lang 标签</b>；当某语言流量占多数时，调度器 proactive 把该语言的 hot expert 复制到更多 unit。<b>Task → Expert 映射表只需离线 profiling 一次</b>。</p>
+    </div>
+  `;
+
+  const canvas = root.querySelector('#i6-canvas');
+  const narr = root.querySelector('#i6-narr');
+  const N = 32;
+  const TASKS = [
+    { key: 'en-math', name: '英文 · 数学', hot: [2, 7, 11, 14, 19, 22, 25, 28, 30, 31] },
+    { key: 'en-code', name: '英文 · 代码', hot: [5, 7, 11, 13, 18, 21, 25, 27, 29, 31] },
+    { key: 'zh-math', name: '中文 · 数学', hot: [4, 8, 12, 16, 19, 23, 26, 28, 30, 31] },
+    { key: 'zh-code', name: '中文 · 代码', hot: [1, 6, 10, 15, 19, 23, 26, 28, 30, 31] },
+  ];
+
+  let curIdx = 0;
+  let prevIdx = -1;
+  let phaseStart = performance.now();
+  const PHASE_MS = 3000;
+
+  function render() {
+    const { ctx, w, h } = setupCanvas(canvas);
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, w, h);
+
+    const cur = TASKS[curIdx];
+    const prev = prevIdx >= 0 ? TASKS[prevIdx] : null;
+
+    // 顶部 task 时间轴
+    const tasksBarY = 14;
+    const tasksBarH = 26;
+    const totalW = w - 24;
+    const segW = totalW / TASKS.length;
+
+    TASKS.forEach((t, i) => {
+      const x = 12 + i * segW;
+      const isCur = i === curIdx;
+      ctx.fillStyle = isCur ? 'rgba(129,140,248,0.25)' : '#1a1a1a';
+      ctx.strokeStyle = isCur ? '#818cf8' : '#2a2a2a';
+      ctx.lineWidth = isCur ? 1.5 : 1;
+      ctx.fillRect(x, tasksBarY, segW - 6, tasksBarH);
+      ctx.strokeRect(x, tasksBarY, segW - 6, tasksBarH);
+      ctx.fillStyle = isCur ? '#fafafa' : '#737373';
+      ctx.font = isCur ? 'bold 12px sans-serif' : '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(t.name, x + (segW - 6) / 2, tasksBarY + 17);
+    });
+
+    // 当前任务进度条
+    const elapsed = Math.min(1, (performance.now() - phaseStart) / PHASE_MS);
+    const curX = 12 + curIdx * segW;
+    ctx.fillStyle = '#818cf8';
+    ctx.fillRect(curX, tasksBarY + tasksBarH, (segW - 6) * elapsed, 3);
+
+    // Expert grid 4x8
+    const cols = 8, rows = 4;
+    const gridTop = 70;
+    const gridBottom = h - 30;
+    const cw = Math.min(86, (w - 60) / cols);
+    const ch = Math.min(58, (gridBottom - gridTop - 20) / rows);
+    const gx = (w - cw * cols) / 2;
+    const gy = gridTop + 16;
+
+    ctx.fillStyle = '#a3a3a3';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Expert 池（32 个） · 高亮 = 当前任务激活的 top-10 hot expert', gx, gridTop);
+
+    for (let i = 0; i < N; i++) {
+      const col = i % cols, row = Math.floor(i / cols);
+      const x = gx + col * cw, y = gy + row * ch;
+      const isHot = cur.hot.includes(i);
+      const wasHot = prev && prev.hot.includes(i);
+      const overlap = isHot && wasHot;
+      const newlyHot = isHot && !wasHot && prev;
+      const dropped = !isHot && wasHot;
+
+      let fill = '#1a1a1a', stroke = '#2a2a2a', labelColor = '#525252', labelBold = false;
+      if (overlap) {
+        fill = 'rgba(249,115,22,0.45)'; stroke = '#f97316'; labelColor = '#fafafa'; labelBold = true;
+      } else if (isHot) {
+        fill = 'rgba(34,197,94,0.45)'; stroke = '#22c55e'; labelColor = '#fafafa'; labelBold = true;
+      } else if (dropped) {
+        // 上一任务的 hot 但当前不再 hot → 淡色保留痕迹
+        fill = 'rgba(115,115,115,0.15)'; stroke = '#3f3f46'; labelColor = '#737373';
+      }
+
+      // newly hot 渐入动画
+      if (newlyHot) {
+        const pulse = (Math.sin(performance.now() / 150) + 1) / 2;
+        ctx.shadowColor = '#22c55e';
+        ctx.shadowBlur = 6 + pulse * 6;
+      }
+
+      ctx.fillStyle = fill;
+      ctx.fillRect(x + 3, y + 3, cw - 6, ch - 6);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = isHot ? 2 : 1;
+      ctx.strokeRect(x + 3, y + 3, cw - 6, ch - 6);
+
+      ctx.fillStyle = labelColor;
+      ctx.font = labelBold ? 'bold 13px sans-serif' : '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('E' + i, x + cw / 2, y + ch / 2 + 4);
+    }
+
+    // 底部小图例
+    ctx.fillStyle = '#737373';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('深灰底 = 上一任务热门、当前不再热门', gx, gridBottom - 4);
+
+    // stats
+    root.querySelector('#i6-cur').textContent = cur.name;
+    if (prev) {
+      const overlap = cur.hot.filter(e => prev.hot.includes(e)).length;
+      const newly = cur.hot.filter(e => !prev.hot.includes(e)).length;
+      root.querySelector('#i6-prev').textContent = prev.name;
+      root.querySelector('#i6-overlap').textContent = overlap + ' / 10';
+      root.querySelector('#i6-diff').textContent = newly + ' / 10';
+      narr.innerHTML = `<span class="step">${prev.name} → ${cur.name}</span>top-10 hot expert 只重叠 <b style="color:var(--warm)">${overlap} 个</b>，新换上 <b style="color:var(--hot)">${newly} 个</b>。<span class="why">论文：英文 vs 中文同题，重叠仅 2/10——任务标签是免费的 prior，scheduler 拿来做 expert 预热即可。</span>`;
+    } else {
+      root.querySelector('#i6-prev').textContent = '—';
+      root.querySelector('#i6-overlap').textContent = '—';
+      root.querySelector('#i6-diff').textContent = '—';
+    }
+  }
+
+  function tick() {
+    if (performance.now() - phaseStart > PHASE_MS) {
+      prevIdx = curIdx;
+      curIdx = (curIdx + 1) % TASKS.length;
+      phaseStart = performance.now();
+    }
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  setTimeout(tick, 50);
+  window.addEventListener('resize', render);
+});
+
+</script>
+</body>
+</html>
