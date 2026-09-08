@@ -12,13 +12,9 @@
       --muted: #57534e;
       --line: #e7e0d4;
       --accent: #9a3412;
-      --accent-soft: #fed7aa;
       --teal: #0f766e;
-      --teal-soft: #ccfbf1;
       --navy: #1e3a5f;
       --gold: #b45309;
-      --good: #166534;
-      --warn: #9a3412;
       --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
     }
     * { box-sizing: border-box; }
@@ -51,7 +47,7 @@
     }
     .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
     .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
-    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
     .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
     .meta {
       font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -78,7 +74,7 @@
     p { margin: 0 0 14px; }
     ul, ol { margin: 0 0 14px; padding-left: 22px; }
     li { margin-bottom: 6px; }
-    .lead { font-size: 17.5px; color: #292524; }
+    .lead { font-size: 17px; color: #292524; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
     .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
@@ -97,7 +93,6 @@
     th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
     th { background: #f5f0e6; font-weight: 650; }
     tr:nth-child(even) td { background: #faf8f4; }
-    .num { font-variant-numeric: tabular-nums; }
     .eq {
       background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
       overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
@@ -123,17 +118,6 @@
     .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 6px; }
     .fig-row .fig { margin: 0; }
     code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
-    .steps { counter-reset: step; list-style: none; padding-left: 0; }
-    .steps li {
-      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
-      background: #faf7f2; border: 1px solid var(--line);
-    }
-    .steps li::before {
-      counter-increment: step; content: counter(step);
-      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
-      border-radius: 50%; background: var(--navy); color: #fff;
-      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
-    }
     @media (max-width: 860px) {
       header.hero, section.card { padding: 24px 20px; }
       nav.toc ol, .grid-2, .grid-3, .kpi, .fig-row { columns: 1; grid-template-columns: 1fr; }
@@ -152,10 +136,9 @@
         <span class="badge">GPU · 近存计算 · 编译器</span>
         <span class="badge">3D-stacked DRAM / HMC</span>
         <span class="badge ok">CMU + NVIDIA + KAIST + ETH</span>
-        <span class="badge ok">程序员透明</span>
         <span class="badge ok">DOI 10.1109/ISCA.2016.27</span>
       </div>
-      <h1>程序员透明的 GPU 近存：把卸载与映射从标注里拿走</h1>
+      <h1>TOM：不改 CUDA 的 GPU 近存卸载与映射</h1>
       <p class="subtitle">Transparent Offloading and Mapping (TOM): Enabling Programmer-Transparent Near-Data Processing in GPU Systems</p>
       <p class="meta">
         <strong>作者：</strong>Kevin Hsieh<sup>‡</sup>、Eiman Ebrahimi<sup>†</sup>、Gwangsun Kim<sup>∗</sup>、Niladrish Chatterjee<sup>†</sup>、Mike O’Connor<sup>†</sup>、Nandita Vijaykumar<sup>‡</sup>、Onur Mutlu<sup>§‡</sup>、Stephen W. Keckler<sup>†</sup><br />
@@ -169,23 +152,23 @@
     <nav class="toc">
       <h2>目录</h2>
       <ol>
-        <li><a href="#s1">一句话结论与研究定位</a></li>
-        <li><a href="#s2">问题：片外引脚带宽与两个挑战</a></li>
-        <li><a href="#s3">系统形态：主 GPU + 多内存栈逻辑层 SM</a></li>
-        <li><a href="#s4">机制一：编译器选出卸载候选</a></li>
-        <li><a href="#s5">机制二：程序员透明的数据映射</a></li>
-        <li><a href="#s6">运行时：是否真卸载、卸到哪</a></li>
-        <li><a href="#s7">实现：流水线、一致性、虚地址</a></li>
-        <li><a href="#s8">评测：性能、流量、能耗与敏感性</a></li>
+        <li><a href="#s1">研究定位</a></li>
+        <li><a href="#s2">片外带宽，以及两道题</a></li>
+        <li><a href="#s3">主 GPU + 栈上 SM</a></li>
+        <li><a href="#s4">编译器怎么选候选</a></li>
+        <li><a href="#s5">近存页和其余页两套映射</a></li>
+        <li><a href="#s6">运行时闸门</a></li>
+        <li><a href="#s7">流水线、一致性、虚地址</a></li>
+        <li><a href="#s8">评测</a></li>
         <li><a href="#s9">相关工作与边界</a></li>
-        <li><a href="#s10">对同封装近存推理芯片的含义</a></li>
+        <li><a href="#s10">同封装近存推理能借什么</a></li>
       </ol>
     </nav>
 
     <section class="card" id="s1">
-      <h2>1. 一句话结论与研究定位</h2>
+      <h2>1. 研究定位</h2>
       <p class="lead">
-        多栈三维存储器上的 GPU 近存，真正卡住落地的不是“逻辑层能不能放 SM”，而是<strong>谁来决定哪段代码下沉、数据落在哪一栈</strong>。TOM 的主张是：这两件事都可以对程序员透明——编译器用带宽收支选出候选块；运行时用少量观测学会栈映射，并把该映射只施于近存块会碰到的页。
+        逻辑层上放几个 SM，GPU 近存论文在 TOM 之前已经做过。这篇管的是后面两步：哪段指令下沉，以及下沉之后数据落在哪一栈。编译器按片外带宽收支标候选块；运行时用 kernel 开头一小段执行学会栈映射，并且这套映射只打在候选块会碰到的页上。CUDA 源码不用改。
       </p>
       <div class="kpi">
         <div>
@@ -194,89 +177,145 @@
         </div>
         <div>
           <div class="n">−38%</div>
-          <div class="k">无控制全卸载时片外流量（有控制时 −13%）</div>
+          <div class="k">无控制全卸载时的片外流量（加上闸门后 −13%）</div>
         </div>
         <div>
           <div class="n">−11%</div>
-          <div class="k">系统能耗（最高 37%）；面积开销 0.018%</div>
+          <div class="k">系统能耗（最高 37%）；新增硬件约 0.018% 面积</div>
         </div>
         <div>
           <div class="n">85%</div>
-          <div class="k">卸载候选具有固定偏移访存，可用来选栈映射位</div>
+          <div class="k">卸载候选带固定偏移访存，可用来挑栈映射位</div>
         </div>
       </div>
-      <div class="callout">
-        这篇工作不发明新的近存微架构，也不要求改 CUDA 源码。它站在“主 GPU + 多个 3D 内存栈、每栈逻辑层各有 SM”这一已有形态上，补上<strong>自动卸载</strong>和<strong>自动共址</strong>两条系统软件/硬件路径。基线与近存配置的 SM 总数相同（68 对 64+4），加速来自把访存密集段挪到数据旁边，而不是多给算力。
-      </div>
+      <p>
+        基线 68 个 SM；近存配置是 64 个主 SM 加 4 个逻辑层 SM，总数没变。加速来自把访存密集段挪到数据旁边，不是多给算力。仿真平台是 GPGPU-Sim 3.2.0 + BookSim，能耗用 GPUWattch 和 Rambus 的 3D DRAM/TSV 模型。
+      </p>
     </section>
 
     <section class="card" id="s2">
-      <h2>2. 问题：片外引脚带宽与两个挑战</h2>
-      <p>GPU 应用常被主存带宽卡住。三维堆叠把很宽、更省能的接口接到处理器，逻辑层还可以就近放计算，用 TSV 吃到比片外引脚更高的带宽，并砍掉芯片之间的长距离搬运。先前工作已经证明 GPU 近存有性能和能效空间，但落地时有两道必须同时解开的题；已有方案多半把这两道题甩给程序员。</p>
+      <h2>2. 片外带宽，以及两道题</h2>
+      <p>
+        GPU 应用经常被主存带宽卡住。三维堆叠把很宽、更省能的接口接到处理器，逻辑层还可以就近放计算，用 TSV 吃到比片外引脚更高的带宽。先前工作已经给出性能和能效数字，但落地时有两道题要一起解；已有方案多半把它们甩给程序员。
+      </p>
 
-      <div class="grid-2">
-        <div class="tile">
-          <h4>挑战 1：哪段代码该下沉</h4>
-          <p>访存密集块适合在持有数据的内存栈逻辑层执行；计算密集段应留在主 GPU。合适落点会随程序相位和输入集变化。让程序员给每一段指定执行引擎，负担过大，也容易把不该下沉的计算塞进逻辑层。</p>
-        </div>
-        <div class="tile">
-          <h4>挑战 2：数据如何映射到各栈</h4>
-          <p>多栈系统为了喂饱主 GPU，数据会打散到各栈。近存效率却取决于卸载代码访问的数据是否就在本栈。既要最大化近存共址，又不能牺牲主 GPU 代码的带宽利用率。不同代码块、不同线程在不同时刻碰不同结构，静态标注很难做对。</p>
-        </div>
-      </div>
+      <div class="fig">
+        <svg viewBox="0 0 960 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="卸载落点与数据映射互相打架">
+          <defs>
+            <marker id="arrN" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1e3a5f"/></marker>
+            <marker id="arrT" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/></marker>
+            <marker id="arrR" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c2410c"/></marker>
+          </defs>
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="16" y="16" width="450" height="258" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="241" y="44" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">题 1 · 哪段代码下沉</text>
+            <rect x="36" y="62" width="410" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="241" y="85" text-anchor="middle" font-size="12" fill="#7c2d12">kernel：算密集段  ·  访存密集段  ·  再算一段</text>
+            <rect x="48" y="122" width="120" height="52" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="108" y="144" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">主 GPU</text>
+            <text x="108" y="162" text-anchor="middle" font-size="11" fill="#7c2d12">高算术强度</text>
+            <rect x="292" y="122" width="120" height="52" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="352" y="144" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">逻辑层 SM</text>
+            <text x="352" y="162" text-anchor="middle" font-size="11" fill="#134e4a">带宽密集块</text>
+            <line x1="168" y1="148" x2="292" y2="148" stroke="#1e3a5f" stroke-width="1.6" marker-end="url(#arrN)"/>
+            <text x="230" y="140" text-anchor="middle" font-size="11" fill="#1e3a5f">卸载</text>
+            <text x="241" y="204" text-anchor="middle" font-size="12" fill="#44403c">合适落点随相位和输入变</text>
+            <text x="241" y="226" text-anchor="middle" font-size="12" fill="#44403c">程序员逐段指定执行引擎不现实</text>
+            <text x="241" y="248" text-anchor="middle" font-size="12" fill="#9a3412">卸错了：逻辑层算力先满，主 SM 空等</text>
 
-      <div class="callout teal">
-        动机实验把这两道题的上限先画出来：在无卸载开销、代码与数据完全共址的理想系统里，仅靠静态选出的候选就能平均加速 <strong>1.58×</strong>（最高 2.19×）。在近存已开启的前提下，只用最好的连续两地址位做栈映射，相对当时 GPU 的打散映射还能再加速 <strong>13%</strong>。空间足够大，值得做透明机制，而不是只写 API。
+            <rect x="494" y="16" width="450" height="258" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="719" y="44" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">题 2 · 页落在哪一栈</text>
+            <text x="540" y="78" font-size="12" fill="#134e4a">主 GPU 要的打散：</text>
+            <rect x="540" y="90" width="36" height="22" fill="#fed7aa" stroke="#c2410c"/><text x="558" y="106" text-anchor="middle" font-size="10" fill="#7c2d12">0</text>
+            <rect x="580" y="90" width="36" height="22" fill="#99f6e4" stroke="#0f766e"/><text x="598" y="106" text-anchor="middle" font-size="10" fill="#134e4a">1</text>
+            <rect x="620" y="90" width="36" height="22" fill="#dbeafe" stroke="#1e3a5f"/><text x="638" y="106" text-anchor="middle" font-size="10" fill="#1e3a5f">2</text>
+            <rect x="660" y="90" width="36" height="22" fill="#fde68a" stroke="#b45309"/><text x="678" y="106" text-anchor="middle" font-size="10" fill="#92400e">3</text>
+            <text x="760" y="106" font-size="11" fill="#57534e">连续 line 轮转，四条链路都忙</text>
+            <text x="540" y="142" font-size="12" fill="#134e4a">近存要的共址：</text>
+            <rect x="540" y="154" width="156" height="22" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="618" y="170" text-anchor="middle" font-size="11" fill="#134e4a">同一候选块 → 同一栈</text>
+            <text x="719" y="206" text-anchor="middle" font-size="12" fill="#44403c">一套映射喂不饱两边</text>
+            <text x="719" y="228" text-anchor="middle" font-size="12" fill="#44403c">不同块、不同线程碰不同结构</text>
+            <text x="719" y="250" text-anchor="middle" font-size="12" fill="#0f766e">静态标注很难做对，运行中再搬页更贵</text>
+          </g>
+        </svg>
       </div>
+      <p class="figcap">图 1. 两道题互相牵制。访存密集块适合下沉，但下沉之后如果数据仍按主 GPU 的打散映射铺开，逻辑层 SM 大量走栈间交叉链路，近存等于白做。</p>
+
+      <p>
+        动机实验把上限先量出来。无卸载开销、代码与数据完全共址的理想系统里，只靠静态选出的候选就能平均加速 1.58×（最高 2.19×）。近存已经打开时，只用最好的连续两地址位做栈映射，相对当时 GPU 的打散映射还能再加速 13%。数字够大，所以他们做透明机制，而不是再加一套 API。
+      </p>
     </section>
 
     <section class="card" id="s3">
-      <h2>3. 系统形态：主 GPU + 多内存栈逻辑层 SM</h2>
-      <p>TOM 假设的近存 GPU 不是“把整个 kernel 搬进内存”，而是异构双密度：主 GPU 保留大量 SM 做高算术强度段；每个 3D 内存栈的逻辑层放少量 SM，就近执行带宽密集块。栈与主 GPU 之间是类似 HMC 的单向高速链路；栈与栈之间另有交叉链路，供远程访存。</p>
+      <h2>3. 主 GPU + 栈上 SM</h2>
+      <p>
+        近存 GPU 在这里不是“整个 kernel 搬进内存”。主 GPU 留大量 SM 做高算术强度段；每个 3D 内存栈的逻辑层放一个 SM，就近跑带宽密集块。栈与主 GPU 之间是类似 HMC 的单向高速链路；栈与栈之间另有交叉链路，给远程访存用。
+      </p>
 
       <div class="fig">
-        <svg viewBox="0 0 920 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TOM 近存 GPU 系统示意">
-          <rect x="20" y="40" width="280" height="240" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
-          <text x="160" y="68" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412" font-family="Segoe UI, sans-serif">主 GPU</text>
-          <rect x="44" y="88" width="72" height="44" rx="4" fill="#fed7aa" stroke="#c2410c"/>
-          <rect x="124" y="88" width="72" height="44" rx="4" fill="#fed7aa" stroke="#c2410c"/>
-          <rect x="204" y="88" width="72" height="44" rx="4" fill="#fed7aa" stroke="#c2410c"/>
-          <text x="160" y="114" text-anchor="middle" font-size="12" fill="#7c2d12" font-family="Segoe UI, sans-serif">64 个 SM</text>
-          <rect x="44" y="148" width="232" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
-          <text x="160" y="171" text-anchor="middle" font-size="12" fill="#9a3412" font-family="Segoe UI, sans-serif">Offload Controller · Channel Monitor</text>
-          <rect x="44" y="196" width="232" height="36" rx="4" fill="#ffedd5" stroke="#fdba74"/>
-          <text x="160" y="219" text-anchor="middle" font-size="12" fill="#9a3412" font-family="Segoe UI, sans-serif">Memory Map Analyzer（仅学习期）</text>
-          <text x="160" y="258" text-anchor="middle" font-size="11" fill="#78716c" font-family="Segoe UI, sans-serif">片外 GPU↔内存链路 80 GB/s × 4</text>
+        <svg viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TOM 近存 GPU 系统示意">
+          <defs>
+            <marker id="arrG" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#0f766e"/></marker>
+          </defs>
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="20" y="20" width="920" height="86" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="48" y="48" font-size="14" font-weight="700" fill="#9a3412">主 GPU · 64 SM · 1.4 GHz · 48 warp/SM</text>
+            <rect x="48" y="60" width="200" height="32" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="148" y="81" text-anchor="middle" font-size="12" fill="#7c2d12">Offload Controller</text>
+            <rect x="268" y="60" width="210" height="32" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="373" y="81" text-anchor="middle" font-size="12" fill="#7c2d12">Channel Busy Monitor</text>
+            <rect x="498" y="60" width="250" height="32" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="623" y="81" text-anchor="middle" font-size="12" fill="#9a3412">Memory Map Analyzer（仅学习期）</text>
+            <text x="860" y="81" text-anchor="middle" font-size="11" fill="#78716c">ISA + 候选元数据表</text>
 
-          <line x1="300" y1="160" x2="360" y2="90" stroke="#0f766e" stroke-width="2"/>
-          <line x1="300" y1="160" x2="360" y2="230" stroke="#0f766e" stroke-width="2"/>
-          <text x="318" y="132" font-size="10" fill="#0f766e" font-family="Segoe UI, sans-serif">TX/RX</text>
+            <text x="480" y="128" text-anchor="middle" font-size="11" fill="#0f766e">GPU↔栈 单向链路  80 GB/s × 4  =  320 GB/s</text>
+            <line x1="140" y1="106" x2="140" y2="148" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arrG)"/>
+            <line x1="360" y1="106" x2="360" y2="148" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arrG)"/>
+            <line x1="600" y1="106" x2="600" y2="148" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arrG)"/>
+            <line x1="820" y1="106" x2="820" y2="148" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arrG)"/>
 
-          <g font-family="Segoe UI, sans-serif">
-            <rect x="370" y="28" width="240" height="122" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
-            <text x="490" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">内存栈 0 / 1</text>
-            <rect x="388" y="62" width="204" height="28" rx="3" fill="#ccfbf1" stroke="#5eead4"/>
-            <text x="490" y="81" text-anchor="middle" font-size="11" fill="#134e4a">DRAM 层 · 16 vault · TSV</text>
-            <rect x="388" y="98" width="204" height="38" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
-            <text x="490" y="122" text-anchor="middle" font-size="12" fill="#134e4a">逻辑层 SM × 1 · Vault Ctrl</text>
+            <g id="stk">
+              <rect x="36" y="152" width="208" height="150" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+              <text x="140" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">栈 0</text>
+              <rect x="52" y="188" width="176" height="28" rx="3" fill="#ccfbf1" stroke="#5eead4"/>
+              <text x="140" y="207" text-anchor="middle" font-size="11" fill="#134e4a">DRAM · 16 vault · TSV</text>
+              <rect x="52" y="224" width="176" height="36" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+              <text x="140" y="246" text-anchor="middle" font-size="12" fill="#134e4a">逻辑层 1 SM + Vault Ctrl</text>
+              <text x="140" y="284" text-anchor="middle" font-size="11" fill="#0f766e">栈内 160 GB/s（默认 2×）</text>
+            </g>
+            <rect x="264" y="152" width="208" height="150" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="368" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">栈 1</text>
+            <rect x="280" y="188" width="176" height="28" rx="3" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="368" y="207" text-anchor="middle" font-size="11" fill="#134e4a">DRAM · 16 vault · TSV</text>
+            <rect x="280" y="224" width="176" height="36" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="368" y="246" text-anchor="middle" font-size="12" fill="#134e4a">逻辑层 1 SM + Vault Ctrl</text>
+            <text x="368" y="284" text-anchor="middle" font-size="11" fill="#0f766e">64 TSV / vault</text>
 
-            <rect x="370" y="170" width="240" height="122" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
-            <text x="490" y="192" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">内存栈 2 / 3</text>
-            <rect x="388" y="204" width="204" height="28" rx="3" fill="#ccfbf1" stroke="#5eead4"/>
-            <text x="490" y="223" text-anchor="middle" font-size="11" fill="#134e4a">DRAM 层 · 内部带宽 160 GB/s</text>
-            <rect x="388" y="240" width="204" height="38" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
-            <text x="490" y="264" text-anchor="middle" font-size="12" fill="#134e4a">逻辑层 SM × 1 · 交叉开关</text>
+            <rect x="492" y="152" width="208" height="150" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="596" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">栈 2</text>
+            <rect x="508" y="188" width="176" height="28" rx="3" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="596" y="207" text-anchor="middle" font-size="11" fill="#134e4a">DRAM · 16 vault · TSV</text>
+            <rect x="508" y="224" width="176" height="36" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="596" y="246" text-anchor="middle" font-size="12" fill="#134e4a">逻辑层 1 SM + Vault Ctrl</text>
+            <text x="596" y="284" text-anchor="middle" font-size="11" fill="#0f766e">16 bank / vault</text>
+
+            <rect x="720" y="152" width="208" height="150" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="824" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">栈 3</text>
+            <rect x="736" y="188" width="176" height="28" rx="3" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="824" y="207" text-anchor="middle" font-size="11" fill="#134e4a">DRAM · 16 vault · TSV</text>
+            <rect x="736" y="224" width="176" height="36" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="824" y="246" text-anchor="middle" font-size="12" fill="#134e4a">逻辑层 1 SM + Vault Ctrl</text>
+            <text x="824" y="284" text-anchor="middle" font-size="11" fill="#0f766e">小型 TLB / MMU</text>
+
+            <rect x="36" y="322" width="888" height="78" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="480" y="350" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">栈间交叉链路 · 全互连 · 每链路 40 GB/s（默认 0.5× GPU 链路）</text>
+            <text x="480" y="374" text-anchor="middle" font-size="12" fill="#334155">远程页表、未共址数据走这里。卸载块尽量不要走。</text>
+            <text x="480" y="394" text-anchor="middle" font-size="11" fill="#64748b">共址越好，这条网上的流量越低</text>
           </g>
-
-          <rect x="640" y="70" width="256" height="180" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
-          <text x="768" y="98" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f" font-family="Segoe UI, sans-serif">栈间交叉链路</text>
-          <text x="768" y="128" text-anchor="middle" font-size="12" fill="#334155" font-family="Segoe UI, sans-serif">40 GB/s / 链路 · 全互连</text>
-          <text x="768" y="156" text-anchor="middle" font-size="12" fill="#334155" font-family="Segoe UI, sans-serif">远程页表 / 未共址数据</text>
-          <text x="768" y="190" text-anchor="middle" font-size="12" fill="#334155" font-family="Segoe UI, sans-serif">目标：卸载块尽量不走这里</text>
-          <text x="768" y="222" text-anchor="middle" font-size="11" fill="#64748b" font-family="Segoe UI, sans-serif">共址越好，交叉流量越低</text>
         </svg>
       </div>
-      <p class="figcap">图 1. TOM 所针对的近存 GPU：主 GPU 做调度与高密度计算，四个 3D 内存栈的逻辑层各放一个 SM。片外链路吃引脚预算；栈内 TSV 提供更高内部带宽。</p>
+      <p class="figcap">图 2. 四个内存栈，每栈逻辑层一个 SM。片外链路吃引脚预算；栈内 TSV 提供更高内部带宽。Offload Controller 和 Channel Monitor 一直在；映射分析器只在学习期工作。</p>
 
       <table>
         <thead>
@@ -291,121 +330,316 @@
           <tr><td>栈结构</td><td>—</td><td>4 栈 × 16 vault × 16 bank，64 TSV/vault</td></tr>
         </tbody>
       </table>
-      <p>仿真基于 GPGPU-Sim 3.2.0，片外链路用 BookSim 周期精确互联；能耗用 GPUWattch + Rambus 3D DRAM/TSV 模型。学习阶段的访存按实测 PCIe 延迟计入，没有把“延迟拷贝”当免费。</p>
+      <p>学习阶段的访存按实测 PCIe 延迟计入，没有把“延迟拷贝”当免费。</p>
     </section>
 
     <section class="card" id="s4">
-      <h2>4. 机制一：编译器选出卸载候选</h2>
-      <p>目标不是估延迟，而是估<strong>片外带宽收支</strong>。卸载一块代码，收益是这块里的 load/store 不再走 GPU↔栈链路；代价是把 live-in 寄存器送进栈、把 live-out 送回主 GPU。编译器静态扫描指令块，若总带宽变化为负，就标成候选。</p>
+      <h2>4. 编译器怎么选候选</h2>
+      <p>
+        估的不是延迟，是片外带宽收支。一块代码卸到栈上，收益是这块里的 load/store 不再走 GPU↔栈链路；代价是把 live-in 寄存器送进栈、把 live-out 送回主 GPU。静态扫描指令块，总带宽变化为负就标成候选。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="卸载前后片外链路上走什么">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="240" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">留在主 GPU</text>
+            <rect x="30" y="42" width="420" height="190" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <rect x="48" y="58" width="120" height="70" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="108" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">主 SM</text>
+            <text x="108" y="108" text-anchor="middle" font-size="11" fill="#7c2d12">执行该块</text>
+            <rect x="300" y="58" width="130" height="70" rx="4" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="365" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">内存栈</text>
+            <text x="365" y="108" text-anchor="middle" font-size="11" fill="#134e4a">LD / ST 都走片外</text>
+            <text x="240" y="150" text-anchor="middle" font-size="11" fill="#0f766e">TX ↑  LD 地址 · ST 地址+数据</text>
+            <text x="240" y="172" text-anchor="middle" font-size="11" fill="#0f766e">RX ↓  LD 数据 · ST 确认</text>
+            <text x="240" y="206" text-anchor="middle" font-size="12" fill="#7c2d12">地址/数据宽度按确认消息的 4 倍计</text>
+
+            <text x="720" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">卸到逻辑层</text>
+            <rect x="510" y="42" width="420" height="190" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <rect x="528" y="58" width="120" height="70" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="588" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">主 SM</text>
+            <text x="588" y="108" text-anchor="middle" font-size="11" fill="#7c2d12">停这块</text>
+            <rect x="780" y="58" width="130" height="70" rx="4" fill="#99f6e4" stroke="#14b8a6"/>
+            <text x="845" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">栈 SM</text>
+            <text x="845" y="108" text-anchor="middle" font-size="11" fill="#134e4a">LD/ST 走 TSV</text>
+            <text x="720" y="150" text-anchor="middle" font-size="11" fill="#9a3412">TX ↑  live-in 寄存器</text>
+            <text x="720" y="172" text-anchor="middle" font-size="11" fill="#9a3412">RX ↓  live-out 寄存器</text>
+            <text x="720" y="206" text-anchor="middle" font-size="12" fill="#134e4a">省下的是访存流量，付出去的是寄存器</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3. 卸载改的是片外链路上走什么。单向链路上 load 走 TX 发地址、RX 收回数据；store 走 TX 发地址加数据、RX 收回确认。</p>
 
       <h3>4.1 先按线程、再按 warp 修正</h3>
-      <p>单向链路上，load 走 TX 发地址、RX 收回数据；store 走 TX 发地址加数据、RX 收回确认。设地址/数据/寄存器宽度是确认消息的 4 倍，单线程近似为：</p>
+      <p>单线程近似：</p>
       <div class="eq">
         BW<sub>TX</sub> = REG<sub>TX</sub> − (N<sub>LD</sub> + 2 · N<sub>ST</sub>)<br />
         BW<sub>RX</sub> = REG<sub>RX</sub> − (N<sub>LD</sub> + ¼ · N<sub>ST</sub>)
       </div>
-      <p>GPU 以 warp 锁步执行，实际还会合并访存、按 cache line 取数。warp 粒度公式引入 warp 宽度 <em>S<sub>W</sub></em>（如 32）、cache line 相对地址的倍数 <em>S<sub>C</sub></em>（128B line / 4B 地址 = 32）、合并比 <em>Coal</em> 和 load 缺失率 <em>Miss<sub>LD</sub></em>：</p>
+      <p>
+        GPU 以 warp 锁步执行，还会合并访存、按 cache line 取数。warp 粒度公式引入 warp 宽度 <em>S<sub>W</sub></em>（如 32）、cache line 相对地址的倍数 <em>S<sub>C</sub></em>（128B line / 4B 地址 = 32）、合并比 <em>Coal</em> 和 load 缺失率 <em>Miss<sub>LD</sub></em>：
+      </p>
       <div class="eq">
         BW<sub>TX</sub> = (REG<sub>TX</sub> · S<sub>W</sub>) − [N<sub>LD</sub> · Coal<sub>LD</sub> · Miss<sub>LD</sub> + N<sub>ST</sub> · (S<sub>W</sub> + Coal<sub>ST</sub>)]<br />
         BW<sub>RX</sub> = (REG<sub>RX</sub> · S<sub>W</sub>) − [N<sub>LD</sub> · Coal<sub>LD</sub> · S<sub>C</sub> · Miss<sub>LD</sub> + ¼ · N<sub>ST</sub> · Coal<sub>ST</sub>]
       </div>
-      <p>依赖关系（REG<sub>TX</sub> / REG<sub>RX</sub>）编译器本来就要做寄存器分配，适合静态算。合并比和缺失率静态不知道，于是用保守估计：完美合并（Coal = 1）、缺失率 50%。宁可少选，也不把算不准的块硬塞进逻辑层。更激进的阈值能多找出候选，实验里看不到稳定收益。</p>
+      <p>
+        live-in / live-out 编译器本来就要做寄存器分配，适合静态算。合并比和缺失率静态不知道，于是用保守估计：完美合并（Coal = 1）、缺失率 50%。宁可少选。更激进的阈值能多找出候选，实验里看不到稳定收益。
+      </p>
 
-      <h3>4.2 循环与条件候选</h3>
-      <p>循环的卸载代价几乎固定（live-in/out 一次），收益随迭代次数放大。编译器分三种情况：</p>
-      <ul>
-        <li><strong>静态可知迭代次数：</strong>直接代入公式，决定是否无条件候选。</li>
-        <li><strong>入环前可知：</strong>标成条件候选，把阈值（例如某寄存器大于 N）作为硬件提示。LIBOR 例子里，两段循环各 5 个 live-in、1 load、1 store；不算循环时收支为 +110.25，迭代 ≥4 次则变为 −39，于是变成条件候选。</li>
-        <li><strong>执行中才知道：</strong>保守按迭代 1 次，只根据循环体决定；体本身划算则仍标无条件候选。</li>
-      </ul>
+      <h3>4.2 循环</h3>
+      <p>循环的卸载代价几乎固定（live-in/out 一次），收益随迭代次数放大。编译器分三种情况。</p>
 
-      <h3>4.3 候选块的三条硬限制</h3>
-      <div class="grid-3">
-        <div class="tile">
-          <h4>禁止 shared memory</h4>
-          <p>逻辑层 SM 不能直接碰主 GPU 的 on-chip shared memory，除非再走片外链路，与近存目标相反。</p>
-        </div>
-        <div class="tile">
-          <h4>分歧必须在块内汇合</h4>
-          <p>SIMT 分歧若跨过卸载边界，控制栈要分布在主 GPU 与各栈之间。所有控制流目的地必须仍在候选块内。</p>
-        </div>
-        <div class="tile">
-          <h4>禁止屏障 / 同步 / 原子</h4>
-          <p>主 GPU 与逻辑层 SM 之间不提供同步原语。含 barrier、sync、atomic 的块不下沉。</p>
-        </div>
+      <div class="fig">
+        <svg viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三种循环候选">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="16" y="16" width="300" height="168" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+            <text x="166" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">迭代次数静态可知</text>
+            <text x="166" y="78" text-anchor="middle" font-size="12" fill="#44403c">直接代入公式</text>
+            <text x="166" y="104" text-anchor="middle" font-size="12" fill="#44403c">划算 → 无条件候选</text>
+            <text x="166" y="148" text-anchor="middle" font-size="11" fill="#78716c">常量上界、编译期展开</text>
+
+            <rect x="330" y="16" width="300" height="168" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+            <text x="480" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">入环前可知</text>
+            <text x="480" y="78" text-anchor="middle" font-size="12" fill="#44403c">条件候选</text>
+            <text x="480" y="104" text-anchor="middle" font-size="12" fill="#44403c">谓词：某寄存器 &gt; N</text>
+            <text x="480" y="148" text-anchor="middle" font-size="11" fill="#64748b">LIBOR：5 live-in, 1 ld, 1 st</text>
+            <text x="480" y="168" text-anchor="middle" font-size="11" fill="#64748b">不算循环 +110；N≥4 则 −39</text>
+
+            <rect x="644" y="16" width="300" height="168" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="794" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">执行中才知道</text>
+            <text x="794" y="78" text-anchor="middle" font-size="12" fill="#44403c">保守按迭代 1 次</text>
+            <text x="794" y="104" text-anchor="middle" font-size="12" fill="#44403c">只看循环体本身</text>
+            <text x="794" y="148" text-anchor="middle" font-size="11" fill="#0f766e">体划算仍标无条件候选</text>
+          </g>
+        </svg>
       </div>
-      <p>实现上，工具在 CUDA 编译器产出的 PTX 上做分析（因为 GPGPU-Sim 吃 PTX）；同一套收支也可以直接做到 SASS。每个候选附一张元数据：起止 PC、live-in/out 位图、TX/RX 是否省带宽的 2-bit 标签、条件卸载谓词。表放在 shared memory，供 Offload Controller 读取。</p>
+      <p class="figcap">图 4. 循环候选的三种处理。LIBOR 是中间那种：两段循环各 5 个 live-in、1 load、1 store，阈值写进硬件提示。</p>
+
+      <h3>4.3 块不能跨过的东西</h3>
+      <p>
+        逻辑层 SM 碰不到主 GPU 的 shared memory，再走片外就和近存目标反了。SIMT 分歧若跨过卸载边界，控制栈要分布在主 GPU 与各栈之间，所以所有控制流目的地必须仍在候选块内。主 GPU 与逻辑层之间也没有 barrier / sync / atomic。含这些东西的块不下沉。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="候选块边界">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="20" y="20" width="920" height="50" rx="4" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="480" y="40" text-anchor="middle" font-size="12" fill="#7c2d12">主 GPU 上的 kernel 指令流</text>
+            <text x="480" y="58" text-anchor="middle" font-size="11" fill="#a8a29e">……  ALU  ALU  |  LD  ADD  ST  ST  |  BAR  LD  ……</text>
+            <rect x="318" y="86" width="220" height="46" rx="4" fill="#99f6e4" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="428" y="106" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">候选块</text>
+            <text x="428" y="122" text-anchor="middle" font-size="11" fill="#134e4a">分歧在块内汇合 · 无同步</text>
+            <rect x="560" y="86" width="130" height="46" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="625" y="106" text-anchor="middle" font-size="12" font-weight="700" fill="#b91c1c">BAR / atom</text>
+            <text x="625" y="122" text-anchor="middle" font-size="11" fill="#7f1d1d">挡住，不跨</text>
+            <text x="160" y="114" text-anchor="middle" font-size="11" fill="#78716c">shared mem 访问同样挡住</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5. 候选是指令块，不是整个 kernel。实现上分析的是 CUDA 编译器产出的 PTX（GPGPU-Sim 吃 PTX）；同一套收支也可以做到 SASS。每个候选附一张元数据：起止 PC、live-in/out 位图、TX/RX 是否省带宽的 2-bit 标签、条件卸载谓词。表放在 shared memory，给 Offload Controller 读。</p>
     </section>
 
     <section class="card" id="s5">
-      <h2>5. 机制二：程序员透明的数据映射</h2>
-      <p>静态编译解不了映射：页落在哪一栈，由驱动、运行时、内存控制器在运行期决定。TOM 的观察是：<strong>85%</strong> 的卸载候选存在固定偏移访存；其中六个应用的候选几乎全是固定偏移。偏移若含 2 的幂因子，若干低位地址恒定，用连续地址位做栈索引就能把同一块访问钉在同一栈。</p>
+      <h2>5. 近存页和其余页两套映射</h2>
+      <p>
+        页落在哪一栈，由驱动、运行时、内存控制器在运行期决定，静态编译解不了。观察是：85% 的卸载候选存在固定偏移访存；其中六个应用的候选几乎全是固定偏移。偏移若含 2 的幂因子，若干低位地址恒定，用连续地址位做栈索引就能把同一块访问钉在同一栈。
+      </p>
 
-      <div class="callout navy">
-        四栈系统只需 2 bit 选栈。避开 cache line 内偏移位，以免伤链路效率和行缓冲局部性。设固定偏移公因子为 2<sup>M</sup>、line 为 2<sup>N</sup>，候选位在 <code>[M−1 : N]</code>。扫 7–16 位（128B line 到 64KB），最好的连续两位把“一次卸载实例只碰一栈”的概率从基线映射的 <strong>38%</strong> 提到 <strong>75%</strong>。
+      <div class="fig">
+        <svg viewBox="0 0 960 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="用哪几位选栈">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="480" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">物理地址（示意，四栈要 2 bit）</text>
+            <rect x="40" y="48" width="360" height="52" rx="4" fill="#f5f0e6" stroke="#d6d3d1"/>
+            <text x="220" y="70" text-anchor="middle" font-size="12" fill="#44403c">高位 · 页 / 行</text>
+            <text x="220" y="88" text-anchor="middle" font-size="11" fill="#78716c">打散映射会拿这里做异或</text>
+            <rect x="400" y="48" width="280" height="52" rx="4" fill="#99f6e4" stroke="#0f766e" stroke-width="1.8"/>
+            <text x="540" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">候选位 [M−1 : N]</text>
+            <text x="540" y="88" text-anchor="middle" font-size="11" fill="#134e4a">扫 7–16 位，取最好的连续两位</text>
+            <rect x="680" y="48" width="240" height="52" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="800" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#b91c1c">line 内偏移 [N−1 : 0]</text>
+            <text x="800" y="88" text-anchor="middle" font-size="11" fill="#7f1d1d">128B line → N=7，不用来选栈</text>
+            <text x="480" y="128" text-anchor="middle" font-size="12" fill="#44403c">固定偏移公因子为 2^M 时，低于 M 的位在该候选里恒定</text>
+            <text x="480" y="154" text-anchor="middle" font-size="12" fill="#44403c">避开 line 内位，免得伤链路效率和行缓冲局部性</text>
+            <text x="480" y="188" text-anchor="middle" font-size="13" fill="#0f766e">基线打散：一次卸载实例只碰一栈的概率 38%  →  最好连续两位：75%</text>
+          </g>
+        </svg>
       </div>
+      <p class="figcap">图 6. 四栈系统只需 2 bit 选栈。候选位落在固定偏移能提供的恒定位、与 cache line 偏移之间。</p>
 
-      <h3>5.1 用开头 0.1% 实例预测映射</h3>
-      <p>执行中途再搬页，栈间拷贝很容易把近存收益吃光。好在 GPU 访存多由线程/线程块索引生成，模式在线程间高度一致。只看前 <strong>0.1%</strong> 卸载实例选出的映射，单栈命中率已达 72%，距全量先知的 75% 只差 3 个点。0.5%、1% 再看一点，收益递减。</p>
+      <h3>5.1 用开头 0.1% 实例预测</h3>
+      <p>
+        执行中途再搬页，栈间拷贝很容易把近存收益吃光。GPU 访存多由线程 / 线程块索引生成，模式在线程间高度一致。只看前 0.1% 卸载实例选出的映射，单栈命中率已达 72%，距全量先知的 75% 只差 3 个点。0.5%、1% 再看一点，收益递减。
+      </p>
 
-      <h3>5.2 双轨映射：近存页一套，其余页另一套</h3>
-      <p>这是 TOM 相对 NUMA/NUCA 放置文献最关键的异构处理：近存单元要数据靠近计算；主 GPU 要数据打散以吃满带宽。同一套映射满足不了两边。做法是：</p>
-      <ol class="steps">
-        <li>驱动仍在 GPU 虚地址空间分配，但<strong>推迟</strong> CPU→GPU 物理拷贝，先把虚页映到 CPU 内存；记录分配表。</li>
-        <li>kernel 启动后进入短学习期：全部跑在主 SM 上，经 PCIe 访 CPU 内存。分析器对每种候选栈位组合统计“该卸载实例会碰几栈”，并给被候选块碰到的分配区间打标。</li>
-        <li>达到预定实例数（如 0.1%）后中断运行时，停掉所有 SM，选出共址最好的映射。</li>
-        <li>再做本来就会做的内存拷贝：打标区间用学到的近存友好映射；其余区间仍用 Chatterjee 式打散映射（连续 line 打到不同栈/vault，高位异或防冲突）。</li>
-        <li>此后常规执行：卸载块在逻辑层 SM 上跑，它所碰的数据已按共址映射落栈。没有额外重映射流量。</li>
-      </ol>
-      <p>BFS 是反例：图遍历不规则，前 0.1% 学到的映射不是全局最优，tmap 相对 bmap 从 +29% 掉到 +21%。若有先知映射，BFS 可达 +64%。机制赌的是“GPU 规则访存占大多数”，不是万能。</p>
+      <h3>5.2 双轨：近存页一套，其余页另一套</h3>
+      <p>
+        近存单元要数据靠近计算；主 GPU 要数据打散以吃满带宽。同一套映射满足不了两边。做法是推迟 CPU→GPU 物理拷贝，先在学习期看哪些分配区间会被候选块碰到，再在本来就要做的那次拷贝里分两套映射写下去。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="推迟拷贝与双轨映射时间线">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <line x1="40" y1="48" x2="920" y2="48" stroke="#d6d3d1" stroke-width="2"/>
+            <circle cx="90" cy="48" r="8" fill="#c2410c"/>
+            <circle cx="280" cy="48" r="8" fill="#1e3a5f"/>
+            <circle cx="490" cy="48" r="8" fill="#b45309"/>
+            <circle cx="700" cy="48" r="8" fill="#0f766e"/>
+            <circle cx="880" cy="48" r="8" fill="#166534"/>
+
+            <text x="90" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">1. 分配</text>
+            <text x="280" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">2. 学习</text>
+            <text x="490" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#b45309">3. 中断</text>
+            <text x="700" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#0f766e">4. 拷贝</text>
+            <text x="880" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#166534">5. 稳态</text>
+
+            <rect x="20" y="72" width="140" height="88" rx="4" fill="#fff7ed" stroke="#fdba74"/>
+            <text x="90" y="96" text-anchor="middle" font-size="11" fill="#7c2d12">cudaMalloc 照旧</text>
+            <text x="90" y="116" text-anchor="middle" font-size="11" fill="#7c2d12">虚页先映到 CPU</text>
+            <text x="90" y="136" text-anchor="middle" font-size="11" fill="#7c2d12">HtoD 推迟</text>
+
+            <rect x="200" y="72" width="160" height="88" rx="4" fill="#f0f4f8" stroke="#93c5fd"/>
+            <text x="280" y="96" text-anchor="middle" font-size="11" fill="#1e3a5f">全在主 SM 上跑</text>
+            <text x="280" y="116" text-anchor="middle" font-size="11" fill="#1e3a5f">经 PCIe 访 CPU 内存</text>
+            <text x="280" y="136" text-anchor="middle" font-size="11" fill="#1e3a5f">统计“碰几栈”</text>
+
+            <rect x="400" y="72" width="180" height="88" rx="4" fill="#fffbeb" stroke="#fcd34d"/>
+            <text x="490" y="96" text-anchor="middle" font-size="11" fill="#92400e">约 0.1% 实例后停 SM</text>
+            <text x="490" y="116" text-anchor="middle" font-size="11" fill="#92400e">选出共址最好的 2 bit</text>
+            <text x="490" y="136" text-anchor="middle" font-size="11" fill="#92400e">给被碰到的分配区间打标</text>
+
+            <rect x="610" y="72" width="180" height="88" rx="4" fill="#f0fdfa" stroke="#5eead4"/>
+            <text x="700" y="96" text-anchor="middle" font-size="11" fill="#134e4a">打标区间 → 近存映射</text>
+            <text x="700" y="116" text-anchor="middle" font-size="11" fill="#134e4a">其余 → Chatterjee 打散</text>
+            <text x="700" y="136" text-anchor="middle" font-size="11" fill="#134e4a">连续 line 轮转 + 高位异或</text>
+
+            <rect x="810" y="72" width="140" height="88" rx="4" fill="#ecfdf5" stroke="#86efac"/>
+            <text x="880" y="96" text-anchor="middle" font-size="11" fill="#166534">卸载块在栈 SM 跑</text>
+            <text x="880" y="116" text-anchor="middle" font-size="11" fill="#166534">数据已经落对栈</text>
+            <text x="880" y="136" text-anchor="middle" font-size="11" fill="#166534">没有重映射流量</text>
+
+            <text x="480" y="192" text-anchor="middle" font-size="12" fill="#44403c">分析器对每种候选栈位组合计数；只给候选块碰到的分配区间换映射，主 GPU 上其余代码仍吃打散带宽。</text>
+            <text x="480" y="216" text-anchor="middle" font-size="12" fill="#9a3412">BFS 是反例：图遍历不规则，前 0.1% 学到的不是全局最优。tmap 相对 bmap 从 +29% 掉到 +21%；先知映射可达 +64%。</text>
+            <text x="480" y="240" text-anchor="middle" font-size="12" fill="#57534e">机制赌的是 GPU 规则访存占大多数。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7. 学习期走 PCIe，延迟按实测计入。拷贝仍是那一次 HtoD，只是写物理页时用了两套栈索引。</p>
     </section>
 
     <section class="card" id="s6">
-      <h2>6. 运行时：是否真卸载、卸到哪</h2>
-      <p>编译器只提名。真卸载由硬件在发射前拍板。无控制地卸光候选会让系统变慢 3%–7%：逻辑层 SM 的 warp 槽先满，主 SM 空等，近存算力反而成新瓶颈。LIBOR 最极端，无控制 −64%，加上控制则 +52%。被卸载指令占比从 46.4% 降到 15.7%——少卸、卸对，比卸满更重要。</p>
+      <h2>6. 运行时闸门</h2>
+      <p>
+        编译器只提名。真卸载由硬件在发射前拍板。无控制地卸光候选会让系统变慢 3%–7%：逻辑层 SM 的 warp 槽先满，主 SM 空等。LIBOR 最极端，无控制 −64%，加上控制则 +52%。被卸载指令占比从 46.4% 降到 15.7%。少卸、卸对，比卸满重要。
+      </p>
 
-      <div class="grid-2">
-        <div class="tile">
-          <h4>过载闸门</h4>
-          <p>记录发往每一栈的未完成卸载请求。数量达到该栈 SM 可并发 warp 数就停止再卸，避免主 SM 与逻辑层互相卡住。</p>
-        </div>
-        <div class="tile">
-          <h4>链路不对称闸门</h4>
-          <p>Channel Busy Monitor 盯 TX/RX 利用率。候选的 2-bit 标签标明它会给哪条方向加流量。已经拥塞的方向不再接收会加码的块。</p>
-        </div>
+      <div class="fig">
+        <svg viewBox="0 0 960 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="卸载决策流">
+          <defs>
+            <marker id="arrF" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#44403c"/></marker>
+          </defs>
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="20" y="20" width="160" height="52" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="100" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="#9a3412">碰到候选起点</text>
+            <text x="100" y="60" text-anchor="middle" font-size="11" fill="#7c2d12">ISA 标记 + 元数据</text>
+
+            <rect x="230" y="20" width="180" height="52" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="320" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">过载闸门</text>
+            <text x="320" y="60" text-anchor="middle" font-size="11" fill="#334155">该栈未完成请求 ≥ warp 槽？</text>
+
+            <rect x="460" y="20" width="200" height="52" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="560" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">链路不对称闸门</text>
+            <text x="560" y="60" text-anchor="middle" font-size="11" fill="#334155">2-bit 标签会加码已拥塞方向？</text>
+
+            <rect x="710" y="20" width="230" height="52" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="825" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">目的栈 = 块内第一条访存</text>
+            <text x="825" y="60" text-anchor="middle" font-size="11" fill="#134e4a">开头不是访存：先在主 GPU 跑到第一条</text>
+
+            <line x1="180" y1="46" x2="230" y2="46" stroke="#44403c" stroke-width="1.5" marker-end="url(#arrF)"/>
+            <line x1="410" y1="46" x2="460" y2="46" stroke="#44403c" stroke-width="1.5" marker-end="url(#arrF)"/>
+            <line x1="660" y1="46" x2="710" y2="46" stroke="#44403c" stroke-width="1.5" marker-end="url(#arrF)"/>
+
+            <rect x="230" y="100" width="180" height="44" rx="6" fill="#fecaca" stroke="#ef4444"/>
+            <text x="320" y="127" text-anchor="middle" font-size="12" fill="#b91c1c">是 → 留下，主 SM 继续</text>
+            <line x1="320" y1="72" x2="320" y2="100" stroke="#b91c1c" stroke-width="1.4"/>
+
+            <rect x="460" y="100" width="200" height="44" rx="6" fill="#fecaca" stroke="#ef4444"/>
+            <text x="560" y="127" text-anchor="middle" font-size="12" fill="#b91c1c">是 → 留下，主 SM 继续</text>
+            <line x1="560" y1="72" x2="560" y2="100" stroke="#b91c1c" stroke-width="1.4"/>
+
+            <rect x="200" y="172" width="560" height="56" rx="6" fill="#ecfdf5" stroke="#16a34a"/>
+            <text x="480" y="196" text-anchor="middle" font-size="13" font-weight="700" fill="#166534">打包 live-in → 栈 SM 从块首重开 → ACK 后写回 live-out</text>
+            <text x="480" y="216" text-anchor="middle" font-size="11" fill="#166534">重开前那段冗余执行不写 live-out，不污染程序状态</text>
+            <line x1="825" y1="72" x2="825" y2="200" stroke="#0f766e" stroke-width="1.5"/>
+            <line x1="825" y1="200" x2="760" y2="200" stroke="#0f766e" stroke-width="1.5" marker-end="url(#arrF)"/>
+
+            <text x="480" y="258" text-anchor="middle" font-size="12" fill="#44403c">流水线卸载延迟按 10 周期建模；块内至少 200 周期访存，等待期间主 GPU 可调度其他 warp。</text>
+            <text x="480" y="282" text-anchor="middle" font-size="12" fill="#57534e">Channel Busy Monitor 盯 TX/RX 利用率。候选的 2-bit 标签标明它会给哪条方向加流量。</text>
+            <text x="480" y="306" text-anchor="middle" font-size="12" fill="#9a3412">过载闸门按“发往每一栈的未完成卸载”计数，阈值是该栈 SM 可并发 warp 数。</text>
+          </g>
+        </svg>
       </div>
-
-      <p>目的栈由<strong>块内第一条访存</strong>决定。若块开头不是访存，先在主 GPU 执行到第一条访存以确定栈，再从块首在目标栈重开。live-out 只在卸载完成后写回，这段冗余执行不污染程序状态。流水线卸载延迟按 10 周期建模，相对块内至少 200 周期的访存可以忽略；等待期间主 GPU 可调度其他 warp。</p>
+      <p class="figcap">图 8. 两道闸门先滤掉会把系统卡死的候选，再用第一条访存定目的栈。控制把卸载指令占比从 46.4% 压到 15.7%。</p>
     </section>
 
     <section class="card" id="s7">
-      <h2>7. 实现：流水线、一致性、虚地址</h2>
+      <h2>7. 流水线、一致性、虚地址</h2>
       <h3>7.1 三个新硬件件</h3>
-      <p>插在典型 GPU 流水线旁：<strong>Offload Controller</strong> 做最终决策、打包请求、收 ACK 后恢复 warp；<strong>Channel Busy Monitor</strong> 报 TX/RX 忙；<strong>Memory Map Analyzer</strong> 只在学习期工作。ISA 增加一条“候选块开始”指令；元数据表由编译器生成。</p>
+      <p>
+        插在典型 GPU 流水线旁。Offload Controller 做最终决策、打包请求、收 ACK 后恢复 warp；Channel Busy Monitor 报 TX/RX 忙；Memory Map Analyzer 只在学习期工作。ISA 增加一条“候选块开始”指令；元数据表由编译器生成。
+      </p>
 
       <h3>7.2 不做全系统缓存一致性</h3>
-      <p>把传统一致性扩到主 GPU 与各栈缓存，状态和片外一致性流量可能比卸载省下的带宽还多。TOM 利用 GPU 编程模型：CTA 绑在特定 SM 上，CTA 之间无序、无一致性保证；CTA 内要靠程序员显式 barrier。卸载块不含同步指令，于是只需保证“请求者 SM 与代执行的栈 SM”这一对看到最新值：</p>
-      <ol>
-        <li>发出卸载前，请求者 SM 把自身写更新推到内存（write-through 缓存本来如此）。</li>
-        <li>栈 SM 在拉起新 warp 前作废私有缓存。</li>
-        <li>栈 SM 记录本块更新过的 cache line 地址，结束时随 ACK 送回；请求者作废这些行。</li>
-      </ol>
-      <p>CTA 内其他线程要等到卸载结束才能看到更新；没有 barrier 时 GPU 本来也不保证跨线程顺序。该机制平均性能开销 <strong>1.2%</strong>。</p>
+      <p>
+        把传统一致性扩到主 GPU 与各栈缓存，状态和片外一致性流量可能比卸载省下的带宽还多。GPU 编程模型帮了忙：CTA 绑在特定 SM 上，CTA 之间无序、无一致性保证；CTA 内要靠程序员显式 barrier。卸载块不含同步指令，于是只需保证“请求者 SM 与代执行的栈 SM”这一对看到最新值。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="成对作废一致性">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="180" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">请求者 SM</text>
+            <text x="480" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">内存</text>
+            <text x="780" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">栈 SM</text>
+            <line x1="180" y1="40" x2="180" y2="230" stroke="#e7e0d4"/>
+            <line x1="480" y1="40" x2="480" y2="230" stroke="#e7e0d4"/>
+            <line x1="780" y1="40" x2="780" y2="230" stroke="#e7e0d4"/>
+
+            <line x1="180" y1="70" x2="480" y2="70" stroke="#c2410c" stroke-width="1.6"/>
+            <text x="330" y="62" text-anchor="middle" font-size="11" fill="#9a3412">① 发出卸载前，把自身写更新推到内存</text>
+            <text x="330" y="88" text-anchor="middle" font-size="10" fill="#78716c">write-through 缓存本来如此</text>
+
+            <line x1="480" y1="120" x2="780" y2="120" stroke="#0f766e" stroke-width="1.6"/>
+            <text x="630" y="112" text-anchor="middle" font-size="11" fill="#115e59">② 拉起新 warp 前作废私有缓存</text>
+
+            <line x1="780" y1="170" x2="180" y2="210" stroke="#1e3a5f" stroke-width="1.6"/>
+            <text x="560" y="168" text-anchor="middle" font-size="11" fill="#1e3a5f">③ ACK + 本块更新过的 line 地址</text>
+            <text x="400" y="230" text-anchor="middle" font-size="11" fill="#1e3a5f">请求者作废这些行</text>
+            <text x="480" y="252" text-anchor="middle" font-size="12" fill="#57534e">CTA 内其他线程要等到卸载结束才能看到更新；没有 barrier 时 GPU 本来也不保证跨线程顺序。开销 1.2%。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 9. 作用域停在“这一对 SM”，不做芯片级目录。栈 SM 要记本块写过哪些 line，结束时随 ACK 送回。</p>
 
       <h3>7.3 虚地址在栈内翻译</h3>
-      <p>逻辑层 SM 自带小型 TLB/MMU（约 1–2K 触发器加少量逻辑，不到栈 SM 面积的 2%）。页表若不在本栈，走已有交叉链路。因为卸载发生在内存拷贝和页表更新完成之后，不需要栈侧 TLB shootdown。</p>
+      <p>
+        逻辑层 SM 自带小型 TLB/MMU（约 1–2K 触发器加少量逻辑，不到栈 SM 面积的 2%）。页表若不在本栈，走已有交叉链路。卸载发生在内存拷贝和页表更新完成之后，不需要栈侧 TLB shootdown。
+      </p>
 
       <h3>7.4 面积</h3>
-      <p>主要是存储：每 SM 的映射分析器 1920 bit（40 bit × 48 warp，覆盖 10 种四栈映射）、共享分配表约 9700 bit（最多 100 条）、每 SM 元数据表 10320 bit（40 项，按工作负载最大值的 2 倍）。40nm CACTI 合计 <strong>0.11 mm²</strong>，约所建模 GPU 面积的 0.018%。</p>
+      <p>
+        主要是存储：每 SM 的映射分析器 1920 bit（40 bit × 48 warp，覆盖 10 种四栈映射）、共享分配表约 9700 bit（最多 100 条）、每 SM 元数据表 10320 bit（40 项，按工作负载最大值的 2 倍）。40nm CACTI 合计 0.11 mm²，约所建模 GPU 面积的 0.018%。
+      </p>
     </section>
 
     <section class="card" id="s8">
-      <h2>8. 评测：性能、流量、能耗与敏感性</h2>
-      <p>工作负载取 Rodinia 3.0、GPGPU-Sim 科学核和 CUDA SDK 中带宽利用率 &gt;50% 的应用；计算密集型没有候选，性能不受影响。跑完或 20 亿指令取齐。主指标是相对无近存基线的 IPC。</p>
+      <h2>8. 评测</h2>
+      <p>
+        工作负载取 Rodinia 3.0、GPGPU-Sim 科学核和 CUDA SDK 中带宽利用率 &gt;50% 的应用。计算密集型没有候选，性能不受影响。跑完或 20 亿指令取齐。主指标是相对无近存基线的 IPC。
+      </p>
 
       <table>
         <thead>
-          <tr><th>缩写</th><th>应用</th><th>来源</th><th>对映射/控制的典型反应</th></tr>
+          <tr><th>缩写</th><th>应用</th><th>来源</th><th>评测里比较显眼的点</th></tr>
         </thead>
         <tbody>
           <tr><td>BP</td><td>Back Propagation</td><td>Rodinia</td><td>近存整体有效</td></tr>
@@ -421,60 +655,195 @@
         </tbody>
       </table>
 
-      <h3>8.1 主结果：控制 + 透明映射必须一起开</h3>
-      <ul>
-        <li><strong>全套 TOM</strong>（动态控制 + tmap）：平均 +30%，全部应用正加速，最高 RD +76%。</li>
-        <li><strong>透明映射相对打散映射</strong>再贡献约 10 个点。KM、RD 对共址极敏感；部分应用学到的映射接近基线，增益小。</li>
-        <li><strong>无控制卸载</strong>平均变慢。逻辑层算力不够时，编译器“看起来省带宽”的块会把系统卡死。</li>
-        <li>流量：无控制 + tmap 降 38%（最高 99%）；有控制只降 13%，因为一部分访存密集块仍留在主 GPU。栈间流量在无控制时从基线的 55% 降到 22%（约 2.5×）。</li>
-        <li>能耗：全套 −11%（最高 37%）。SM 占比 77%→68%，片外链路 7%→5%。收益来自跑得更快（漏电下降）加链路翻转减少。缺映射或缺控制时总能耗反而 +8%：流量虽降，拉长的执行把漏电吃回去。</li>
-      </ul>
+      <h3>8.1 控制 + 透明映射要一起开</h3>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="关键配置的加速">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="40" y="24" font-size="13" font-weight="700" fill="#1e3a5f">相对无近存基线的加速（论文数字，示意比例）</text>
+            <!-- zero line at x=420 -->
+            <line x1="420" y1="40" x2="420" y2="230" stroke="#a8a29e" stroke-width="1"/>
+            <text x="420" y="248" text-anchor="middle" font-size="10" fill="#78716c">0</text>
+
+            <text x="36" y="68" font-size="12" fill="#44403c">理想共址</text>
+            <rect x="420" y="52" width="232" height="22" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="660" y="68" font-size="12" fill="#115e59">+58%（最高 119%）</text>
+
+            <text x="36" y="100" font-size="12" fill="#44403c">TOM 全套</text>
+            <rect x="420" y="84" width="120" height="22" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="548" y="100" font-size="12" fill="#9a3412">+30%（最高 RD +76%）</text>
+
+            <text x="36" y="132" font-size="12" fill="#44403c">有控制 + 打散映射</text>
+            <rect x="420" y="116" width="80" height="22" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="508" y="132" font-size="12" fill="#9a3412">约 +20%（tmap 再贡献 ~10 点）</text>
+
+            <text x="36" y="164" font-size="12" fill="#44403c">无控制卸载</text>
+            <rect x="388" y="148" width="32" height="22" fill="#fecaca" stroke="#ef4444"/>
+            <text x="428" y="164" font-size="12" fill="#b91c1c">平均 −3% ~ −7%</text>
+
+            <text x="36" y="196" font-size="12" fill="#44403c">LIBOR 无控制</text>
+            <rect x="164" y="180" width="256" height="22" fill="#fecaca" stroke="#ef4444"/>
+            <text x="428" y="196" font-size="12" fill="#b91c1c">−64%</text>
+
+            <text x="36" y="228" font-size="12" fill="#44403c">LIBOR 有控制</text>
+            <rect x="420" y="212" width="208" height="22" fill="#86efac" stroke="#16a34a"/>
+            <text x="636" y="228" font-size="12" fill="#166534">+52%</text>
+
+            <text x="40" y="268" font-size="12" fill="#57534e">流量：无控制 + tmap −38%（最高 99%）；有控制只 −13%。能耗全套 −11%；缺映射或缺控制时总能耗反而 +8%。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 10. 理想共址给出上限。全套 TOM（动态控制 + tmap）平均 +30%，全部应用正加速。无控制把 LIBOR 打到 −64%；闸门打开后同一应用变成 +52%。</p>
+
+      <div class="fig-row">
+        <div class="fig">
+          <svg viewBox="0 0 460 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="映射敏感的两个应用">
+            <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+              <text x="230" y="24" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">tmap 拉动最大的两个</text>
+              <text x="70" y="70" font-size="12" fill="#44403c">KM</text>
+              <rect x="110" y="56" width="12" height="18" fill="#ffedd5" stroke="#fdba74"/>
+              <text x="128" y="70" font-size="11" fill="#9a3412">bmap +3%</text>
+              <rect x="110" y="84" width="156" height="18" fill="#fed7aa" stroke="#c2410c"/>
+              <text x="274" y="98" font-size="11" fill="#9a3412">tmap +39%</text>
+              <text x="70" y="140" font-size="12" fill="#44403c">RD</text>
+              <rect x="110" y="126" width="204" height="18" fill="#ffedd5" stroke="#fdba74"/>
+              <text x="320" y="140" font-size="11" fill="#9a3412">bmap +51%</text>
+              <rect x="110" y="154" width="304" height="18" fill="#fed7aa" stroke="#c2410c"/>
+              <text x="420" y="168" font-size="11" fill="#9a3412">tmap +76%</text>
+            </g>
+          </svg>
+        </div>
+        <div class="fig">
+          <svg viewBox="0 0 460 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="能耗构成变化">
+            <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+              <text x="230" y="24" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">能耗构成（论文）</text>
+              <text x="40" y="64" font-size="12" fill="#44403c">基线</text>
+              <rect x="90" y="48" width="231" height="22" fill="#fed7aa" stroke="#c2410c"/>
+              <rect x="321" y="48" width="21" height="22" fill="#99f6e4" stroke="#0f766e"/>
+              <text x="200" y="64" text-anchor="middle" font-size="10" fill="#7c2d12">SM 77%</text>
+              <text x="40" y="104" font-size="12" fill="#44403c">TOM</text>
+              <rect x="90" y="88" width="204" height="22" fill="#fed7aa" stroke="#c2410c"/>
+              <rect x="294" y="88" width="15" height="22" fill="#99f6e4" stroke="#0f766e"/>
+              <text x="190" y="104" text-anchor="middle" font-size="10" fill="#7c2d12">SM 68%</text>
+              <text x="230" y="140" text-anchor="middle" font-size="11" fill="#134e4a">片外链路 7% → 5%</text>
+              <text x="230" y="164" text-anchor="middle" font-size="11" fill="#57534e">跑得更快（漏电下降）+ 链路翻转减少</text>
+              <text x="230" y="186" text-anchor="middle" font-size="11" fill="#9a3412">缺映射或缺控制：流量虽降，执行拉长，总能耗 +8%</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <p class="figcap">图 11. 左：KM、RD 对共址极敏感。右：能耗下降主要来自更短的执行时间和更少的片外翻转；只降流量、拉长墙钟时间会把漏电吃回去。</p>
 
       <h3>8.2 逻辑层算力：寄存器比完整 SM 更值钱</h3>
-      <p>卸载块最大 live 寄存器 26，整线程 49。逻辑层寄存器堆若做到与主 SM 同规模，理论上可跑约 2× warp。把 warp 容量提到 4×（ctrl-4×-warp）：平均仍约 +29% 加速，流量再多省约 20 个点，达到 −34%，接近无控制的 −38%。RD 是例外——卸载块里过半是 ALU，并行 warp 一多，逻辑层计算流水线先满。作者认为下一步应把 ALU 占比也纳入卸载闸门。</p>
+      <p>
+        卸载块最大 live 寄存器 26，整线程 49。逻辑层寄存器堆若做到与主 SM 同规模，理论上可跑约 2× warp。把 warp 容量提到 4×（ctrl-4×-warp）：平均仍约 +29% 加速，流量再多省约 20 个点，达到 −34%，接近无控制的 −38%。RD 是例外——卸载块里过半是 ALU，并行 warp 一多，逻辑层计算流水线先满。作者认为下一步应把 ALU 占比也纳入卸载闸门。
+      </p>
 
       <h3>8.3 并不依赖“TSV 内部带宽远大于引脚”</h3>
-      <p>许多 3D 近存论文默认栈内带宽远高于片外。TOM 在内部=外部（1×）时平均仍 +28%，相对 2× 内部带宽只差约 2 个点。原因是主 GPU 经常被 TX 或 RX <strong>单方向</strong>卡住；逻辑层 SM 经封装内互连直连内存控制器，能把另一方向空着的内部带宽用上。交叉链路扫到 0.125× / 0.25× / 1× GPU 链路时，平均加速分别为 17% / 29% / 31%。默认 0.5× 已经接近饱和。</p>
+      <p>
+        许多 3D 近存论文默认栈内带宽远高于片外。TOM 在内部=外部（1×）时平均仍 +28%，相对 2× 内部带宽只差约 2 个点。原因是主 GPU 经常被 TX 或 RX 单方向卡住；逻辑层 SM 经封装内互连直连内存控制器，能把另一方向空着的内部带宽用上。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="内部带宽与交叉链路敏感性">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="20" y="16" width="450" height="148" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="245" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">栈内带宽</text>
+            <text x="80" y="78" font-size="12" fill="#44403c">2× 外部（默认）</text>
+            <rect x="220" y="62" width="120" height="22" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="348" y="78" font-size="12" fill="#115e59">+30%</text>
+            <text x="80" y="114" font-size="12" fill="#44403c">1× 外部</text>
+            <rect x="220" y="98" width="112" height="22" fill="#ccfbf1" stroke="#5eead4"/>
+            <text x="340" y="114" font-size="12" fill="#115e59">+28%</text>
+            <text x="245" y="146" text-anchor="middle" font-size="11" fill="#57534e">单方向卡住时，内部另一方向仍能被栈 SM 用上</text>
+
+            <rect x="490" y="16" width="450" height="148" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="715" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">交叉链路 / GPU 链路</text>
+            <text x="520" y="72" font-size="12" fill="#44403c">0.125×</text>
+            <rect x="600" y="56" width="68" height="22" fill="#dbeafe" stroke="#93c5fd"/>
+            <text x="676" y="72" font-size="12" fill="#1e3a5f">+17%</text>
+            <text x="520" y="104" font-size="12" fill="#44403c">0.25×</text>
+            <rect x="600" y="88" width="116" height="22" fill="#bfdbfe" stroke="#60a5fa"/>
+            <text x="724" y="104" font-size="12" fill="#1e3a5f">+29%</text>
+            <text x="520" y="136" font-size="12" fill="#44403c">0.5× 默认 / 1×</text>
+            <rect x="640" y="120" width="124" height="22" fill="#93c5fd" stroke="#1e3a5f"/>
+            <text x="772" y="136" font-size="12" fill="#1e3a5f">+30% / +31%</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 12. 默认 0.5× 交叉链路已经接近饱和。内部带宽打平片外时，加速几乎不掉，靠的是方向不对称，不是“TSV 一定比引脚宽很多”。</p>
     </section>
 
     <section class="card" id="s9">
       <h2>9. 相关工作与边界</h2>
-      <p>作者自认是第一份在<strong>多栈 GPU 近存</strong>上同时做到：(1) 从未经修改的程序自动找出下沉指令块；(2) 把这些块访问的数据映射到同一栈。先前 PIM / 3D 近存（Tesseract、PEI、NDA、HRL、TOP-PIM 等）要么要程序员标、要么不管多芯片映射、要么不是 GPU。最接近的 Lee 等 FlexRAM 编译调度估的是<strong>延迟</strong>而非 GPU 的<strong>带宽</strong>，且假设单内存芯片。</p>
-      <p>数据靠近计算在 NUMA/NUCA 里研究很多。TOM 强调两点差异：执行引擎是异构的，映射目标互相冲突；近存 SM 上不跑系统软件，页在启动前分配完毕，复杂的运行期迁移不划算，所以用“短学习 + 推迟拷贝”这种一次性放置。</p>
-      <div class="callout">
-        <strong>边界要说清。</strong>候选粒度为指令块而非 kernel；不含同步与 shared memory，复杂协作 kernel 能下沉的比例有限。学习期走 PCIe，短 kernel 或高度不规则图应用可能学错。评测没有计算密集型，也没有现代 LLM 那种巨型权重/KV 工作集。仿真是 2016 年 Maxwell 量级，HBM 时代的绝对带宽数字不能直接外推，但“带宽收支编译 + 异构双映射 + 运行时闸门”三条结构仍然成立。
-      </div>
+      <p>
+        作者自认是第一份在多栈 GPU 近存上同时做到：(1) 从未经修改的程序自动找出下沉指令块；(2) 把这些块访问的数据映射到同一栈。先前 PIM / 3D 近存（Tesseract、PEI、NDA、HRL、TOP-PIM 等）要么要程序员标、要么不管多芯片映射、要么不是 GPU。最接近的 Lee 等 FlexRAM 编译调度估的是延迟而非 GPU 的带宽，且假设单内存芯片。
+      </p>
+      <p>
+        数据靠近计算在 NUMA/NUCA 里研究很多。这里的差别主要是执行引擎异构，映射目标互相冲突；近存 SM 上不跑系统软件，页在启动前分配完毕，复杂的运行期迁移不划算，所以用“短学习 + 推迟拷贝”这种一次性放置。
+      </p>
+      <p>
+        候选粒度为指令块而非 kernel；不含同步与 shared memory，复杂协作 kernel 能下沉的比例有限。学习期走 PCIe，短 kernel 或高度不规则图应用可能学错。评测没有计算密集型，也没有现代 LLM 那种巨型权重 / KV 工作集。仿真是 2016 年 Maxwell 量级，HBM 时代的绝对带宽数字不能直接外推。结构上能留下来的是：带宽收支编译、异构双映射、运行时闸门。
+      </p>
     </section>
 
     <section class="card" id="s10">
-      <h2>10. 对同封装近存推理芯片的含义</h2>
-      <p>把 TOM 对照“中央通用处理器裸片 + 多个 3D-DRAM 近存张量模块、权重与 KV 驻留近存、预填充注意力核心留中央、译码注意力下沉近存”这条线，可抽出可迁移的原则，而不是照搬 2016 年的 SM 卸载。</p>
+      <h2>10. 同封装近存推理能借什么</h2>
+      <p>
+        对照形态：中央通用处理器裸片 + 多个 3D-DRAM 近存张量模块；权重与 KV 驻留近存；预填充注意力核心留中央，译码注意力下沉近存。TOM 的 SM 卸载不能照搬，但几处判断仍然有用。按这个形态展开的部署方案（8 栈、Decode / Prefill 两种拼法）写在 <a href="./8栈近存大模型部署.html">8栈近存大模型部署.html</a>。
+      </p>
 
-      <div class="grid-2">
-        <div class="tile">
-          <h4>值得迁移</h4>
-          <p>双密度：高算术强度留中央，带宽密集留近存。共址决定近存效率，打散决定中央效率，映射必须分轨。编译/静态分析提名、运行时按队列深度和链路方向闸门，避免近存算力先饱和。一致性不要做成全芯片目录，用“代执行结束后作废/回写”这种 CTA 风格的作用域协议。</p>
-        </div>
-        <div class="tile">
-          <h4>不能照搬</h4>
-          <p>LLM 译码的 KV 扫描是结构化、跨步长的流，不是 LIBOR 那种小循环固定偏移；“开头 0.1% 学两位栈索引”对 KV 头所有权、专家分片不够用。权重是静态主副本，应在加载时按头/通道/专家固定下来，而不是 kernel 学习期再放。近存侧需要矩阵引擎和向量非线性，不是缩小版 CUDA SM。预填充的平方注意力核心必须强制留中央，不能让带宽公式把 QKᵀ/PV 误判为可卸载块。</p>
-        </div>
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TOM 机制对应到推理芯片">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="160" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#78716c">TOM（2016 GPU）</text>
+            <text x="800" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#78716c">同封装近存推理</text>
+
+            <rect x="20" y="44" width="280" height="64" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="160" y="70" text-anchor="middle" font-size="12" fill="#7c2d12">统一 TX/RX 寄存器收支</text>
+            <text x="160" y="90" text-anchor="middle" font-size="11" fill="#a8a29e">指令块，PTX 静态扫描</text>
+            <rect x="680" y="44" width="260" height="64" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="810" y="70" text-anchor="middle" font-size="12" fill="#134e4a">按子层给不同代价</text>
+            <text x="810" y="90" text-anchor="middle" font-size="11" fill="#0f766e">预填充 / 译码 / FFN 分开判</text>
+            <line x1="300" y1="76" x2="680" y2="76" stroke="#a8a29e" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+            <rect x="20" y="122" width="280" height="64" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="160" y="148" text-anchor="middle" font-size="12" fill="#7c2d12">开头 0.1% 学 2 bit 栈索引</text>
+            <text x="160" y="168" text-anchor="middle" font-size="11" fill="#a8a29e">固定偏移访存假设</text>
+            <rect x="680" y="122" width="260" height="64" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="810" y="148" text-anchor="middle" font-size="12" fill="#134e4a">KV/专家所有权写死</text>
+            <text x="810" y="168" text-anchor="middle" font-size="11" fill="#0f766e">不规则前缀缓存才需要短观测</text>
+            <line x1="300" y1="154" x2="680" y2="154" stroke="#a8a29e" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+            <rect x="20" y="200" width="280" height="64" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="160" y="226" text-anchor="middle" font-size="12" fill="#7c2d12">warp 槽 + TX/RX 闸门</text>
+            <text x="160" y="246" text-anchor="middle" font-size="11" fill="#a8a29e">RD 已暴露还缺 ALU 占比</text>
+            <rect x="680" y="200" width="260" height="64" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="810" y="226" text-anchor="middle" font-size="12" fill="#134e4a">矩阵阵列 / 向量通路 / 链路</text>
+            <text x="810" y="246" text-anchor="middle" font-size="11" fill="#0f766e">打满时局部 Softmax 上送，不拉回 KV</text>
+            <line x1="300" y1="232" x2="680" y2="232" stroke="#a8a29e" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+            <text x="480" y="80" text-anchor="middle" font-size="11" fill="#57534e">判据特化</text>
+            <text x="480" y="158" text-anchor="middle" font-size="11" fill="#57534e">映射变所有权</text>
+            <text x="480" y="236" text-anchor="middle" font-size="11" fill="#57534e">闸门变双资源</text>
+          </g>
+        </svg>
       </div>
+      <p class="figcap">图 13. 能借的是“提名 / 映射分轨 / 运行时限流”这张分工，不是 2016 年的 SM 和 2-bit 栈索引。</p>
 
-      <h3>可写成设计约束的三条</h3>
-      <ol>
-        <li><strong>卸载判据要对阶段特化。</strong>TOM 用统一的 TX/RX 寄存器收支。推理芯片应按子层给出不同代价：预填充 QKV/输出投影可以双侧分担；注意力核心的算术强度高、且要全局 Softmax，默认禁止下沉；译码 KV 与历史键值同栈，默认强制下沉；FFN 扩展维中间激活禁止上送。</li>
-        <li><strong>映射是所有权，不是学来的 2 bit。</strong>KV 按头（或头组）绑定模块；专家按张量并行分片；中央只做归约与路由。这比 TOM 的“学习连续地址位”更硬、也更可验证。不规则会话/前缀缓存才需要 TOM 式的短观测。</li>
-        <li><strong>闸门要从 warp 槽升级为双资源。</strong>TOM 已证明无控制会让近存算力成为瓶颈；RD 又证明还要看 ALU 占比。近存模块应同时卡：本地矩阵阵列占用、本地向量通路占用、封装内链路 TX/RX、以及“该头的 KV 是否已在本模块”。译码注意力在近存打满时，应切到第二模式（局部 Softmax 统计量上送中央合并），而不是把历史 KV 拉回中央。</li>
-      </ol>
-
-      <div class="callout teal">
-        TOM 给近存系统软件定了一条至今仍少有人做到的标准：<strong>不改程序也能把“该不该靠近数据算”和“数据该放哪”分开优化。</strong>对同封装推理芯片，程序员透明可以降级为“框架透明”——模型图和 KV 布局由运行时/编译器处理，算子作者不必手写模块亲和。透明的对象从 CUDA kernel 换成 Transformer 图，机制从指令块收支换成子层落点与所有权，问题结构是同一张图。
-      </div>
+      <p>
+        预填充的 QKV / 输出投影可以双侧分担；注意力核心算术强度高、还要全局 Softmax，默认不要下沉。译码 KV 与历史键值同栈，默认强制下沉。FFN 扩展维中间激活不要上送。权重是静态主副本，加载时按头 / 通道 / 专家固定下来，不必等 kernel 学习期。近存侧需要矩阵引擎和向量非线性，不是缩小版 CUDA SM。
+      </p>
+      <p>
+        KV 按头（或头组）绑定模块，专家按张量并行分片，中央只做归约与路由。这比学连续地址位更硬，也好验证。会话和前缀缓存不规则时，才用得上 TOM 那种短观测。近存打满时切第二模式（局部 Softmax 统计量上送中央合并），而不是把历史 KV 拉回中央——LIBOR 已经演示过，无控制会让近存算力先成为瓶颈。
+      </p>
+      <p>
+        程序员透明在推理栈上大概会变成框架透明：模型图和 KV 布局由运行时 / 编译器处理，算子作者不必手写模块亲和。对象从 CUDA kernel 换成 Transformer 图，机制从指令块收支换成子层落点与所有权。
+      </p>
     </section>
 
     <footer>
-      分析依据 ISCA 2016 论文全文 · 保存于工作区 <code>TOM_论文分析.html</code> · 2026-08-24
+      分析依据 ISCA 2016 论文全文 · 保存于工作区 <code>TOM_论文分析.html</code> · 2026-09-04
     </footer>
   </div>
 </body>

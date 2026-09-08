@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FABRICA 论文分析 | arXiv:2608.25124</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.78;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 40px 46px 34px; margin-bottom: 26px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    h1 { font-size: 27px; line-height: 1.4; margin: 0 0 8px; letter-spacing: -0.01em; }
+    .subtitle { font-size: 15.5px; color: var(--muted); margin: 0 0 18px; font-style: italic; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); font-weight: 600; }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 20px 28px; margin-bottom: 26px;
+    }
+    nav.toc h2 {
+      margin: 0 0 8px; font-size: 14px; letter-spacing: 0.08em;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      border: 0; padding: 0;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 32px 42px 34px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 22px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 17px; color: var(--navy); }
+    p { margin: 0 0 15px; }
+    ul, ol { margin: 0 0 15px; padding-left: 24px; }
+    li { margin-bottom: 7px; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 14px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 600; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    caption {
+      caption-side: bottom; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12.5px; color: var(--muted); text-align: left; padding-top: 6px;
+    }
+    .num { font-variant-numeric: tabular-nums; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 14px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.75;
+    }
+    .note {
+      border-left: 3px solid var(--line); padding: 2px 0 2px 16px; margin: 16px 0;
+      color: #3f3a35; font-size: 15px;
+    }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 14px 8px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12.5px; color: var(--muted); margin: 6px 2px 20px; line-height: 1.6;
+    }
+    .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 6px; }
+    .fig-row .fig { margin: 0; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.9em; background: #f5f0e6; padding: 1px 5px; }
+    footer { margin-top: 12px; color: var(--muted); font-size: 12.5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1>FABRICA：CUDA 到 CSL 的智能体翻译与优化</h1>
+      <p class="subtitle">FABRICA: Agentic CUDA-to-CSL Translation and Optimization for Wafer-Scale Systems</p>
+      <p class="meta">
+        <strong>作者</strong>　Yuebo Luo、Eliu Huerta、Venkatram Vishwanath、Caiwen Ding、Rajeev Thakur、Le Chen<br />
+        <strong>单位</strong>　University of Minnesota Twin Cities · Argonne National Laboratory · The University of Chicago<br />
+        <strong>出处</strong>　arXiv:2608.25124v1，2026 年 8 月，cs.CE<br />
+        <strong>链接</strong>　<a href="https://arxiv.org/abs/2608.25124" target="_blank" rel="noopener">摘要页</a> ·
+        <a href="https://arxiv.org/html/2608.25124" target="_blank" rel="noopener">全文 HTML</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">概述</a></li>
+        <li><a href="#s2">两台机器的执行与观测模型</a></li>
+        <li><a href="#s3">三个障碍</a></li>
+        <li><a href="#s4">翻译中的保留、丢弃与新建</a></li>
+        <li><a href="#s5">Fabrica-Bench</a></li>
+        <li><a href="#s6">框架结构</a></li>
+        <li><a href="#s7">两个例子：GEMV 与 Softmax</a></li>
+        <li><a href="#s8">验收条件</a></li>
+        <li><a href="#s9">正确率与消融</a></li>
+        <li><a href="#s10">优化与硬件回放</a></li>
+        <li><a href="#s11">运行日志与后训练</a></li>
+        <li><a href="#s12">局限与讨论</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 概述</h2>
+      <p>
+        这篇论文处理的是把 CUDA kernel 移植到 Cerebras 晶圆级引擎（WSE）的问题。CUDA 用 grid/block/thread 和访存模式来表达任务分解、局部性和同步，程序员面对的是一台由运行时负责调度的虚拟机器。CSL（Cerebras Software Language）则要求把代码显式放到 PE 坐标上，自己管理分布式 SRAM、静态 fabric 路由、事件驱动的任务，以及主机与设备之间的符号契约。作者的判断是，这中间隔的不是 API 差异，而是执行模型和观测模型都换了一遍，所以移植是重新构造一个分布式程序，而不是做语法替换。
+      </p>
+      <p>
+        难点在于 CSL 几乎不在预训练语料里。公开资料基本只有官方 SDK 示例、教程和少量第三方技能笔记，没有社区代码库。作者测下来，前沿模型单次生成在 28 个 Level 1–3 任务上只过 6 个。于是他们做了两件事：一个 49 对 CUDA/CSL 配对任务的基准 Fabrica-Bench，和一个免训练的智能体框架 Fabrica。框架的组成是目标架构知识检索、沙箱执行、按失败类型分流的修复，以及只在程序已经正确之后才启动的周期优化。
+      </p>
+
+      <table>
+        <caption>表 1　主要结果。不同行的分母不同，论文明确不做跨行合并。</caption>
+        <thead>
+          <tr><th>指标</th><th>数值</th><th>条件</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>核心集正确数</td><td class="num">6/28 → 26/28</td><td>冻结的 Level 1–3 核心集，单次生成对比完整工作流，模型固定 Claude Opus 4.8</td></tr>
+          <tr><td>其中不慢于参考</td><td class="num">22（16 严格更快）</td><td>26 个通过的程序里</td></tr>
+          <tr><td>覆盖评测</td><td class="num">38/49</td><td>至少产出一个正确程序的任务数；最后三项按三种子跑，合计 8/9</td></tr>
+          <tr><td>几何均值加速</td><td class="num">3.75× / 3.47×</td><td>27 对可比较计时的生成/参考对，SDK 模拟器与 WSE-3 硬件</td></tr>
+          <tr><td>知识检索消融</td><td class="num">1/15 → 7/15</td><td>通信加权的 Level 1–3 面板，Sonnet 4.6、评审者与 20 次预算固定</td></tr>
+          <tr><td>W2 纯优化</td><td class="num">1.44×</td><td>从 14 个已正确的参考出发，全部有改进，7 个改进 ≥25%</td></tr>
+        </tbody>
+      </table>
+
+      <p class="note">
+        整套方法不训练新模型，也不走 MLIR 式的 lowering。主对照全程固定 Claude Opus 4.8，知识消融固定 Sonnet 4.6，因此正确率的变化归因于工作流而非换模型。论文自己把「把类型化映射 lowering 成 CSL」列为下一步，说明它不认为提示工程是终点。
+      </p>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 两台机器的执行与观测模型</h2>
+      <p>
+        WSE-3 集成约 90 万个计算核和 44 GB 分布式 SRAM，排成二维网格，每个 PE 有本地 SRAM，fabric 路由在编译期静态配置。CSL 把这台空间机器直接暴露出来：layout 程序负责把代码分配到 PE 坐标并配置路由，PE 程序持有本地缓冲、用数据结构描述符（DSD）做批量访存、把任务绑到队列或事件上，再加上主机可见符号和入口点。CUDA 里的 per-thread 实现变成常驻的 PE 分片执行，GPU 内存变成 PE 本地 SRAM 加描述符寻址的缓冲，条件与事件触发变成 color、queue、wavelet 和路由。
+      </p>
+      <p>
+        论文强调的一点是，两台机器不只跑法不同，能看到的东西也不同。CUDA 开发者用 Nsight 的那套指标推理：带宽占用、访存吞吐、warp 级并行。这些在 WSE 上都不存在，profiler 给的是编译诊断、fabric 模拟器周期数、时间戳计数器、wavelet 与指令轨迹、ELF 内存元数据。两套优化词汇几乎不重叠，「提高 occupancy」对 CSL 没有直接含义，「链式描述符偏移」在 CUDA 里也没有意义，所以在 GPU 上学到的性能知识不能直接搬过来。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CUDA 与 WSE 的执行与观测模型">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="20" y="18" width="450" height="384" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="245" y="46" text-anchor="middle" font-size="15" font-weight="650" fill="#9a3412">NVIDIA GPU / CUDA</text>
+          <text class="t" x="245" y="68" text-anchor="middle" font-size="12" fill="#78716c">虚拟层级，运行时调度，共享全局内存</text>
+
+          <rect x="44" y="86" width="96" height="50" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="92" y="108" text-anchor="middle" font-size="12" fill="#7c2d12">Grid</text>
+          <text class="t" x="92" y="126" text-anchor="middle" font-size="10" fill="#9a3412">kernel 启动</text>
+          <rect x="156" y="86" width="96" height="50" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="204" y="108" text-anchor="middle" font-size="12" fill="#7c2d12">Block</text>
+          <text class="t" x="204" y="126" text-anchor="middle" font-size="10" fill="#9a3412">运行时落到 SM</text>
+          <rect x="268" y="86" width="96" height="50" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="316" y="108" text-anchor="middle" font-size="12" fill="#7c2d12">Warp × 32</text>
+          <text class="t" x="316" y="126" text-anchor="middle" font-size="10" fill="#9a3412">锁步 SIMT</text>
+          <rect x="380" y="86" width="70" height="50" rx="4" fill="#fed7aa" stroke="#c2410c"/>
+          <text class="t" x="415" y="108" text-anchor="middle" font-size="12" fill="#7c2d12">Thread</text>
+          <text class="t" x="415" y="126" text-anchor="middle" font-size="10" fill="#9a3412">索引</text>
+
+          <rect x="44" y="152" width="406" height="74" rx="5" fill="#ffedd5" stroke="#fdba74"/>
+          <text class="t" x="247" y="176" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">观测手段：Nsight</text>
+          <text class="t" x="247" y="198" text-anchor="middle" font-size="12" fill="#57534e">occupancy · 访存合并 · 缓存命中</text>
+          <text class="t" x="247" y="216" text-anchor="middle" font-size="12" fill="#57534e">warp 分歧 · 屏障 · 带宽吞吐</text>
+
+          <rect x="44" y="242" width="406" height="140" rx="5" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="247" y="268" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1c1917">由硬件与运行时代管的部分</text>
+          <text class="t" x="247" y="296" text-anchor="middle" font-size="12" fill="#57534e">block 落在哪颗 SM</text>
+          <text class="t" x="247" y="318" text-anchor="middle" font-size="12" fill="#57534e">全局内存的物理位置</text>
+          <text class="t" x="247" y="340" text-anchor="middle" font-size="12" fill="#57534e">跨 block 通信走 DRAM 加屏障</text>
+          <text class="t" x="247" y="366" text-anchor="middle" font-size="11" fill="#9a3412">这些隐式选择在目标机上没有对应物</text>
+
+          <rect x="510" y="18" width="450" height="384" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="735" y="46" text-anchor="middle" font-size="15" font-weight="650" fill="#0f766e">Cerebras WSE / CSL</text>
+          <text class="t" x="735" y="68" text-anchor="middle" font-size="12" fill="#78716c">物理 PE 网格，静态路由，事件激活</text>
+
+          <g>
+            <rect x="538" y="88" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="570" y="88" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="602" y="88" width="26" height="26" rx="3" fill="#5eead4" stroke="#0f766e"/>
+            <rect x="634" y="88" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="538" y="120" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="570" y="120" width="26" height="26" rx="3" fill="#5eead4" stroke="#0f766e"/>
+            <rect x="602" y="120" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="634" y="120" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <text class="t" x="700" y="104" font-size="12" fill="#134e4a">约 90 万 PE，44 GB 分布式 SRAM</text>
+            <text class="t" x="700" y="126" font-size="12" fill="#134e4a">编译期配置 fabric 路由</text>
+            <text class="t" x="700" y="148" font-size="12" fill="#134e4a">layout 决定代码放在哪</text>
+          </g>
+
+          <rect x="534" y="164" width="406" height="62" rx="5" fill="#ccfbf1" stroke="#5eead4"/>
+          <text class="t" x="737" y="188" text-anchor="middle" font-size="12.5" font-weight="650" fill="#115e59">观测手段：SDK profiler</text>
+          <text class="t" x="737" y="210" text-anchor="middle" font-size="12" fill="#57534e">编译诊断 · 模拟器周期 · 时间戳 · wavelet 与指令轨迹</text>
+
+          <rect x="534" y="242" width="406" height="140" rx="5" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="737" y="268" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1c1917">必须由程序显式写出的部分</text>
+          <text class="t" x="737" y="296" text-anchor="middle" font-size="12" fill="#57534e">PE 放置与路由配置</text>
+          <text class="t" x="737" y="318" text-anchor="middle" font-size="12" fill="#57534e">color / queue / wavelet 构成的通信</text>
+          <text class="t" x="737" y="340" text-anchor="middle" font-size="12" fill="#57534e">事件驱动任务与 DSD 描述符</text>
+          <text class="t" x="737" y="366" text-anchor="middle" font-size="11" fill="#0f766e">源程序里不存在，需要新建</text>
+        </svg>
+      </div>
+      <p class="figcap">图 1　对应论文 Fig. 1。左右两侧不仅执行方式不同，可测量的量也不同：Nsight 的指标在 WSE 上没有对应项，SDK 侧给出的是编译诊断、周期数和 wavelet 轨迹。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 三个障碍</h2>
+      <p>
+        论文把动机拆成三条，也按这三条组织后文。第一条是可学的资料太少。CSL 的公开语料基本就是 SDK 示例、教程和几份第三方技能笔记，背后没有社区代码库，前沿模型单次生成只过 6/28。第二条是现有编码智能体是围绕 CUDA 长出来的。作者的实验里，模型能恢复局部算术和单个 CSL 调用，但没法把参数、任务、队列、颜色、集合通信、导出符号和数据传输拼成一份能跑的程序：跨 11 个模型，Claude 系列过 24–26/28，开源权重模型在同一集合上最多过 2；另一个 12 项探测集上，一个开源模型过 1 项，其余五个全零。189 次分类修复中有 130 次是局部 CSL 实现修补，而不是算法层面的改动，说明卡住的是目标语言的写法。
+      </p>
+      <p>
+        第三条是没有基准测这件事。KernelBench 提供工作负载语义但没有晶圆级目标，SDK 示例提供原生空间机制但没有配对的 CUDA 输入。两边各缺一半，无法判断一个智能体是不是真的学会了架构之间的映射。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="基准定位">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="30" y="30" width="280" height="180" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="170" y="62" text-anchor="middle" font-size="14" font-weight="650" fill="#9a3412">KernelBench</text>
+          <text class="t" x="170" y="96" text-anchor="middle" font-size="12.5" fill="#1c1917">有 CUDA 工作负载语义</text>
+          <text class="t" x="170" y="124" text-anchor="middle" font-size="12.5" fill="#9a3412">缺晶圆级目标</text>
+          <text class="t" x="170" y="158" text-anchor="middle" font-size="12" fill="#78716c">执行式打分的起点</text>
+          <text class="t" x="170" y="180" text-anchor="middle" font-size="12" fill="#78716c">测不到跨架构映射</text>
+
+          <rect x="350" y="30" width="280" height="180" rx="6" fill="#f0f4f8" stroke="#93c5fd"/>
+          <text class="t" x="490" y="62" text-anchor="middle" font-size="14" font-weight="650" fill="#1e3a5f">Cerebras SDK 示例</text>
+          <text class="t" x="490" y="96" text-anchor="middle" font-size="12.5" fill="#1c1917">有原生空间机制与 CSL 写法</text>
+          <text class="t" x="490" y="124" text-anchor="middle" font-size="12.5" fill="#1e3a5f">缺配对的 CUDA 输入</text>
+          <text class="t" x="490" y="158" text-anchor="middle" font-size="12" fill="#78716c">可以照着写 CSL</text>
+          <text class="t" x="490" y="180" text-anchor="middle" font-size="12" fill="#78716c">无从判断是否来自 GPU 程序</text>
+
+          <rect x="670" y="30" width="280" height="180" rx="6" fill="#f0fdfa" stroke="#14b8a6" stroke-width="1.6"/>
+          <text class="t" x="810" y="62" text-anchor="middle" font-size="14" font-weight="650" fill="#0f766e">Fabrica-Bench</text>
+          <text class="t" x="810" y="96" text-anchor="middle" font-size="12.5" fill="#1c1917">49 对 CUDA / CSL，各带参考实现</text>
+          <text class="t" x="810" y="124" text-anchor="middle" font-size="12.5" fill="#0f766e">编译、运行、数值检查</text>
+          <text class="t" x="810" y="158" text-anchor="middle" font-size="12" fill="#78716c">hold-out 输入与六项完整性检查</text>
+          <text class="t" x="810" y="180" text-anchor="middle" font-size="12" fill="#78716c">两侧条件同时具备</text>
+        </svg>
+      </div>
+      <p class="figcap">图 2　对应论文 Fig. 2。基准需要同时具备源程序和晶圆目标，现有两类资源各只提供一侧。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 翻译中的保留、丢弃与新建</h2>
+      <p>
+        论文用三个动词描述翻译器的职责。跨架构仍然成立的信息要保留，比如依赖关系和 I/O 形状；源架构独有的设计选择要丢弃，比如为 GPU 挑的 block 大小；剩下的从每 PE 计算、fabric 布局到主机接口都得新建。后两件事在源程序里没有任何对应物。
+      </p>
+      <p>
+        任务分解需要重新推导而不是映射：CUDA 的 block 大小在固定 PE 网格上没有意义，thread 索引要变成 PE 坐标加一个本地循环，所以翻译器得先搞清楚这个 kernel 算的是什么，再挑一种源程序从未包含的分解。通信更彻底，因为没有共享全局内存也没有屏障原语，每次跨 PE 传输都要落成静态路由 color 与队列上的一次 wavelet，线程块屏障要变成一个路由模式加一次任务激活。这也是为什么只熟悉一侧架构的模型会写出看起来合理、实际跑不起来的 CSL。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="保留丢弃新建">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="24" y="20" width="290" height="280" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="169" y="52" text-anchor="middle" font-size="14" font-weight="650" fill="#0f766e">保留</text>
+          <text class="t" x="169" y="88" text-anchor="middle" font-size="12.5" fill="#1c1917">依赖关系</text>
+          <text class="t" x="169" y="112" text-anchor="middle" font-size="12.5" fill="#1c1917">I/O 形状与数值语义</text>
+          <text class="t" x="169" y="136" text-anchor="middle" font-size="12.5" fill="#1c1917">规约顺序、边界条件</text>
+          <text class="t" x="169" y="160" text-anchor="middle" font-size="12.5" fill="#1c1917">主机可见契约</text>
+          <rect x="48" y="184" width="242" height="92" rx="5" fill="#fff" stroke="#99f6e4"/>
+          <text class="t" x="169" y="212" text-anchor="middle" font-size="12" fill="#115e59">写入源分析 G</text>
+          <text class="t" x="169" y="236" text-anchor="middle" font-size="11" fill="#78716c">内存、同步、GPU idiom</text>
+          <text class="t" x="169" y="258" text-anchor="middle" font-size="11" fill="#78716c">可检查，但不是编译器 IR</text>
+
+          <rect x="345" y="20" width="290" height="280" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="490" y="52" text-anchor="middle" font-size="14" font-weight="650" fill="#9a3412">丢弃</text>
+          <text class="t" x="490" y="88" text-anchor="middle" font-size="12.5" fill="#1c1917">block / grid 尺寸</text>
+          <text class="t" x="490" y="112" text-anchor="middle" font-size="12.5" fill="#1c1917">shared memory 布局</text>
+          <text class="t" x="490" y="136" text-anchor="middle" font-size="12.5" fill="#1c1917">occupancy 相关策略</text>
+          <text class="t" x="490" y="160" text-anchor="middle" font-size="12.5" fill="#1c1917">把 __syncthreads 当原语</text>
+          <rect x="369" y="184" width="242" height="92" rx="5" fill="#fff" stroke="#fed7aa"/>
+          <text class="t" x="490" y="212" text-anchor="middle" font-size="12" fill="#9a3412">源架构的调度选择</text>
+          <text class="t" x="490" y="236" text-anchor="middle" font-size="11" fill="#78716c">在固定 PE 网格上无意义</text>
+          <text class="t" x="490" y="258" text-anchor="middle" font-size="11" fill="#78716c">照搬会产生不可运行的程序</text>
+
+          <rect x="666" y="20" width="290" height="280" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="811" y="52" text-anchor="middle" font-size="14" font-weight="650" fill="#1e3a5f">新建</text>
+          <text class="t" x="811" y="88" text-anchor="middle" font-size="12.5" fill="#1c1917">PE 放置与 mesh 形状</text>
+          <text class="t" x="811" y="112" text-anchor="middle" font-size="12.5" fill="#1c1917">color / queue / wavelet</text>
+          <text class="t" x="811" y="136" text-anchor="middle" font-size="12.5" fill="#1c1917">事件驱动任务</text>
+          <text class="t" x="811" y="160" text-anchor="middle" font-size="12.5" fill="#1c1917">DSD 描述符与主机接口</text>
+          <rect x="690" y="184" width="242" height="92" rx="5" fill="#fff" stroke="#93c5fd"/>
+          <text class="t" x="811" y="212" text-anchor="middle" font-size="12" fill="#1e3a5f">写入 WSE 设计 D</text>
+          <text class="t" x="811" y="236" text-anchor="middle" font-size="11" fill="#78716c">mesh、通信、任务、DSD 策略</text>
+          <text class="t" x="811" y="258" text-anchor="middle" font-size="11" fill="#78716c">没有 lowering pass 生成 CSL</text>
+        </svg>
+      </div>
+      <p class="figcap">图 3　源分析 G 与 WSE 设计 D 让映射过程可以被检查，但论文明确它们不是编译器 IR，第 9 节的消融也据此解释为「对模型的提示」而非构造保证。</p>
+
+      <table>
+        <caption>表 2　对应论文 Table I。四个贯穿全文的 kernel，以及各自需要在 WSE 侧新建的结构。</caption>
+        <thead>
+          <tr><th>kernel</th><th>CUDA 侧保证的内容</th><th>WSE 侧需要构建的结构</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>GEMV</td><td>行所有权，点积规约顺序</td><td>8×8 行分片，跨步描述符，行方向规约</td></tr>
+          <tr><td>Laplacian2D</td><td>五点依赖，边界语义</td><td>常驻 PE 分片，四条 halo 路由，接收任务</td></tr>
+          <tr><td>行并行 Softmax</td><td>取最大、相减、取指数、求和、归一化</td><td>行分片，两次 all-reduce，四组 color 与队列</td></tr>
+          <tr><td>Cholesky</td><td>分块分解与更新依赖</td><td>可编辑 layout，两个 panel 操作数送到内部 PE</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. Fabrica-Bench</h2>
+      <p>
+        基准包含 49 对可执行的 CUDA/CSL 配对，其中 31 对来自 SDK 示例和科学计算 kernel，另外 18 对补充了机器学习算子和集合通信。新增部分由模型辅助初译，之后手工接入并端到端验证，论文没有把它们当作独立的专家参考，报告时单独成组。每项任务带 CUDA 源码、经过验证的 CSL bundle，以及记录形状、划分、参考周期、hold-out 种子和构造等级的元数据。
+      </p>
+      <p>
+        构造等级描述的是需要多少 CSL/WSE 结构，与预期加速无关。这一点在后面的硬件结果里会再出现一次：Level 1 的 ReLU 反而拿到最大加速。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="构造等级">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <polygon points="490,26 820,262 160,262" fill="#fdfaf4" stroke="#d6d3d1"/>
+          <line x1="248" y1="204" x2="732" y2="204" stroke="#e7e0d4"/>
+          <line x1="330" y1="146" x2="650" y2="146" stroke="#e7e0d4"/>
+          <line x1="412" y1="88" x2="568" y2="88" stroke="#e7e0d4"/>
+          <text class="t" x="490" y="62" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1e3a5f">L4　依赖型集合通信</text>
+          <text class="t" x="490" y="79" text-anchor="middle" font-size="11" fill="#78716c">RowParallel-Softmax；核心 0，全量 1</text>
+          <text class="t" x="490" y="120" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">L3　自定义 fabric 或流水</text>
+          <text class="t" x="490" y="137" text-anchor="middle" font-size="11" fill="#78716c">PDFT 等；核心 3，全量 8</text>
+          <text class="t" x="490" y="178" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">L2　本地数据流与 fabric 阶段</text>
+          <text class="t" x="490" y="195" text-anchor="middle" font-size="11" fill="#78716c">GEMV-row 等；核心 20，全量 29</text>
+          <text class="t" x="490" y="236" text-anchor="middle" font-size="12.5" font-weight="650" fill="#166534">L1　PE 本地循环与规约</text>
+          <text class="t" x="490" y="253" text-anchor="middle" font-size="11" fill="#78716c">ReLU 等；核心 5，全量 11</text>
+        </svg>
+      </div>
+      <p class="figcap">图 4　对应论文 Table II 的构造等级。核心对照冻结在 Level 1–3 的 28 项（5/20/3），保证工作流与模型比较用同一分母；Level 4 只出现在 49 项全量集合里。</p>
+
+      <table>
+        <caption>表 3　四个任务集合的用途。</caption>
+        <thead>
+          <tr><th>集合</th><th>规模</th><th>用途</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>核心 Core</td><td class="num">28（L1–3）</td><td>成对的工作流与模型比较，分母冻结</td></tr>
+          <tr><td>诊断 Diagnostic</td><td class="num">8，每项 5 次</td><td>暴露生成方差，用于反馈消融</td></tr>
+          <tr><td>知识 Knowledge</td><td class="num">15，其中 12 项 L2–3</td><td>目标 idiom 影响最大的面板</td></tr>
+          <tr><td>全量 Full</td><td class="num">49</td><td>覆盖评测，唯一涵盖四个等级</td></tr>
+        </tbody>
+      </table>
+
+      <h3>5.1 三种工作流</h3>
+      <p>
+        基准通过控制可见范围和可编辑范围，把翻译、共设计与优化分开，这样可以区分合成失败与优化失败，也能检验一个看起来像算法问题的失败是不是其实来自 layout。
+      </p>
+      <table>
+        <thead>
+          <tr><th>工作流</th><th>隐藏内容</th><th>可编辑范围</th><th>考察目标</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>W1　固定布局翻译</td><td>验证过的 compute CSL</td><td>只有 compute 文件</td><td>给定 layout 能否写出正确的 PE 程序</td></tr>
+          <tr><td>W1-C　计算/布局共设计</td><td>compute 与 layout</td><td>两者都可改</td><td>放置与路由需要一起调整的情况</td></tr>
+          <tr><td>W2　从正确 CSL 优化</td><td>—</td><td>已知正确的程序</td><td>纯粹的减周期能力</td></tr>
+        </tbody>
+      </table>
+
+      <p>
+        基础分 <code>fast_0</code> 要求程序能编译、能运行、数值与参考一致；性能用核内周期而不是模拟器墙钟时间，更高的分数要求达到或超过参考。另有六项完整性检查，分别针对参考泄漏、隐藏评测输入、冻结计时与接口函数、拒绝把计时器关掉的可疑路径、核对数值输出，以及拒绝那些不检查结果就报成功的 runner。
+      </p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 框架结构</h2>
+      <p>
+        一项任务以 CUDA 源码、规格说明和允许的主机–设备接口进入系统，参考隔离防火墙先扣住验证过的 compute CSL 和 hold-out 输入，然后六个阶段按固定顺序执行：分析师恢复每 PE 算法，第二阶段推导源程序隐含的多 PE 通信，架构师把它变成放置与 layout 设计，实现者写出 PE 与 layout 的 CSL，评审者读编译与运行输出并决定下一步由哪个阶段接手，优化器在程序已经正确之后提出减周期的改动。实现上是一个编排器发起六次角色特定的模型调用，而不是六个常驻智能体。确定性的边界负责隔离参考、路由执行失败，以及只在改动仍然有效且中位周期下降时接受优化。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fabrica 六阶段流水线">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <defs>
+            <marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" fill="#57534e"/>
+            </marker>
+          </defs>
+
+          <rect x="20" y="16" width="150" height="66" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+          <text class="t" x="95" y="42" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">CUDA 源 + 规格</text>
+          <text class="t" x="95" y="62" text-anchor="middle" font-size="11" fill="#78716c">允许的接口 H</text>
+          <path d="M170 49 H204" stroke="#57534e" stroke-width="1.5" marker-end="url(#a1)"/>
+
+          <rect x="210" y="16" width="170" height="66" rx="6" fill="#fef3c7" stroke="#b45309"/>
+          <text class="t" x="295" y="42" text-anchor="middle" font-size="12.5" font-weight="650" fill="#92400e">参考隔离防火墙</text>
+          <text class="t" x="295" y="62" text-anchor="middle" font-size="11" fill="#78716c">扣住参考 CSL 与 hold-out</text>
+          <path d="M380 49 H414" stroke="#57534e" stroke-width="1.5" marker-end="url(#a1)"/>
+
+          <rect x="420" y="8" width="540" height="82" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+          <text class="t" x="690" y="32" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1e3a5f">知识库（按角色过滤检索）</text>
+          <text class="t" x="690" y="54" text-anchor="middle" font-size="11.5" fill="#57534e">SDK 文档与发布说明 · 教程与示例 · 第三方技能笔记 · 早期无知识运行中成功的译文</text>
+          <text class="t" x="690" y="74" text-anchor="middle" font-size="11" fill="#78716c">示例采用 leave-one-out，只取训练池；完整参考 bundle 不进入检索</text>
+
+          <rect x="24" y="122" width="146" height="84" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="97" y="148" text-anchor="middle" font-size="12" font-weight="650" fill="#1e3a5f">① 分析师</text>
+          <text class="t" x="97" y="170" text-anchor="middle" font-size="11" fill="#57534e">恢复每 PE 算法</text>
+          <text class="t" x="97" y="190" text-anchor="middle" font-size="11" fill="#78716c">产出 G</text>
+
+          <rect x="186" y="122" width="146" height="84" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="259" y="148" text-anchor="middle" font-size="12" font-weight="650" fill="#1e3a5f">② 通信推导</text>
+          <text class="t" x="259" y="170" text-anchor="middle" font-size="11" fill="#57534e">多 PE 数据移动</text>
+          <text class="t" x="259" y="190" text-anchor="middle" font-size="11" fill="#78716c">color 与集合操作</text>
+
+          <rect x="348" y="122" width="146" height="84" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="421" y="148" text-anchor="middle" font-size="12" font-weight="650" fill="#1e3a5f">③ 架构师</text>
+          <text class="t" x="421" y="170" text-anchor="middle" font-size="11" fill="#57534e">放置与 layout</text>
+          <text class="t" x="421" y="190" text-anchor="middle" font-size="11" fill="#78716c">产出 D</text>
+
+          <rect x="510" y="122" width="146" height="84" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="583" y="148" text-anchor="middle" font-size="12" font-weight="650" fill="#0f766e">④ 实现者</text>
+          <text class="t" x="583" y="170" text-anchor="middle" font-size="11" fill="#57534e">写 PE 与 layout CSL</text>
+          <text class="t" x="583" y="190" text-anchor="middle" font-size="11" fill="#78716c">返回完整文件</text>
+
+          <rect x="672" y="122" width="146" height="84" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="745" y="148" text-anchor="middle" font-size="12" font-weight="650" fill="#9a3412">⑤ 评审者</text>
+          <text class="t" x="745" y="170" text-anchor="middle" font-size="11" fill="#57534e">分类失败原因</text>
+          <text class="t" x="745" y="190" text-anchor="middle" font-size="11" fill="#78716c">决定下一阶段</text>
+
+          <rect x="834" y="122" width="126" height="84" rx="6" fill="#ecfdf5" stroke="#86efac"/>
+          <text class="t" x="897" y="148" text-anchor="middle" font-size="12" font-weight="650" fill="#166534">⑥ 优化器</text>
+          <text class="t" x="897" y="170" text-anchor="middle" font-size="11" fill="#57534e">正确之后启动</text>
+          <text class="t" x="897" y="190" text-anchor="middle" font-size="11" fill="#78716c">减中位周期</text>
+
+          <path d="M170 164 H182" stroke="#57534e" stroke-width="1.3" marker-end="url(#a1)"/>
+          <path d="M332 164 H344" stroke="#57534e" stroke-width="1.3" marker-end="url(#a1)"/>
+          <path d="M494 164 H506" stroke="#57534e" stroke-width="1.3" marker-end="url(#a1)"/>
+          <path d="M656 164 H668" stroke="#57534e" stroke-width="1.3" marker-end="url(#a1)"/>
+          <path d="M818 164 H830" stroke="#57534e" stroke-width="1.3" marker-end="url(#a1)"/>
+
+          <rect x="24" y="236" width="936" height="82" rx="6" fill="#faf7f2" stroke="#e7e0d4"/>
+          <text class="t" x="492" y="262" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1c1917">沙箱执行：候选被拷入参考 bundle 的新克隆，由该 bundle 未改动的脚本编译、运行、做数值检查</text>
+          <text class="t" x="492" y="286" text-anchor="middle" font-size="11.5" fill="#57534e">畸形 CSL 先被 compile-only 关卡挡掉（224 个候选中挡下 140 个）；接口 H 不允许破坏</text>
+          <text class="t" x="492" y="306" text-anchor="middle" font-size="11" fill="#78716c">评审者分流：架构问题回到重设计，实现问题回到改代码，主机或 layout 问题回到接口修复</text>
+
+          <rect x="24" y="342" width="300" height="140" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="174" y="370" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">189 次修复请求的分布</text>
+          <text class="t" x="174" y="398" text-anchor="middle" font-size="12" fill="#57534e">局部实现修补　130（68.8%）</text>
+          <text class="t" x="174" y="420" text-anchor="middle" font-size="12" fill="#57534e">跨 bundle 边界　37（19.6%）</text>
+          <text class="t" x="174" y="442" text-anchor="middle" font-size="12" fill="#57534e">要求新的分解　22（11.6%）</text>
+          <text class="t" x="174" y="466" text-anchor="middle" font-size="11" fill="#78716c">能通过的流程中位只用 2 次求值</text>
+
+          <rect x="340" y="342" width="300" height="140" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="490" y="370" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">起步模板</text>
+          <text class="t" x="490" y="398" text-anchor="middle" font-size="12" fill="#57534e">单 PE 计算 / 近邻 halo / 二维集合</text>
+          <text class="t" x="490" y="420" text-anchor="middle" font-size="12" fill="#57534e">49 项中 47 项选了通用单 PE 模板</text>
+          <text class="t" x="490" y="442" text-anchor="middle" font-size="12" fill="#57534e">模型仍返回完整文件，可覆盖模板</text>
+          <text class="t" x="490" y="466" text-anchor="middle" font-size="11" fill="#78716c">论文因此把它当稳定起点，而非专用模板的证据</text>
+
+          <rect x="656" y="342" width="304" height="140" rx="6" fill="#ecfdf5" stroke="#86efac"/>
+          <text class="t" x="808" y="370" text-anchor="middle" font-size="12.5" font-weight="650" fill="#166534">优化器</text>
+          <text class="t" x="808" y="398" text-anchor="middle" font-size="12" fill="#57534e">静态 CSL 扫描，可选的有界剖面证据</text>
+          <text class="t" x="808" y="420" text-anchor="middle" font-size="12" fill="#57534e">恢复被冻结的计时与接口状态</text>
+          <text class="t" x="808" y="442" text-anchor="middle" font-size="12" fill="#57534e">601 个提议中接受 110 个</text>
+          <text class="t" x="808" y="466" text-anchor="middle" font-size="11" fill="#78716c">耐心值限制无效搜索的长度</text>
+        </svg>
+      </div>
+      <p class="figcap">图 5　对应论文 Fig. 3。生成之前还有一个确定性抽取器，只扫描可见文件，取出编译期参数、主机启动顺序、导出符号、layout 拥有的任务与 color 标识、保留队列；另一个选项把 D 解析成 mesh、分片、缓冲、集合、任务、color、队列记录，检查 mesh 是否一致、每 PE 48 KB SRAM 预算和资源冲突。</p>
+
+      <p>
+        知识库是这套设计里比较特殊的一环。因为 CSL 基本不在预训练数据里，知识库需要承载语言本身：SDK 文档与发布说明、公开教程与示例、第三方 CSL 技能笔记。检索按角色过滤，架构师拿到分解模式，实现者拿到 CSL 与 API 规则，评审者拿到失败处置方案。这个做法沿用 DocPrompting 的思路，只是在这里它不是补充，而是主要手段。运行记录是 append-only 的，保存提示、候选、结果和周期数，但先前的代码只以经过筛选的聚合经验回流，避免把之前的程序直接当成隐藏基准的答案。
+      </p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 两个例子：GEMV 与 Softmax</h2>
+      <p>
+        论文用一个 512×256 的 GEMV 走完六个阶段。分析师保留了输出行之间的独立性和沿矩阵列的规约；架构师把矩阵铺到 8×8 个 PE 上，广播向量与 bias，按行规约，从最后一列收集结果；编译器反馈先修掉一个参数名写错的问题，之后由原始 runner 验证数值。周期数把各阶段的贡献分得很清楚：第一次正确时是 58,610 周期，三次优化改动之后是 7,861 周期，专家参考是 10,309 周期。这条轨迹取自训练池，与覆盖评测里数值无效的那个固定布局 GEMV 不是同一个案例。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GEMV 8x8 分解与周期">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="160" y="26" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">CUDA 侧</text>
+          <rect x="40" y="40" width="240" height="150" rx="5" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="160" y="72" text-anchor="middle" font-size="12" fill="#57534e">每行由一个或一组 thread 负责</text>
+          <text class="t" x="160" y="100" text-anchor="middle" font-size="12" fill="#1c1917">yᵢ = Σⱼ Aᵢⱼ xⱼ + bᵢ</text>
+          <text class="t" x="160" y="128" text-anchor="middle" font-size="12" fill="#57534e">规约发生在寄存器与共享内存</text>
+          <text class="t" x="160" y="156" text-anchor="middle" font-size="12" fill="#57534e">block 尺寸不需要保留</text>
+          <text class="t" x="160" y="180" text-anchor="middle" font-size="11" fill="#9a3412">需保留：行所有权与点积顺序</text>
+
+          <text class="t" x="560" y="26" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">WSE 侧 8×8 行分片</text>
+          <g>
+            <rect x="360" y="44" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="390" y="44" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="420" y="44" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="450" y="44" width="26" height="26" rx="3" fill="#5eead4" stroke="#0f766e"/>
+            <rect x="360" y="74" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="390" y="74" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="420" y="74" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="450" y="74" width="26" height="26" rx="3" fill="#5eead4" stroke="#0f766e"/>
+            <rect x="360" y="104" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="390" y="104" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="420" y="104" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="450" y="104" width="26" height="26" rx="3" fill="#5eead4" stroke="#0f766e"/>
+            <rect x="360" y="134" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="390" y="134" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="420" y="134" width="26" height="26" rx="3" fill="#99f6e4" stroke="#14b8a6"/>
+            <rect x="450" y="134" width="26" height="26" rx="3" fill="#5eead4" stroke="#0f766e"/>
+          </g>
+          <text class="t" x="510" y="62" font-size="12" fill="#134e4a">向量与 bias 广播到各 PE</text>
+          <text class="t" x="510" y="86" font-size="12" fill="#134e4a">本地点积，使用跨步 DSD</text>
+          <text class="t" x="510" y="110" font-size="12" fill="#134e4a">同一行内向右规约</text>
+          <text class="t" x="510" y="134" font-size="12" fill="#134e4a">最后一列收集 y</text>
+          <text class="t" x="510" y="160" font-size="11" fill="#78716c">深色列为 gather 出口</text>
+
+          <rect x="40" y="216" width="900" height="118" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+          <text class="t" x="490" y="244" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1c1917">周期数变化（论文 Fig. 4）</text>
+          <rect x="70" y="264" width="210" height="46" rx="4" fill="#fee2e2" stroke="#fca5a5"/>
+          <text class="t" x="175" y="286" text-anchor="middle" font-size="12" fill="#991b1b">首次通过　58,610</text>
+          <text class="t" x="175" y="302" text-anchor="middle" font-size="10.5" fill="#78716c">修掉 API 命名错误之后</text>
+          <rect x="320" y="264" width="210" height="46" rx="4" fill="#dcfce7" stroke="#86efac"/>
+          <text class="t" x="425" y="286" text-anchor="middle" font-size="12" fill="#166534">三次改动后　7,861</text>
+          <text class="t" x="425" y="302" text-anchor="middle" font-size="10.5" fill="#78716c">每次都经过正确性检查</text>
+          <rect x="570" y="264" width="210" height="46" rx="4" fill="#e0f2fe" stroke="#7dd3fc"/>
+          <text class="t" x="675" y="286" text-anchor="middle" font-size="12" fill="#075985">专家参考　10,309</text>
+          <text class="t" x="675" y="302" text-anchor="middle" font-size="10.5" fill="#78716c">生成程序更快</text>
+          <text class="t" x="860" y="292" text-anchor="middle" font-size="13" font-weight="650" fill="#0f766e">约 1.31×</text>
+        </svg>
+      </div>
+      <p class="figcap">图 6　GEMV-Large 的分解与周期数。第一次能跑的版本代价很高，实际加速来自之后三次经过正确性检查的改动。</p>
+
+      <p>
+        另一个例子是 RowParallel-Softmax，它更能说明修复过程本身携带的信息。七次尝试依次暴露出 layout 与 PE 参数不一致、异步任务与描述符错误、分布式规约在数值上不正确、作用域与类型故障。第八次尝试通过三个隐藏种子，用 17,892 周期；之后两次被接受的改动降到 13,688 周期，相对 17,714 周期的参考是 1.29 倍。编译器诊断、数值结果和周期数是接替出现的三类证据，分布式契约不是一次写对的。
+      </p>
+      <p>
+        也有停在持平附近的情况：GEMM-Collectives-2D 是 48,188 对 51,738 周期（1.07×），GEMV-Collectives-2D 是 4,336 对 4,003 周期（0.92×）。后者正确但更慢，论文用它说明正确性与速度是分开记账的。
+      </p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 验收条件</h2>
+      <p>
+        每个候选都会被 staged：拷进参考 bundle 的一个新克隆，由这个 bundle 自己未经修改的脚本来构建和运行，因此智能体无法改变自己被测试的方式。主机–设备接口是不允许破坏的部分，包括主机驱动、启动顺序、导出符号和 layout 拥有的标识符。记 <em>P</em> 为 staged 候选，<em>H</em> 为其接口，<em>I<sub>S</sub></em> 为任务 <em>S</em> 的可见与 hold-out 输入，主验收条件是：
+      </p>
+      <div class="eq">
+        Valid(P, S) ≡ Build(P) ∧ Run(P) ∧ Contract(P, H)<br />
+        ∧ Timing(P, S) ∧ ⋀<sub>u ∈ I<sub>S</sub></sub> Correct(P, u)
+      </div>
+      <p>
+        五项分别要求编译成功、运行成功、接口保持、计时路径有效（周期计数器确实覆盖了被修改的代码区域），以及在可见与 hold-out 输入上数值一致。只考察正确性的任务里，Timing 仍检查成功关卡但不要求给出周期值。不满足上式的候选不会被记速度分。优化沿用同一条件：若 <em>c<sub>j</sub>(P)</em> 是第 <em>j</em> 次重复测得的设备周期数，改动 <em>Q</em> 取代当前最优 <em>P</em> 的条件是 Valid(Q, S) 成立，且 <em>Q</em> 的周期中位数低于 <em>P</em>。内层搜索可以不对每个 hold-out 输入都重跑来排序候选，但胜出的改动在被接受前必须过 hold-out 关卡，这样一条又快又错的路径就进不了优化器状态。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="验收流程">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="20" y="28" width="126" height="66" rx="6" fill="#faf7f2" stroke="#e7e0d4"/>
+          <text class="t" x="83" y="56" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">候选 Q</text>
+          <text class="t" x="83" y="76" text-anchor="middle" font-size="11" fill="#78716c">一次改动</text>
+
+          <rect x="176" y="20" width="148" height="82" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="250" y="46" text-anchor="middle" font-size="12" font-weight="650" fill="#9a3412">Build ∧ Run</text>
+          <text class="t" x="250" y="68" text-anchor="middle" font-size="11" fill="#57534e">编译与执行</text>
+          <text class="t" x="250" y="86" text-anchor="middle" font-size="11" fill="#78716c">先过 compile-only 关卡</text>
+
+          <rect x="354" y="20" width="148" height="82" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="428" y="46" text-anchor="middle" font-size="12" font-weight="650" fill="#9a3412">Contract</text>
+          <text class="t" x="428" y="68" text-anchor="middle" font-size="11" fill="#57534e">接口 H 未被破坏</text>
+          <text class="t" x="428" y="86" text-anchor="middle" font-size="11" fill="#78716c">符号、启动顺序、layout id</text>
+
+          <rect x="532" y="20" width="148" height="82" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="606" y="46" text-anchor="middle" font-size="12" font-weight="650" fill="#9a3412">Correct 与 Timing</text>
+          <text class="t" x="606" y="68" text-anchor="middle" font-size="11" fill="#57534e">可见与 hold-out 输入</text>
+          <text class="t" x="606" y="86" text-anchor="middle" font-size="11" fill="#78716c">计时路径必须有效</text>
+
+          <rect x="710" y="20" width="250" height="82" rx="6" fill="#f0fdfa" stroke="#14b8a6"/>
+          <text class="t" x="835" y="46" text-anchor="middle" font-size="12" font-weight="650" fill="#0f766e">中位周期低于当前最优</text>
+          <text class="t" x="835" y="68" text-anchor="middle" font-size="11" fill="#57534e">med c(Q) &lt; med c(P)</text>
+          <text class="t" x="835" y="86" text-anchor="middle" font-size="11" fill="#78716c">两条件同时满足才接受</text>
+
+          <path d="M146 61 H172" stroke="#57534e" stroke-width="1.4"/>
+          <path d="M324 61 H350" stroke="#57534e" stroke-width="1.4"/>
+          <path d="M502 61 H528" stroke="#57534e" stroke-width="1.4"/>
+          <path d="M680 61 H706" stroke="#57534e" stroke-width="1.4"/>
+
+          <rect x="300" y="140" width="380" height="70" rx="6" fill="#ecfdf5" stroke="#86efac"/>
+          <text class="t" x="490" y="170" text-anchor="middle" font-size="13" font-weight="650" fill="#166534">Q 成为新的优化器状态</text>
+          <text class="t" x="490" y="192" text-anchor="middle" font-size="11.5" fill="#57534e">任一条件不满足则丢弃，无效的快路径不会被保留</text>
+          <path d="M835 102 V140 H680" stroke="#0f766e" stroke-width="1.4" fill="none"/>
+        </svg>
+      </div>
+      <p class="figcap">图 7　论文 Eq. 1 与 Eq. 2 的执行顺序。计时路径这一项容易被忽略，它防的是把计数器挪到实际未被修改的区域上。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 正确率与消融</h2>
+      <p>
+        实验协议把任务集、重复次数和尝试上限都写死，不同行的结果不合并统计。主要的对照、覆盖和优化研究用 Claude Opus 4.8 与 SDK 1.4.0 模拟，都在新的 bundle 上跑原始数值检查，训练与测试划分不相交。11 个模型的研究只改生成模型，覆盖三个商业前沿模型和八个开源权重模型，每个模型–任务对只跑一次工作流。GEMM 与 GEMV 留在训练池，因为检索到的 WaferLLM 模式与这两个家族重叠。硬件回放把保留下来的 bundle 在 SDK 2.10 下重新编译，在 appliance 模拟器和 WSE-3 上各测一次。
+      </p>
+
+      <h3>9.1 完整工作流</h3>
+      <p>
+        在冻结的 28 项核心集上，单次生成通过 6 个（21%），只有一个结果快过参考。完整工作流通过 26 个（93%），其中 22 个达到或超过参考，16 个严格更快。这个差值是检索、多候选、分阶段修复和优化共同作用的结果，后面的受控行才把单个机制分开看。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 270" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="核心集通过数">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="30" y="24" font-size="12" fill="#57534e">28 项核心集通过数</text>
+          <line x1="80" y1="212" x2="930" y2="212" stroke="#d6d3d1"/>
+          <line x1="80" y1="46" x2="80" y2="212" stroke="#d6d3d1"/>
+          <text class="t" x="70" y="216" text-anchor="end" font-size="10.5" fill="#78716c">0</text>
+          <text class="t" x="70" y="133" text-anchor="end" font-size="10.5" fill="#78716c">14</text>
+          <text class="t" x="70" y="50" text-anchor="end" font-size="10.5" fill="#78716c">28</text>
+
+          <rect x="150" y="177" width="86" height="35" fill="#fdba74"/>
+          <text class="t" x="193" y="170" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">6</text>
+          <text class="t" x="193" y="234" text-anchor="middle" font-size="11.5" fill="#57534e">单次生成</text>
+          <text class="t" x="193" y="250" text-anchor="middle" font-size="10.5" fill="#a8a29e">Opus 4.8</text>
+
+          <rect x="290" y="58" width="86" height="154" fill="#0f766e"/>
+          <text class="t" x="333" y="51" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">26</text>
+          <text class="t" x="333" y="234" text-anchor="middle" font-size="11.5" fill="#57534e">完整工作流</text>
+          <text class="t" x="333" y="250" text-anchor="middle" font-size="10.5" fill="#a8a29e">Opus 4.8</text>
+
+          <rect x="430" y="64" width="86" height="148" fill="#14b8a6"/>
+          <text class="t" x="473" y="57" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">25</text>
+          <text class="t" x="473" y="234" text-anchor="middle" font-size="11.5" fill="#57534e">Sonnet 4.6</text>
+          <text class="t" x="473" y="250" text-anchor="middle" font-size="10.5" fill="#a8a29e">17 个快于参考</text>
+
+          <rect x="570" y="70" width="86" height="142" fill="#5eead4"/>
+          <text class="t" x="613" y="63" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">24</text>
+          <text class="t" x="613" y="234" text-anchor="middle" font-size="11.5" fill="#57534e">Opus 4.6</text>
+
+          <rect x="710" y="200" width="86" height="12" fill="#94a3b8"/>
+          <text class="t" x="753" y="193" text-anchor="middle" font-size="12.5" font-weight="650" fill="#475569">2</text>
+          <text class="t" x="753" y="234" text-anchor="middle" font-size="11.5" fill="#57534e">gpt-oss-120b</text>
+
+          <rect x="850" y="206" width="86" height="6" fill="#cbd5e1"/>
+          <text class="t" x="893" y="199" text-anchor="middle" font-size="12.5" font-weight="650" fill="#64748b">1</text>
+          <text class="t" x="893" y="234" text-anchor="middle" font-size="11.5" fill="#57534e">Gemma 4 31B</text>
+        </svg>
+      </div>
+      <p class="figcap">图 8　同一套可执行工作流下的通过数。三个 Claude 模型彼此接近，与开源权重模型相差 24 项。12 项探测集上 gpt-oss-20b 过 1 项，另外五个开源模型全部为零。作者说明这是单次工作流实验，用来显示能力差距，不作为前沿模型之间的统计排名。</p>
+
+      <table>
+        <caption>表 4　对应论文 Table V。核心集与探测集分开报告，「快于参考」指在同一目标上快过对应参考实现的正确程序数。</caption>
+        <thead>
+          <tr><th>生成模型</th><th>通过</th><th>快于参考</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Claude Opus 4.8</td><td class="num">26/28</td><td class="num">16</td></tr>
+          <tr><td>Claude Sonnet 4.6</td><td class="num">25/28</td><td class="num">17</td></tr>
+          <tr><td>Claude Opus 4.6</td><td class="num">24/28</td><td class="num">14</td></tr>
+          <tr><td>gpt-oss-120b</td><td class="num">2/28</td><td class="num">1</td></tr>
+          <tr><td>Gemma 4 31B</td><td class="num">1/28</td><td class="num">0</td></tr>
+          <tr><td>gpt-oss-20b（12 项探测集）</td><td class="num">1/12</td><td class="num">0</td></tr>
+          <tr><td>其余五个开源模型（同一探测集）</td><td class="num">各 0/12</td><td class="num">0</td></tr>
+        </tbody>
+      </table>
+      <p>Sonnet 4.6 少通过一项，但产出 17 个快于参考的程序，比 Opus 4.8 的 16 个多一个。通过率与速度不完全同向。</p>
+
+      <h3>9.2 目标知识与设计记录</h3>
+      <p>
+        知识消融固定 Sonnet 4.6、评审者和 20 次尝试预算，在 15 项 Level 1–3 面板上跑 45 次翻译。完整知识通过 7 项；去掉检索到的 Cerebras 材料只剩 1 项；再去掉 CSL 入门材料仍是 1 项。多出来的六个成功全部需要集合操作、halo 交换或 DSD 与队列配置，而无知识条件唯一通过的是一个单 PE 的矩阵向量 kernel。也就是说在固定修复预算下，更长的重试环补不回缺失的目标 idiom。
+      </p>
+      <p>
+        另一侧的结果没有那么符合直觉。把 G/D 设计记录加进提示，无引导条件下保留通过数从 21/40 变成 20/40，有引导条件下翻译阶段成功数从 33/40 变成 32/40。记录让每个映射方案可以被检查，但测到的正确率基本没动。这与第 4 节的说明一致：它们是提示引导，不是编译器保证。
+      </p>
+
+      <div class="fig-row">
+        <div class="fig">
+          <svg viewBox="0 0 460 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="知识消融">
+            <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+            <text class="t" x="230" y="24" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1c1917">知识消融，15 项面板</text>
+            <line x1="30" y1="176" x2="430" y2="176" stroke="#e7e0d4"/>
+            <rect x="60" y="156" width="78" height="20" fill="#fdba74"/>
+            <text class="t" x="99" y="149" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">1</text>
+            <text class="t" x="99" y="196" text-anchor="middle" font-size="11" fill="#57534e">无检索材料</text>
+            <rect x="192" y="156" width="78" height="20" fill="#fdba74"/>
+            <text class="t" x="231" y="149" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">1</text>
+            <text class="t" x="231" y="196" text-anchor="middle" font-size="11" fill="#57534e">再去掉入门</text>
+            <rect x="324" y="66" width="78" height="110" fill="#0f766e"/>
+            <text class="t" x="363" y="59" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">7</text>
+            <text class="t" x="363" y="196" text-anchor="middle" font-size="11" fill="#57534e">完整知识</text>
+            <text class="t" x="230" y="216" text-anchor="middle" font-size="10.5" fill="#a8a29e">Sonnet 4.6，20 次尝试预算固定</text>
+          </svg>
+        </div>
+        <div class="fig">
+          <svg viewBox="0 0 460 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="设计记录消融">
+            <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+            <text class="t" x="230" y="24" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1c1917">设计记录，40 次运行为一组</text>
+            <line x1="30" y1="176" x2="430" y2="176" stroke="#e7e0d4"/>
+            <rect x="60" y="66" width="66" height="110" fill="#94a3b8"/>
+            <text class="t" x="93" y="59" text-anchor="middle" font-size="11.5" font-weight="650" fill="#475569">21/40</text>
+            <text class="t" x="93" y="196" text-anchor="middle" font-size="10.5" fill="#57534e">无引导</text>
+            <rect x="146" y="72" width="66" height="104" fill="#cbd5e1"/>
+            <text class="t" x="179" y="65" text-anchor="middle" font-size="11.5" font-weight="650" fill="#64748b">20/40</text>
+            <text class="t" x="179" y="196" text-anchor="middle" font-size="10.5" fill="#57534e">加记录</text>
+            <rect x="252" y="36" width="66" height="140" fill="#1e3a5f"/>
+            <text class="t" x="285" y="29" text-anchor="middle" font-size="11.5" font-weight="650" fill="#1e3a5f">33/40</text>
+            <text class="t" x="285" y="196" text-anchor="middle" font-size="10.5" fill="#57534e">有引导</text>
+            <rect x="338" y="40" width="66" height="136" fill="#64748b"/>
+            <text class="t" x="371" y="33" text-anchor="middle" font-size="11.5" font-weight="650" fill="#475569">32/40</text>
+            <text class="t" x="371" y="196" text-anchor="middle" font-size="10.5" fill="#57534e">引导加记录</text>
+            <text class="t" x="230" y="216" text-anchor="middle" font-size="10.5" fill="#a8a29e">后两列统计的是翻译阶段成功数</text>
+          </svg>
+        </div>
+      </div>
+      <p class="figcap">图 9　两项消融。检索材料是单独变量里影响最大的一项；结构化设计记录几乎不改变测到的正确率。</p>
+
+      <h3>9.3 覆盖评测</h3>
+      <p>
+        49 项全部跑一遍，38 项至少产出一个正确程序（78%）。按来源拆开是：原始 hold-out 14/23，原始训练 6/8，后加入的 18/18，也就是原始集合 20/31、全部 hold-out 任务 32/41。后加入的参考经过手工整合，单独作为一组报告。最后三项做了三种子的补充实验：GEMM-1PE 三次全过，几何均值 7.64 倍；Laplacian2D-Reduce 三次全过，1.78 倍；LorenzoPredictor-Tile 三次过两次，2.36 倍。合起来 8/9，每次通过都快过参考。32 个通过的 hold-out 任务里，28 个周期数低于参考，2 个持平，2 个更高。
+      </p>
+      <p>
+        49 项中有 47 项选用了通用的单 PE 起步模板，因此论文把覆盖结果解释为「一个稳定的初始结构加上执行引导的修复」，而不是专用模板起了作用。反馈消融那边，起步模板模式在诊断面板上保留 30/40 次最终通过，包含三个最简单 Level 1 算子的全部 15 次重复。
+      </p>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 优化与硬件回放</h2>
+      <h3>10.1 从已正确的程序出发</h3>
+      <p>
+        W2 以正确 CSL 为输入时，优化器改进了全部 14 个被测参考，几何均值 1.44 倍，其中七个改进至少 25%。这一行把优化空间与翻译成败分开。可优化余量主要在 PE 本地算术上：批量 DSD 操作、融合算术、循环化简和编译期常量能消掉不少工作；库委托和通信主导的计时路径更常停在持平附近。整个反馈引导模式与覆盖扫描里，601 个提议改动中有 110 个（18%）同时过了正确性与周期两道关卡。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="被接受的变换">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="30" y="24" font-size="12" fill="#57534e">各类改动的接受比例</text>
+          <rect x="40" y="52" width="200" height="118" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="140" y="88" text-anchor="middle" font-size="20" font-weight="650" fill="#0f766e">27 / 97</text>
+          <text class="t" x="140" y="118" text-anchor="middle" font-size="12" fill="#134e4a">描述符偏移链式化</text>
+          <text class="t" x="140" y="142" text-anchor="middle" font-size="11" fill="#78716c">接受 28%</text>
+
+          <rect x="256" y="52" width="200" height="118" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="356" y="88" text-anchor="middle" font-size="20" font-weight="650" fill="#0f766e">20 / 65</text>
+          <text class="t" x="356" y="118" text-anchor="middle" font-size="12" fill="#134e4a">任务结构化简</text>
+          <text class="t" x="356" y="142" text-anchor="middle" font-size="11" fill="#78716c">接受 31%</text>
+
+          <rect x="472" y="52" width="200" height="118" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="572" y="88" text-anchor="middle" font-size="20" font-weight="650" fill="#0f766e">20 / 83</text>
+          <text class="t" x="572" y="118" text-anchor="middle" font-size="12" fill="#134e4a">缓冲清理</text>
+          <text class="t" x="572" y="142" text-anchor="middle" font-size="11" fill="#78716c">接受 24%</text>
+
+          <rect x="688" y="52" width="200" height="118" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="788" y="88" text-anchor="middle" font-size="20" font-weight="650" fill="#9a3412">12 / 131</text>
+          <text class="t" x="788" y="118" text-anchor="middle" font-size="12" fill="#9a3412">批量 FMAC</text>
+          <text class="t" x="788" y="142" text-anchor="middle" font-size="11" fill="#78716c">提议最多，接受 9%</text>
+
+          <text class="t" x="490" y="200" text-anchor="middle" font-size="11.5" fill="#57534e">被接受的都是 WSE 原生的变换，不是从 CUDA 直接搬过来的优化手法</text>
+        </svg>
+      </div>
+      <p class="figcap">图 10　论文 §V-E 的数据。批量 FMAC 被提议的次数最多但通过率最低，说明提议频率与实际收益并不一致。</p>
+
+      <h3>10.2 模拟器与 WSE-3</h3>
+      <p>
+        冻结的硬件回放集合里有 35 个通过的 bundle 及其参考，都走同一条 SDK 2.10 主机路径。27 对在两个目标上都以可比较的设备内计时通过，其中 23 个生成程序在硬件上更快，26 个达到或超过参考。几何均值从模拟器上的 3.75 倍变为 WSE-3 上的 3.47 倍。这个位移是两个实现之间的相对效应，对目标 <em>t</em> 记 <em>S<sub>t</sub></em> = <em>c<sub>t</sub><sup>ref</sup></em> / <em>c<sub>t</sub><sup>gen</sup></em>，则
+      </p>
+      <div class="eq">
+        S<sub>hw</sub> / S<sub>sim</sub> = ( c<sub>hw</sub><sup>ref</sup> / c<sub>sim</sub><sup>ref</sup> ) ÷ ( c<sub>hw</sub><sup>gen</sup> / c<sub>sim</sub><sup>gen</sup> )
+      </div>
+      <p>
+        生成程序与参考的硬件对模拟器几何均值分别是 1.030 和 0.953，合起来是 7.5% 的整体下降。单个 kernel 的移动可以大得多。DFT 从 10.21 倍升到 10.92 倍，因为它的生成程序在硬件上相对更快（比值 0.934），参考几乎没变（0.998）。Prefix-Sum 从 2.11 倍掉到 1.54 倍，生成程序变慢到 1.111 而参考降到 0.810。ReLU 是最极端的：生成路径从 142 周期涨到 222 周期，参考从 12,299 降到 10,252，加速比因此从 86.6 倍降到 46.2 倍。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="模拟器与硬件加速对比">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="30" y="22" font-size="12" fill="#57534e">同一 bundle 在两个目标上的加速比（示意高度，非线性刻度）</text>
+          <rect x="700" y="34" width="11" height="11" fill="#fdba74"/>
+          <text class="t" x="718" y="44" font-size="11" fill="#57534e">SDK 模拟器</text>
+          <rect x="800" y="34" width="11" height="11" fill="#0f766e"/>
+          <text class="t" x="818" y="44" font-size="11" fill="#57534e">WSE-3</text>
+
+          <line x1="80" y1="240" x2="940" y2="240" stroke="#d6d3d1"/>
+          <line x1="80" y1="60" x2="80" y2="240" stroke="#d6d3d1"/>
+          <text class="t" x="70" y="244" text-anchor="end" font-size="10.5" fill="#78716c">1×</text>
+
+          <rect x="120" y="72" width="26" height="168" fill="#fdba74"/>
+          <rect x="150" y="118" width="26" height="122" fill="#0f766e"/>
+          <text class="t" x="148" y="262" text-anchor="middle" font-size="11" fill="#57534e">ReLU（L1）</text>
+          <text class="t" x="148" y="64" text-anchor="middle" font-size="10.5" fill="#9a3412">86.6 → 46.2</text>
+
+          <rect x="250" y="158" width="26" height="82" fill="#fdba74"/>
+          <rect x="280" y="152" width="26" height="88" fill="#0f766e"/>
+          <text class="t" x="278" y="262" text-anchor="middle" font-size="11" fill="#57534e">DFT</text>
+          <text class="t" x="278" y="144" text-anchor="middle" font-size="10.5" fill="#0f766e">10.21 → 10.92</text>
+
+          <rect x="380" y="196" width="26" height="44" fill="#fdba74"/>
+          <rect x="410" y="206" width="26" height="34" fill="#0f766e"/>
+          <text class="t" x="408" y="262" text-anchor="middle" font-size="11" fill="#57534e">Prefix-Sum</text>
+          <text class="t" x="408" y="188" text-anchor="middle" font-size="10.5" fill="#9a3412">2.11 → 1.54</text>
+
+          <rect x="520" y="212" width="26" height="28" fill="#fdba74"/>
+          <rect x="550" y="214" width="26" height="26" fill="#0f766e"/>
+          <text class="t" x="548" y="262" text-anchor="middle" font-size="11" fill="#57534e">Softmax（L4）</text>
+          <text class="t" x="548" y="204" text-anchor="middle" font-size="10.5" fill="#57534e">1.29 → 1.24</text>
+
+          <rect x="670" y="182" width="26" height="58" fill="#94a3b8"/>
+          <text class="t" x="683" y="262" text-anchor="middle" font-size="11" fill="#57534e">L2 几何均值</text>
+          <text class="t" x="683" y="174" text-anchor="middle" font-size="10.5" fill="#1e3a5f">2.56× 硬件</text>
+
+          <rect x="790" y="178" width="26" height="62" fill="#1e3a5f"/>
+          <text class="t" x="803" y="262" text-anchor="middle" font-size="11" fill="#57534e">L3 几何均值</text>
+          <text class="t" x="803" y="170" text-anchor="middle" font-size="10.5" fill="#1e3a5f">2.71× 硬件</text>
+
+          <rect x="890" y="176" width="26" height="64" fill="#0f766e"/>
+          <text class="t" x="903" y="262" text-anchor="middle" font-size="11" fill="#57534e">总体</text>
+          <text class="t" x="903" y="168" text-anchor="middle" font-size="10.5" fill="#0f766e">3.47×</text>
+        </svg>
+      </div>
+      <p class="figcap">图 11　对应论文 Fig. 5 与 Fig. 6 右侧。Level 1 的跨度最大，从 0.97 倍到 ReLU 的 46.2 倍；Level 4 的 RowParallel-Softmax 贴近专家参考。构造等级与实际加速衡量的是程序的不同性质。</p>
+
+      <h3>10.3 架构映射暴露的边界</h3>
+      <p>
+        Laplacian2D 在执行引导修复下五次全过，无引导条件下五次全败，说明分阶段反馈能把 halo 契约拼出来。Cholesky 更能看出边界在哪。允许编辑 layout 之后，至少五次早期的接口卡死消失了；再加入一个从训练池派生的 collectives_2d 示例，才得到一份能跑的 383 行共设计，九次尝试里五次到达数值检查阶段，对角块通过。这个过程把不可变路由、跨文件连线和操作数投递分成三层，也把最后一层——把分布式操作数送到内部 PE——留成了后续工作。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cholesky 共设计进展">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="20" y="30" width="215" height="118" rx="6" fill="#fee2e2" stroke="#fca5a5"/>
+          <text class="t" x="127" y="66" text-anchor="middle" font-size="12.5" font-weight="650" fill="#991b1b">固定 layout</text>
+          <text class="t" x="127" y="96" text-anchor="middle" font-size="12" fill="#57534e">反复停在接口错误</text>
+          <text class="t" x="127" y="120" text-anchor="middle" font-size="11.5" fill="#9a3412">路由不可变</text>
+
+          <rect x="263" y="30" width="215" height="118" rx="6" fill="#ffedd5" stroke="#fdba74"/>
+          <text class="t" x="370" y="66" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">允许编辑 layout</text>
+          <text class="t" x="370" y="96" text-anchor="middle" font-size="12" fill="#57534e">消掉至少五次早期停止</text>
+          <text class="t" x="370" y="120" text-anchor="middle" font-size="11.5" fill="#9a3412">跨文件连线成为主要问题</text>
+
+          <rect x="506" y="30" width="215" height="118" rx="6" fill="#fef9c3" stroke="#facc15"/>
+          <text class="t" x="613" y="66" text-anchor="middle" font-size="12.5" font-weight="650" fill="#854d0e">加入 collectives_2d 示例</text>
+          <text class="t" x="613" y="96" text-anchor="middle" font-size="12" fill="#57534e">383 行可运行的共设计</text>
+          <text class="t" x="613" y="120" text-anchor="middle" font-size="11.5" fill="#854d0e">9 次中 5 次到达数值检查</text>
+
+          <rect x="749" y="30" width="211" height="118" rx="6" fill="#ecfdf5" stroke="#86efac"/>
+          <text class="t" x="854" y="66" text-anchor="middle" font-size="12.5" font-weight="650" fill="#166534">对角块通过</text>
+          <text class="t" x="854" y="96" text-anchor="middle" font-size="12" fill="#57534e">内部 PE 的操作数投递</text>
+          <text class="t" x="854" y="120" text-anchor="middle" font-size="11.5" fill="#166534">留作后续工作</text>
+
+          <path d="M235 89 H259" stroke="#57534e" stroke-width="1.4"/>
+          <path d="M478 89 H502" stroke="#57534e" stroke-width="1.4"/>
+          <path d="M721 89 H745" stroke="#57534e" stroke-width="1.4"/>
+        </svg>
+      </div>
+      <p class="figcap">图 12　对应论文 Fig. 7。扩大可编辑范围先解除接口层面的阻塞，分布式程序还需要一个目标侧的集合通信范例才能拼出来。</p>
+    </section>
+
+    <section class="card" id="s11">
+      <h2>11. 运行日志与后训练</h2>
+      <p>
+        每次运行都留下完整日志：提示、每次尝试产出的 CSL、编译与运行反馈、最终结果。导出器把每个产出代码的回合与保存的尝试对齐，然后按一条确定性规则打标签：该回合本身通过记 1；该回合未通过但同一次运行的后续回合通过记 0；其余记 −1。整次运行都失败的日志不进数据集。论文强调这不是学出来的奖励模型。
+      </p>
+      <p>
+        削减过程是逐步的：1,741 个运行目录中 1,673 个能对齐，最终通过的运行给出 7,619 个监督候选，去掉 306 个重复和 1,247 条超出每 kernel 500 条上限的记录后剩 6,066 条，其中 2,440 条是验证通过的，3,626 条是中间修复。偏好数据要求相同的提示前缀和相邻的「失败到通过」转移，取通过的为正例，去重后得到 2,249 对，并过滤掉过短的回答、疑似参考泄漏和架构重置回合。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="日志到训练数据">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="20" y="36" width="148" height="82" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="94" y="70" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">1,741 运行目录</text>
+          <text class="t" x="94" y="94" text-anchor="middle" font-size="11" fill="#78716c">1,673 个成功对齐</text>
+
+          <rect x="188" y="36" width="148" height="82" rx="6" fill="#ffedd5" stroke="#fdba74"/>
+          <text class="t" x="262" y="70" text-anchor="middle" font-size="12.5" font-weight="650" fill="#9a3412">7,619 监督候选</text>
+          <text class="t" x="262" y="94" text-anchor="middle" font-size="11" fill="#78716c">仅取最终通过的运行</text>
+
+          <rect x="356" y="36" width="168" height="82" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="440" y="70" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">6,066 条</text>
+          <text class="t" x="440" y="94" text-anchor="middle" font-size="11" fill="#78716c">去 306 重复，去 1,247 超限</text>
+
+          <rect x="544" y="36" width="168" height="82" rx="6" fill="#ecfdf5" stroke="#86efac"/>
+          <text class="t" x="628" y="64" text-anchor="middle" font-size="12" font-weight="650" fill="#166534">2,440 验证通过</text>
+          <text class="t" x="628" y="86" text-anchor="middle" font-size="12" font-weight="650" fill="#166534">3,626 中间修复</text>
+          <text class="t" x="628" y="106" text-anchor="middle" font-size="11" fill="#78716c">每 kernel 上限 500</text>
+
+          <rect x="732" y="36" width="228" height="82" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="846" y="70" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1e3a5f">2,249 偏好对</text>
+          <text class="t" x="846" y="94" text-anchor="middle" font-size="11" fill="#78716c">相邻的失败到通过转移</text>
+
+          <path d="M168 77 H186" stroke="#57534e" stroke-width="1.3"/>
+          <path d="M336 77 H354" stroke="#57534e" stroke-width="1.3"/>
+          <path d="M524 77 H542" stroke="#57534e" stroke-width="1.3"/>
+          <path d="M712 77 H730" stroke="#57534e" stroke-width="1.3"/>
+
+          <rect x="20" y="150" width="940" height="92" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+          <text class="t" x="490" y="178" text-anchor="middle" font-size="12.5" font-weight="650" fill="#1c1917">离线 SFT 试点</text>
+          <text class="t" x="490" y="202" text-anchor="middle" font-size="11.5" fill="#57534e">与评测 kernel 不相交后保留 1,813 行、39 个 kernel · 6 个 hold-out kernel · Qwen3-8B 与 14B · LoRA rank 64，α=128，3 个 epoch</text>
+          <text class="t" x="490" y="224" text-anchor="middle" font-size="11.5" fill="#0f766e">14B 四项代理指标：usable 0.29→0.71，contract 0.39→0.78，chrF 0.39→0.55，vocabulary 0.49→0.60</text>
+        </svg>
+      </div>
+      <p class="figcap">图 13　数据管线与 SFT 试点。14B 的 loss 从 0.823 降到 0.639，服务日志加载的是 checkpoint-153 而非基座模型。8B 的结果方向不一致：usable 从 0.38 降到 0.29，vocabulary 从 0.52 降到 0.46，contract 与 chrF 略有上升。</p>
+      <p>
+        论文对这一节的定位很谨慎：这些是无需 SDK 的结构性代理指标，不是可执行的正确性，生成的程序仍然需要编译、数值检查和设备计时。8B 上出现的退化也提示，容量不足时把修复轨迹和通过样本混在一起微调，可能先学到 CSL 的表面形态而不是契约。
+      </p>
+    </section>
+
+    <section class="card" id="s12">
+      <h2>12. 局限与讨论</h2>
+      <p>
+        论文自己给出的工作流建议是：先检索目标知识，PE 本地任务走短路径直接生成，观察到编译、接口或数值失败之后再调用分类修复，只对已验证的程序做周期优化，并且始终在同一目标上用设备内计时来比较。它还明确指出下一步应该是把类型化映射 lowering 成 CSL，而不是继续往提示里堆事实，方向上对齐 MLIR 的晶圆级 CSL 编译工作。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 980 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="四个中心因素与对应证据">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <rect x="20" y="26" width="225" height="152" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="132" y="56" text-anchor="middle" font-size="13" font-weight="650" fill="#9a3412">基座模型能力</text>
+          <text class="t" x="132" y="88" text-anchor="middle" font-size="12" fill="#57534e">Claude 系列 24–26/28</text>
+          <text class="t" x="132" y="110" text-anchor="middle" font-size="12" fill="#57534e">开源权重最多 2/28</text>
+          <text class="t" x="132" y="140" text-anchor="middle" font-size="11" fill="#78716c">工作流相同，差距仍在</text>
+
+          <rect x="258" y="26" width="225" height="152" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="370" y="56" text-anchor="middle" font-size="13" font-weight="650" fill="#0f766e">目标架构知识</text>
+          <text class="t" x="370" y="88" text-anchor="middle" font-size="12" fill="#57534e">1/15 提升到 7/15</text>
+          <text class="t" x="370" y="110" text-anchor="middle" font-size="12" fill="#57534e">新增成功都涉及通信</text>
+          <text class="t" x="370" y="140" text-anchor="middle" font-size="11" fill="#78716c">延长重试环补不上</text>
+
+          <rect x="496" y="26" width="225" height="152" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+          <text class="t" x="608" y="56" text-anchor="middle" font-size="13" font-weight="650" fill="#1e3a5f">执行反馈</text>
+          <text class="t" x="608" y="88" text-anchor="middle" font-size="12" fill="#57534e">68.8% 是局部实现修复</text>
+          <text class="t" x="608" y="110" text-anchor="middle" font-size="12" fill="#57534e">通过者中位 2 次求值</text>
+          <text class="t" x="608" y="140" text-anchor="middle" font-size="11" fill="#78716c">结构化记录影响不明显</text>
+
+          <rect x="734" y="26" width="226" height="152" rx="6" fill="#ecfdf5" stroke="#86efac"/>
+          <text class="t" x="847" y="56" text-anchor="middle" font-size="13" font-weight="650" fill="#166534">同目标测量</text>
+          <text class="t" x="847" y="88" text-anchor="middle" font-size="12" fill="#57534e">用核内周期，不用墙钟</text>
+          <text class="t" x="847" y="110" text-anchor="middle" font-size="12" fill="#57534e">模拟器 3.75×，硬件 3.47×</text>
+          <text class="t" x="847" y="140" text-anchor="middle" font-size="11" fill="#78716c">主机 RPC 计时被排除</text>
+        </svg>
+      </div>
+      <p class="figcap">图 14　论文结论中点出的四个中心因素，以及各自对应的实验证据。</p>
+
+      <h3>12.1 局限</h3>
+      <ul>
+        <li>49 项覆盖按「任一调度的工作流通过即算该任务成功」计数，三项用三种子、其余一项一次，得到 38/49 和 8/9 两个数字，分母与核心集的 26/28 不同，不能直接比较。</li>
+        <li>SFT 试点报告的是无 SDK 的结构性指标，不是可执行正确性。</li>
+        <li>G 与 D 可检查但不是 IR，没有 lowering pass 生成 CSL，解析是尽力而为的。</li>
+        <li>剖面反馈有界且带启发式，包括事件混合、dispatch-span 代理、wavelet 与反压信号、SRAM 估计；交互式调试器、可视化和逐周期轨迹仍是给人用的，没有接成自动信号。</li>
+        <li>后加入的 18 对参考由模型辅助初译再手工整合，不作为独立的专家基线。</li>
+        <li>模型研究每个模型–任务对只跑一次，作者自己称之为 preliminary，只支持能力差距的结论。</li>
+      </ul>
+
+      <h3>12.2 与相邻工作的关系</h3>
+      <table>
+        <thead>
+          <tr><th>工作</th><th>起点</th><th>目标</th><th>与 Fabrica 的差别</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>KernelBench 与各类 CUDA 智能体</td><td>规格或 CUDA</td><td>仍是 GPU</td><td>在熟悉的执行模型内优化，观测词汇可以直接复用</td></tr>
+          <tr><td>KernelCraft</td><td>规格</td><td>新兴加速器</td><td>场景接近，但不从已有 CUDA 出发，也不针对晶圆级网格</td></tr>
+          <tr><td>UniPar、MLIR lowering</td><td>中间表示</td><td>特定领域</td><td>构造保证更强，代价是每种表示与领域都要扩展编译器</td></tr>
+          <tr><td>晶圆级 stencil MLIR、WaferLLM</td><td>领域 IR 或手工实现</td><td>WSE</td><td>领域专用；Fabrica 跨工作负载翻译已有 CUDA，靠目标工具链筛掉错的和更慢的候选</td></tr>
+          <tr><td>CAKE</td><td>CAKE IR</td><td>仍是 NVIDIA GPU</td><td>改的是智能体书写的表示与编译器返回的证据；Fabrica 改的是跨机器的程序构造流程</td></tr>
+        </tbody>
+      </table>
+
+      <h3>12.3 可以带走的部分</h3>
+      <p>
+        如果要把类似做法用到别的空间架构上，比如近存网格或其它没有共享全局内存的 PE 阵列，这篇论文里比较有参考价值的有三点。一是知识检索的优先级高于延长自我调试：在预训练空白的目标语言上，文档和成功范例补的是模型没见过的通信形状，而重试环只能修局部实现。二是正确性必须先于周期，空间架构上很容易写出路由看起来对但数值已经漂掉的版本，或者把计数器挪到未被修改的区域，两道关卡保护的其实是测量本身。三是同目标测量不能省，整体上模拟器到硬件只掉了 7.5%，但 ReLU 和 Prefix-Sum 单个 kernel 可以差近一倍。
+      </p>
+      <p>
+        另一方面，工作流能把 Opus 从 6 项提到 26 项，却没能把 gpt-oss-120b 从 2 项提上来。这说明目前跨架构 kernel 生成仍受限于基座模型是否具备写分布式空间程序的能力，脚手架不能替代这一点。
+      </p>
+    </section>
+
+    <footer>
+      分析依据 arXiv:2608.25124v1（2026 年 8 月）。文中图为按论文数据重绘的示意图，数值取自原文表格与正文，分母未作合并。本地 PDF：
+      <code>mlsys-paper/ai compiler/agent-operator/FABRICA Agentic CUDA-to-CSL Translation and Optimization for Wafer-Scale Systems.pdf</code>
+    </footer>
+  </div>
+</body>
+</html>

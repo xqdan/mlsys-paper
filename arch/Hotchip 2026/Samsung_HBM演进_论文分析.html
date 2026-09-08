@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Samsung HBM 演进分析 | Hot Chips 2026</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.navy { background: #e0f2fe; color: #1e3a5f; border-color: #93c5fd; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      border: 0; padding: 0;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14.5px; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 14px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 600; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    caption {
+      caption-side: bottom; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12.5px; color: var(--muted); text-align: left; padding-top: 6px;
+    }
+    .num { font-variant-numeric: tabular-nums; }
+    .note {
+      border-left: 3px solid var(--line); padding: 2px 0 2px 16px; margin: 16px 0;
+      color: #3f3a35; font-size: 15px;
+    }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 14px 8px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12.5px; color: var(--muted); margin: 6px 2px 20px; line-height: 1.6;
+    }
+    footer { margin-top: 12px; color: var(--muted); font-size: 12.5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3 { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">Hot Chips 2026</span>
+        <span class="badge ok">Samsung Memory</span>
+        <span class="badge navy">HBM / PIM</span>
+      </div>
+      <h1>HBM 不再只是「加宽总线」：三条并行的演进思路</h1>
+      <p class="subtitle">以 Karam Hwang 的 LPDDR5X-PIM 演讲为主，对照同场 Sangwook Han 的 HBM Base Die 路线图</p>
+      <p class="meta">
+        <strong>主文档</strong>　Karam Hwang, <em>Samsung LPDDR5X-PIM: World’s First LPDDR based Processing in Memory Solution for AI Inference</em><br />
+        <strong>对照文档</strong>　Sangwook Han, <em>HBM Base Die: How HBM Will Evolve Using Advanced Logic Processes</em><br />
+        <strong>出处</strong>　Hot Chips 2026，Stanford · Memory / Memory-technology 两场相邻报告
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">问题从哪来</a></li>
+        <li><a href="#s2">先看代际：接口扩宽这条老路</a></li>
+        <li><a href="#s3">三条并行思路</a></li>
+        <li><a href="#s4">物理形态对比</a></li>
+        <li><a href="#s5">计算放在哪里</a></li>
+        <li><a href="#s6">打开的文档：LPDDR5X-PIM</a></li>
+        <li><a href="#s7">数字对照</a></li>
+        <li><a href="#s8">判断与局限</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 问题从哪来</h2>
+      <p class="lead">
+        Hwang 开场给的不是一张带宽图，而是一张成本图：HBM 在 AI 加速器物料成本里的占比，从 2024 年 Q1 的 52% 升到 2025 年 Q4 的 63%。带宽仍然是训练侧的刚需，但推理已经从机房下沉到手机和 AI PC。HBM 的封装、功耗和硅面积在这条路上跟不上。
+      </p>
+      <p>
+        这句话把后续所有演进拆成两个问题。训练和云端推理继续要「每个栈几个 TB/s」——这是 Han 那场 HBM Base Die 报告要回答的。端侧和成本敏感推理要「在现有封装里把有效带宽做出来」——这是打开这份 LPDDR5X-PIM 报告要回答的。两条线都叫近存计算，但动手的位置完全不同：一个改 HBM 底座，一个改 DRAM bank 内部。
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>Hwang 的判断</h4>
+          <p>HBM 仍是 AI 内存的事实标准，但推理中心化、端侧扩张之后，需要一种新的 memory form factor。LP-PIM 是补充，不是替代。</p>
+        </div>
+        <div class="tile">
+          <h4>Han 的判断</h4>
+          <p>每代带宽翻倍已经撞上 TSV 密度、PHY 面积和 I/O 功耗。HBM4 把底座改到 4nm 逻辑工艺之后，底座不再只是接口，而可以变成 XPU 的协处理器。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 先看代际：接口扩宽这条老路</h2>
+      <p>
+        从 HBM1 到 HBM5，主旋律一直是同一件事：在 2.5D interposer 上把更多 DRAM 芯粒叠在底座上，再用更宽、更快的 PHY 把数据横着送到旁边的 XPU。层数从 4-Hi 走到 16-Hi，接口从 1024-bit 翻到 2048-bit，单栈带宽从约 0.13 TB/s 推到 HBM4 的 2 TB/s、HBM4E 约 4 TB/s，Samsung 给出的 HBM5 展望已经超过 6 TB/s、容量超过 60 GB。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 1040 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="HBM 代际带宽演进">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="28" y="28" font-size="14" font-weight="650" fill="#1c1917">图 1　JEDEC 代际：靠加宽接口和加高层数堆带宽</text>
+          <text class="t" x="28" y="50" font-size="11.5" fill="#78716c">纵轴为单栈峰值带宽（TB/s，示意刻度）；数字取公开规格上限，HBM5 为 Samsung 展望</text>
+
+          <!-- y axis -->
+          <line x1="86" y1="78" x2="86" y2="330" stroke="#a8a29e" stroke-width="1"/>
+          <line x1="86" y1="330" x2="1000" y2="330" stroke="#a8a29e" stroke-width="1"/>
+          <text class="t" x="22" y="200" font-size="11" fill="#78716c" transform="rotate(-90 22 200)">单栈带宽 TB/s</text>
+          <text class="t" x="78" y="334" font-size="10" fill="#78716c" text-anchor="end">0</text>
+          <text class="t" x="78" y="268" font-size="10" fill="#78716c" text-anchor="end">2</text>
+          <text class="t" x="78" y="202" font-size="10" fill="#78716c" text-anchor="end">4</text>
+          <text class="t" x="78" y="136" font-size="10" fill="#78716c" text-anchor="end">6</text>
+          <line x1="86" y1="264" x2="1000" y2="264" stroke="#e7e0d4"/>
+          <line x1="86" y1="198" x2="1000" y2="198" stroke="#e7e0d4"/>
+          <line x1="86" y1="132" x2="1000" y2="132" stroke="#e7e0d4"/>
+
+          <!-- bars: 330 is 0, scale 33 px per TB/s, max 6.5 -> 214.5 height -->
+          <!-- HBM1 0.128 -> 4.2 -->
+          <rect x="118" y="326" width="78" height="4" fill="#d6d3d1"/>
+          <text class="t" x="157" y="348" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">HBM1</text>
+          <text class="t" x="157" y="364" text-anchor="middle" font-size="10.5" fill="#78716c">2013</text>
+          <text class="t" x="157" y="320" text-anchor="middle" font-size="11" fill="#57534e">0.13</text>
+          <text class="t" x="157" y="384" text-anchor="middle" font-size="10" fill="#a8a29e">1024b</text>
+
+          <!-- HBM2 0.307 -->
+          <rect x="226" y="320" width="78" height="10" fill="#a8a29e"/>
+          <text class="t" x="265" y="348" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">HBM2</text>
+          <text class="t" x="265" y="364" text-anchor="middle" font-size="10.5" fill="#78716c">2016</text>
+          <text class="t" x="265" y="314" text-anchor="middle" font-size="11" fill="#57534e">0.31</text>
+          <text class="t" x="265" y="384" text-anchor="middle" font-size="10" fill="#a8a29e">1024b</text>
+
+          <!-- HBM2E 0.461 -->
+          <rect x="334" y="315" width="78" height="15" fill="#78716c"/>
+          <text class="t" x="373" y="348" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">HBM2E</text>
+          <text class="t" x="373" y="364" text-anchor="middle" font-size="10.5" fill="#78716c">2019</text>
+          <text class="t" x="373" y="309" text-anchor="middle" font-size="11" fill="#57534e">0.46</text>
+          <text class="t" x="373" y="384" text-anchor="middle" font-size="10" fill="#a8a29e">1024b</text>
+
+          <!-- HBM3 0.819 -->
+          <rect x="442" y="303" width="78" height="27" fill="#1e3a5f"/>
+          <text class="t" x="481" y="348" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">HBM3</text>
+          <text class="t" x="481" y="364" text-anchor="middle" font-size="10.5" fill="#78716c">2022</text>
+          <text class="t" x="481" y="297" text-anchor="middle" font-size="11" fill="#1e3a5f">0.82</text>
+          <text class="t" x="481" y="384" text-anchor="middle" font-size="10" fill="#a8a29e">1024b</text>
+
+          <!-- HBM3E 1.23 -->
+          <rect x="550" y="289" width="78" height="41" fill="#1e3a5f"/>
+          <text class="t" x="589" y="348" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">HBM3E</text>
+          <text class="t" x="589" y="364" text-anchor="middle" font-size="10.5" fill="#78716c">2023</text>
+          <text class="t" x="589" y="283" text-anchor="middle" font-size="11" fill="#1e3a5f">1.2</text>
+          <text class="t" x="589" y="384" text-anchor="middle" font-size="10" fill="#a8a29e">1024b</text>
+
+          <!-- HBM4 2.05 -->
+          <rect x="658" y="262" width="78" height="68" fill="#0f766e"/>
+          <text class="t" x="697" y="348" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">HBM4</text>
+          <text class="t" x="697" y="364" text-anchor="middle" font-size="10.5" fill="#78716c">2025</text>
+          <text class="t" x="697" y="256" text-anchor="middle" font-size="11" fill="#0f766e">2.0</text>
+          <text class="t" x="697" y="384" text-anchor="middle" font-size="10" fill="#0f766e">2048b · 4nm 底座</text>
+
+          <!-- HBM4E 4.1 -->
+          <rect x="766" y="195" width="78" height="135" fill="#0f766e"/>
+          <text class="t" x="805" y="348" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">HBM4E</text>
+          <text class="t" x="805" y="364" text-anchor="middle" font-size="10.5" fill="#78716c">~2026</text>
+          <text class="t" x="805" y="189" text-anchor="middle" font-size="11" fill="#0f766e">~4.1</text>
+          <text class="t" x="805" y="384" text-anchor="middle" font-size="10" fill="#0f766e">同宽更快</text>
+
+          <!-- HBM5 ~6+ -->
+          <rect x="874" y="132" width="78" height="198" fill="#9a3412"/>
+          <text class="t" x="913" y="348" text-anchor="middle" font-size="12" font-weight="650" fill="#1c1917">HBM5</text>
+          <text class="t" x="913" y="364" text-anchor="middle" font-size="10.5" fill="#78716c">展望</text>
+          <text class="t" x="913" y="124" text-anchor="middle" font-size="11" fill="#9a3412">&gt;6</text>
+          <text class="t" x="913" y="384" text-anchor="middle" font-size="10" fill="#9a3412">&gt;60 GB</text>
+        </svg>
+      </div>
+      <p class="figcap">图 1　代际演进的本质是「更多 TSV × 更宽 PHY × 更高层数」。HBM4 是拐点：接口翻倍到 2048-bit，底座从 DRAM 工艺迁到 4nm 逻辑。HBM5 的数字来自 Samsung 历史曲线，不是已冻结的 JEDEC 规格。</p>
+
+      <p>
+        这条路的物理上限，Han 讲得很清楚。TSV 速率很难再往上抬，于是每代靠加 TSV 数量；HBM4 把 DQ 从 1024 加到 2048，PHY 面积和功耗跟着涨。能量效率（pJ/bit）在改善，但总功耗仍在升，因为带宽涨得更快。结果是：继续走代际扩宽，必须先把底座做成先进逻辑，否则 PHY 本身会先把面积和热预算吃完。
+      </p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 三条并行思路</h2>
+      <p>
+        Hot Chips 2026 上，Samsung 其实同时讲了三条不再互相替代的路线。第一条继续走 JEDEC 标准栈（sHBM）。第二条把底座逻辑化，从定制底座走到把 DRAM 扣在 XPU 头顶。第三条放弃 HBM 封装，把 MAC 塞进 LPDDR 的 bank。打开的文档走的是第三条；同目录的 Base Die 报告走的是第二条。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 1040 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三条 HBM 演进思路">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="28" y="28" font-size="14" font-weight="650" fill="#1c1917">图 2　三条并行演进：扩接口 · 改底座 · 算进阵列</text>
+
+          <!-- axis A -->
+          <rect x="24" y="52" width="992" height="150" rx="8" fill="#fff" stroke="#e7e0d4"/>
+          <rect x="24" y="52" width="8" height="150" rx="0" fill="#1e3a5f"/>
+          <text class="t" x="48" y="78" font-size="13.5" font-weight="650" fill="#1e3a5f">思路 A　标准 HBM（sHBM）：把通道做宽、把层数做高</text>
+          <text class="t" x="48" y="100" font-size="12" fill="#57534e">约束：TSV 间距、PHY I/O 功耗与面积、2.5D interposer 尺寸</text>
+
+          <rect x="48" y="118" width="130" height="58" rx="5" fill="#f0f4f8" stroke="#93c5fd"/>
+          <text class="t" x="113" y="142" text-anchor="middle" font-size="12" font-weight="650" fill="#1e3a5f">HBM1–3E</text>
+          <text class="t" x="113" y="160" text-anchor="middle" font-size="11" fill="#57534e">1024-bit PHY</text>
+
+          <polygon points="186,147 202,147 202,140 218,147 202,154 202,147" fill="#94a3b8"/>
+
+          <rect x="226" y="118" width="150" height="58" rx="5" fill="#e0f2fe" stroke="#38bdf8"/>
+          <text class="t" x="301" y="142" text-anchor="middle" font-size="12" font-weight="650" fill="#1e3a5f">HBM4 / 4E</text>
+          <text class="t" x="301" y="160" text-anchor="middle" font-size="11" fill="#57534e">2048-bit · 4nm 底座</text>
+
+          <polygon points="384,147 400,147 400,140 416,147 400,154 400,147" fill="#94a3b8"/>
+
+          <rect x="424" y="118" width="150" height="58" rx="5" fill="#dbeafe" stroke="#1e3a5f"/>
+          <text class="t" x="499" y="142" text-anchor="middle" font-size="12" font-weight="650" fill="#1e3a5f">HBM5 展望</text>
+          <text class="t" x="499" y="160" text-anchor="middle" font-size="11" fill="#57534e">&gt;6 TB/s · &gt;60 GB</text>
+
+          <text class="t" x="620" y="140" font-size="12" fill="#1e3a5f">训练 / 云端仍走这条</text>
+          <text class="t" x="620" y="160" font-size="12" fill="#78716c">XPU 与 HBM 并排放在 interposer 上</text>
+
+          <!-- axis B -->
+          <rect x="24" y="216" width="992" height="168" rx="8" fill="#fff" stroke="#e7e0d4"/>
+          <rect x="24" y="216" width="8" height="168" rx="0" fill="#0f766e"/>
+          <text class="t" x="48" y="242" font-size="13.5" font-weight="650" fill="#0f766e">思路 B　底座逻辑化：sHBM → cHBM → aHBM → zHBM</text>
+          <text class="t" x="48" y="264" font-size="12" fill="#57534e">C-die 仍是标准 DRAM 栈；变的是 B-die，以及它和 XPU 的几何关系</text>
+
+          <rect x="48" y="284" width="168" height="76" rx="5" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="132" y="308" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">sHBM</text>
+          <text class="t" x="132" y="328" text-anchor="middle" font-size="11" fill="#57534e">底座 = PHY + 测试通路</text>
+          <text class="t" x="132" y="346" text-anchor="middle" font-size="11" fill="#78716c">被动接口</text>
+
+          <polygon points="224,322 240,322 240,315 256,322 240,329 240,322" fill="#14b8a6"/>
+
+          <rect x="264" y="284" width="176" height="76" rx="5" fill="#ccfbf1" stroke="#14b8a6"/>
+          <text class="t" x="352" y="308" text-anchor="middle" font-size="12.5" font-weight="650" fill="#0f766e">cHBM　Phase 1</text>
+          <text class="t" x="352" y="328" text-anchor="middle" font-size="11" fill="#57534e">紧凑 D2D 取代宽 PHY</text>
+          <text class="t" x="352" y="346" text-anchor="middle" font-size="11" fill="#78716c">MC 下移 · Heat Path Block</text>
+
+          <polygon points="448,322 464,322 464,315 480,322 464,329 464,322" fill="#14b8a6"/>
+
+          <rect x="488" y="284" width="176" height="76" rx="5" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="576" y="308" text-anchor="middle" font-size="12.5" font-weight="650" fill="#115e59">aHBM　Phase 2</text>
+          <text class="t" x="576" y="328" text-anchor="middle" font-size="11" fill="#57534e">底座上放 PE / RAS / 扩容口</text>
+          <text class="t" x="576" y="346" text-anchor="middle" font-size="11" fill="#78716c">减少跨 interposer 搬运</text>
+
+          <polygon points="672,322 688,322 688,315 704,322 688,329 688,322" fill="#14b8a6"/>
+
+          <rect x="712" y="284" width="276" height="76" rx="5" fill="#134e4a" stroke="#134e4a"/>
+          <text class="t" x="850" y="308" text-anchor="middle" font-size="12.5" font-weight="650" fill="#ccfbf1">zHBM　Phase 3</text>
+          <text class="t" x="850" y="328" text-anchor="middle" font-size="11" fill="#99f6e4">DRAM 垂直叠在 XPU 上，去掉 interposer</text>
+          <text class="t" x="850" y="346" text-anchor="middle" font-size="11" fill="#5eead4">相对 HBM4E：+230% BW · ~70% 能效</text>
+
+          <!-- axis C -->
+          <rect x="24" y="398" width="992" height="140" rx="8" fill="#fff" stroke="#e7e0d4"/>
+          <rect x="24" y="398" width="8" height="140" rx="0" fill="#9a3412"/>
+          <text class="t" x="48" y="424" font-size="13.5" font-weight="650" fill="#9a3412">思路 C　阵列内计算（打开的文档）：HBM-PIM → LPDDR5X-PIM → LPDDR6-PIM</text>
+          <text class="t" x="48" y="446" font-size="12" fill="#57534e">计算进 C-die 的 bank，而不是进 B-die。目标从「每个栈 TB/s」改成「在现有封装里少搬数据」</text>
+
+          <rect x="48" y="464" width="210" height="54" rx="5" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="153" y="486" text-anchor="middle" font-size="12" font-weight="650" fill="#9a3412">2021　Aquabolt-XL</text>
+          <text class="t" x="153" y="504" text-anchor="middle" font-size="11" fill="#57534e">HBM2-PIM 概念验证</text>
+
+          <polygon points="266,491 282,491 282,484 298,491 282,498 282,491" fill="#ea580c"/>
+
+          <rect x="306" y="464" width="250" height="54" rx="5" fill="#ffedd5" stroke="#c2410c" stroke-width="1.6"/>
+          <text class="t" x="431" y="486" text-anchor="middle" font-size="12" font-weight="650" fill="#9a3412">2026　LPDDR5X-PIM</text>
+          <text class="t" x="431" y="504" text-anchor="middle" font-size="11" fill="#57534e">561-ball 滴入 · 614 GB/s 内部带宽</text>
+
+          <polygon points="564,491 580,491 580,484 596,491 580,498 580,491" fill="#ea580c"/>
+
+          <rect x="604" y="464" width="384" height="54" rx="5" fill="#9a3412" stroke="#9a3412"/>
+          <text class="t" x="796" y="486" text-anchor="middle" font-size="12" font-weight="650" fill="#ffedd5">下一步　JEDEC LPDDR6-PIM</text>
+          <text class="t" x="796" y="504" text-anchor="middle" font-size="11" fill="#fed7aa">从专用控制器走向可二供的标准</text>
+        </svg>
+      </div>
+      <p class="figcap">图 2　A 是带宽堆叠，B 是把逻辑搬进 HBM 底座并最终取消横向互连，C 是把 MAC 搬进 LPDDR bank。打开的文档属于 C；Han 的 Base Die 报告属于 B。两条线都会「在内存里算」，但封装、控制器和软件栈完全不同。</p>
+
+      <div class="grid-3">
+        <div class="tile">
+          <h4>A 还在解决什么</h4>
+          <p>训练和大规模推理的绝对带宽。HBM4 单栈 2 TB/s，HBM4E 约 4 TB/s，仍然远高于 LP-PIM 的 0.61 TB/s 内部带宽。</p>
+        </div>
+        <div class="tile">
+          <h4>B 还在解决什么</h4>
+          <p>XPU 面积、I/O 功耗和 interposer 尺寸。MC 下移可回收约 5–10% XPU 面积；zHBM 宣称相对 HBM4E 再省约 100 W 内存功耗。</p>
+        </div>
+        <div class="tile">
+          <h4>C 还在解决什么</h4>
+          <p>成本和形态。同样 561-ball 的 LPDDR 封装进手机和 AI PC；用少搬数据换 8× 有效带宽，而不是加宽总线。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 物理形态对比</h2>
+      <p>
+        四种封装把「数据要走多远」画出来，比只看带宽数字更清楚。sHBM 和 cHBM/aHBM 都还是 2.5D：XPU 和内存并排，数据横穿 interposer。差别在底座里装了什么。zHBM 把横向通道取消，改成分布式 I/O 垂直进出。LPDDR5X-PIM 则根本不进 2.5D，计算发生在 DRAM 阵列旁边的 MAC 树上，只有结果走原来的 x64 总线。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 1040 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="四种物理封装">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="28" y="26" font-size="14" font-weight="650" fill="#1c1917">图 3　数据路径变短的四种几何</text>
+
+          <!-- sHBM -->
+          <rect x="20" y="46" width="240" height="320" rx="8" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="140" y="70" text-anchor="middle" font-size="13" font-weight="650" fill="#1e3a5f">sHBM · 2.5D</text>
+          <rect x="42" y="88" width="86" height="96" rx="4" fill="#1e3a5f"/>
+          <text class="t" x="85" y="122" text-anchor="middle" font-size="11" fill="#e0f2fe">XPU</text>
+          <text class="t" x="85" y="140" text-anchor="middle" font-size="10" fill="#93c5fd">MC + PHY</text>
+          <text class="t" x="85" y="156" text-anchor="middle" font-size="10" fill="#93c5fd">在计算芯上</text>
+          <rect x="148" y="88" width="22" height="14" fill="#cbd5e1"/>
+          <rect x="148" y="104" width="22" height="14" fill="#94a3b8"/>
+          <rect x="148" y="120" width="22" height="14" fill="#64748b"/>
+          <rect x="148" y="136" width="22" height="14" fill="#475569"/>
+          <rect x="148" y="154" width="86" height="30" rx="3" fill="#fef3c7" stroke="#d97706"/>
+          <text class="t" x="191" y="174" text-anchor="middle" font-size="10" fill="#92400e">B-die PHY</text>
+          <rect x="42" y="198" width="192" height="28" rx="3" fill="#e7e5e4"/>
+          <text class="t" x="138" y="217" text-anchor="middle" font-size="11" fill="#57534e">silicon interposer</text>
+          <text class="t" x="140" y="250" text-anchor="middle" font-size="11" fill="#9a3412">数据横向走 PHY</text>
+          <text class="t" x="140" y="270" text-anchor="middle" font-size="11" fill="#57534e">通道长、I/O 功耗高</text>
+          <text class="t" x="140" y="290" text-anchor="middle" font-size="11" fill="#57534e">C-die 只存不算</text>
+          <text class="t" x="140" y="328" text-anchor="middle" font-size="11.5" font-weight="650" fill="#1e3a5f">今天的训练卡形态</text>
+          <text class="t" x="140" y="348" text-anchor="middle" font-size="10.5" fill="#78716c">HBM4 单栈 ~2 TB/s</text>
+
+          <!-- cHBM aHBM -->
+          <rect x="274" y="46" width="240" height="320" rx="8" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="394" y="70" text-anchor="middle" font-size="13" font-weight="650" fill="#0f766e">cHBM / aHBM · 2.5D</text>
+          <rect x="296" y="88" width="86" height="96" rx="4" fill="#0f766e"/>
+          <text class="t" x="339" y="128" text-anchor="middle" font-size="11" fill="#ccfbf1">XPU</text>
+          <text class="t" x="339" y="146" text-anchor="middle" font-size="10" fill="#99f6e4">MC 已下移</text>
+          <rect x="402" y="88" width="22" height="14" fill="#cbd5e1"/>
+          <rect x="402" y="104" width="22" height="14" fill="#94a3b8"/>
+          <rect x="402" y="120" width="22" height="14" fill="#64748b"/>
+          <rect x="402" y="136" width="22" height="14" fill="#475569"/>
+          <rect x="402" y="154" width="86" height="30" rx="3" fill="#99f6e4" stroke="#0f766e"/>
+          <text class="t" x="445" y="168" text-anchor="middle" font-size="9.5" fill="#115e59">B-die: D2D</text>
+          <text class="t" x="445" y="180" text-anchor="middle" font-size="9.5" fill="#115e59">MC / PE / RAS</text>
+          <rect x="296" y="198" width="192" height="28" rx="3" fill="#e7e5e4"/>
+          <text class="t" x="392" y="217" text-anchor="middle" font-size="11" fill="#57534e">silicon interposer</text>
+          <text class="t" x="394" y="250" text-anchor="middle" font-size="11" fill="#0f766e">底座变 SoC 碎片</text>
+          <text class="t" x="394" y="270" text-anchor="middle" font-size="11" fill="#57534e">回收 5–10% XPU 面积</text>
+          <text class="t" x="394" y="290" text-anchor="middle" font-size="11" fill="#57534e">HPB 峰值温度 −35%</text>
+          <text class="t" x="394" y="328" text-anchor="middle" font-size="11.5" font-weight="650" fill="#0f766e">近中期 HBM 产品形态</text>
+          <text class="t" x="394" y="348" text-anchor="middle" font-size="10.5" fill="#78716c">C-die 栈仍可共享</text>
+
+          <!-- zHBM -->
+          <rect x="528" y="46" width="240" height="320" rx="8" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="648" y="70" text-anchor="middle" font-size="13" font-weight="650" fill="#134e4a">zHBM · 真 3D</text>
+          <rect x="600" y="88" width="96" height="14" fill="#cbd5e1"/>
+          <rect x="600" y="104" width="96" height="14" fill="#94a3b8"/>
+          <rect x="600" y="120" width="96" height="14" fill="#64748b"/>
+          <rect x="600" y="136" width="96" height="14" fill="#475569"/>
+          <rect x="588" y="154" width="120" height="70" rx="4" fill="#134e4a"/>
+          <text class="t" x="648" y="184" text-anchor="middle" font-size="11" fill="#ccfbf1">XPU 在底下</text>
+          <text class="t" x="648" y="202" text-anchor="middle" font-size="10" fill="#5eead4">分布式 I/O</text>
+          <text class="t" x="648" y="218" text-anchor="middle" font-size="10" fill="#5eead4">无独立 PHY / D2D</text>
+          <text class="t" x="648" y="250" text-anchor="middle" font-size="11" fill="#9a3412">没有 interposer</text>
+          <text class="t" x="648" y="270" text-anchor="middle" font-size="11" fill="#57534e">数据只走垂直方向</text>
+          <text class="t" x="648" y="290" text-anchor="middle" font-size="11" fill="#57534e">热限制 → 约 4-Hi</text>
+          <text class="t" x="648" y="328" text-anchor="middle" font-size="11.5" font-weight="650" fill="#134e4a">长期终点</text>
+          <text class="t" x="648" y="348" text-anchor="middle" font-size="10.5" fill="#78716c">WoW + hybrid bonding</text>
+
+          <!-- LP-PIM -->
+          <rect x="782" y="46" width="240" height="320" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="902" y="70" text-anchor="middle" font-size="13" font-weight="650" fill="#9a3412">LPDDR5X-PIM</text>
+          <rect x="804" y="88" width="196" height="50" rx="4" fill="#9a3412"/>
+          <text class="t" x="902" y="110" text-anchor="middle" font-size="11" fill="#ffedd5">Host / 边侧 SoC</text>
+          <text class="t" x="902" y="126" text-anchor="middle" font-size="10" fill="#fed7aa">常规 DRAM 控制器</text>
+          <rect x="878" y="138" width="48" height="18" fill="#fdba74"/>
+          <text class="t" x="902" y="151" text-anchor="middle" font-size="9" fill="#7c2d12">x64 总线</text>
+          <rect x="804" y="164" width="196" height="78" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+          <text class="t" x="902" y="186" text-anchor="middle" font-size="11" fill="#9a3412">16 个 PIM block 在 bank 内</text>
+          <text class="t" x="902" y="204" text-anchor="middle" font-size="10" fill="#57534e">MAC tree + ALU（INT/FP）</text>
+          <text class="t" x="902" y="222" text-anchor="middle" font-size="10" fill="#57534e">权重几乎不搬出封装</text>
+          <text class="t" x="902" y="250" text-anchor="middle" font-size="11" fill="#9a3412">561-ball 滴入兼容</text>
+          <text class="t" x="902" y="270" text-anchor="middle" font-size="11" fill="#57534e">对外仍 76.8 GB/s</text>
+          <text class="t" x="902" y="290" text-anchor="middle" font-size="11" fill="#57534e">对内 614 GB/s</text>
+          <text class="t" x="902" y="328" text-anchor="middle" font-size="11.5" font-weight="650" fill="#9a3412">打开文档的方案</text>
+          <text class="t" x="902" y="348" text-anchor="middle" font-size="10.5" fill="#78716c">端侧 / 成本敏感推理</text>
+        </svg>
+      </div>
+      <p class="figcap">图 3　从左到右，数据搬动距离变短，但代价从「工艺和封装」换成「控制器/软件契约」。zHBM 为了散热把层数压到约 4-Hi，容量反而可能低于 12/16-Hi 的 sHBM；LP-PIM 则用内部带宽补外部总线的窄。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 计算放在哪里</h2>
+      <p>
+        这是理解「不同 HBM」时最容易混的一点。HBM-PIM、cHBM 的 PE、zHBM，名字都像近存计算，落点差了整整一层硅。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 1040 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="计算落点">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="28" y="26" font-size="14" font-weight="650" fill="#1c1917">图 4　计算落点：XPU → 底座 → bank</text>
+
+          <rect x="30" y="50" width="230" height="210" rx="7" fill="#f0f4f8" stroke="#93c5fd"/>
+          <text class="t" x="145" y="82" text-anchor="middle" font-size="13" font-weight="650" fill="#1e3a5f">1　XPU 上算</text>
+          <text class="t" x="145" y="112" text-anchor="middle" font-size="12" fill="#1c1917">权重读出 → 计算芯 MAC</text>
+          <text class="t" x="145" y="138" text-anchor="middle" font-size="12" fill="#57534e">sHBM / HBM4 默认路径</text>
+          <text class="t" x="145" y="172" text-anchor="middle" font-size="12" fill="#9a3412">瓶颈在 I/O 与功耗</text>
+          <text class="t" x="145" y="198" text-anchor="middle" font-size="11.5" fill="#78716c">每 token 把权重再搬一遍</text>
+          <text class="t" x="145" y="226" text-anchor="middle" font-size="11.5" fill="#78716c">适合通用算子、不规则访问</text>
+
+          <rect x="280" y="50" width="230" height="210" rx="7" fill="#f0fdfa" stroke="#5eead4"/>
+          <text class="t" x="395" y="82" text-anchor="middle" font-size="13" font-weight="650" fill="#0f766e">2　B-die 上算</text>
+          <text class="t" x="395" y="112" text-anchor="middle" font-size="12" fill="#1c1917">aHBM 的 processing elements</text>
+          <text class="t" x="395" y="138" text-anchor="middle" font-size="12" fill="#57534e">离阵列近，离 XPU 也近</text>
+          <text class="t" x="395" y="172" text-anchor="middle" font-size="12" fill="#0f766e">少跨 interposer</text>
+          <text class="t" x="395" y="198" text-anchor="middle" font-size="11.5" fill="#78716c">受底座面积和热点限制</text>
+          <text class="t" x="395" y="226" text-anchor="middle" font-size="11.5" fill="#78716c">适合访存密集、算力不重的片段</text>
+
+          <rect x="530" y="50" width="230" height="210" rx="7" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="645" y="82" text-anchor="middle" font-size="13" font-weight="650" fill="#9a3412">3　Bank 里算</text>
+          <text class="t" x="645" y="112" text-anchor="middle" font-size="12" fill="#1c1917">HBM2-PIM / LPDDR5X-PIM</text>
+          <text class="t" x="645" y="138" text-anchor="middle" font-size="12" fill="#57534e">MAC tree 贴着存储阵列</text>
+          <text class="t" x="645" y="172" text-anchor="middle" font-size="12" fill="#9a3412">权重几乎不出 bank</text>
+          <text class="t" x="645" y="198" text-anchor="middle" font-size="11.5" fill="#78716c">指令集和精度组合受限</text>
+          <text class="t" x="645" y="226" text-anchor="middle" font-size="11.5" fill="#78716c">适合 GEMV / 解码期权重流</text>
+
+          <rect x="780" y="50" width="230" height="210" rx="7" fill="#f5f5f4" stroke="#a8a29e"/>
+          <text class="t" x="895" y="82" text-anchor="middle" font-size="13" font-weight="650" fill="#44403c">4　垂直叠在一起算</text>
+          <text class="t" x="895" y="112" text-anchor="middle" font-size="12" fill="#1c1917">zHBM：XPU 就在栈底</text>
+          <text class="t" x="895" y="138" text-anchor="middle" font-size="12" fill="#57534e">没有独立内存接口可关</text>
+          <text class="t" x="895" y="172" text-anchor="middle" font-size="12" fill="#44403c">I/O 目标 ~0.5 pJ/bit</text>
+          <text class="t" x="895" y="198" text-anchor="middle" font-size="11.5" fill="#78716c">DRAM 与 SoC 必须共设计</text>
+          <text class="t" x="895" y="226" text-anchor="middle" font-size="11.5" fill="#78716c">容量、散热、良率一起谈</text>
+        </svg>
+      </div>
+      <p class="figcap">图 4　Hwang 的产品落在第 3 格；Han 的 Phase 2 落在第 2 格，Phase 3 落在第 4 格。不要把「HBM-PIM」和「aHBM 的 PE」当成同一种近存。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 打开的文档：LPDDR5X-PIM 怎么做</h2>
+      <p>
+        产品形态刻意做得不像加速器。JEDEC 标准 561-ball，16 GB，每 rank 四颗芯，面向 server / mobile / client。对外接口仍是 LPDDR5X-9600 的 76.8 GB/s；PIM 打开后，十六个 bank 内 MAC 并行，内部有效带宽到 614 GB/s，正好八倍。八倍不是 pin 变快，而是权重不再经过那条窄总线。
+      </p>
+      <p>
+        每个 PIM block 是一棵 MAC tree，再加一个能打 INT 和 FP 的 ALU。配置寄存器里的精度字段给出 15 种组合：激活配 SINT4 权重大约 2.4 TOPS/封装，FP8 大约 1.2 TFLOPS/封装。关键工程点是 Address Align Mode——把 DRAM 地址和 MAC 指令对齐，让现有 DRAM 控制器就能发命令，不必换一套内存子系统。模式切换走预定义行和 PIM 寄存器，Samsung 明确说这比前代 HBM-PIM 更快、更稳。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 1040 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PIM 操作流水">
+          <style>.t{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}</style>
+          <text class="t" x="28" y="26" font-size="14" font-weight="650" fill="#1c1917">图 5　LPDDR5X-PIM 一次 MAC 的命令流</text>
+
+          <rect x="28" y="52" width="180" height="120" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text class="t" x="118" y="82" text-anchor="middle" font-size="13" font-weight="650" fill="#9a3412">1　Activation write</text>
+          <text class="t" x="118" y="108" text-anchor="middle" font-size="12" fill="#1c1917">16× WRPB</text>
+          <text class="t" x="118" y="130" text-anchor="middle" font-size="11.5" fill="#57534e">FP8 激活广播进</text>
+          <text class="t" x="118" y="150" text-anchor="middle" font-size="11.5" fill="#57534e">各 bank 源寄存器</text>
+
+          <polygon points="218,112 234,112 234,105 250,112 234,119 234,112" fill="#c2410c"/>
+
+          <rect x="258" y="52" width="180" height="120" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+          <text class="t" x="348" y="82" text-anchor="middle" font-size="13" font-weight="650" fill="#9a3412">2　Weight load</text>
+          <text class="t" x="348" y="108" text-anchor="middle" font-size="12" fill="#1c1917">PIMX_RD</text>
+          <text class="t" x="348" y="130" text-anchor="middle" font-size="11.5" fill="#57534e">32B 权重从 cell 读出</text>
+          <text class="t" x="348" y="150" text-anchor="middle" font-size="11.5" fill="#57534e">铺到 MAC tree</text>
+
+          <polygon points="448,112 464,112 464,105 480,112 464,119 464,112" fill="#c2410c"/>
+
+          <rect x="488" y="52" width="180" height="120" rx="6" fill="#fed7aa" stroke="#ea580c"/>
+          <text class="t" x="578" y="82" text-anchor="middle" font-size="13" font-weight="650" fill="#9a3412">3　Vector store</text>
+          <text class="t" x="578" y="108" text-anchor="middle" font-size="12" fill="#1c1917">PIMX_WR</text>
+          <text class="t" x="578" y="130" text-anchor="middle" font-size="11.5" fill="#57534e">部分和进向量寄存器</text>
+          <text class="t" x="578" y="150" text-anchor="middle" font-size="11.5" fill="#57534e">读写比不必 1:1</text>
+
+          <polygon points="678,112 694,112 694,105 710,112 694,119 694,112" fill="#c2410c"/>
+
+          <rect x="718" y="52" width="290" height="120" rx="6" fill="#9a3412" stroke="#9a3412"/>
+          <text class="t" x="863" y="82" text-anchor="middle" font-size="13" font-weight="650" fill="#ffedd5">4　Host 取回</text>
+          <text class="t" x="863" y="108" text-anchor="middle" font-size="12" fill="#fed7aa">切回 single-bank · 顺序 RD</text>
+          <text class="t" x="863" y="130" text-anchor="middle" font-size="11.5" fill="#fecaca">最多 64 次读</text>
+          <text class="t" x="863" y="150" text-anchor="middle" font-size="11.5" fill="#fecaca">覆盖 1-kbit 向量寄存器</text>
+
+          <rect x="28" y="196" width="980" height="132" rx="6" fill="#fff" stroke="#e7e0d4"/>
+          <text class="t" x="48" y="226" font-size="13" font-weight="650" fill="#1c1917">硅上评测（边侧 AI SoC，Llama-3.1-8B，320-token 上下文，SINT8 激活 / SINT4 权重 / SINT32 输出）</text>
+          <text class="t" x="48" y="256" font-size="13" fill="#57534e">墙钟　12.3 s → 5.4 s　（2.28×）</text>
+          <text class="t" x="48" y="280" font-size="13" fill="#57534e">吞吐　27.0 tok/s → 81.3 tok/s　（3.01×）</text>
+          <text class="t" x="48" y="304" font-size="12.5" fill="#9a3412">现场问答：输出与基线不完全一致，精度仍在调；Samsung 认为性能收益可保持</text>
+        </svg>
+      </div>
+      <p class="figcap">图 5　对应 Hwang 幻灯 11–16。峰值功耗会因 PIM burst 升高，但 Hwang 的口径是整体功耗「不会显著增加」，因为省下的是反复搬权重的 I/O 能量。</p>
+
+      <h3>和前代 HBM-PIM 差在哪</h3>
+      <p>
+        2021 年的 Aquabolt-XL 已经在 HBM2 里做过 PIM。它几乎没有量产落地，常见原因是：要专用插座、专用控制器、专用板级。LPDDR5X-PIM 把这件事改成内存替换加软件栈。这也解释了为什么 Samsung 把 LPDDR6-PIM 的 JEDEC 标准化说成产品化的关键——没有标准就没有二供，加速器厂商不会把计算契约交给单一内存厂。
+      </p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 数字对照</h2>
+      <table>
+        <caption>表 1　公开规格与演讲数字。HBM 列为单栈峰值；LP-PIM 的 614 GB/s 是封装内部有效带宽，不是针脚带宽。</caption>
+        <thead>
+          <tr>
+            <th>方案</th>
+            <th>几何</th>
+            <th>计算落点</th>
+            <th class="num">带宽口径</th>
+            <th>封装 / 工艺要点</th>
+            <th>主要用途</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>sHBM3E</td>
+            <td>2.5D 并排</td>
+            <td>XPU</td>
+            <td class="num">~1.2 TB/s / 栈</td>
+            <td>1024-bit PHY，12–16 Hi</td>
+            <td>在役训练卡</td>
+          </tr>
+          <tr>
+            <td>sHBM4 / 4E</td>
+            <td>2.5D 并排</td>
+            <td>XPU</td>
+            <td class="num">2.0 / ~4.1 TB/s</td>
+            <td>2048-bit，底座 4nm 逻辑</td>
+            <td>下一代训练 / 云推理</td>
+          </tr>
+          <tr>
+            <td>cHBM</td>
+            <td>2.5D，定制底座</td>
+            <td>MC 在 B-die</td>
+            <td class="num">同代 sHBM 量级</td>
+            <td>D2D 替 PHY；HPB 覆盖 &gt;50% PHY，峰值温度 −35%；回收 5–10% XPU 面积</td>
+            <td>给特定加速器定制</td>
+          </tr>
+          <tr>
+            <td>aHBM</td>
+            <td>2.5D，底座含 PE</td>
+            <td>B-die PE + XPU</td>
+            <td class="num">减少跨片搬运</td>
+            <td>RAS 传感器、片上测试、外挂 LPDDR/HBM 扩容口</td>
+            <td>访存密集片段卸载</td>
+          </tr>
+          <tr>
+            <td>zHBM</td>
+            <td>真 3D，无 interposer</td>
+            <td>XPU 在栈底</td>
+            <td class="num">相对 HBM4E +230%</td>
+            <td>约 4-Hi；WoW + hybrid bonding；I/O ~0.5 pJ/bit；示例四栈相对 HBM4E 省 ~100 W，XPU 多 8.3% 功耗预算</td>
+            <td>长期，功耗墙下的 tokens/s</td>
+          </tr>
+          <tr>
+            <td>LPDDR5X-PIM</td>
+            <td>标准 PoP / 封装</td>
+            <td>Bank 内 MAC</td>
+            <td class="num">外 76.8 / 内 614 GB/s</td>
+            <td>561-ball 滴入；16 GB；无需新控制器</td>
+            <td>端侧与成本敏感推理</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        同场还有两条旁路，图里没展开，但属于「不同 HBM」的产业现实：SK hynix 把混合键合推到 HBM5，并指出约 775 μm 的高度天花板；JEDEC 另有 SPHBM4，用 512-bit 窄口换有机基板、去掉昂贵 interposer。Samsung 的 B 路线是「把 2.5D 做聪明再取消」，SPHBM4 是「把 2.5D 做便宜」。
+      </div>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 判断与局限</h2>
+      <p>
+        打开这份文档，核心主张其实很克制：HBM 继续当训练内存的事实标准；推理一旦离开高价 2.5D，就需要一种看起来仍是 LPDDR 的东西。评测给的 3.01× token 吞吐，建立在边侧 SoC、8B 模型、短上下文、低精度权重上，不能外推到云端 70B 训练。精度尚未对齐基线，这是现场被追问的点，也说明 PIM 的数值路径还不是「换颗粒就能过」。
+      </p>
+      <p>
+        把两场 Samsung 报告叠在一起，演进不是一条时间线，而是三个同时推进的自由度：
+      </p>
+      <ul>
+        <li><strong>接口自由度</strong>：1024 → 2048 bit，pin 速继续抬。这是 sHBM 的老办法，HBM5 仍会走。</li>
+        <li><strong>底座自由度</strong>：4nm 逻辑让 B-die 能接管 MC、RAS、扩容，甚至 PE；终点是 zHBM 把 interposer 删掉。热是这条线的真约束——zHBM 主动降到约 4-Hi。</li>
+        <li><strong>阵列自由度</strong>：MAC 进 bank。HBM2-PIM 验证过，LPDDR5X-PIM 第一次做成可滴入产品。标准化（LP6-PIM）决定它会不会只是演示。</li>
+      </ul>
+      <p>
+        对系统结构来说，值得记住的分叉是：如果你的瓶颈是「加速器喂不饱」，走 A/B；如果你的瓶颈是「HBM 太贵、封装进不去」，走 C。两者都会把计算往内存挪，但挪的层不同，软件契约也不同。B 要 XPU 厂商让出控制器和一部分 ISA；C 要内存厂商证明精度、二供和编译栈。Hwang 把软件（模拟器、datasheet、SDK）单独列成一页，不是客套。
+      </p>
+    </section>
+
+    <footer>
+      依据 Hwang LPDDR5X-PIM 与 Han HBM Base Die 两场 Hot Chips 2026 报告的公开幻灯与会场记录整理。带宽数字为公开规格上限或演讲口径，HBM5 / zHBM 为展望而非量产规格。
+    </footer>
+  </div>
+</body>
+</html>

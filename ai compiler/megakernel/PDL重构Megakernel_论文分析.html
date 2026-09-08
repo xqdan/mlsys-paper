@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDL 重构 Megakernel | 81 Kernels, 97.4%</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    .callout.good { border-left-color: var(--good); background: #f0fdf4; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre {
+      background: #1c1917; color: #fafaf9; padding: 16px 18px; overflow-x: auto;
+      font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px; line-height: 1.55;
+      margin: 12px 0 18px;
+    }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    .src-chain {
+      display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px;
+      align-items: stretch; margin: 16px 0 8px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .src-chain .box {
+      background: #faf7f2; border: 1px solid var(--line); padding: 12px 14px; font-size: 13.5px;
+    }
+    .src-chain .box strong { display: block; margin-bottom: 4px; font-size: 14px; }
+    .src-chain .arrow { display: flex; align-items: center; color: var(--muted); font-size: 20px; }
+    .fail { color: #9a3412; }
+    .ok { color: #166534; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi, .src-chain { columns: 1; grid-template-columns: 1fr; }
+      .src-chain .arrow { display: none; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">工程笔记 · 2026</span>
+        <span class="badge">PDL · CUDA Graph</span>
+        <span class="badge">ThunderKittens</span>
+        <span class="badge ok">H100 · Llama-3.2-1B</span>
+        <span class="badge ok">batch=1 decode</span>
+      </div>
+      <h1>把 Megakernel 拆成 81 个普通核，PDL 追回 97.4% 吞吐</h1>
+      <p class="subtitle">81 Kernels, 97.4% of a Megakernel: Reconstructing Persistence with PDL</p>
+      <p class="meta">
+        <strong>原文作者：</strong>Xinwei Qiang、Ziyi Xu、Zhongkai Yu、Yue Guan、Yufei Ding<br />
+        <strong>微信转述：</strong><a href="https://mp.weixin.qq.com/s/caONRd5KeL3fvZGPOIKAyg" target="_blank" rel="noopener">NeuralTalk · 拆解 megakernel 性能神话</a><br />
+        <strong>原始材料：</strong>
+        <a href="https://tie-pilot-qxw.github.io/blog/reconstructing-a-megakernel-with-pdl/" target="_blank" rel="noopener">工程笔记</a>
+        · <a href="https://github.com/tie-pilot-qxw/pdl-megakernel-reconstruction" target="_blank" rel="noopener">代码与证据</a>
+        · <a href="https://hazyresearch.stanford.edu/blog/2025-05-27-no-bubbles" target="_blank" rel="noopener">Hazy Megakernel</a>
+        · <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/programmatic-dependent-launch.html" target="_blank" rel="noopener">NVIDIA PDL</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">材料关系与一句话结论</a></li>
+        <li><a href="#s2">被拆解的对象：Hazy Megakernel</a></li>
+        <li><a href="#s3">核心问题与实验设计</a></li>
+        <li><a href="#s4">记分牌：97.4% 从哪来</a></li>
+        <li><a href="#s5">内核边界如何挖出 190 μs 空洞</a></li>
+        <li><a href="#s6">PDL 两行代码与触发时机</a></li>
+        <li><a href="#s7">滚动尾波：重叠从哪来</a></li>
+        <li><a href="#s8">三条失败优化</a></li>
+        <li><a href="#s9">剩余 2.7% 与缺失原语</a></li>
+        <li><a href="#s10">和 MPK / Event Tensor 的关系</a></li>
+        <li><a href="#s11">结论、边界与可复现要点</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 材料关系与一句话结论</h2>
+      <p class="lead">
+        NeuralTalk 微信文是对 Qiang 等人工程笔记的编译转述。真正需要读的是三层原始材料：Hazy Research 的常驻解释器 Megakernel、NVIDIA 的 Programmatic Dependent Launch（PDL），以及把前者拆成 81 个 ThunderKittens 核、只用 PDL 把调度接回去的对照实验。
+      </p>
+      <div class="src-chain">
+        <div class="box">
+          <strong>被拆对象</strong>
+          Hazy「Look Ma, No Bubbles」：每 SM 一颗常驻 CTA，片上解释器把整模当指令流执行。
+        </div>
+        <div class="arrow">→</div>
+        <div class="box">
+          <strong>调度原语</strong>
+          CUDA PDL：后继 grid 可在前驱未排空时准入，消费者只在真实数据依赖点等待。
+        </div>
+        <div class="arrow">→</div>
+        <div class="box">
+          <strong>本文实验</strong>
+          去掉解释器，保留算子体，81 核 CUDA Graph。问：持久化本身值多少？
+        </div>
+      </div>
+      <div class="kpi">
+        <div>
+          <div class="n">97.4%</div>
+          <div class="k">81 核 PDL 链相对持久化路径的端到端吞吐</div>
+        </div>
+        <div>
+          <div class="n">+2.704%</div>
+          <div class="k">PDL 链相对 Persistent VM 的完整 decode 延迟</div>
+        </div>
+        <div>
+          <div class="n">82.8%</div>
+          <div class="k">Transformer 主体边界损失被 PDL 追回的比例</div>
+        </div>
+        <div>
+          <div class="n">26.6 μs</div>
+          <div class="k">端到端仍落后持久化的绝对差距（1009.7 vs 983.1）</div>
+        </div>
+      </div>
+      <div class="callout">
+        对 H100、batch=1、Llama-3.2-1B BF16 解码：<strong>Megakernel 的大部分优势来自跨算子重叠调度，不是「把核数减到 1」</strong>。普通核只要能提前启动后继、立刻发独立访存、只在激活依赖点等待，就能复现几乎全部吞吐。最后那几个百分点，才是常驻状态与阶段级资源生命周期买到的东西；用缩小 footprint、同 SM 共驻、tile 级信号都补不回来。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 被拆解的对象：Hazy Megakernel</h2>
+      <p>
+        Hazy Research 2025 年 5 月的博文 <a href="https://hazyresearch.stanford.edu/blog/2025-05-27-no-bubbles" target="_blank" rel="noopener">Look Ma, No Bubbles!</a> 针对 Llama-3.2-1B、batch=1 解码：这是强访存绑定负载，理论上限由权重加载带宽决定。他们测到 vLLM / SGLang 在 H100 上最多只用到约 50% 带宽，根因是一次前向被拆成约一百个小核，中间出现三类「内存流水线气泡」：
+      </p>
+      <ol>
+        <li><strong>Grid 排空等待。</strong>后继 CTA 必须等前驱全部 CTA 退出。例如 down projection 有 512 个 CTA、B200 只有 148 个 SM，尾部会空出大量 SM。</li>
+        <li><strong>Launch / teardown。</strong>CUDA Graph 把 CPU 提交压到约 1.3 μs，但 GPU 侧仍有空转。</li>
+        <li><strong>权重加载无法跨核重叠。</strong>即使有 PDL，他们当时认为 <code>cudaGridDependencySynchronize</code> 太粗：必须等整个 QKV 完成才能开 attention，而非常驻解释器那种「头一就绪就开」。</li>
+      </ol>
+      <p>Hazy 的解法是把整次前向熔进一颗 megakernel，并用三套机制填气泡：</p>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>片上解释器</h4>
+          <p>每 SM 预先拿到一串指令（RMSNorm+QKV+RoPE、attention、O-proj、up/gate+SiLU、down-proj、LM head）。Python 侧静态排程，可复用数百次前向。</p>
+        </div>
+        <div class="tile">
+          <h4>SMEM 分页</h4>
+          <p>H100 前 213 KB 共享内存切成 13 个 16 KiB 页。指令显式申请/释放，解释器把释放页立刻交给下一条指令去发 TMA。</p>
+        </div>
+        <div class="tile">
+          <h4>计数器同步</h4>
+          <p>全局计数器代替核边界。MLP 把 8192 维中间激活分成 4 块，down projection 只等自己那块，不必等整个 up/gate。</p>
+        </div>
+      </div>
+      <p>
+        结果：H100 上一次 16-bit 1B+ 前向低于 1 ms、约 78% 带宽；相对当时 SGLang 约 1.5×、相对 vLLM 约 2.5×。B200 推到 680 μs 以下。这就是 Qiang 等人要拆开的「持久化神话」——优势到底来自常驻，还是来自解释器内部那套重叠调度。
+      </p>
+      <div class="callout teal">
+        Hazy 原文其实已经点名 PDL，并认为它不够细。Qiang 的工作不是否定这一点，而是量化：<em>网格级</em> PDL 已经能追回绝大部分；Hazy 强调的 tile 级计数器，在拆开后的普通核链上反而变慢（见第 8 节 VTP）。
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 核心问题与实验设计</h2>
+      <p>工程笔记的反问题写得很清楚：</p>
+      <div class="callout navy">
+        Megakernel 的性能有多少来自「持久化本身」（常驻 CTA、片上分配器、指令派发），有多少可以通过更好的调度，在普通 CUDA 核链上复现？
+      </div>
+      <h3>控制变量</h3>
+      <ul>
+        <li><strong>保留：</strong>原始 ThunderKittens 算子体——同样的 GEMV、TMA、共享内存流水、规约、BF16 输出；同样的模型几何（16 层 Llama-3.2-1B）。</li>
+        <li><strong>去掉：</strong>常驻解释器、片上 SMEM 分配器、运行时 opcode 派发、跨算子计数器。</li>
+        <li><strong>唯一差异：</strong>CUDA Graph 边语义。默认依赖 = 等前驱 grid 全部完成；PDL 依赖 = 前驱触发后即可准入后继。</li>
+      </ul>
+      <p>每层 5 条活跃指令（opcode 3 在该 decode 日程中关闭），16 层共 80 个 Transformer 节点，加上 LM head 为第 81 核：</p>
+      <pre>1  RMSNorm + QKV projection + RoPE / KV append
+2  attention
+4  output projection
+5  RMSNorm + up/gate projection + SiLU
+6  down projection
+   -&gt; 下一层 opcode 1
+   最后 + LM head  =  81 个核、80 条图边</pre>
+      <h3>工作负载与计时契约</h3>
+      <ul>
+        <li>单卡 H100 SXM5 80 GB，无张量并行；驱动 590.48.01，功耗墙 700 W，未锁频。</li>
+        <li>P32/D128：32 token 提示，生成 128 token；prefill 产出第一个 token，计时 127 次前向（位置 32–158）。</li>
+        <li>完整 decode 步包含 embedding、barrier 复位、模型图、argmax、token 写出。</li>
+        <li>Persistent / PDL：三个新进程 × 3 warmup × 10 次计时生成。默认依赖链是同一契约下的单进程对照（190 μs 效应远大于进程间亚微秒抖动，但未做三次重复）。</li>
+        <li>SGLang v0.5.15.post1 用另一套环境（PyTorch 2.11 + CUDA 13），计时是扣基线后的服务端请求 E2E，<strong>不能与前三行严格横比</strong>。</li>
+        <li>报告延迟时关闭 timeline / profiler / 设备端计时，避免探针污染。</li>
+      </ul>
+      <p>
+        正确性：确定性单步 token 检查通过；位置 32 / 95 / 158 的中间张量做 graph-vs-eager 校验。自由跑的 128-token 轨迹不做 bit-exact 神谕——两边都用原子加规约，低裕量 argmax 会改后续 token。没有靠放松精度换性能。
+      </p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 记分牌：97.4% 从哪来</h2>
+      <p>头条数字来自<strong>真实权重、匹配作用域</strong>的完整 decode 步（embedding → 模型 → argmax → 写出），不是合成权重、也不是只比 Transformer 主体。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>实现</th>
+            <th class="num">端到端延迟</th>
+            <th class="num">相对持久化</th>
+            <th>计时范围</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Persistent VM</td>
+            <td class="num">983.127 μs</td>
+            <td class="num">基准</td>
+            <td>进程内 decode 步</td>
+          </tr>
+          <tr>
+            <td>81-kernel PDL 链</td>
+            <td class="num">1009.711 μs</td>
+            <td class="num"><strong>+2.704%</strong></td>
+            <td>同上，同二进制只改图边</td>
+          </tr>
+          <tr>
+            <td>81-kernel 默认依赖链</td>
+            <td class="num">1169.071 μs</td>
+            <td class="num">+18.9%</td>
+            <td>同上（单进程对照）</td>
+          </tr>
+          <tr>
+            <td>SGLang v0.5.15.post1</td>
+            <td class="num">1210.353 μs</td>
+            <td class="num">不可直接比</td>
+            <td>服务端请求 E2E</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        吞吐口径：983.127 / 1009.711 ≈ <strong>97.36%</strong>，笔记四舍五入为 97.4%。相对默认依赖链，PDL 追回了 (1169.071 − 1009.711) / (1169.071 − 983.127) ≈ <strong>85.7%</strong> 的端到端缺口。
+      </p>
+      <h3>匹配作用域分解：损失全在 80 核主体</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>作用域</th>
+            <th class="num">Direct-TK PDL</th>
+            <th class="num">Persistent native</th>
+            <th class="num">差值</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>16 层 Transformer 主体</td>
+            <td class="num">809.626 μs</td>
+            <td class="num">777.123 μs</td>
+            <td class="num">+32.503 μs</td>
+          </tr>
+          <tr>
+            <td>主体 + LM head</td>
+            <td class="num">976.711 μs</td>
+            <td class="num">946.086 μs</td>
+            <td class="num">+30.625 μs</td>
+          </tr>
+          <tr>
+            <td>完整 decode 步</td>
+            <td class="num">1009.711 μs</td>
+            <td class="num">983.127 μs</td>
+            <td class="num">+26.584 μs</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        LM head 增量上，拆开路径反而快 1.877 μs；embedding + argmax + 写出再快 4.041 μs。这两段优势把主体的 32.503 μs 亏空缩小到端到端 26.584 μs。结论：<strong>剩余差距是 80 个独立 grid 累积出来的结构成本，不是 LM head、argmax，也不是少写了最后一条 PDL 边。</strong>
+      </p>
+      <div class="callout teal">
+        早期有一版把 native 路径用 eager launch、拆开路径用 per-position CUDA Graph，会低估结构差距。最终对照把 native 也捕获成每位置一张图；同一次三进程里，native 一图一步比 native eager 再快 3.227 μs（983.127 vs 986.354）。
+      </div>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 内核边界如何挖出 190 μs 空洞</h2>
+      <p>
+        两边都已经用 CUDA Graph，整步一次提交，CPU launch 不是主因。合成权重 / 匹配主体对照里：默认依赖拆开主体 967.162 μs，配对持久化主体 776.942 μs，<strong>空洞 190.220 μs</strong>。笔记把它拆成四类硬件侧开销，在约 80 条内部边界上累积：
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>开销</th>
+            <th>含义</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Grid 准入与排空</td>
+            <td>CTA 逐 SM 调度进去；结束时必须等所有 CTA 退出。拖尾 CTA 让大量 SM 空转。</td>
+          </tr>
+          <tr>
+            <td>CTA / 屏障初始化</td>
+            <td>每个核重新配寄存器、mbarrier、共享内存与 warp 角色，无法跨核继承。</td>
+          </tr>
+          <tr>
+            <td>常驻状态丢失</td>
+            <td>加载器 warp、SMEM 缓冲、片上分配器在核结束时全部销毁，下一核从头申请。</td>
+          </tr>
+          <tr>
+            <td>跨算子权重重叠消失</td>
+            <td>持久化可在指令 i 还在算时就加载 i+1 的权重；默认依赖要求前驱 grid 彻底结束后才能发后继 TMA。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        占比最大、也最可被 PDL 修复的是第四项。前三项才是「持久化本身」的地盘。分析策略因此很干净：先用 PDL 把重叠调度接回去，看还能剩多少；剩下来的才归因给常驻。
+      </p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. PDL 两行代码与触发时机</h2>
+      <p>
+        NVIDIA 从计算能力 9.0（Hopper）起提供 Programmatic Dependent Launch：同一 CUDA stream 上，后继核可以在前驱尚未完成时启动，去做与前驱结果无关的前导工作（清缓冲、加载常量/权重），再在真正读前驱输出处同步。CUDA Graph 里把边类型写成 <code>cudaGraphDependencyTypeProgrammatic</code> 即可。官方提醒：重叠是机会性的，不能当成正确性保证；后继必须自己 <code>cudaGridDependencySynchronize</code>（或等价可见性手段），否则可能读到未刷新数据，甚至死锁。
+      </p>
+      <pre>// 生产者：独立访存发出之后立刻放行，不必等 TMA 到达
+cudaTriggerProgrammaticLaunchCompletion();
+
+// 消费者：先发自己的权重 / KV 加载，读前驱激活前再等
+cudaGridDependencySynchronize();</pre>
+      <p>
+        放对位置比 API 本身难。对照实验把触发点从「生产者最后一次权重 TMA <em>到达</em>」前移到「TMA 刚刚 <em>发出</em>」，仅此一项追回 <strong>34.032 μs</strong>（三次轮换试验样本标准差 0.066 μs）。「早放行」不是核入口就放，而是：发出生产者自己的独立流量 → 释放后继 → 消费者只在真实激活依赖处等待。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>依赖方案</th>
+            <th class="num">拆开主体</th>
+            <th class="num">配对持久化主体</th>
+            <th class="num">缺口</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>默认 CUDA Graph 依赖</td>
+            <td class="num">967.162 μs</td>
+            <td class="num">776.942 μs</td>
+            <td class="num">190.220 μs</td>
+          </tr>
+          <tr>
+            <td>全边 PDL</td>
+            <td class="num">809.626 μs</td>
+            <td class="num">777.123 μs</td>
+            <td class="num">32.503 μs</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        以默认依赖臂的 776.942 μs 持久化值为公共基准，PDL 把 190.220 μs 压到 32.5 μs，<strong>追回 82.8%</strong>（约 157.5 μs）。这就是微信文「两行代码追回 158 μs」的来源。
+      </p>
+      <h3>逐类边消融：没有一条边独占收益</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>单独打开的 PDL 边</th>
+            <th class="num">相对默认依赖节省</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>QKV → attention</td><td class="num">20.518 μs</td></tr>
+          <tr><td>attention → O projection</td><td class="num">32.673 μs</td></tr>
+          <tr><td>O projection → up/gate</td><td class="num">22.417 μs</td></tr>
+          <tr><td>up/gate → down projection</td><td class="num">40.610 μs</td></tr>
+          <tr><td>down → 下一层 QKV</td><td class="num">42.203 μs</td></tr>
+          <tr><td>全部 79 条边</td><td class="num"><strong>153.980 μs</strong></td></tr>
+        </tbody>
+      </table>
+      <p>
+        单独节省不可加总：每条边都会改变其他边看到的流量和准入环境。重要的是每一类都正向贡献，完整日程能组合起来。跨层边（down → next QKV）和 MLP 内边最大，符合「权重加载最长、最该被藏进前驱尾部」的直觉。
+      </p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 滚动尾波：重叠从哪来</h2>
+      <p>
+        接受配置的核用 208 KiB 共享内存、每线程约 90 寄存器、640 线程 CTA。H100 单个 SM 放不下两个这样的 CTA。那 PDL 的「提前启动」重叠什么？
+      </p>
+      <p>他们在 CTA 入口、加载发出、触发、依赖等待、CTA 出口插入 <code>%globaltimer</code> / <code>%smid</code>。三次带探针运行观察到：</p>
+      <ul>
+        <li>全部 240 条观测到的核边界，都至少有一个后继 CTA 在前驱 grid 最后一个 CTA 退出<em>之前</em>就已经准入；</li>
+        <li>同一 SM 上，后继 CTA 一定等前驱 CTA 完全退出才进入，没有双 CTA 共存；</li>
+        <li>同 SM 退役到准入的最短间隔仅 <strong>0.256 μs</strong>；</li>
+        <li>每次运行里，80 条边界中有 63–75 条会在前驱 grid 结束前发出至少一次后继权重或历史 KV 加载；</li>
+        <li>没有一次依赖等待在前驱 grid 完成之前返回——网格级正确性仍在。</li>
+      </ul>
+      <div class="fig" aria-hidden="true">
+        <svg viewBox="0 0 920 220" width="920" height="220" xmlns="http://www.w3.org/2000/svg">
+          <text x="20" y="28" font-size="13" fill="#57534e" font-family="Segoe UI, sans-serif">前驱 grid</text>
+          <rect x="110" y="12" width="520" height="28" fill="#1e3a5f"/>
+          <rect x="630" y="12" width="160" height="28" fill="#64748b"/>
+          <text x="250" y="32" font-size="12" fill="#fff" font-family="Segoe UI, sans-serif">满网格计算</text>
+          <text x="648" y="32" font-size="12" fill="#fff" font-family="Segoe UI, sans-serif">拖尾 CTA</text>
+          <text x="20" y="88" font-size="13" fill="#57534e" font-family="Segoe UI, sans-serif">空出的 SM</text>
+          <circle cx="650" cy="82" r="6" fill="#b45309"/>
+          <circle cx="690" cy="82" r="6" fill="#b45309"/>
+          <circle cx="730" cy="82" r="6" fill="#b45309"/>
+          <circle cx="770" cy="82" r="6" fill="#b45309"/>
+          <text x="20" y="148" font-size="13" fill="#57534e" font-family="Segoe UI, sans-serif">后继 grid</text>
+          <rect x="640" y="132" width="70" height="28" fill="#0f766e"/>
+          <rect x="710" y="132" width="70" height="28" fill="#0f766e"/>
+          <rect x="780" y="132" width="70" height="28" fill="#9a3412"/>
+          <text x="648" y="151" font-size="11" fill="#fff" font-family="Segoe UI, sans-serif">准入</text>
+          <text x="718" y="151" font-size="11" fill="#fff" font-family="Segoe UI, sans-serif">加载</text>
+          <text x="792" y="151" font-size="11" fill="#fff" font-family="Segoe UI, sans-serif">等待</text>
+          <text x="20" y="200" font-size="13" fill="#57534e" font-family="Georgia, serif">重叠发生在 grid 之间的滚动交接，而不是同一 SM 上两颗大 CTA 共存。</text>
+        </svg>
+      </div>
+      <p class="figcap">图：滚动尾波。前驱 CTA 陆续退役，后继 CTA 填入空 SM，先发独立 TMA，再在激活依赖点等待。</p>
+      <p>
+        这就是笔记说的 <strong>rolling tail wave</strong>。PDL 没有打破 SM 资源上限，而是把集中的启动开销打散到前驱尾部，让权重加载离开关键路径。因此优化必须在全链上评，单核 microbench 看不到这次交接。
+      </p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 三条失败优化</h2>
+      <p>追回 82.8% 之后，剩下的缺口引诱了三个「看起来很对」的补丁。它们全部失败，而且把诊断实验和正确模型核区分开写——这是原笔记比微信文更严谨的地方。</p>
+
+      <h3>8.1 让相邻 grid 共驻同一 SM</h3>
+      <p>
+        正确 TK 主体是 208 KiB SMEM、三级权重流水。把存储压到 80 KiB 单级可以省空间，但主体从 804.409 μs 慢到 841.180 μs——流水线也被改了，无法单独给「共驻」定价。
+      </p>
+      <p>
+        于是做了一个<strong>故意不正确</strong>的机制对照：只算原来 16 个逻辑 K 分区中的 4 个，SMEM 做成循环别名的 4 页布局，加载器仍发完全部 4 块权重 TMA。同一份 device function / SASS，用动态 SMEM 配额控制能否双 CTA 共驻（65 KiB 允许 vs 128 KiB 强迫单 CTA）：
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>依赖</th>
+            <th class="num">允许 2 CTA/SM</th>
+            <th class="num">强迫 1 CTA/SM</th>
+            <th class="num">挡住共驻的代价</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>默认依赖</td>
+            <td class="num">891.970 μs</td>
+            <td class="num">891.642 μs</td>
+            <td class="num">−0.328 μs（≈0）</td>
+          </tr>
+          <tr>
+            <td>全边 PDL</td>
+            <td class="num">709.015 μs</td>
+            <td class="num">760.016 μs</td>
+            <td class="num"><strong>+51.001 μs（+7.19%）</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        默认依赖下共驻几乎没价值；PDL 下共驻值约 51 μs。但 51 μs 比正确链剩余的 26.6 μs 还大——因为这个诊断核几乎去掉了算术、CTA 异常短，准入权重被放大。它只证明方向：<strong>同 SM 共驻是一项真实机会，正确核因为寄存器和 SMEM 要持有到整个 CTA 退役，摸不到这项机会。</strong>
+      </p>
+
+      <h3>8.2 缩小正确核直到能共驻（micro-tile）</h3>
+      <p>
+        唯一保住正确性的办法是降低核自己的 footprint。对象是 opcode 4（O-proj + residual）：把每 warp 的 128 列片改成 16 列 FP32 寄存器 tile。寄存器从 88 降到 37，零 spill、SASS 无 LDL/STL；H100 按 256 寄存器/warp 粒度，两颗 CTA 需要 51,200 / 65,536，算得过来。插桩回放里，该变体在 1,792 次可能的同 SM 后继进入中记录到 1,714 次；原核是 0。
+      </p>
+      <p class="fail"><strong>然后它还是输了。</strong></p>
+      <table>
+        <thead>
+          <tr>
+            <th>opcode-4 链（16 层权重）</th>
+            <th class="num">默认边</th>
+            <th class="num">PDL 边</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>原核，1 CTA/SM</td>
+            <td class="num">101.760 μs</td>
+            <td class="num"><strong>71.024 μs</strong></td>
+          </tr>
+          <tr>
+            <td>微块化，允许 2 CTA/SM</td>
+            <td class="num">105.280 μs</td>
+            <td class="num">78.608 μs</td>
+          </tr>
+          <tr>
+            <td>微块化，同一 SASS，挡住共驻</td>
+            <td class="num">105.200 μs</td>
+            <td class="num">75.152 μs</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        微块化单独就要 3.42% 税（约 0.21 μs/层）。共驻再引入资源竞争（78.608 vs 挡住共驻的 75.152）。正确核付了两次钱，最快的正确配置仍是原来的单 CTA + PDL。
+      </p>
+
+      <h3>8.3 虚拟张量并行（VTP）把依赖收到 shard</h3>
+      <p>
+        Hazy 原 megakernel、以及后来的 <a href="MPK_论文分析.html">MPK</a> / <a href="EventTensor_论文分析.html">Event Tensor</a>，都能在算子内部按 tile 同步。笔记把这种单卡、无集合通信、只为收窄依赖边界的模式叫做 <strong>virtual tensor parallelism</strong>：up/gate 的 8192 维 SiLU 输出切成 4 个 2048 维 shard，down projection 按同一 K 范围 split-K，各等各的计数器。
+      </p>
+      <p>
+        实现上仍用 PDL 做整网格提前准入；只把激活等待从 <code>cudaGridDependencySynchronize</code>（等整个 up/gate grid）改成轮询对应 shard 计数器。生产者布局两边相同。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>匹配生产者，三进程均值</th>
+            <th class="num">主体延迟</th>
+            <th class="num">相对持久化主体缺口</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>整网格 PDL 等待</td>
+            <td class="num">810.059 μs</td>
+            <td class="num">32.042 μs</td>
+          </tr>
+          <tr>
+            <td>按 shard 信号等待</td>
+            <td class="num">814.945 μs</td>
+            <td class="num">37.077 μs</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        更细的依赖<strong>慢了 4.886 μs</strong>。原因：PDL 已经让整个 down 网格提前进来、权重 TMA 已经藏掉；shard 轮询是额外开销，而激活就绪并不能再藏更多东西。调度粒度不是越细越好。
+      </p>
+      <div class="callout">
+        三条失败的共同形状：凡是能让正确核共驻或把依赖收到 tile 的软件旋钮（更少页、更少 warp、更少寄存器、更小 tile、更细全局信号），都会改算子自己的吞吐。机会无法在核内部被干净定价；剩下的缺口不能靠再拧软件旋钮补上。
+      </div>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 剩余 2.7% 与缺失原语</h2>
+      <p>完整 decode 步仍落后 26.584 μs；主体落后约 32.5 μs，摊到 79 条拆开边界约 <strong>0.411 μs/边界</strong>。笔记认为这与 PDL 保不住的部分一致：</p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>资源生命周期</h4>
+          <p>寄存器、SMEM、屏障、加载器/消费者角色在每个核边界死亡重建。持久化在同一颗 CTA 内回收这些状态。</p>
+        </div>
+        <div class="tile">
+          <h4>持有粒度太粗</h4>
+          <p>流水线前段用完的页/寄存器，也要等到整个 CTA 退役才释放。后继加载器进不来。</p>
+        </div>
+        <div class="tile">
+          <h4>重复的 CTA 准入</h4>
+          <p>每个 grid 都要再付一遍调度与 per-kernel 初始化。PDL 只能提前打开程序端口，不能省略这笔税。</p>
+        </div>
+        <div class="tile">
+          <h4>调度上下文</h4>
+          <p>后继通过网格级 programmatic port 才有资格；新 CTA 不能继承被它替换掉的那颗 CTA 的常驻调度器上下文。</p>
+        </div>
+      </div>
+      <h3>缺失的硬件/运行时原语：阶段作用域资源生命周期</h3>
+      <p>
+        共驻实验指向一个 PDL 目前没有暴露的原语：<strong>phase-scoped resource lifetime</strong>。加载器用完某一级 SMEM 或寄存器 tile 之后，应能在消费者/epilogue 仍在跑时退役这块存储，让后继的加载器占用腾出来的容量。这样不必靠压低静态 footprint、破坏多级流水去换共驻。
+      </p>
+      <div class="callout teal">
+        证据并不能证明剩余 26.584 μs 全部来自「释放太晚」。它只是把「晚释放」从抽象的 launch 开销，变成一项可操作的解释，并且说明：要填完最后几个百分点，需要的不是又一个 cache hint 或自旋循环，而是比网格级 PDL 更细的资源移交。
+      </div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 和 MPK / Event Tensor 的关系</h2>
+      <p>
+        原笔记主动引用同目录下两篇工作，用来标定「细粒度依赖」在编译器路线上的位置，而不是拿它们当基线打榜。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>工作</th>
+            <th>主张</th>
+            <th>和本文的交点</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="MPK_论文分析.html">MPK / Mirage Persistent Kernel</a></td>
+            <td>编译器把张量程序降到 SM 级任务图，在一颗 persistent mega-kernel 里去中心调度；相对 vLLM/SGLang 端到端最多约 1.7×。</td>
+            <td>把 Hazy 手写 megakernel 当成「性能上限 + 工程成本」的动机。本文则说：若目标只是 H100 batch-1 解码吞吐，网格级 PDL 已经能逼近手写常驻，不一定先上解释器。</td>
+          </tr>
+          <tr>
+            <td><a href="EventTensor_论文分析.html">Event Tensor</a></td>
+            <td>把 tile 完成事件做成 IR 里的张量，编译动态 shape / MoE 的 persistent kernel；评测里 serving 基线已经包含 CUDA Graph、PDL、torch.compile。</td>
+            <td>生产系统确实在用 PDL。本文给出 PDL 能复现多少「手写常驻」的量化上界，以及它做不到的那一段（阶段级资源生命周期、tile 级依赖在拆开核上的负收益）。</td>
+          </tr>
+          <tr>
+            <td>Hazy Llama-1B megakernel</td>
+            <td>常驻解释器 + SMEM 分页 + 四路 MLP 计数器，H100 &lt; 1 ms。</td>
+            <td>本文的 persistent 对照就是这份代码（fork 自 <code>HazyResearch/Megakernels</code> commit <code>7309cec</code>，ThunderKittens 钉在 <code>664c108</code>）。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        分工可以记成一句话：Hazy / MPK / Event Tensor 在问「如何把整模写成（或编译成）一颗核」；Qiang 等人在问「若坚持普通核模型，调度原语已经值回多少」。两条线不互斥。对可维护、可组合的推理栈，PDL 链是更便宜的 97%；对还要跨 GPU 通信重叠、动态 MoE、符号 shape 的场景，persistent 编译器仍有 PDL 给不出的调度自由度。
+      </p>
+    </section>
+
+    <section class="card" id="s11">
+      <h2>11. 结论、边界与可复现要点</h2>
+      <h3>分析过程（压缩版）</h3>
+      <ol class="steps">
+        <li>锁定 Hazy 的 P32/D128 Llama-1B 工作负载，把常驻 VM 拆成与 opcode 一一对应的 81 个 TK 核，CUDA Graph 一次提交。</li>
+        <li>只改图边语义：默认完成依赖 vs programmatic 依赖。两边同二进制、同入口，排除算子实现差异。</li>
+        <li>用匹配作用域把空洞定位到 16 层主体（190 μs），确认不是 CPU、不是 LM head。</li>
+        <li>把 PDL 触发点从 TMA 到达前移到 TMA 发出；全边打开后主体缺口从 190 μs 降到 32.5 μs（82.8%）。</li>
+        <li>用 SMID/时钟探针证明重叠来自滚动尾波，而非同 SM 双 CTA。</li>
+        <li>逐类边、issue-vs-arrival、共驻诊断、micro-tile、VTP 全部做对照；失败实验用来划清「调度能买到的」和「持久化才有的」。</li>
+        <li>把剩余 26.6 μs 归因到 CTA 级资源生命周期，并提出阶段作用域释放这一缺失原语。</li>
+      </ol>
+      <h3>结论</h3>
+      <ul>
+        <li><strong>对这个 H100 batch-1 解码，</strong>不必上常驻解释器就能拿到绝大部分 megakernel 收益；PDL 把 81 核链推到持久化吞吐的 97.4%。</li>
+        <li><strong>「几乎」仍然重要。</strong>Persistent VM 继续赢。缩小 SMEM、缩小寄存器 tile、更细全局信号，全部填不满最后 2.7%。持久化买到的是更便宜的有状态交接，PDL 没有把它暴露到 grid 之间。</li>
+        <li><strong>有用的边界：</strong>多数场景优先把 PDL 边和触发时机做对，保留普通核的可组合性；不要为了共驻去破坏已经很快的多级流水。最后几个百分点留给硬件/运行时的阶段级资源原语，或真正需要常驻调度器的工作（通信重叠、动态控制流）。</li>
+      </ul>
+      <h3>不要过度外推</h3>
+      <ul>
+        <li>单卡、无 TP、1B、batch=1、BF16。Hazy 后续的 70B 吞吐型 / 多 GPU megakernel 不在对照里。</li>
+        <li>默认依赖端到端行是单进程；主体 190 μs 效应很大，但形式上弱于 PDL 的三进程均值。</li>
+        <li>4 页别名配置是错误机制对照，仓库明确禁止当模型结果引用。</li>
+        <li>CUDA 12.8 是持久化基线的编译约束：CUDA 13.1 的 H100 ptxas 会拒绝 VM 核里的 <code>setmaxnreg</code>。PDL-only 模块可以用 13.1 编。</li>
+        <li>代码由 Codex GPT-5.6-Sol 实现，经 Codex 与 Claude Opus 5 复查；想法与项目指导来自署名作者。</li>
+      </ul>
+      <h3>主要原始出处</h3>
+      <ol>
+        <li>Xinwei Qiang et al.，<a href="https://tie-pilot-qxw.github.io/blog/reconstructing-a-megakernel-with-pdl/" target="_blank" rel="noopener">81 Kernels, 97.4% of a Megakernel: Reconstructing Persistence with PDL</a>；仓库 <a href="https://github.com/tie-pilot-qxw/pdl-megakernel-reconstruction" target="_blank" rel="noopener">tie-pilot-qxw/pdl-megakernel-reconstruction</a>；证据包 <code>blog-v1.0</code>。</li>
+        <li>Benjamin Spector et al.，<a href="https://hazyresearch.stanford.edu/blog/2025-05-27-no-bubbles" target="_blank" rel="noopener">Look Ma, No Bubbles! Designing a Low-Latency Megakernel for Llama-1B</a>，Hazy Research，2025；代码 <a href="https://github.com/HazyResearch/Megakernels" target="_blank" rel="noopener">HazyResearch/Megakernels</a>。</li>
+        <li>NVIDIA，<a href="https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/programmatic-dependent-launch.html" target="_blank" rel="noopener">Programmatic Dependent Launch</a>，<em>CUDA Programming Guide</em>。</li>
+        <li>Xinhao Cheng et al.，<a href="https://arxiv.org/abs/2512.22219" target="_blank" rel="noopener">MPK</a>，OSDI 2026。</li>
+        <li>Hongyi Jin et al.，<a href="https://arxiv.org/abs/2604.13327" target="_blank" rel="noopener">Event Tensor</a>，MLSys 2026。</li>
+        <li>微信转述：<a href="https://mp.weixin.qq.com/s/caONRd5KeL3fvZGPOIKAyg" target="_blank" rel="noopener">NeuralTalk · 拆解 megakernel 性能神话</a>。转述与原文一致处已并入上文；数字、匹配作用域、失败实验的「诊断核 vs 正确核」区分以 GitHub 工程笔记和 <code>experiments/pdl-reconstruction/results/</code> 为准。</li>
+      </ol>
+    </section>
+
+    <footer>
+      本地分析稿 · 对应目录 mlsys-paper/ai compiler/megakernel · 材料截至工程笔记与 blog-v1.0 证据包
+    </footer>
+  </div>
+</body>
+</html>

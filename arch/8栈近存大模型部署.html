@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>8 栈近存上的大模型：中央算什么、两种拼法</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 6px; }
+    .fig-row .fig { margin: 0; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .fig-row { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">部署笔记</span>
+        <span class="badge">8 × HBM stack</span>
+        <span class="badge">16 GB · 4 TB/s / 栈</span>
+        <span class="badge ok">Decode 拼法 / Prefill 拼法</span>
+      </div>
+      <h1>8 栈近存上的大模型：中央算什么、两种拼法</h1>
+      <p class="subtitle">封装内 D2D 比栈内窄 36 倍，谁持有数据谁就得算。由此定中央和栈的分工，拼出 Decode 和 Prefill 两种芯片，两边还能各自换代。</p>
+      <p class="meta">
+        栈侧容量/带宽按现在能做的数：单栈 16 GB、本地 4 TB/s，一封装 8 栈。中央算力、近存 FP4 峰值、D2D 的具体规格见 <a href="../../芯片规格_8MC.html">芯片规格_8MC.html</a>；TOM 机制对照见 <a href="./TOM_论文分析.html">TOM_论文分析.html</a>。
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">8 栈现在能给出的容量和带宽</a></li>
+        <li><a href="#s2">4 TB/s 只在栈内，D2D 吃不到</a></li>
+        <li><a href="#s3">专家和 KV 都近存之后，中央还剩什么</a></li>
+        <li><a href="#flop">各段要多少算力，够不够，不够时两边怎么合算</a></li>
+        <li><a href="#s5">制程拆开：栈逻辑 22/28 nm，中央 12 nm 到 5 nm 都能装</a></li>
+        <li><a href="#s6">两种产品：Decode 芯片和 Prefill 芯片</a></li>
+        <li><a href="#s8">机架上两颗怎么交接 KV</a></li>
+        <li><a href="#adv">两条扩展轴：中央加 FLOP，栈跟供应商换代</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 8 栈现在能给出的容量和带宽</h2>
+      <p>
+        按当前能做的 HBM stack：单栈 16 GB，逻辑层就近能吃到约 4 TB/s。一封装放 8 栈，工作集 128 GB，栈内带宽合计 32 TB/s。中央不另挂系统主存。同一套 8 栈骨架能拼出两种芯片，差别只在栈的逻辑层有没有 MAC、中央贴几颗，第 6 节展开。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="8 栈封装">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="20" y="16" width="920" height="118" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="480" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">8 × HBM stack　各 16 GB / 4 TB/s 本地</text>
+            <rect x="40" y="58" width="96" height="58" rx="4" fill="#fff" stroke="#0f766e"/><text x="88" y="82" text-anchor="middle" font-size="11" fill="#134e4a">S0</text><text x="88" y="100" text-anchor="middle" font-size="10" fill="#0f766e">16GB</text>
+            <rect x="152" y="58" width="96" height="58" rx="4" fill="#fff" stroke="#0f766e"/><text x="200" y="82" text-anchor="middle" font-size="11" fill="#134e4a">S1</text><text x="200" y="100" text-anchor="middle" font-size="10" fill="#0f766e">16GB</text>
+            <rect x="264" y="58" width="96" height="58" rx="4" fill="#fff" stroke="#0f766e"/><text x="312" y="82" text-anchor="middle" font-size="11" fill="#134e4a">S2</text><text x="312" y="100" text-anchor="middle" font-size="10" fill="#0f766e">16GB</text>
+            <rect x="376" y="58" width="96" height="58" rx="4" fill="#fff" stroke="#0f766e"/><text x="424" y="82" text-anchor="middle" font-size="11" fill="#134e4a">S3</text><text x="424" y="100" text-anchor="middle" font-size="10" fill="#0f766e">16GB</text>
+            <rect x="488" y="58" width="96" height="58" rx="4" fill="#fff" stroke="#0f766e"/><text x="536" y="82" text-anchor="middle" font-size="11" fill="#134e4a">S4</text><text x="536" y="100" text-anchor="middle" font-size="10" fill="#0f766e">16GB</text>
+            <rect x="600" y="58" width="96" height="58" rx="4" fill="#fff" stroke="#0f766e"/><text x="648" y="82" text-anchor="middle" font-size="11" fill="#134e4a">S5</text><text x="648" y="100" text-anchor="middle" font-size="10" fill="#0f766e">16GB</text>
+            <rect x="712" y="58" width="96" height="58" rx="4" fill="#fff" stroke="#0f766e"/><text x="760" y="82" text-anchor="middle" font-size="11" fill="#134e4a">S6</text><text x="760" y="100" text-anchor="middle" font-size="10" fill="#0f766e">16GB</text>
+            <rect x="824" y="58" width="96" height="58" rx="4" fill="#fff" stroke="#0f766e"/><text x="872" y="82" text-anchor="middle" font-size="11" fill="#134e4a">S7</text><text x="872" y="100" text-anchor="middle" font-size="10" fill="#0f766e">16GB</text>
+
+            <rect x="20" y="150" width="920" height="130" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="480" y="180" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">中央域 · 1 die 或 多 die，2.5D 贴在衬底上，不做 3D</text>
+            <text x="480" y="210" text-anchor="middle" font-size="12" fill="#334155">合计容量 128 GB　·　栈内带宽合计 32 TB/s（只给栈上逻辑用）</text>
+            <text x="480" y="238" text-anchor="middle" font-size="12" fill="#334155">中央算力、颗数按 SKU 换，栈侧机械尺寸不变</text>
+            <text x="480" y="262" text-anchor="middle" font-size="12" fill="#64748b">模块之间不直连，归约走中央</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1. 8 栈骨架。变的是栈上有没有张量引擎，以及中央贴几颗、多大。</p>
+
+      <table>
+        <thead>
+          <tr><th></th><th>单栈</th><th>8 栈一封装</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>DRAM 容量</td><td>16 GB</td><td>128 GB</td></tr>
+          <tr><td>栈内带宽（给本栈逻辑）</td><td>4 TB/s</td><td>32 TB/s</td></tr>
+          <tr><td>GEMV 屋顶（FP8，约 2 FLOP/B）</td><td>~8 TFLOP/s</td><td>~64 TFLOP/s</td></tr>
+          <tr><td>GEMV 屋顶（FP4，约 4 FLOP/B）</td><td>~16 TFLOP/s</td><td>~128 TFLOP/s</td></tr>
+        </tbody>
+      </table>
+      <p>
+        上表屋顶是「带宽用满、纯矩阵-向量」的上限，不是栈逻辑里真能做出这么多 MAC。22/28 nm 逻辑层面积和功耗会先卡住算力，带宽往往还有余。译码单词元、小 batch 正好落在带宽墙这一侧，所以这 32 TB/s 用得上。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="128GB 能装什么">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="40" y="28" font-size="13" fill="#44403c">128 GB 怎么切（示意）</text>
+            <rect x="40" y="48" width="200" height="36" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="240" y="48" width="680" height="36" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="140" y="72" text-anchor="middle" font-size="12" fill="#134e4a">专家 W ~30 GB</text>
+            <text x="580" y="72" text-anchor="middle" font-size="12" fill="#9a3412">KV + 工作区 ~98 GB　（Qwen3-30B-A3B FP8 量级）</text>
+
+            <rect x="40" y="100" width="481" height="36" fill="#99f6e4" stroke="#0f766e"/>
+            <rect x="521" y="100" width="399" height="36" fill="#fed7aa" stroke="#c2410c"/>
+            <text x="280" y="124" text-anchor="middle" font-size="12" fill="#134e4a">70B 稠密 FP8 ~70 GB</text>
+            <text x="720" y="124" text-anchor="middle" font-size="12" fill="#9a3412">KV ~58 GB</text>
+
+            <text x="40" y="164" font-size="12" fill="#57534e">32K 一路 FP8 KV：30B-A3B（48 层、4 KV 头）≈ 1.6 GB，98 GB 放得下几十路；70B（80 层、8 KV 头）≈ 5.4 GB，58 GB 约十路。</text>
+            <text x="40" y="186" font-size="12" fill="#9a3412">671B 级 MoE 一颗装不下，要多封装切专家或切层。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2. 128 GB 适合「专家全驻留 + 多路 KV」的 MoE 服务卡，不适合单封装塞满超大稠密基座。</p>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 4 TB/s 只在栈内，D2D 吃不到</h2>
+      <p>
+        4 TB/s 是定制宽 TSV 到本栈逻辑层的数，标准 HBM 的 TSV 只按对外 PHY 带宽做，没有这份富余。中央看见的是另一条口：要么是带算力栈上的封装内 D2D（窄，搬激活），要么是不带算力的 Memory Cube 对外 HBM 口（宽，但远窄于 4 TB/s 本地）。TOM 里片外 80 GB/s、栈内 160 GB/s 只差 2 倍，这里 D2D 每向 112 GB/s 对栈内 4 TB/s 差约 36 倍，所以「大块数据别越过这条口」比 2016 年硬得多。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三种带宽">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="20" y="20" width="290" height="240" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="165" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">栈内 TSV</text>
+            <text x="165" y="88" text-anchor="middle" font-size="22" font-weight="700" fill="#0f766e">4 TB/s</text>
+            <text x="165" y="120" text-anchor="middle" font-size="12" fill="#134e4a">本栈 DRAM ↔ 本栈逻辑</text>
+            <text x="165" y="152" text-anchor="middle" font-size="12" fill="#44403c">扫专家 W、扫本地 KV</text>
+            <text x="165" y="184" text-anchor="middle" font-size="12" fill="#44403c">8 栈合计 32 TB/s</text>
+            <text x="165" y="220" text-anchor="middle" font-size="12" fill="#9a3412">没有栈上逻辑就用不上</text>
+
+            <rect x="335" y="20" width="290" height="240" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="480" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">带算力栈的 D2D</text>
+            <text x="480" y="88" text-anchor="middle" font-size="22" font-weight="700" fill="#c2410c">112 GB/s 每向</text>
+            <text x="480" y="120" text-anchor="middle" font-size="12" fill="#7c2d12">每栈一条到中央，8 条聚合 896 GB/s</text>
+            <text x="480" y="152" text-anchor="middle" font-size="12" fill="#44403c">只搬 hidden / 部分和</text>
+            <text x="480" y="184" text-anchor="middle" font-size="12" fill="#44403c">KV、专家 W 不准上这条</text>
+            <text x="480" y="220" text-anchor="middle" font-size="12" fill="#78716c">比栈内 4 TB/s 窄约 36 倍</text>
+
+            <rect x="650" y="20" width="290" height="240" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="795" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">Memory Cube 对外口</text>
+            <text x="795" y="88" text-anchor="middle" font-size="22" font-weight="700" fill="#1e3a5f">~1 TB/s 级</text>
+            <text x="795" y="120" text-anchor="middle" font-size="12" fill="#334155">HBM 标准品 PHY</text>
+            <text x="795" y="152" text-anchor="middle" font-size="12" fill="#44403c">8 栈合计约 8 TB/s 进中央</text>
+            <text x="795" y="184" text-anchor="middle" font-size="12" fill="#44403c">中央自己做 GEMM / Attn</text>
+            <text x="795" y="220" text-anchor="middle" font-size="12" fill="#64748b">标准品无宽 TSV，没有本地 4 TB/s</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3. 带算力的栈：4 TB/s 给自己用，D2D 只走激活。不带算力的 Cube：中央吃 HBM 口，大约每栈 1 TB/s 量级（按现行 HBM3e 一类口估，具体以供应商为准）。</p>
+
+      <p>
+        这 36 倍定死了后面所有的安排，一句话：谁持有数据，谁就得算。历史 KV 和专家 W 是按 GB 计的，只要让它们过一次 D2D，栈内那 4 TB/s 就白给了；能上这条口的只有 hidden、部分和、Softmax 标量统计量这些按 KB 计的中间结果。下面几节的每一条分工，都是这句话的推论。
+      </p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 专家和 KV 都近存之后，中央还剩什么</h2>
+      <p>
+        这一节说的是栈上带 MAC 的那种拼法，也就是第 6 节的 Decode 芯片。部署约束先写死：MoE 专家权重整份放在 8 栈里；KV 的存储和扫描都在栈上做。中央不要去扫历史 KV，也不要把专家 W 搬过来做 GEMV。剩下适合中央的，是「算得多、搬得少」或者「必须看见所有栈」的活。Prefill 芯片那边栈是无 MAC 的 Cube，下面这套分工不适用，中央全包。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="一层 MoE 谁算">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="240" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">栈上（8×，22/28 nm 逻辑）</text>
+            <text x="720" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">中央（先进制程，可多 die）</text>
+
+            <rect x="20" y="44" width="440" height="52" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="240" y="76" text-anchor="middle" font-size="13" fill="#134e4a">Decode：本头 KV 扫描 + Softmax + PV</text>
+            <rect x="20" y="108" width="440" height="52" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="240" y="140" text-anchor="middle" font-size="13" fill="#134e4a">Decode：本栈专家 GEMV（W 不动）</text>
+            <rect x="20" y="172" width="440" height="52" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="240" y="204" text-anchor="middle" font-size="13" fill="#134e4a">SiLU / 本地 RMS 的逐元素　·　扩展维不送出</text>
+            <rect x="20" y="236" width="440" height="52" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="240" y="268" text-anchor="middle" font-size="13" fill="#134e4a">Decode 的 W_qkv / W_o（和 KV 头绑在一起）</text>
+            <rect x="20" y="300" width="440" height="52" rx="4" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="240" y="332" text-anchor="middle" font-size="13" fill="#134e4a">lm_head 分片（内存墙，跟专家同一类）</text>
+            <rect x="20" y="364" width="440" height="40" rx="4" fill="#fff" stroke="#e7e0d4"/>
+            <text x="240" y="390" text-anchor="middle" font-size="12" fill="#78716c">栈逻辑面积有限，不要再塞 Prefill 的 S²</text>
+
+            <rect x="500" y="44" width="440" height="52" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="720" y="76" text-anchor="middle" font-size="13" fill="#1e3a5f">Prefill 注意力核心 QKᵀ / Softmax / PV</text>
+            <rect x="500" y="108" width="440" height="52" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="720" y="140" text-anchor="middle" font-size="13" fill="#1e3a5f">MoE router（top-k，要看全部专家分）</text>
+            <rect x="500" y="172" width="440" height="52" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="720" y="204" text-anchor="middle" font-size="13" fill="#1e3a5f">星型归约：专家输出、Attn 输出投影部分和</text>
+            <rect x="500" y="236" width="440" height="52" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="720" y="268" text-anchor="middle" font-size="13" fill="#1e3a5f">采样、校验、投机草稿的接受/拒绝</text>
+            <rect x="500" y="300" width="440" height="52" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="720" y="332" text-anchor="middle" font-size="13" fill="#1e3a5f">KV 页表 / 会话调度 / 跨栈 RMS 标量合并</text>
+            <rect x="500" y="364" width="440" height="40" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="720" y="390" text-anchor="middle" font-size="12" fill="#7f1d1d">不要：扫历史 KV　·　把专家 W 拉过来做 GEMV</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4. 按 Decode 芯片画。绿：内存墙，放栈上。蓝：算力墙或必须全局可见，放中央——这颗上的中央很小，蓝框第一行只覆盖短提示。红：明确不要中央做的两件事。</p>
+
+      <p>
+        把一层展开到 GEMM 粒度，能看清每个矩阵乘的权重握在谁手里、算完的结果往哪走。下面按 Decode 跑一个词元画一遍，编号是执行顺序。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="一层 MoE 展开到 GEMM 粒度的数据流与复杂度">
+          <defs>
+            <marker id="dfA" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#c2410c"/></marker>
+            <marker id="dfB" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#94a3b8"/></marker>
+          </defs>
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="30" y="14" width="460" height="30" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="260" y="34" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">8 个近存栈 · 各持自己的 W 分片和 KV 分区</text>
+            <rect x="550" y="14" width="380" height="30" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="740" y="34" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">中央 die · 一颗</text>
+
+            <line x1="520" y1="52" x2="520" y2="800" stroke="#c2410c" stroke-width="1.4" stroke-dasharray="6 4"/>
+            <text x="520" y="820" text-anchor="middle" font-size="11" fill="#9a3412">D2D 112 GB/s 每向：只走 h、部分和、top-k 编号。W 分片和 KV 一概不过这条线。</text>
+
+            <rect x="560" y="60" width="360" height="44" rx="5" fill="#eff6ff" stroke="#1e3a5f"/>
+            <text x="740" y="82" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">本层输入 h [1, H]</text>
+            <text x="740" y="98" text-anchor="middle" font-size="11" fill="#475569">上一层的输出，几 KB</text>
+
+            <text x="520" y="126" text-anchor="middle" font-size="11" fill="#9a3412">广播 h　4 KB × 8</text>
+            <path d="M560 138 H484" stroke="#c2410c" stroke-width="1.6" marker-end="url(#dfA)"/>
+
+            <rect x="40" y="152" width="440" height="60" rx="5" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="56" y="172" font-size="12" font-weight="700" fill="#115e59">① QKV 投影 · GEMV</text>
+            <text x="464" y="172" text-anchor="end" font-size="10" fill="#0f766e">21 MFLOP · 10.5 MB · 强度 2</text>
+            <text x="56" y="190" font-size="11" fill="#44403c">h[1,H] × W_qkv 分片[H, (n_q+2n_kv)·d / 8] → q, k, v</text>
+            <text x="56" y="206" font-size="11" fill="#0f766e">W_qkv 按 KV 头所有权切开，常驻本栈</text>
+
+            <rect x="40" y="222" width="440" height="42" rx="5" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="56" y="242" font-size="12" font-weight="700" fill="#115e59">② 写 KV</text>
+            <text x="56" y="258" font-size="11" fill="#44403c">新的 k, v [1,d] 追加进本栈的 KV 页，不外发</text>
+            <text x="464" y="258" text-anchor="end" font-size="10" fill="#94a3b8">写 4 KB · 不算 FLOP</text>
+
+            <rect x="40" y="274" width="440" height="70" rx="5" fill="#99f6e4" stroke="#0f766e" stroke-width="1.6"/>
+            <text x="56" y="294" font-size="12" font-weight="700" fill="#115e59">③ 注意力 · 两次 GEMV</text>
+            <text x="464" y="294" text-anchor="end" font-size="10" font-weight="700" fill="#b45309">537 MFLOP · 33.5 MB · 强度 16</text>
+            <text x="56" y="312" font-size="11" fill="#44403c">q[1,d] × Kᵀ[d,S] → s[1,S]　→ softmax →　s[1,S] × V[S,d] → o[1,d]</text>
+            <text x="56" y="332" font-size="11" font-weight="700" fill="#0f766e">整段 KV 只在栈内读，吃 4 TB/s——这是近存的主戏</text>
+
+            <rect x="40" y="354" width="440" height="60" rx="5" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="56" y="374" font-size="12" font-weight="700" fill="#115e59">④ 输出投影 · GEMV</text>
+            <text x="464" y="374" text-anchor="end" font-size="10" fill="#0f766e">17 MFLOP · 8.4 MB · 强度 2</text>
+            <text x="56" y="392" font-size="11" fill="#44403c">o[1, n_q·d/8] × W_o 分片[n_q·d/8, H] → 部分和[1,H]</text>
+            <text x="56" y="408" font-size="11" fill="#0f766e">W_o 跟着头走，也在本栈</text>
+
+            <text x="520" y="434" text-anchor="middle" font-size="11" fill="#9a3412">部分和　4 KB × 8</text>
+            <path d="M484 446 H556" stroke="#c2410c" stroke-width="1.6" marker-end="url(#dfA)"/>
+
+            <rect x="560" y="462" width="360" height="54" rx="5" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="576" y="482" font-size="12" font-weight="700" fill="#1e3a5f">⑤ 星型归约</text>
+            <text x="904" y="482" text-anchor="end" font-size="10" fill="#94a3b8">8 路 4 KB 相加 · 可忽略</text>
+            <text x="576" y="500" font-size="11" fill="#334155">8 路部分和相加 → 残差 → RMSNorm → h′</text>
+
+            <rect x="560" y="526" width="360" height="66" rx="5" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="576" y="546" font-size="12" font-weight="700" fill="#1e3a5f">⑥ router · GEMV</text>
+            <text x="904" y="546" text-anchor="end" font-size="10" fill="#1d4ed8">0.5 MFLOP · 0.26 MB</text>
+            <text x="576" y="564" font-size="11" fill="#334155">h′[1,H] × W_r[H,E] → 分数[1,E] → top-k</text>
+            <text x="576" y="582" font-size="11" fill="#1d4ed8">W_r 只有 H×E，常驻中央；argmax 要看全部专家</text>
+
+            <text x="520" y="614" text-anchor="middle" font-size="11" fill="#9a3412">h′ + 命中的专家编号　4 KB × 8</text>
+            <path d="M560 626 H484" stroke="#c2410c" stroke-width="1.6" marker-end="url(#dfA)"/>
+
+            <rect x="40" y="642" width="440" height="88" rx="5" fill="#99f6e4" stroke="#0f766e" stroke-width="1.6"/>
+            <text x="56" y="662" font-size="12" font-weight="700" fill="#115e59">⑦ 专家 FFN · 三次 GEMV，只算本栈命中的那几个</text>
+            <text x="56" y="680" font-size="11" fill="#44403c">h′[1,H] × W_gate[H,I] → g　·　h′[1,H] × W_up[H,I] → u</text>
+            <text x="56" y="698" font-size="11" fill="#44403c">SiLU(g) ⊙ u [1,I] × W_down[I,H] → 部分和[1,H]</text>
+            <text x="56" y="718" font-size="11" font-weight="700" fill="#0f766e">专家 W 整份常驻本栈；扩展维 I 只在栈内出现</text>
+            <text x="464" y="718" text-anchor="end" font-size="10" fill="#0f766e">76 MFLOP · 37.7 MB · 强度 2</text>
+
+            <text x="520" y="754" text-anchor="middle" font-size="11" fill="#9a3412">部分和　4 KB × 8</text>
+            <path d="M484 766 H556" stroke="#c2410c" stroke-width="1.6" marker-end="url(#dfA)"/>
+
+            <rect x="560" y="742" width="360" height="52" rx="5" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="576" y="762" font-size="12" font-weight="700" fill="#1e3a5f">⑧ 按 router 权重合并 8 路 + 残差</text>
+            <text x="904" y="762" text-anchor="end" font-size="10" fill="#94a3b8">加权求和 · 可忽略</text>
+            <text x="576" y="780" font-size="11" fill="#334155">结果就是下一层的 h，整层循环 L 次</text>
+
+            <path d="M920 768 H942 V82 H926" fill="none" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#dfB)"/>
+
+            <rect x="40" y="836" width="880" height="52" rx="5" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="480" y="858" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">末层之后：h 广播到 8 栈 → lm_head 分片 GEMV [1,H] × [H, V/8] → 部分 logits → 回中央拼接</text>
+            <text x="480" y="878" text-anchor="middle" font-size="11" fill="#0f766e">lm_head 和专家同属内存墙，分片放栈上；top-k 和采样必须在中央</text>
+
+            <text x="40" y="902" font-size="10" fill="#57534e">强度标注：绿 = 远低于栈屋脊 20，MAC 有余　·　橙 = 已贴到屋脊八成　·　灰 = 量小可忽略</text>
+
+            <rect x="40" y="914" width="434" height="96" rx="5" fill="#fffbeb" stroke="#f59e0b"/>
+            <text x="257" y="936" text-anchor="middle" font-size="12" font-weight="700" fill="#78350f">字节账 · 每层每词元</text>
+            <text x="56" y="958" font-size="11" fill="#78350f">过 D2D：两次广播 + 两轮部分和 ≈ 128 KB</text>
+            <text x="56" y="978" font-size="11" fill="#78350f">栈内读：权重 57 MB + 本层 KV 33 MB ≈ 90 MB</text>
+            <text x="56" y="998" font-size="11" font-weight="700" fill="#92400e">差三个数量级，所以 D2D 窄 36 倍不要紧</text>
+
+            <rect x="486" y="914" width="434" height="96" rx="5" fill="#eff6ff" stroke="#3b82f6"/>
+            <text x="703" y="936" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">算力账 · 每层每词元</text>
+            <text x="502" y="958" font-size="11" fill="#334155">合计 651 MFLOP，平均强度 7.2（栈屋脊 20）</text>
+            <text x="502" y="978" font-size="11" fill="#334155">每栈 2.8 µs 内要出 81 MFLOP → 需 29 TFLOP/s</text>
+            <text x="502" y="998" font-size="11" font-weight="700" fill="#1d4ed8">峰值 80 TFLOP/s，用掉三成多 → 先满的是带宽</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 5. Decode 一个词元走完一层，每步右侧标着它的 FLOP、读的字节和算术强度。按 GB 计的东西（W_qkv、W_o、专家 W、KV）都停在栈里，只有 [1,H] 的向量和 top-k 编号跨 D2D；中央那两件事都是「必须看见 8 个栈」。③ 是唯一贴近栈屋脊的一步，因为 GQA 让同一份 KV 被 8 个 Q 头复用；batch 一大，①④⑦ 的强度按 2B 涨，也会顶上去。按 Qwen3-30B-A3B、32K 上下文估，展开见第 4 节。</p>
+
+      <h3>为什么 Prefill 注意力必须在中央</h3>
+      <p>
+理由只有算术强度这一条。QKᵀ / PV 的 FLOP 按 S² 涨，进出的 Q、K、V 只按 S 涨，长提示下这是纯算力活，吃不到栈内带宽的好处。栈逻辑是 22/28 nm、MAC 密度低，把 S² 卸过去会占满本来就少的近存算力，译码的 KV 扫描反而排队——TOM 里 LIBOR 无控制 −64%，就是近存算力先成为瓶颈。至于「KV 正在生成」「Softmax 要看整行」这两条不构成理由：KV 是本栈写的，Softmax 也能在栈内对本头做。
+      </p>
+
+      <h3>为什么 router 和归约在中央</h3>
+      <p>
+        top-k 要比较所有专家的分数，分数在 8 栈上各算一块也行，但 argmax 必须有一个汇合点。专家输出按张量并行切在不同栈上，部分和同样要汇合。中央做星型节点，栈与栈不互连，避免 8 栈全连接把封装布线做炸。TOM 里四栈交叉链路加到 0.5× 就饱和，说明这类归约流量本来就不大，值不上做全连接。
+      </p>
+
+      <h3>Prefill 的专家 GEMM 放哪</h3>
+      <p>
+        专家 W 在栈上。长 Prefill 时每个专家看到很多 token，GEMM 从内存墙变成算力墙。Decode 拼法里栈上算力不够吃这段；这条应丢给第 6 节的 Prefill 芯片（Cube + 大中央），由中央把 W 从 Cube 读进来算。Decode 芯片上只适合短提示的 Prefill，或者根本不做 Prefill。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="专家 GEMM 随 S 从带宽墙到算力墙">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="40" y="28" font-size="12" fill="#57534e">一个专家的算术强度（示意）</text>
+            <line x1="80" y1="160" x2="900" y2="160" stroke="#d6d3d1"/>
+            <line x1="80" y1="40" x2="80" y2="160" stroke="#d6d3d1"/>
+            <text x="70" y="48" text-anchor="end" font-size="11" fill="#78716c">高强度</text>
+            <text x="70" y="158" text-anchor="end" font-size="11" fill="#78716c">GEMV</text>
+            <path d="M100 150 C 280 140, 400 80, 720 48" fill="none" stroke="#1e3a5f" stroke-width="2.2"/>
+            <circle cx="140" cy="146" r="6" fill="#0f766e"/>
+            <text x="140" y="178" text-anchor="middle" font-size="11" fill="#0f766e">Decode S=1</text>
+            <circle cx="420" cy="100" r="6" fill="#b45309"/>
+            <text x="420" y="178" text-anchor="middle" font-size="11" fill="#b45309">短提示</text>
+            <circle cx="720" cy="50" r="6" fill="#b91c1c"/>
+            <text x="720" y="178" text-anchor="middle" font-size="11" fill="#b91c1c">长 Prefill</text>
+            <rect x="545" y="108" width="210" height="34" rx="4" fill="#fecaca" stroke="#ef4444"/>
+            <text x="650" y="130" text-anchor="middle" font-size="11" fill="#7f1d1d">22 nm 栈 MAC 吃不住</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6. 同一份专家 W：单词元时 4 TB/s 够用；token 一多，缺的是栈上 FLOP。所以长 Prefill 不要挤在 Decode 芯片上。</p>
+    </section>
+
+    <section class="card" id="flop">
+      <h2>4. 各段要多少算力，够不够，不够时两边怎么合算</h2>
+      <p>
+        上一节的分工只说了「该谁算」，这一节把量算出来。两侧的算力按规格文档取：栈侧每栈 FP8 约 80 TFLOP/s（FP4 160 TOPS 的一半），本地 4 TB/s；中央 FP8 约 0.5 PFLOP/s，但它没有本地 DRAM，进出全靠 8 条 D2D 合计 896 GB/s。基线模型仍用 Qwen3-30B-A3B：48 层、H=2048、32 个 Q 头配 4 个 KV 头、头维 128、128 专家取 8、专家中间维 768。
+      </p>
+      <p>
+        两个屋脊点先定下来。栈侧 80 TFLOP/s ÷ 4 TB/s = <strong>20 FLOP/字节</strong>，低于这个数的算子在栈上是带宽墙，MAC 用不满。中央 0.5 PFLOP/s ÷ 896 GB/s = <strong>约 560 FLOP/字节</strong>，一段计算要搬到中央去算，它的「每搬一字节能换来多少 FLOP」必须高过这个数，否则搬运比计算还贵。这两个数把所有算子分成三段。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="两个屋脊点把算子分成三段">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="80" y="52" width="248" height="150" fill="#f0fdfa" stroke="none"/>
+            <rect x="328" y="52" width="276" height="150" fill="#fef3c7" stroke="none"/>
+            <rect x="604" y="52" width="296" height="150" fill="#eff6ff" stroke="none"/>
+
+            <text x="204" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">栈上带宽墙</text>
+            <text x="204" y="90" text-anchor="middle" font-size="11" fill="#0f766e">MAC 有余，留在栈上</text>
+            <text x="466" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">死区</text>
+            <text x="466" y="90" text-anchor="middle" font-size="11" fill="#92400e">栈上算力墙，但送中央更亏</text>
+            <text x="752" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">送中央划算</text>
+            <text x="752" y="90" text-anchor="middle" font-size="11" fill="#1d4ed8">搬进去的每字节都换得回来</text>
+
+            <line x1="80" y1="202" x2="900" y2="202" stroke="#44403c" stroke-width="1.5"/>
+            <text x="490" y="316" text-anchor="middle" font-size="12" fill="#44403c">算术强度（FLOP / 字节，对数轴）</text>
+
+            <line x1="328" y1="52" x2="328" y2="214" stroke="#0f766e" stroke-width="2"/>
+            <text x="328" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#0f766e">20</text>
+            <text x="328" y="248" text-anchor="middle" font-size="10" fill="#0f766e">栈屋脊</text>
+            <text x="328" y="262" text-anchor="middle" font-size="10" fill="#0f766e">80 TF ÷ 4 TB/s</text>
+
+            <line x1="604" y1="52" x2="604" y2="214" stroke="#1e3a5f" stroke-width="2"/>
+            <text x="604" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a5f">560</text>
+            <text x="604" y="248" text-anchor="middle" font-size="10" fill="#1e3a5f">中央屋脊</text>
+            <text x="604" y="262" text-anchor="middle" font-size="10" fill="#1e3a5f">0.5 PF ÷ 896 GB/s</text>
+
+            <circle cx="137" cy="150" r="6" fill="#0f766e"/>
+            <text x="137" y="140" text-anchor="middle" font-size="10" fill="#115e59">2</text>
+            <text x="137" y="182" text-anchor="middle" font-size="10" fill="#44403c">权重 GEMV</text>
+            <text x="137" y="195" text-anchor="middle" font-size="10" fill="#44403c">单词元</text>
+
+            <circle cx="310" cy="126" r="6" fill="#0f766e"/>
+            <text x="310" y="116" text-anchor="middle" font-size="10" fill="#115e59">16</text>
+            <text x="286" y="182" text-anchor="middle" font-size="10" fill="#44403c">Decode 注意力</text>
+            <text x="286" y="195" text-anchor="middle" font-size="10" fill="#44403c">GQA 8:1 复用</text>
+
+            <circle cx="392" cy="150" r="6" fill="#b45309"/>
+            <text x="392" y="140" text-anchor="middle" font-size="10" fill="#92400e">32</text>
+            <text x="404" y="182" text-anchor="middle" font-size="10" fill="#92400e">batch 16 译码</text>
+
+            <circle cx="825" cy="150" r="6" fill="#1e3a5f"/>
+            <text x="825" y="140" text-anchor="middle" font-size="10" fill="#1e3a5f">8100</text>
+            <text x="825" y="182" text-anchor="middle" font-size="10" fill="#1e3a5f">Prefill 权重 GEMM</text>
+
+            <circle cx="869" cy="126" r="6" fill="#1e3a5f"/>
+            <text x="869" y="116" text-anchor="middle" font-size="10" fill="#1e3a5f">1.4 万</text>
+            <text x="869" y="195" text-anchor="middle" font-size="10" fill="#1e3a5f">Prefill 注意力</text>
+
+            <text x="480" y="290" text-anchor="middle" font-size="11" fill="#78350f">死区里的活只能认下来：要么减 batch 回到左边，要么给栈换代加带宽，中央帮不上。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7. 强度低于 20 的留栈上，高于 560 的才值得搬中央。中间那段既吃满了栈的 MAC，搬到中央又收不回搬运成本。</p>
+
+      <h3>Decode：算力够，先撞的是带宽</h3>
+      <p>
+        按上面的模型，S=32K 时一层一个词元的账是这样（FP8）：
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>段</th><th>FLOP / 层 / 词元</th><th>读的字节</th><th>算术强度</th><th>撞哪堵墙</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>QKV 投影</td><td>21 M</td><td>10.5 MB（权重）</td><td>2</td><td>带宽</td></tr>
+          <tr><td>输出投影</td><td>17 M</td><td>8.4 MB（权重）</td><td>2</td><td>带宽</td></tr>
+          <tr><td>注意力 QKᵀ / PV</td><td>537 M</td><td>33.5 MB（KV）</td><td>16</td><td>带宽，但已贴到屋脊</td></tr>
+          <tr><td>专家 FFN（取 8）</td><td>76 M</td><td>37.7 MB（权重）</td><td>2</td><td>带宽</td></tr>
+          <tr><td>router</td><td>0.5 M</td><td>0.26 MB</td><td>2</td><td>可忽略</td></tr>
+          <tr><td><strong>一层合计</strong></td><td><strong>651 M</strong></td><td><strong>90.4 MB</strong></td><td><strong>7.2</strong></td><td>带宽</td></tr>
+        </tbody>
+      </table>
+
+      <p>
+        90.4 MB 摊到 8 栈是每栈 11.3 MB，4 TB/s 下 2.8 µs；同时要出的 FLOP 是每栈 81 M，折合 29 TFLOP/s，只用掉 80 TFLOP/s 的三成多。<strong>单请求译码上，栈的 MAC 是够的，先满的是 4 TB/s。</strong>整层 48 层合计每词元读 4.3 GB，32 TB/s 的屋顶给出约 130 µs 一个词元。
+      </p>
+      <p>
+        但有两处贴着上限。一是注意力：GQA 把 32 个 Q 头压到 4 个 KV 头，同一份 KV 被复用 8 次，强度不是 GEMV 的 2 而是 16，已经吃掉栈屋脊的八成。换成 GQA 复用比更高的模型，或者 MLA 这类把 KV 压得更狠的结构，这一段就会翻过屋脊变成算力墙。二是 batch：权重被 B 个请求共用，强度变成 2B，<strong>B 到 10 左右就顶到屋脊</strong>，再往上加 batch 只会让栈的 MAC 先饱和。所以这颗芯片的译码并发上限是算力定的，不是容量定的。
+      </p>
+      <p>
+        麻烦在于这两种超限都落在图 7 的死区里：强度三四十，栈上算不动，搬去中央却远不到 560 的门槛——把权重拉过 D2D 只能换来 2B FLOP/字节。中央在这里帮不上忙，只能减 batch、或者等栈换代把 4 TB/s 抬上去。
+      </p>
+
+      <h3>Prefill：算力不够，两边一起算</h3>
+      <p>
+        Prefill 一次进 S 个词元，权重被复用 S 次，强度变成 2S；注意力的 FLOP 按 S² 涨而搬进搬出的 Q、K、V 只按 S 涨，强度也正比于 S。两段都远在 560 之上，所以都可以放中央算，也都可以留栈上算——真正的问题变成怎么把两边的 FLOP 同时用起来。
+      </p>
+      <p>
+        分工是现成的：<strong>权重 GEMM 留栈上，一个字节都不用搬；注意力核心交中央，只搬当前这一段的 Q、K、V。</strong>以 4K 的分块估，每层权重 GEMM 是 463 GFLOP，摊到 8 栈每栈 58 GFLOP，80 TFLOP/s 下 724 µs；同一层的注意力是 275 GFLOP，中央 0.5 PFLOP/s 下 550 µs。两边量级相当，错开一个分块做成流水，一层的墙钟时间就是两者取大而不是相加。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Prefill 分块流水，两侧同时出力">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="40" y="30" font-size="12" fill="#57534e">分块 Prefill，一层内的时间轴 →</text>
+
+            <text x="36" y="80" font-size="12" font-weight="700" fill="#115e59">8 栈</text>
+            <text x="36" y="96" font-size="10" fill="#0f766e">权重 GEMM</text>
+            <rect x="110" y="58" width="190" height="46" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="205" y="86" text-anchor="middle" font-size="11" fill="#134e4a">块 1 · QKV/O/FFN</text>
+            <rect x="306" y="58" width="190" height="46" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="401" y="86" text-anchor="middle" font-size="11" fill="#134e4a">块 2</text>
+            <rect x="502" y="58" width="190" height="46" rx="4" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="597" y="86" text-anchor="middle" font-size="11" fill="#134e4a">块 3</text>
+            <rect x="698" y="58" width="190" height="46" rx="4" fill="#ccfbf1" stroke="#0f766e" stroke-dasharray="4 3"/>
+            <text x="793" y="86" text-anchor="middle" font-size="11" fill="#134e4a">块 4</text>
+
+            <text x="36" y="176" font-size="12" font-weight="700" fill="#1e3a5f">中央</text>
+            <text x="36" y="192" font-size="10" fill="#1d4ed8">S² 注意力</text>
+            <rect x="110" y="154" width="150" height="46" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 3"/>
+            <text x="185" y="182" text-anchor="middle" font-size="11" fill="#94a3b8">空转（第一块还没出 QKV）</text>
+            <rect x="306" y="154" width="150" height="46" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="381" y="182" text-anchor="middle" font-size="11" fill="#1e3a5f">块 1 · QKᵀ/PV</text>
+            <rect x="502" y="154" width="150" height="46" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="577" y="182" text-anchor="middle" font-size="11" fill="#1e3a5f">块 2</text>
+            <rect x="698" y="154" width="150" height="46" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="773" y="182" text-anchor="middle" font-size="11" fill="#1e3a5f">块 3</text>
+
+            <path d="M300 104 L330 150" stroke="#c2410c" stroke-width="1.4" fill="none"/>
+            <path d="M496 104 L526 150" stroke="#c2410c" stroke-width="1.4" fill="none"/>
+            <path d="M692 104 L722 150" stroke="#c2410c" stroke-width="1.4" fill="none"/>
+            <text x="470" y="130" text-anchor="middle" font-size="10" fill="#9a3412">交 Q,K,V（O(S·H) 字节，占用时间的百分之几）</text>
+
+            <rect x="110" y="228" width="778" height="70" rx="6" fill="#fffbeb" stroke="#f59e0b"/>
+            <text x="499" y="252" text-anchor="middle" font-size="12" fill="#78350f">4K 分块、每层：栈侧 463 GFLOP → 724 µs　·　中央 275 GFLOP → 550 µs</text>
+            <text x="499" y="274" text-anchor="middle" font-size="12" font-weight="700" fill="#78350f">分块约 5.4K 时两边正好齐平；更小的块栈先满，更大的块中央先满</text>
+            <text x="499" y="292" text-anchor="middle" font-size="11" fill="#92400e">注意力按 S² 涨、权重按 S 涨，所以块越大，天平越往中央倒</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 8. 权重 GEMM 和 S² 注意力吃的是两套 FLOP，错开一个分块就能同时跑满。中间只交当前块的 Q、K、V，历史 KV 仍不过线。</p>
+
+      <p>
+        分块大小就成了配平旋钮。块小于 5.4K，栈侧先满，中央有空闲，可以顺手把一部分专家 GEMM 也拉过去算（强度 8100 远在 560 之上，拉权重过 D2D 是划算的）；块大于 5.4K，中央先满，这时要么缩块，要么就得动硬件——按第 8 节的两个旋钮给中央换节点或加 die，再不够就换第 6 节的 Prefill 芯片，让整颗的 FLOP 都堆在中央。
+      </p>
+
+      <h3>注意力能不能两边分着算</h3>
+      <p>
+        Prefill 既然能把注意力交给中央，自然要问 Decode 能不能照做。不能，卡点不在算力而在 D2D：中央没有 KV 的副本，给它多少注意力 FLOP，对应的那段 KV 就得搬多少过去。
+      </p>
+      <p>
+        一层一个词元的 KV 是 33.55 MB，48 层合计 1.61 GB，而译码一步的预算是 134 µs。把比例 α 交给中央，就要在这段时间里送过去 α × 1.61 GB，折合 α × 12.0 TB/s。现有 D2D 聚合 896 GB/s，解出 <strong>α ≤ 7.5%</strong>。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="交给中央的注意力比例对 D2D 带宽的需求">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="90" y="34" font-size="13" font-weight="700" fill="#44403c">Decode：把 α 的注意力交给中央，需要多少 D2D</text>
+
+            <polygon points="90,300 145,283 145,300" fill="#99f6e4"/>
+
+            <line x1="90" y1="300" x2="820" y2="300" stroke="#44403c" stroke-width="1.4"/>
+            <line x1="90" y1="300" x2="90" y2="60" stroke="#44403c" stroke-width="1.4"/>
+
+            <line x1="86" y1="223" x2="90" y2="223" stroke="#78716c"/>
+            <line x1="86" y1="147" x2="90" y2="147" stroke="#78716c"/>
+            <line x1="86" y1="70" x2="90" y2="70" stroke="#78716c"/>
+            <text x="80" y="304" text-anchor="end" font-size="11" fill="#78716c">0</text>
+            <text x="80" y="227" text-anchor="end" font-size="11" fill="#78716c">4 TB/s</text>
+            <text x="80" y="151" text-anchor="end" font-size="11" fill="#78716c">8 TB/s</text>
+            <text x="80" y="74" text-anchor="end" font-size="11" fill="#78716c">12 TB/s</text>
+
+            <text x="273" y="320" text-anchor="middle" font-size="11" fill="#78716c">25%</text>
+            <text x="455" y="320" text-anchor="middle" font-size="11" fill="#78716c">50%</text>
+            <text x="638" y="320" text-anchor="middle" font-size="11" fill="#78716c">75%</text>
+            <text x="820" y="320" text-anchor="middle" font-size="11" fill="#78716c">100%</text>
+            <text x="455" y="342" text-anchor="middle" font-size="12" fill="#44403c">交给中央的注意力比例 α</text>
+
+            <line x1="90" y1="300" x2="820" y2="70" stroke="#1e3a5f" stroke-width="2.4"/>
+
+            <line x1="90" y1="283" x2="880" y2="283" stroke="#c2410c" stroke-width="1.8" stroke-dasharray="6 4"/>
+            <text x="884" y="287" font-size="11" font-weight="700" fill="#9a3412">896 GB/s</text>
+            <text x="884" y="302" font-size="10" fill="#c2410c">现有 D2D</text>
+
+            <circle cx="145" cy="283" r="6" fill="#c2410c"/>
+            <text x="158" y="266" font-size="12" font-weight="700" fill="#9a3412">α = 7.5%</text>
+            <text x="158" y="281" font-size="10" fill="#9a3412">D2D 刚好打满</text>
+
+            <circle cx="455" cy="185" r="5" fill="#1e3a5f"/>
+            <text x="468" y="182" font-size="11" fill="#1e3a5f">一半一半：6.0 TB/s，要 6.7 倍</text>
+
+            <circle cx="820" cy="70" r="5" fill="#1e3a5f"/>
+            <text x="810" y="60" text-anchor="end" font-size="11" fill="#1e3a5f">全交中央：12.0 TB/s，每链路 1.5 TB/s，13 倍</text>
+
+            <text x="152" y="300" font-size="9" fill="#0f766e">可行区</text>
+
+            <text x="90" y="368" font-size="12" fill="#78350f">α = 7.5% 换来的是栈侧每层少读 2.5 MB（90.4 → 87.9），快 2.8%——为此把 D2D 占满。</text>
+            <text x="90" y="390" font-size="12" font-weight="700" fill="#78350f">根子在强度：这笔搬运只有 16 FLOP/字节，中央屋脊要 560，差 35 倍。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 9. 需求随 α 线性涨到 12 TB/s，现有 D2D 只在最左端截出一条窄缝。换个说法：D2D 只有栈内总带宽的 2.8%，而 KV 占栈内读取量的 37%，能分出去的就是 2.8% ÷ 37%。</p>
+
+      <p>
+        让中央缓存一部分 KV 也堵不上这个口子：单条 32K 序列的 KV 就有 1.61 GB，中央 SRAM 装不下，而这套架构又不给中央挂系统主存。
+      </p>
+      <p>
+        Prefill 和 Decode 其实是同一个式子的两端。记 C 为共用同一次 KV 读取的查询词元数，这笔搬运的强度是 2 × (n_q / n_kv) × C ÷ KV 字节宽，本例 GQA 8:1、FP8 就是 16C。要越过中央屋脊 560，需要 <strong>C &gt; 35</strong>。Decode 的 C = 1，差 35 倍；Prefill 4K 分块的 C = 4096，超出一百倍。中间没有灰色地带，所以这件事在 Prefill 下天然成立、在 Decode 下怎么调都不成立。
+      </p>
+      <p>
+        这个门槛顺带否掉一个看着可行的做法。投机解码确实制造了 C &gt; 1——k 个草稿词元共用一次 KV 读——但常用的 k 是 4 到 8，强度只到 64 至 128，离 560 仍远。要跨过 35，草稿深度得做到三十几，接受率撑不住。KV 若用 FP16，门槛还要翻倍到 70。
+      </p>
+
+      <h3>还有一种合算：一条序列的 KV 摊在多个栈上</h3>
+      <p>
+        上下文长到单栈放不下某个头的 KV 时，同一个头要跨栈切。这时注意力没法在一个栈里算完，但也不必把 KV 搬出去：每个栈对自己那段算局部的 Softmax 统计量（最大值 m 和求和 l）加局部的 PV 部分和，中央按标准的在线 Softmax 公式合并。过 D2D 的只有每头两个标量和一个 [1,d] 向量，仍是 KB 级。代价是中央多一次归约，换来的是上下文长度不再被单栈容量卡死。
+      </p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 制程拆开：栈逻辑 22/28 nm，中央 12 nm 到 5 nm 都能装</h2>
+      <p>
+        栈上逻辑不需要先进制程：MAC 密度低一点，只要跟得上 4 TB/s 的 Decode GEMV 和 KV 扫描。国产 22/28 nm 够用，也和 HBM 逻辑层常见节点合得上。这一侧的节点是被 3D 键合和热锁住的，没什么选择余地。
+      </p>
+      <p>
+        中央那侧相反，节点是自由变量。它不参与 3D 键合，只是衬底上的一颗平面 die，接口是 8 条 D2D，活是 Prefill 注意力、router、归约、采样——这些都不挑节点。12 nm 能做，7 nm、5 nm 也能做，换节点只改同面积 FLOP 和功耗，不改分工、不改归约路数、不改头和专家的所有权映射。
+      </p>
+      <p>
+        由此多出一条路：12/14 nm 中央配 22/28 nm 栈，整颗芯片不依赖进口，代价是中央 FLOP 低一档，对 Decode 够用、长提示得让给别的芯片。要更高的 FLOP 密度再换 7 nm 或 5 nm。就算走这条，拿回来的也只是一颗平面 die，甚至拿多颗回国内做 2.5D 封装，比整颗 3D 近存 GPU 过关容易。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="3D 只发生在栈上">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="40" y="20" width="360" height="220" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="220" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">一个 HBM stack（3D 发生在这里）</text>
+            <rect x="70" y="64" width="300" height="28" fill="#ccfbf1" stroke="#5eead4"/><text x="220" y="83" text-anchor="middle" font-size="11" fill="#134e4a">DRAM 层</text>
+            <rect x="70" y="96" width="300" height="28" fill="#ccfbf1" stroke="#5eead4"/><text x="220" y="115" text-anchor="middle" font-size="11" fill="#134e4a">DRAM 层</text>
+            <rect x="70" y="128" width="300" height="28" fill="#99f6e4" stroke="#0f766e"/><text x="220" y="147" text-anchor="middle" font-size="11" fill="#134e4a">TSV</text>
+            <rect x="70" y="164" width="300" height="48" fill="#fff" stroke="#0f766e" stroke-width="1.8"/>
+            <text x="220" y="184" text-anchor="middle" font-size="12" font-weight="700" fill="#115e59">逻辑层 22 / 28 nm</text>
+            <text x="220" y="202" text-anchor="middle" font-size="11" fill="#0f766e">有 MAC = 近存栈　·　无 MAC = Cube 标准品</text>
+
+            <rect x="460" y="40" width="460" height="180" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="690" y="72" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">中央 die（没有 3D）</text>
+            <rect x="500" y="92" width="160" height="90" rx="6" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="580" y="132" text-anchor="middle" font-size="12" fill="#1e3a5f">die A</text>
+            <text x="580" y="152" text-anchor="middle" font-size="11" fill="#334155">12 nm 起，按需上 7/5 nm</text>
+            <rect x="700" y="92" width="160" height="90" rx="6" fill="#bfdbfe" stroke="#1e3a5f" stroke-dasharray="5 3"/>
+            <text x="780" y="132" text-anchor="middle" font-size="12" fill="#1e3a5f">die B（可选）</text>
+            <text x="780" y="152" text-anchor="middle" font-size="11" fill="#334155">2.5D 并排</text>
+            <text x="690" y="204" text-anchor="middle" font-size="12" fill="#64748b">平面 die，节点自选；进口也只进这一颗</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 10. 3D 只在 HBM 柱里，中央是平面拼。栈逻辑锁在国产节点上；中央那颗节点自选，颗数按 SKU 变。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 264" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="中央 die 的制程是自由变量">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="40" y="30" font-size="13" fill="#44403c">中央节点：按能拿到什么、要多少 FLOP 选</text>
+
+            <rect x="40" y="46" width="270" height="124" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="175" y="76" text-anchor="middle" font-size="15" font-weight="700" fill="#115e59">12 / 14 nm</text>
+            <text x="175" y="104" text-anchor="middle" font-size="12" fill="#44403c">国产可做</text>
+            <text x="175" y="128" text-anchor="middle" font-size="12" fill="#44403c">够 router / 归约 / 采样</text>
+            <text x="175" y="154" text-anchor="middle" font-size="12" font-weight="700" fill="#0f766e">整颗芯片不依赖进口</text>
+
+            <rect x="345" y="46" width="270" height="124" rx="8" fill="#eff6ff" stroke="#3b82f6"/>
+            <text x="480" y="76" text-anchor="middle" font-size="15" font-weight="700" fill="#1d4ed8">7 nm</text>
+            <text x="480" y="104" text-anchor="middle" font-size="12" fill="#44403c">同面积 FLOP 抬一档</text>
+            <text x="480" y="128" text-anchor="middle" font-size="12" fill="#44403c">中档 SKU、短提示 Prefill</text>
+            <text x="480" y="154" text-anchor="middle" font-size="12" fill="#1d4ed8">单 die 就能撑</text>
+
+            <rect x="650" y="46" width="270" height="124" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="785" y="76" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a5f">5 nm</text>
+            <text x="785" y="104" text-anchor="middle" font-size="12" fill="#44403c">FLOP 密度最高</text>
+            <text x="785" y="128" text-anchor="middle" font-size="12" fill="#44403c">长提示 Prefill 主力</text>
+            <text x="785" y="154" text-anchor="middle" font-size="12" fill="#1e3a5f">要多 die 时也从这挑</text>
+
+            <path d="M40 182 H920" stroke="#d6d3d1" stroke-width="1.2"/>
+            <text x="480" y="212" text-anchor="middle" font-size="12" fill="#78350f">换节点不改：8 条 D2D 口 · 星型归约路数 · 头和专家的所有权映射 · 中央与栈的分工</text>
+            <text x="480" y="240" text-anchor="middle" font-size="12" fill="#78350f">换节点才改：同面积 FLOP · 功耗 · 单 die 吃不吃得下长提示</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 11. 中央节点横跨 12 nm 到 5 nm，选哪档只影响 FLOP 密度和功耗。接口和分工不动，所以同一套软件能跑在任一档上。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 两种产品：Decode 芯片和 Prefill 芯片</h2>
+      <p>
+        栈的机械和 16 GB / 4 TB/s 可以共用。变的是：逻辑层有没有 MAC，中央贴小 die 还是多颗大 die。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="两种 SKU">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="16" y="16" width="452" height="328" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.8"/>
+            <text x="242" y="44" text-anchor="middle" font-size="16" font-weight="700" fill="#115e59">Decode 芯片</text>
+            <text x="242" y="68" text-anchor="middle" font-size="12" fill="#0f766e">小算力 / 良率差的中央 + 带 MAC 的 8 栈</text>
+            <rect x="36" y="84" width="412" height="44" rx="4" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="242" y="112" text-anchor="middle" font-size="12" fill="#9a3412">中央：router · 8 路归约 · 采样 · 页表</text>
+            <rect x="36" y="140" width="44" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/><text x="58" y="180" text-anchor="middle" font-size="10" fill="#134e4a">MAC</text>
+            <rect x="86" y="140" width="44" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/><text x="108" y="180" text-anchor="middle" font-size="10" fill="#134e4a">MAC</text>
+            <rect x="136" y="140" width="44" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/><text x="158" y="180" text-anchor="middle" font-size="10" fill="#134e4a">MAC</text>
+            <rect x="186" y="140" width="44" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/><text x="208" y="180" text-anchor="middle" font-size="10" fill="#134e4a">MAC</text>
+            <rect x="236" y="140" width="44" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/><text x="258" y="180" text-anchor="middle" font-size="10" fill="#134e4a">MAC</text>
+            <rect x="286" y="140" width="44" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/><text x="308" y="180" text-anchor="middle" font-size="10" fill="#134e4a">MAC</text>
+            <rect x="336" y="140" width="44" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/><text x="358" y="180" text-anchor="middle" font-size="10" fill="#134e4a">MAC</text>
+            <rect x="386" y="140" width="44" height="70" rx="3" fill="#99f6e4" stroke="#0f766e"/><text x="408" y="180" text-anchor="middle" font-size="10" fill="#134e4a">MAC</text>
+            <text x="242" y="236" text-anchor="middle" font-size="12" fill="#134e4a">8 栈都带 22/28 nm 张量 + 向量通路</text>
+            <text x="242" y="264" text-anchor="middle" font-size="12" fill="#44403c">吃 32 TB/s：KV 扫描 + 专家 GEMV</text>
+            <text x="242" y="292" text-anchor="middle" font-size="12" fill="#44403c">中央 FLOP 要求低，差 die 也能用</text>
+            <text x="242" y="320" text-anchor="middle" font-size="12" fill="#9a3412">长 Prefill 不要挤在这颗上</text>
+
+            <rect x="492" y="16" width="452" height="328" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.8"/>
+            <text x="718" y="44" text-anchor="middle" font-size="16" font-weight="700" fill="#1e3a5f">Prefill 芯片</text>
+            <text x="718" y="68" text-anchor="middle" font-size="12" fill="#1e3a5f">多 die 大算力中央 + 无 MAC 的 Cube 标准品</text>
+            <rect x="512" y="84" width="190" height="70" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="607" y="114" text-anchor="middle" font-size="12" fill="#1e3a5f">中央 die 0</text>
+            <text x="607" y="134" text-anchor="middle" font-size="11" fill="#334155">先进制程</text>
+            <rect x="722" y="84" width="190" height="70" rx="4" fill="#bfdbfe" stroke="#1e3a5f"/>
+            <text x="817" y="114" text-anchor="middle" font-size="12" fill="#1e3a5f">中央 die 1…</text>
+            <text x="817" y="134" text-anchor="middle" font-size="11" fill="#334155">2.5D 再并</text>
+            <rect x="512" y="170" width="40" height="50" rx="3" fill="#e2e8f0" stroke="#64748b"/><text x="532" y="200" text-anchor="middle" font-size="9" fill="#475569">Cube</text>
+            <rect x="560" y="170" width="40" height="50" rx="3" fill="#e2e8f0" stroke="#64748b"/><text x="580" y="200" text-anchor="middle" font-size="9" fill="#475569">Cube</text>
+            <rect x="608" y="170" width="40" height="50" rx="3" fill="#e2e8f0" stroke="#64748b"/><text x="628" y="200" text-anchor="middle" font-size="9" fill="#475569">Cube</text>
+            <rect x="656" y="170" width="40" height="50" rx="3" fill="#e2e8f0" stroke="#64748b"/><text x="676" y="200" text-anchor="middle" font-size="9" fill="#475569">Cube</text>
+            <rect x="704" y="170" width="40" height="50" rx="3" fill="#e2e8f0" stroke="#64748b"/><text x="724" y="200" text-anchor="middle" font-size="9" fill="#475569">Cube</text>
+            <rect x="752" y="170" width="40" height="50" rx="3" fill="#e2e8f0" stroke="#64748b"/><text x="772" y="200" text-anchor="middle" font-size="9" fill="#475569">Cube</text>
+            <rect x="800" y="170" width="40" height="50" rx="3" fill="#e2e8f0" stroke="#64748b"/><text x="820" y="200" text-anchor="middle" font-size="9" fill="#475569">Cube</text>
+            <rect x="848" y="170" width="40" height="50" rx="3" fill="#e2e8f0" stroke="#64748b"/><text x="868" y="200" text-anchor="middle" font-size="9" fill="#475569">Cube</text>
+            <text x="718" y="248" text-anchor="middle" font-size="12" fill="#334155">Memory Cube 标准品，逻辑层无张量引擎</text>
+            <text x="718" y="276" text-anchor="middle" font-size="12" fill="#44403c">中央经 HBM 口读 W 和 KV，自做 S² 和专家 GEMM</text>
+            <text x="718" y="304" text-anchor="middle" font-size="12" fill="#44403c">合计约 8 TB/s 进中央，128 GB 工作集</text>
+            <text x="718" y="328" text-anchor="middle" font-size="12" fill="#1e3a5f">不依赖国产 MAC；Cube 可外购</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 12. 左：近存算力在栈上，中央可以很小。右：算力全在中央，栈退化成标准 Memory Cube。</p>
+
+      <table>
+        <thead>
+          <tr><th></th><th>Decode 芯片</th><th>Prefill 芯片</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>栈</td><td>8 × 带 MAC 的近存栈（22/28 nm）</td><td>8 × Memory Cube 标准品（无 MAC）</td></tr>
+          <tr><td>中央</td><td>小 die，或测试降频/缺单元的 die</td><td>1～N 颗大 die</td></tr>
+          <tr><td>中央节点</td><td>12/14 nm 就够，可做到全国产</td><td>7 nm 或 5 nm，长提示越长越吃密度</td></tr>
+          <tr><td>用到的带宽</td><td>32 TB/s 栈内</td><td>~8 TB/s HBM 口进中央</td></tr>
+          <tr><td>专家 W</td><td>栈内 GEMV，W 不上 D2D</td><td>Cube 里，中央读来做 GEMM</td></tr>
+          <tr><td>KV</td><td>栈内扫描</td><td>Cube 里，中央做 Prefill Attn 并写出</td></tr>
+          <tr><td>适合</td><td>自回归、多会话、长 KV</td><td>长提示、高算术强度、专家大 GEMM</td></tr>
+          <tr><td>不适合</td><td>很长的 Prefill</td><td>单词元译码（HBM 口扫 W 比栈内 4 TB/s 亏）</td></tr>
+        </tbody>
+      </table>
+      <h3>良率分拣怎么落到 SKU</h3>
+      <p>
+中央 die 来料按节点、面积、缺单元、频率分档。栈有两种库存：带 MAC 的近存柱，和不带 MAC 的 Cube。衬底 balling 口兼容的话，下面几种都能组出来。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="中央分档 × 栈类型">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <text x="140" y="28" font-size="12" fill="#78716c">中央来料 →</text>
+            <text x="40" y="90" font-size="12" fill="#44403c">小 / 差 die</text>
+            <text x="40" y="150" font-size="12" fill="#44403c">中档 1 die</text>
+            <text x="40" y="210" font-size="12" fill="#44403c">多 die 大算力</text>
+
+            <text x="430" y="28" text-anchor="middle" font-size="12" fill="#0f766e">× 带 MAC 的 8 栈</text>
+            <text x="740" y="28" text-anchor="middle" font-size="12" fill="#1e3a5f">× Cube 标准品</text>
+
+            <rect x="280" y="60" width="280" height="48" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="420" y="90" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">主 Decode SKU</text>
+            <rect x="600" y="60" width="280" height="48" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/>
+            <text x="740" y="90" text-anchor="middle" font-size="12" fill="#94a3b8">中央太弱，Prefill 没意义</text>
+
+            <rect x="280" y="120" width="280" height="48" rx="6" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="420" y="150" text-anchor="middle" font-size="13" fill="#134e4a">Decode + 短提示 Prefill</text>
+            <rect x="600" y="120" width="280" height="48" rx="6" fill="#dbeafe" stroke="#93c5fd"/>
+            <text x="740" y="150" text-anchor="middle" font-size="12" fill="#1e3a5f">入门 Prefill / 小模型</text>
+
+            <rect x="280" y="180" width="280" height="48" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+            <text x="420" y="210" text-anchor="middle" font-size="13" fill="#9a3412">贵，一般不这么拼</text>
+            <rect x="600" y="180" width="280" height="48" rx="6" fill="#bfdbfe" stroke="#1e3a5f"/>
+            <text x="740" y="210" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">主 Prefill SKU</text>
+
+            <text x="480" y="258" text-anchor="middle" font-size="12" fill="#57534e">右上空着：小中央配纯内存，两边都吃不满。左下贵：大中央的 FLOP 在 Decode 上闲着，还占用带 MAC 的栈库存。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 13. 两条主产品在对角线上：差中央配近存栈；好中央配 Cube。另外两格不是不能做，只是库存和成本不划算。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>7. 机架上两颗怎么交接 KV</h2>
+      <p>
+        长提示走 Prefill 芯片，生成的 KV 要进 Decode 芯片的栈才能被 4 TB/s 扫描。这是机架级 PD 分离，交接的是 KV，不是整份专家 W（Decode 侧专家已经驻留）。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Prefill 芯片把 KV 交给 Decode 芯片">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="20" y="40" width="360" height="160" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="200" y="72" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">Prefill 芯片</text>
+            <text x="200" y="100" text-anchor="middle" font-size="12" fill="#334155">多 die 中央 + 8 Cube</text>
+            <text x="200" y="128" text-anchor="middle" font-size="12" fill="#44403c">读 W，做 S² 和专家 GEMM</text>
+            <text x="200" y="156" text-anchor="middle" font-size="12" fill="#44403c">按头写出 KV</text>
+            <text x="200" y="184" text-anchor="middle" font-size="12" fill="#1e3a5f">专家 W 可以只为 Prefill 放一份</text>
+
+            <path d="M380 120 H580" stroke="#c2410c" stroke-width="2.2"/>
+            <text x="480" y="108" text-anchor="middle" font-size="12" fill="#9a3412">网络 / 板级：KV</text>
+            <text x="480" y="148" text-anchor="middle" font-size="11" fill="#78716c">不上专家 W</text>
+
+            <rect x="580" y="40" width="360" height="160" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="760" y="72" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">Decode 芯片</text>
+            <text x="760" y="100" text-anchor="middle" font-size="12" fill="#134e4a">小中央 + 8 近存栈</text>
+            <text x="760" y="128" text-anchor="middle" font-size="12" fill="#44403c">KV 落入对应头的栈</text>
+            <text x="760" y="156" text-anchor="middle" font-size="12" fill="#44403c">之后 4 TB/s 本地扫描</text>
+            <text x="760" y="184" text-anchor="middle" font-size="12" fill="#0f766e">专家 W 早已在栈里</text>
+
+            <text x="480" y="232" text-anchor="middle" font-size="12" fill="#44403c">短提示可以只走 Decode 芯片，省掉这次 KV 拷贝。多长算短，按栈上剩余 FLOP 和队列定。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 14. Prefill 芯片是「大算力 + 标准内存」；Decode 芯片是「小算力 + 近存 MAC」。中间只交 KV，对齐头所有权写入。</p>
+    </section>
+
+    <section class="card" id="adv">
+      <h2>8. 两条扩展轴：中央加 FLOP，栈跟供应商换代</h2>
+      <p>
+        前面七节的分工落下来，加量的路只剩两条，而且互不牵连。Prefill 缺 FLOP，加在中央 die 上：换更大一张，或者 2.5D 再并一颗。Decode 缺容量和本地带宽，这两项跟 3D DRAM 厂走，现在单栈 16 GB / 4 TB/s，后面的栈会更大、更快。
+      </p>
+      <p>
+        算力这条轴只能往中央加。第 5 节说栈逻辑用 22/28 nm 就够，那是针对 Decode 的带宽需求说的；换到算力上限，同一个节点就是天花板——栈上逻辑 die 的面积被 HBM 脚印、热和 TSV 卡住，再堆 MAC 很快撞功耗墙，加不了几倍，而且这一侧的节点还被 3D 键合锁着，想换也换不动。中央那侧有两个旋钮：往下换节点，12 nm 到 5 nm 同面积 FLOP 差好几倍；往外加颗数，一张换成两张、四张。两个旋钮可以叠，也可以只拧一个。容量那条轴反过来加不到中央头上，中央不必为了多几 GB 去做 3D。
+      </p>
+      <p>
+        分开的价值在于每次只动一边。一体 GPU 想加算力要重做光罩、换制程，想加容量要动 HBM 口，几件事绑在同一次流片里；近存 MAC 如果直接焊进 DRAM 柱，加算力还会先碰上脚印和热。这里换栈不碰中央，换中央不碰栈，8 个口、星型归约、头和专家的映射在两种改动下都不变，软件侧不用跟着改。
+      </p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="加算力和换栈可以分开做">
+          <defs>
+            <marker id="arG2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0f766e"/></marker>
+            <marker id="arN2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1e3a5f"/></marker>
+          </defs>
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <line x1="90" y1="260" x2="900" y2="260" stroke="#44403c" stroke-width="1.5"/>
+            <line x1="90" y1="260" x2="90" y2="36" stroke="#44403c" stroke-width="1.5"/>
+            <text x="500" y="288" text-anchor="middle" font-size="12" fill="#44403c">单栈容量 / 栈内带宽（HBM 厂下一代）</text>
+            <text x="22" y="150" font-size="12" fill="#44403c">中央</text>
+            <text x="22" y="168" font-size="12" fill="#44403c">FLOP</text>
+
+            <circle cx="230" cy="200" r="9" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="230" y="186" text-anchor="middle" font-size="11" fill="#115e59">现在的 Decode 芯片</text>
+            <text x="230" y="226" text-anchor="middle" font-size="10" fill="#78716c">小中央 · 16 GB / 4 TB/s</text>
+
+            <circle cx="520" cy="200" r="9" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="520" y="186" text-anchor="middle" font-size="11" fill="#115e59">只换栈</text>
+            <text x="520" y="226" text-anchor="middle" font-size="10" fill="#78716c">中央还是那颗</text>
+            <path d="M241 200 H509" stroke="#0f766e" stroke-width="1.6" marker-end="url(#arG2)"/>
+
+            <circle cx="230" cy="80" r="9" fill="#93c5fd" stroke="#1e3a5f"/>
+            <text x="230" y="64" text-anchor="middle" font-size="11" fill="#1e3a5f">只动中央：换节点或加 die</text>
+            <text x="348" y="84" font-size="10" fill="#64748b">栈仍可用 Cube</text>
+            <path d="M230 190 V92" stroke="#1e3a5f" stroke-width="1.6" marker-end="url(#arN2)"/>
+
+            <circle cx="720" cy="80" r="9" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="720" y="64" text-anchor="middle" font-size="11" fill="#1e3a5f">两边都换</text>
+            <path d="M241 80 H709" stroke="#94a3b8" stroke-width="1.1" stroke-dasharray="4 3"/>
+            <path d="M520 190 V92" stroke="#94a3b8" stroke-width="1.1" stroke-dasharray="4 3"/>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 15. 往右：同一颗中央，换容量/带宽更高的栈。往上：同一套栈口，中央多贴 die。可以只动一边。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="缺算力改中央，缺容量改栈">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="20" y="16" width="450" height="188" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="245" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">Prefill 算不动</text>
+            <text x="245" y="84" text-anchor="middle" font-size="13" fill="#44403c">换节点 12→7→5 nm，或并第二颗 die</text>
+            <text x="245" y="112" text-anchor="middle" font-size="13" fill="#44403c">2.5D，不做 3D</text>
+            <text x="245" y="140" text-anchor="middle" font-size="13" fill="#44403c">栈可以仍是 Memory Cube 标准品</text>
+            <text x="245" y="176" text-anchor="middle" font-size="12" fill="#64748b">FLOP 跟能拿到的中央 die 走</text>
+
+            <rect x="490" y="16" width="450" height="188" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="715" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">KV / 专家装不下或扫太慢</text>
+            <text x="715" y="84" text-anchor="middle" font-size="13" fill="#44403c">换下一代 3D DRAM 栈</text>
+            <text x="715" y="112" text-anchor="middle" font-size="13" fill="#44403c">层数、I/O、单层密度由内存厂做</text>
+            <text x="715" y="140" text-anchor="middle" font-size="13" fill="#44403c">8 个口、星型归约、头/专家映射可以不动</text>
+            <text x="715" y="176" text-anchor="middle" font-size="12" fill="#0f766e">容量和 4 TB/s 会随栈换代往上走</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 16. 缺哪项改哪边。两侧的改动互不牵连，另一侧连重新验证都省了。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="HBM 栈换代">
+          <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+            <rect x="40" y="36" width="200" height="100" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="140" y="68" text-anchor="middle" font-size="13" fill="#7c2d12">现在能买到的栈</text>
+            <text x="140" y="96" text-anchor="middle" font-size="18" font-weight="700" fill="#9a3412">16 GB</text>
+            <text x="140" y="118" text-anchor="middle" font-size="12" fill="#9a3412">本地约 4 TB/s</text>
+            <path d="M240 86 H320" stroke="#57534e" stroke-width="1.5"/>
+            <rect x="320" y="36" width="280" height="100" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="460" y="68" text-anchor="middle" font-size="13" fill="#134e4a">内存厂后续栈</text>
+            <text x="460" y="96" text-anchor="middle" font-size="14" fill="#115e59">单栈 GB 增加</text>
+            <text x="460" y="118" text-anchor="middle" font-size="12" fill="#0f766e">本地 TB/s 增加</text>
+            <path d="M600 86 H680" stroke="#57534e" stroke-width="1.5"/>
+            <rect x="680" y="36" width="240" height="100" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <text x="800" y="68" text-anchor="middle" font-size="13" fill="#1e3a5f">8 栈合计</text>
+            <text x="800" y="96" text-anchor="middle" font-size="13" fill="#334155">128 GB 往上</text>
+            <text x="800" y="118" text-anchor="middle" font-size="12" fill="#334155">32 TB/s 往上</text>
+            <text x="480" y="168" text-anchor="middle" font-size="12" fill="#44403c">Cube 没有自研 MAC，换标准品即可。带 MAC 的栈只要逻辑层跟得上新 TSV/PHY。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 17. 3D DRAM 有独立供应商在出新栈。封装仍是 8 口的话，软件侧的栈数和所有权可以不改。</p>
+    </section>
+
+
+    <footer>
+      8 × 16 GB / 4 TB/s 栈 · Decode / Prefill 两种拼法 · <a href="./TOM_论文分析.html">TOM 机制</a> · 2026-09-04
+    </footer>
+  </div>
+</body>
+</html>
