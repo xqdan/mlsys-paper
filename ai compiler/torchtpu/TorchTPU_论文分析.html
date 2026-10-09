@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TorchTPU 技术分析 | Google Developers Blog 2026</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">Google Developers Blog · 2026</span>
+        <span class="badge">PyTorch on TPU</span>
+        <span class="badge">编译栈 · 分布式训练</span>
+        <span class="badge ok">Google + Meta</span>
+        <span class="badge ok">Dynamo / XLA / StableHLO</span>
+        <span class="badge ok">O(100K) 芯片</span>
+      </div>
+      <h1>让 PyTorch 原生跑在 TPU 上：TorchTPU 的工程解法</h1>
+      <p class="subtitle">TorchTPU: Running PyTorch Natively on TPUs at Google Scale</p>
+      <p class="meta">
+        <strong>发布：</strong>Google（与 Meta 联合推进）· Google Developers Blog，2026<br />
+        <strong>原文：</strong><a href="https://developers.googleblog.com/torchtpu-running-pytorch-natively-on-tpus-at-google-scale/" target="_blank" rel="noopener">developers.googleblog.com/torchtpu-running-pytorch-natively-on-tpus-at-google-scale</a>
+        · 定位 <a href="https://cloud.google.com/products/tpu/tpu-developer" target="_blank" rel="noopener">TPU Developer Hub</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与动机</a></li>
+        <li><a href="#s2">TPU 硬件：ICI 网络、TensorCore、SparseCore</a></li>
+        <li><a href="#s3">Eager First：三种 eager 模式</a></li>
+        <li><a href="#s4">静态编译：Dynamo → XLA → StableHLO</a></li>
+        <li><a href="#s5">分布式训练与 MPMD 难题</a></li>
+        <li><a href="#s6">TPU 硬件感知：形状不是免费的</a></li>
+        <li><a href="#s7">2026 路线图</a></li>
+        <li><a href="#s8">放在编译栈坐标里怎么看</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与动机</h2>
+      <p class="lead">
+        TPU 过去主要围绕 JAX 调优，大量外部用户的代码却是 PyTorch。TorchTPU 是 Google 的工程团队（与 Meta 合作）新写的一套栈，目标只有一句话：<strong>换一行 <code>device="tpu"</code>，训练脚本其余代码不用动</strong>。它不是在 PyTorch/XLA 外面再包一层，而是深入 PyTorch 的 <code>PrivateUse1</code> 后端接口，让 TPU 上跑的是普通 <code>torch.Tensor</code>，没有子类、没有包装器。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">50–100%+</div>
+          <div class="k">Fused Eager 相对 Strict Eager 的提速，零额外配置</div>
+        </div>
+        <div>
+          <div class="n">100K+</div>
+          <div class="k">目标芯片规模，靠 ICI 2D/3D Torus 扩展</div>
+        </div>
+        <div>
+          <div class="n">3 种</div>
+          <div class="k">Eager 模式：Debug / Strict / Fused</div>
+        </div>
+        <div>
+          <div class="n">128 / 256</div>
+          <div class="k">TPU 峰值效率偏好的矩阵维度（常见模型硬编码 64）</div>
+        </div>
+      </div>
+      <div class="callout">
+        核心架构决策：全图编译走 <strong>Torch Dynamo 捕获 FX graph → XLA 作后端编译器 → StableHLO 作 IR</strong>，而不是走 Torch Inductor。理由是 XLA 已经在 TPU 拓扑上打磨多年，天然懂得怎么把稠密计算和 ICI 上的集合通信重叠。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. TPU 硬件：ICI 网络、TensorCore、SparseCore</h2>
+      <p>
+        理解 TorchTPU 的设计，要先理解它面对的硬件不是"一块芯片"，而是一整张网络。一个 host 挂多颗芯片，每颗芯片既连 host，也通过 <strong>Inter-Chip Interconnect（ICI）</strong>直接连其他芯片，组成高效的 2D 或 3D Torus 拓扑——这是 TPU 能不靠传统网络瓶颈做超大规模 scale-up 的关键。芯片内部执行又分两路：<strong>TensorCore</strong> 是单线程的稠密矩阵运算单元；<strong>SparseCore</strong> 专门处理 embedding、gather/scatter 这类不规则访存，以及卸载集合通信。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TPU ICI 拓扑与芯片内部分工">
+          <g font-family="Segoe UI, sans-serif">
+            <text x="245" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a5f">ICI Torus：芯片间互联</text>
+            <rect x="30" y="48" width="430" height="180" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+            <circle cx="110" cy="100" r="26" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="110" y="105" text-anchor="middle" font-size="11">chip</text>
+            <circle cx="230" cy="100" r="26" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="230" y="105" text-anchor="middle" font-size="11">chip</text>
+            <circle cx="350" cy="100" r="26" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="350" y="105" text-anchor="middle" font-size="11">chip</text>
+            <circle cx="110" cy="180" r="26" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="110" y="185" text-anchor="middle" font-size="11">chip</text>
+            <circle cx="230" cy="180" r="26" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="230" y="185" text-anchor="middle" font-size="11">chip</text>
+            <circle cx="350" cy="180" r="26" fill="#cbd5e1" stroke="#1e3a5f"/>
+            <text x="350" y="185" text-anchor="middle" font-size="11">chip</text>
+            <path d="M136 100 L204 100" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M256 100 L324 100" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M136 180 L204 180" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M256 180 L324 180" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M110 126 L110 154" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M230 126 L230 154" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M350 126 L350 154" stroke="#1e3a5f" stroke-width="1.5"/>
+            <path d="M80 85 Q 20 140 80 195" stroke="#64748b" stroke-width="1.2" fill="none" stroke-dasharray="3,3"/>
+            <path d="M380 85 Q 440 140 380 195" stroke="#64748b" stroke-width="1.2" fill="none" stroke-dasharray="3,3"/>
+            <text x="245" y="212" text-anchor="middle" font-size="12" fill="#57534e">host 挂多芯片 · ICI 直连组 2D/3D Torus</text>
+
+            <text x="735" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">单芯片内部分工</text>
+            <rect x="520" y="48" width="430" height="180" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="560" y="80" width="150" height="90" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="635" y="110" text-anchor="middle" font-size="12" font-weight="700">TensorCore</text>
+            <text x="635" y="132" text-anchor="middle" font-size="11">单线程</text>
+            <text x="635" y="150" text-anchor="middle" font-size="11">稠密矩阵运算</text>
+            <rect x="760" y="80" width="150" height="90" rx="6" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="835" y="110" text-anchor="middle" font-size="12" font-weight="700">SparseCore</text>
+            <text x="835" y="132" text-anchor="middle" font-size="11">embedding /</text>
+            <text x="835" y="148" text-anchor="middle" font-size="11">gather-scatter</text>
+            <text x="735" y="200" text-anchor="middle" font-size="12" fill="#115e59">SparseCore 还卸载集合通信</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1 · 左：多芯片经 ICI 组成 Torus，避免传统网络瓶颈。右：单芯片内 TensorCore 管稠密矩阵、SparseCore 管不规则访存与通信卸载。</p>
+      <p>
+        PyTorch 已经是跨设备类型事实上统一的接口，这正是 TorchTPU 要接入的地方：把这套硬件能力包进 PyTorch 熟悉的使用方式里，而不是逼开发者去学一套新框架。
+      </p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. Eager First：三种 eager 模式</h2>
+      <p>
+        TorchTPU 没有先把开发者推向静态图编译，而是立下"Eager First"原则：用 PyTorch 的 <code>PrivateUse1</code> 接口深度集成，让 TPU 上就是普通的 <code>torch.Tensor</code>。由此派生出三种 eager 执行模式，覆盖从调试到追求极限性能的不同阶段。
+      </p>
+      <table>
+        <thead>
+          <tr><th>模式</th><th>调度方式</th><th>同步点</th><th>用途</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Debug Eager</strong></td><td>单算子逐个派发</td><td>每次执行后与 CPU 同步</td><td>定位 shape 不匹配、NaN、OOM；慢但信息最全</td></tr>
+          <tr><td><strong>Strict Eager</strong></td><td>单算子派发，但异步执行</td><td>用户脚本触发同步点才等待</td><td>贴近默认 PyTorch 体验，CPU/TPU 可并行</td></tr>
+          <tr><td><strong>Fused Eager</strong></td><td>对算子流做自动反射，动态融合成大计算块</td><td>按融合块粒度</td><td>最大化 TensorCore 利用率、降低显存带宽开销；提速 50%–100%+，零配置</td></tr>
+        </tbody>
+      </table>
+      <div class="callout teal">
+        三种模式共享同一份<strong>编译缓存</strong>（Compilation Cache），可以只在单 host 内生效，也能配置成跨多 host 持久化——跑得越久，重复编译开销越少。
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三种 eager 模式对比">
+          <g font-family="Segoe UI, sans-serif" font-size="12">
+            <rect x="20" y="40" width="280" height="150" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="160" y="66" text-anchor="middle" font-weight="700" font-size="13" fill="#9a3412">Debug Eager</text>
+            <text x="160" y="92" text-anchor="middle">逐op派发</text>
+            <text x="160" y="114" text-anchor="middle">每步与CPU同步</text>
+            <text x="160" y="140" text-anchor="middle" fill="#57534e">慢 · 适合排障</text>
+            <rect x="350" y="40" width="280" height="150" rx="8" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="490" y="66" text-anchor="middle" font-weight="700" font-size="13" fill="#9a3412">Strict Eager</text>
+            <text x="490" y="92" text-anchor="middle">逐op派发</text>
+            <text x="490" y="114" text-anchor="middle">异步执行</text>
+            <text x="490" y="140" text-anchor="middle" fill="#57534e">贴近原生PyTorch手感</text>
+            <rect x="680" y="40" width="280" height="150" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <text x="820" y="66" text-anchor="middle" font-weight="700" font-size="13" fill="#115e59">Fused Eager</text>
+            <text x="820" y="92" text-anchor="middle">自动反射 + 动态融合</text>
+            <text x="820" y="114" text-anchor="middle">高TensorCore利用率</text>
+            <text x="820" y="140" text-anchor="middle" fill="#115e59" font-weight="700">+50% ~ 100%+ 提速</text>
+            <text x="490" y="205" text-anchor="middle" fill="#57534e">三者共享同一份 Compilation Cache（单host 或 多host 持久化）</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 2 · Debug → Strict → Fused 是开发流程上逐步拧紧性能的三档，不是互斥的三条路线。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 静态编译：Dynamo → XLA → StableHLO</h2>
+      <p>
+        想要峰值性能的用户走 <code>torch.compile</code>。TorchTPU 先用 Torch Dynamo 捕获 FX graph，但接下来<strong>不走 Torch Inductor，而是把 XLA 当主编译后端</strong>——这是刻意的架构选择：XLA 在 TPU 拓扑上久经考验，天生懂得如何把稠密计算和 ICI 上的集合通信重叠调度。PyTorch 算子被直接映射进 <strong>StableHLO</strong>（XLA 的核心张量 IR），打通一条从 PyTorch 直达 XLA lowering 路径的通道，同时复用 eager 模式已经建立的执行路径。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="编译栈管线">
+          <g font-family="Segoe UI, sans-serif" font-size="12">
+            <rect x="10" y="40" width="200" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+            <text x="110" y="70" text-anchor="middle" font-weight="700" font-size="13">PyTorch 代码</text>
+            <text x="110" y="90" text-anchor="middle" fill="#57534e">未改动的训练脚本</text>
+            <text x="235" y="80" font-size="18" fill="#9a3412">→</text>
+            <rect x="260" y="40" width="200" height="70" rx="6" fill="#ffedd5" stroke="#fdba74"/>
+            <text x="360" y="70" text-anchor="middle" font-weight="700" font-size="13">Torch Dynamo</text>
+            <text x="360" y="90" text-anchor="middle" fill="#57534e">捕获 FX Graph</text>
+            <text x="485" y="80" font-size="18" fill="#9a3412">→</text>
+            <rect x="510" y="40" width="200" height="70" rx="6" fill="#ccfbf1" stroke="#14b8a6"/>
+            <text x="610" y="70" text-anchor="middle" font-weight="700" font-size="13">StableHLO</text>
+            <text x="610" y="90" text-anchor="middle" fill="#57534e">PyTorch 算子直译 IR</text>
+            <text x="735" y="80" font-size="18" fill="#115e59">→</text>
+            <rect x="760" y="40" width="200" height="70" rx="6" fill="#99f6e4" stroke="#0f766e"/>
+            <text x="860" y="70" text-anchor="middle" font-weight="700" font-size="13">XLA 后端</text>
+            <text x="860" y="90" text-anchor="middle" fill="#57534e">TPU 二进制 + 算通重叠</text>
+            <text x="485" y="140" text-anchor="middle" fill="#57534e">没有走 Torch Inductor——理由是 XLA 对 TPU 拓扑与集合通信重叠更懂</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 3 · 全图编译路径跳过 Inductor，直通 XLA/StableHLO，复用 eager 模式已验证的执行路径。</p>
+      <p>
+        对需要写自定义算子的开发者，TorchTPU 原生支持用 <strong>Pallas</strong> 和 <strong>JAX</strong> 写底层 kernel：用 <code>@torch_tpu.pallas.custom_jax_kernel</code> 装饰一个 JAX 函数，就能直接对接 lowering 路径写硬件级指令。对 <strong>Helion</strong> kernel 的支持仍在推进中。
+      </p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 分布式训练与 MPMD 难题</h2>
+      <p>
+        TorchTPU 原生支持 <strong>DDP、FSDPv2、DTensor</strong>，并验证了许多基于 PyTorch 分布式 API 构建的第三方库可以不改代码直接用。真正的难点是它点名修复的前代 PyTorch/XLA 的一个限制：<strong>只支持纯 SPMD 代码</strong>。
+      </p>
+      <p>
+        现实中的 PyTorch 代码经常在不同 rank 上有轻微分叉——比如 rank 0 多做一点日志或统计工作。XLA 本身在拥有系统全局视图时能把计算和通信重叠得最好，但这种"不纯"的分叉行为和它格格不入；过去的workaround 是让开发者手动把这类分叉代码摘干净，这本身就是额外负担。
+      </p>
+      <div class="callout navy">
+        TorchTPU 的解法：<strong>架构上直接支持分叉执行（MPMD）</strong>，在必要处隔离通信原语以保证正确性，代价控制到最小。这样开发者体验尽量贴近原生 PyTorch，同时在能做到全局视图的地方，XLA 仍然保留算通重叠能力。
+      </div>
+      <div class="fig">
+        <svg viewBox="0 0 980 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SPMD 与 MPMD 对比">
+          <g font-family="Segoe UI, sans-serif" font-size="12">
+            <text x="245" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#9a3412">PyTorch/XLA · 纯 SPMD</text>
+            <rect x="20" y="40" width="450" height="130" rx="8" fill="#fff7ed" stroke="#c2410c"/>
+            <rect x="50" y="65" width="100" height="40" rx="4" fill="#fdba74"/>
+            <text x="100" y="90" text-anchor="middle">rank 0</text>
+            <rect x="170" y="65" width="100" height="40" rx="4" fill="#fdba74"/>
+            <text x="220" y="90" text-anchor="middle">rank 1</text>
+            <rect x="290" y="65" width="100" height="40" rx="4" fill="#fdba74"/>
+            <text x="340" y="90" text-anchor="middle">rank 2</text>
+            <text x="245" y="130" text-anchor="middle" fill="#9a3412">要求代码逐行一致，日志等分叉需手动摘除</text>
+            <text x="735" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#115e59">TorchTPU · 支持 MPMD</text>
+            <rect x="510" y="40" width="450" height="130" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+            <rect x="540" y="65" width="100" height="40" rx="4" fill="#5eead4"/>
+            <text x="590" y="85" text-anchor="middle" font-size="11">rank 0</text>
+            <text x="590" y="99" text-anchor="middle" font-size="10">+日志/统计</text>
+            <rect x="660" y="65" width="100" height="40" rx="4" fill="#99f6e4"/>
+            <text x="710" y="90" text-anchor="middle" font-size="11">rank 1</text>
+            <rect x="780" y="65" width="100" height="40" rx="4" fill="#99f6e4"/>
+            <text x="830" y="90" text-anchor="middle" font-size="11">rank 2</text>
+            <text x="735" y="130" text-anchor="middle" fill="#115e59">分叉处隔离通信原语，其余保留全局视图重叠</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4 · 右侧 rank 间允许轻微分叉（如 rank 0 多做日志），TorchTPU 在分叉处局部隔离通信，而非要求全图纯净 SPMD。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. TPU 硬件感知：形状不是免费的</h2>
+      <p>
+        可移植性不能消除硬件现实。一个具体例子：很多模型把 attention head 维度硬编码为 64，但当前这一代 TPU 在 128 或 256 维度上才能打到矩阵乘法的峰值效率。把维度调到 128/256 能更好利用 TPU 上大而稠密的 tensor core。
+      </p>
+      <p>
+        TorchTPU 据此提出一个分层工作流：<strong>先保证正确执行，再用后续的深度优化指南去定位、重构效率欠佳的结构，或者注入自定义 kernel</strong>，以榨出硬件的最优利用率。换句话说，可移植性解决了"能不能跑"，但"跑得多快"仍需要对 TPU 的专门认知。
+      </p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 2026 路线图</h2>
+      <p>
+        当前的编译团队重点在降低因<strong>动态序列长度 / batch size</strong>触发的重编译——这对 next-token 迭代式生成这类工作负载尤其重要，计划在 XLA 内实现"有界动态性（bounded dynamism）"来吸收形状变化而不产生编译开销。同时在建一套标准算子的<strong>预编译 TPU kernel 库</strong>，压低首次执行迭代的延迟。
+      </p>
+      <ul>
+        <li>公开 GitHub 仓库，配完整文档和可复现的架构教程。</li>
+        <li>与 PyTorch 的 <strong>Helion DSL</strong> 集成，扩展自定义 kernel 能力。</li>
+        <li>通过 <code>torch.compile</code> 一等支持动态 shape。</li>
+        <li>原生<strong>多队列</strong>支持，便于迁移内存流和计算流解耦的重度异步代码。</li>
+        <li>与 <strong>vLLM</strong>、<strong>TorchTitan</strong> 深度集成，并验证到整 Pod 规模的线性扩展。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 放在编译栈坐标里怎么看</h2>
+      <p>
+        TorchTPU 解决的不是单点算子优化问题,而是一整条"框架 ↔ 芯片"适配链路：<strong>接口层</strong>用 <code>PrivateUse1</code> 把 TPU 伪装成一等 PyTorch 设备；<strong>执行层</strong>用三档 eager 模式在开发体感和性能之间给出连续选择，而不是非此即彼；<strong>编译层</strong>把 Dynamo 的图捕获能力接到已经为 TPU 打磨多年的 XLA/StableHLO，而不是重新发明一套后端；<strong>分布式层</strong>正面解决 SPMD 假设在真实代码里站不住脚的问题。
+      </p>
+      <div class="callout">
+        和本仓库里 <a href="../megakernel/MPK_论文分析.html">MPK</a>、<a href="../megakernel/Mirage_论文分析.html">Mirage</a> 等 GPU 侵略性编译/融合研究相比，TorchTPU 的取舍更偏"生态兼容优先"：它不追求把整段计算打成一个 kernel，而是确保 NVIDIA CUDA 生态已经驯化的 PyTorch 开发者，换一块芯片后不需要重新学习心智模型。这是 Google 在和 CUDA 护城河的竞争里，选择从"摩擦"而不是"峰值 FLOPs"切入的信号。
+      </div>
+    </section>
+
+    <footer>
+      分析基于 Google Developers Blog 原文（2026）· 原文链接见页首
+    </footer>
+  </div>
+</body>
+</html>
