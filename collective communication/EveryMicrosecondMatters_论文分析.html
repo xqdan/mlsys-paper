@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Every μs Matters 论文分析 | GPU 集合通信的光速下界</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    td.y { background: #dcfce7 !important; color: #166534; }
+    td.n { background: #fee2e2 !important; color: #991b1b; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre {
+      background: #1c1917; color: #e7e5e4; padding: 14px 16px; overflow-x: auto;
+      font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px; line-height: 1.6;
+      border-radius: 3px; margin: 14px 0 18px;
+    }
+    pre .k { color: #fbbf24; }
+    pre .c { color: #78716c; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .grid-4, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv cs.DC · 2026-07-17</span>
+        <span class="badge">arXiv:2607.16100v1</span>
+        <span class="badge">集合通信 · 低延迟 AllReduce</span>
+        <span class="badge ok">ETH Zürich (Hoefler) × NVIDIA NCCL 团队</span>
+        <span class="badge ok">NCCL · NVLink · GB200 NVL72</span>
+        <span class="badge warn">限定 scale-up 域（单 NVLink domain）</span>
+      </div>
+      <h1>每一个微秒都算数：把 GPU 集合通信压到硬件光速下界</h1>
+      <p class="subtitle">Every μs Matters: Achieving Near Speed-of-Light Latency in GPU Collectives</p>
+      <p class="meta">
+        <strong>作者：</strong>Siyuan Shen*、Anton Korzh、John Bachan、Tiancheng Chen、Arnav Goel、Ludwig Schneider、Pouya Kousha、Zhenhao He、Sylvain Jeaugey、Kamil Iskra、Nishank Chandawala、Jeff R. Hammond、Torsten Hoefler（* ETH Zürich，工作在 NVIDIA 实习期间完成；其余多为 NVIDIA NCCL / HPC 团队）<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2607.16100" target="_blank" rel="noopener">arXiv:2607.16100</a>
+        · <strong>代码：</strong><a href="https://github.com/ss16118/low-latency-nccl" target="_blank" rel="noopener">ss16118/low-latency-nccl</a>
+        · 本目录附 <a href="Every%20Microsecond%20Matters.pdf">论文 PDF</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论与阅读须知</a></li>
+        <li><a href="#s2">问题：为什么小消息 AllReduce 成了第一瓶颈</a></li>
+        <li><a href="#s3">背景与范围：device-side 通信、对称内存、scale-up 域</a></li>
+        <li><a href="#s4">诊断：>1 μs 的全局屏障吃掉了 40% 延迟</a></li>
+        <li><a href="#s5">四件武器：LL / Sentinel / 双向双缓冲 / LL128 Atomic</a></li>
+        <li><a href="#s6">API 设计：以 ncclLLBuffer 为中心的线程级原语</a></li>
+        <li><a href="#s7">如何度量"光速"：L_SOL 的推导与实测</a></li>
+        <li><a href="#s8">实验：微基准与三个观察</a></li>
+        <li><a href="#s9">案例研究：vLLM 与 cuSOLVERMp</a></li>
+        <li><a href="#s10">定位、局限与批判性阅读</a></li>
+        <li><a href="#s10b">关键数字速查表</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论与阅读须知</h2>
+      <p class="lead">
+        这篇论文要证明一件事：<strong>在 scale-up 域内部，GPU 集合通信不该按"带宽"来优化，而应按"延迟"来优化</strong>。它把 NCCL 里普遍存在的"全局内存屏障"识别为小消息场景的主要浪费，用 LL、sentinel、双向双缓冲、LL128 atomic 四种机制把这些屏障全部消除，再把这些机制沉淀成一套可复用的 NCCL device-side API，最终把 2 卡 AllReduce 的开销压到硬件光速下界的 7% 以内。
+      </p>
+      <div class="kpi">
+        <div>
+          <div class="n">7%</div>
+          <div class="k">2 卡时 AllReduce 相对绝对 SoL 下界的开销</div>
+        </div>
+        <div>
+          <div class="n">11.0→2.37 μs</div>
+          <div class="k">4×GB200 上小消息延迟（NCCL ring → 本文 kernel）</div>
+        </div>
+        <div>
+          <div class="n">−13%</div>
+          <div class="k">vLLM 4 卡场景的 ITL 降幅（8 卡为 −11%）</div>
+        </div>
+        <div>
+          <div class="n">1.404 μs</div>
+          <div class="k">2×GB200 上实测推导出的 SoL 下界</div>
+        </div>
+      </div>
+      <div class="callout warn">
+        <strong>阅读须知：这是一篇"系统/工程"论文，不是算法论文。</strong>它的贡献密度很高（四种机制 + 一套 API + 两类真实负载），但所有机制都不是从零发明的——LL 来自 NCCL 自身的 LL 协议，sentinel 在 TensorRT-LLM 等框架里已有类似做法，cache-line atomic 也是 NVLink 的既有能力。真正的贡献是<strong>把它们系统地组合起来、把屏障彻底消除、并把开销对齐到一个可计算的光速下界</strong>。评价这篇论文时，"组合是否严密"比"想法是否原创"更重要。
+      </div>
+      <div class="callout navy">
+        <strong>与仓库内其他文档的关系：</strong>本目录暂为集合通信专题的第一篇。它与 <code>llm inference/</code> 下的推理系统论文（AMPD、ExpertPlex）处在不同抽象层——那些论文讨论"怎么切分请求、怎么调度"，本篇讨论"切完之后，张量在 4 颗 GPU 之间怎么用最少的微秒对齐"。与 <code>simulator/</code> 下的 Charon 则是"实测 vs 建模"的关系：Charon 里对集合通信的解析模型，正好可以用本篇的 SoL 公式作为下界校准。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：为什么小消息 AllReduce 成了第一瓶颈</h2>
+      <p>
+        论文的动机链条很干净，值得完整复述一遍，因为它是整篇工作的合理性基础：
+      </p>
+      <ol class="steps">
+        <li>
+          <strong>模型大到必须多卡。</strong>DeepSeek-V3 级别的模型，服务至少需要 8×H200；模型并行带来的张量并行组，天然把一个 AllReduce 放在每层的前后。
+        </li>
+        <li>
+          <strong>解码密集（decode-heavy）负载拉长了关键路径。</strong>代码生成、agent 类工作流可以单请求生成上百万 token。每生成一个 token 都要过一次 AllReduce，于是通信开销按 token 数线性累积。论文的原话是：<em>"even microsecond of overhead can impact performance and cost."</em>
+        </li>
+        <li>
+          <strong>长上下文把消息尺寸压小了。</strong>KV cache 随序列长度线性膨胀，为了塞进显存，batch size 只能调小。于是解码阶段的 AllReduce 变成<strong>高频、小尺寸</strong>的操作——此时瓶颈是<strong>延迟</strong>而不是带宽。
+        </li>
+        <li>
+          <strong>于是"每微秒"有了明确的经济价值。</strong>论文用 CoreWeave 的 4×GB200 按需价格 $42/小时，把吞吐换算成"每百万输出 token 成本"，得到结论：<strong>AllReduce 每减少 1 μs，成本下降约 0.9%</strong>。单个 0.9% 看着不多，但在万亿 token 级别的服务上会复利式放大。
+        </li>
+      </ol>
+      <div class="fig">
+        <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="从长上下文到小消息延迟瓶颈的因果链">
+          <defs>
+            <marker id="arw1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#78716c"/>
+            </marker>
+          </defs>
+          <g font-family="Segoe UI, sans-serif" font-size="11.5">
+            <rect x="16" y="34" width="150" height="66" rx="7" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="91" y="58" text-anchor="middle" font-weight="700" fill="#1e3a5f">长上下文推理</text>
+            <text x="91" y="76" text-anchor="middle" font-size="10.5" fill="#334155">100k–200k 输入</text>
+            <text x="91" y="92" text-anchor="middle" font-size="10.5" fill="#334155">16K 输出 token</text>
+
+            <rect x="196" y="34" width="150" height="66" rx="7" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="271" y="58" text-anchor="middle" font-weight="700" fill="#1e3a5f">KV cache 膨胀</text>
+            <text x="271" y="76" text-anchor="middle" font-size="10.5" fill="#334155">显存被上下文吃满</text>
+            <text x="271" y="92" text-anchor="middle" font-size="10.5" fill="#334155">→ batch size 被迫调小</text>
+
+            <rect x="376" y="34" width="150" height="66" rx="7" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="451" y="58" text-anchor="middle" font-weight="700" fill="#9a3412">消息变小</text>
+            <text x="451" y="76" text-anchor="middle" font-size="10.5" fill="#7c2d12">单条 AllReduce 只有</text>
+            <text x="451" y="92" text-anchor="middle" font-size="10.5" fill="#7c2d12">几 KB 到几百 KB</text>
+
+            <rect x="556" y="34" width="150" height="66" rx="7" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="631" y="58" text-anchor="middle" font-weight="700" fill="#9a3412">瓶颈切换</text>
+            <text x="631" y="76" text-anchor="middle" font-size="10.5" fill="#7c2d12">带宽不再是限制</text>
+            <text x="631" y="92" text-anchor="middle" font-size="10.5" fill="#7c2d12">同步次数成为限制</text>
+
+            <rect x="736" y="34" width="228" height="66" rx="7" fill="#fee2e2" stroke="#9a3412"/>
+            <text x="850" y="58" text-anchor="middle" font-weight="700" fill="#9a3412">经济价值</text>
+            <text x="850" y="76" text-anchor="middle" font-size="10.5" fill="#7f1d1d">每减 1 μs AllReduce ≈ 降 0.9% 成本</text>
+            <text x="850" y="92" text-anchor="middle" font-size="10.5" fill="#7f1d1d">（CoreWeave 4×GB200，$42/h）</text>
+
+            <path d="M 168 67 L 192 67" stroke="#78716c" stroke-width="1.5" marker-end="url(#arw1)"/>
+            <path d="M 348 67 L 372 67" stroke="#78716c" stroke-width="1.5" marker-end="url(#arw1)"/>
+            <path d="M 528 67 L 552 67" stroke="#78716c" stroke-width="1.5" marker-end="url(#arw1)"/>
+            <path d="M 708 67 L 732 67" stroke="#78716c" stroke-width="1.5" marker-end="url(#arw1)"/>
+
+            <rect x="16" y="132" width="948" height="92" rx="7" fill="#f5f0e6" stroke="#e7e0d4"/>
+            <text x="34" y="156" font-weight="700" font-size="11.5" fill="#57534e">同一逻辑链条的另一端：HPC</text>
+            <text x="34" y="178" font-size="11.5" fill="#57534e">时间步循环、粒子模拟等负载在每个紧同步阶段都做一次小规模全局归约。LLAMP 等工作已证明 MILC、LULESH 这类常用 HPC 应用可测量地对集合通信延迟敏感。</text>
+            <text x="34" y="200" font-size="11.5" fill="#57534e">因此"低延迟集合通信"同时是 AI 推理和传统科学计算的需求——这也是本文选 cuSOLVERMp 做第二个案例研究的理由。</text>
+            <text x="34" y="218" font-size="10.5" fill="#78716c">注：论文同时指出，很多 GPU 加速的科学应用至今没有充分利用 GPU-native 通信库（仍在用 MPI / CUDA-aware MPI），这部分收益尚未被兑现。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1 · 论文的动机链条：长上下文 → KV cache 膨胀 → batch 变小 → 消息变小 → 延迟主导。图中下半部分是论文并列给出的 HPC 侧动机。</p>
+      <p>
+        值得注意的是，论文没有把"延迟优化"说成只在推理里成立。它明确把传统 HPC 作为并列目标，并在第 VIII-B 节用 cuSOLVERMp 做了验证——这是本文比一般"LLM 推理优化"论文更有说服力的地方：<strong>机制是通用的，收益点在两个领域都存在</strong>。
+      </p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 背景与范围：device-side 通信、对称内存、scale-up 域</h2>
+      <p>
+        要理解后文的四种机制，需要先接受三个前提。论文把它们放在第 II 节，篇幅不长但都是后面设计的地基。
+      </p>
+
+      <h3>3.1 三类通信库的定位</h3>
+      <table>
+        <thead>
+          <tr><th>库</th><th>抽象层次</th><th>本文为什么用它 / 不用它</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>NCCL</strong></td>
+            <td>面向集合通信优化，2.28 起提供 device-side API</td>
+            <td class="y">选它。因为 PyTorch、TensorFlow、vLLM、cuSOLVERMp、cuBLASMp 全都把它当默认后端——改进能直接落地</td>
+          </tr>
+          <tr>
+            <td><strong>NVSHMEM</strong></td>
+            <td>PGAS 模型，提供 one-sided put/get 与更细的 device 级控制</td>
+            <td>没选。能力更强但生态渗透率不如 NCCL</td>
+          </tr>
+          <tr>
+            <td><strong>MSCCL++</strong></td>
+            <td>重新设计 GPU 通信抽象（ASPLOS'26）</td>
+            <td>作为对比基线，但 GB200 上其 multicast 实现会 hang，多节点支持缺失</td>
+          </tr>
+          <tr>
+            <td>RCCL / rocSHMEM / oneCCL</td>
+            <td>各厂商对应实现</td>
+            <td>只在背景里提及，未评估</td>
+          </tr>
+          <tr>
+            <td>MPI / CUDA-aware MPI</td>
+            <td>CPU 时代设计，后扩展到 GPU</td>
+            <td>大规模集合通信通常打不过厂商库，但点对点仍有竞争力</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>3.2 对称内存为什么是前提</h3>
+      <p>
+        对称内存（symmetric memory）来自 SHMEM 家族的 PGAS 模型：每个 PE（这里就是每颗 GPU）上有<strong>类型、大小、布局完全相同</strong>的数据对象，于是对端可以用"同一个逻辑地址 + 一个 PE 编号"来访问。这带来两个关键能力：
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>LSA：load/store 可直接访问</h4>
+          <p>CUDA VMM 把各卡对称内存区映射进统一虚拟地址空间，于是可以像访问本地内存一样 load/store 对端。省掉地址翻译的额外开销，这是低延迟交换的基础。</p>
+        </div>
+        <div class="tile">
+          <h4>NVLS：多播 + 网内归约</h4>
+          <p>NVSwitch + NVLink SHARP 提供 multimem load/store 指令，一条指令把数据分发到多张卡，或直接在交换网络里做归约（<code>multimem.ld_reduce</code>）。</p>
+        </div>
+      </div>
+      <p>
+        论文顺带指出一个组织层面的信号：NCCL 正在把集合通信逐步换成对称内存实现的 kernel，旧实现现在被官方称作 <em>legacy kernels</em>。本文的新 kernel 也属于对称内存这一代。
+      </p>
+      <p>
+        另外两个底层支撑值得记住，因为它们是"GPU 自己发通信指令而不惊动 CPU"的前提：<strong>GPU VMM</strong>（统一虚拟地址空间）与 <strong>GDAKI</strong>（GPUDirect Async Kernel-Initiated，让 GPU 直接和网卡交互）。
+      </p>
+
+      
+      <div class="fig">
+        <svg viewBox="0 0 980 330" xmlns="http://www.w3.org/2000/svg" role="img"><g font-family="Segoe UI, sans-serif" font-size="11"><defs><marker id="mSM" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"/></marker></defs><text x="20" y="20" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">① 每张 GPU 上布局完全相同的「对称对象」</text><rect x="20" y="30" width="160" height="104" rx="4" fill="#fff" stroke="#1e3a5f"/><text x="100" y="48" text-anchor="middle" font-size="11" fill="#1e3a5f" font-weight="700">GPU 0</text><rect x="30" y="54" width="140" height="20" rx="2" fill="#dbeafe" stroke="#93c5fd"/><text x="100" y="68" text-anchor="middle" font-size="10" fill="#1e3a5f">输入 M</text><rect x="30" y="80" width="140" height="20" rx="2" fill="#ffedd5" stroke="#fdba74"/><text x="100" y="94" text-anchor="middle" font-size="10" fill="#9a3412">scratch</text><rect x="30" y="106" width="140" height="20" rx="2" fill="#ccfbf1" stroke="#5eead4"/><text x="100" y="120" text-anchor="middle" font-size="10" fill="#115e59">输出</text><line x1="100" y1="134" x2="100" y2="158" stroke="#78716c" stroke-width="1" stroke-dasharray="3 3"/><rect x="200" y="30" width="160" height="104" rx="4" fill="#fff" stroke="#1e3a5f"/><text x="280" y="48" text-anchor="middle" font-size="11" fill="#1e3a5f" font-weight="700">GPU 1</text><rect x="210" y="54" width="140" height="20" rx="2" fill="#dbeafe" stroke="#93c5fd"/><text x="280" y="68" text-anchor="middle" font-size="10" fill="#1e3a5f">输入 M</text><rect x="210" y="80" width="140" height="20" rx="2" fill="#ffedd5" stroke="#fdba74"/><text x="280" y="94" text-anchor="middle" font-size="10" fill="#9a3412">scratch</text><rect x="210" y="106" width="140" height="20" rx="2" fill="#ccfbf1" stroke="#5eead4"/><text x="280" y="120" text-anchor="middle" font-size="10" fill="#115e59">输出</text><line x1="280" y1="134" x2="280" y2="158" stroke="#78716c" stroke-width="1" stroke-dasharray="3 3"/><rect x="380" y="30" width="160" height="104" rx="4" fill="#fff" stroke="#1e3a5f"/><text x="460" y="48" text-anchor="middle" font-size="11" fill="#1e3a5f" font-weight="700">GPU 2</text><rect x="390" y="54" width="140" height="20" rx="2" fill="#dbeafe" stroke="#93c5fd"/><text x="460" y="68" text-anchor="middle" font-size="10" fill="#1e3a5f">输入 M</text><rect x="390" y="80" width="140" height="20" rx="2" fill="#ffedd5" stroke="#fdba74"/><text x="460" y="94" text-anchor="middle" font-size="10" fill="#9a3412">scratch</text><rect x="390" y="106" width="140" height="20" rx="2" fill="#ccfbf1" stroke="#5eead4"/><text x="460" y="120" text-anchor="middle" font-size="10" fill="#115e59">输出</text><line x1="460" y1="134" x2="460" y2="158" stroke="#78716c" stroke-width="1" stroke-dasharray="3 3"/><rect x="560" y="30" width="160" height="104" rx="4" fill="#fff" stroke="#1e3a5f"/><text x="640" y="48" text-anchor="middle" font-size="11" fill="#1e3a5f" font-weight="700">GPU 3</text><rect x="570" y="54" width="140" height="20" rx="2" fill="#dbeafe" stroke="#93c5fd"/><text x="640" y="68" text-anchor="middle" font-size="10" fill="#1e3a5f">输入 M</text><rect x="570" y="80" width="140" height="20" rx="2" fill="#ffedd5" stroke="#fdba74"/><text x="640" y="94" text-anchor="middle" font-size="10" fill="#9a3412">scratch</text><rect x="570" y="106" width="140" height="20" rx="2" fill="#ccfbf1" stroke="#5eead4"/><text x="640" y="120" text-anchor="middle" font-size="10" fill="#115e59">输出</text><line x1="640" y1="134" x2="640" y2="158" stroke="#78716c" stroke-width="1" stroke-dasharray="3 3"/><rect x="20" y="158" width="720" height="28" rx="4" fill="#1e3a5f" stroke="#1e3a5f"/><text x="380" y="177" text-anchor="middle" font-size="11" fill="#fff">统一虚拟地址空间（CUDA VMM）· 同一逻辑地址 + PE 编号 ⇒ 对端对称对象</text><rect x="20" y="204" width="460" height="112" rx="4" fill="#faf7f2" stroke="#e7e0d4"/><text x="36" y="224" text-anchor="start" font-size="11.5" fill="#0f766e" font-weight="700">LSA：load / store 直达对端</text><rect x="36" y="236" width="44" height="32" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="58" y="257" text-anchor="middle" font-size="10" fill="#1e3a5f">G0</text><rect x="120" y="236" width="44" height="32" rx="4" fill="#ffedd5" stroke="#c2410c"/><text x="142" y="257" text-anchor="middle" font-size="10" fill="#9a3412">G1</text><line x1="84" y1="252" x2="116" y2="252" stroke="#0f766e" stroke-width="1.6" marker-end="url(#mSM)"/><text x="100" y="232" text-anchor="middle" font-size="9.5" fill="#0f766e">store</text><text x="176" y="252" text-anchor="start" font-size="10.5" fill="#57534e">远端 store ≈ 0.792 μs（半个 RTT）</text><text x="176" y="268" text-anchor="start" font-size="10.5" fill="#57534e">远端 load 要一个完整 RTT ⇒ push 更快</text><text x="36" y="300" text-anchor="start" font-size="10.5" fill="#9a3412">这就是本文全部设计都走 push 模式的原因</text><rect x="500" y="204" width="460" height="112" rx="4" fill="#faf7f2" stroke="#e7e0d4"/><text x="516" y="224" text-anchor="start" font-size="11.5" fill="#0f766e" font-weight="700">NVLS：一条指令完成 N 路分发 / 归约</text><rect x="516" y="236" width="44" height="32" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="538" y="257" text-anchor="middle" font-size="10" fill="#1e3a5f">G0</text><rect x="754" y="226" width="44" height="16" rx="2" fill="#ccfbf1" stroke="#0f766e"/><text x="776" y="238" text-anchor="middle" font-size="9" fill="#115e59">G1</text><line x1="564" y1="252" x2="750" y2="234" stroke="#0f766e" stroke-width="1.3" marker-end="url(#mSM)"/><rect x="754" y="248" width="44" height="16" rx="2" fill="#ccfbf1" stroke="#0f766e"/><text x="776" y="260" text-anchor="middle" font-size="9" fill="#115e59">G2</text><line x1="564" y1="252" x2="750" y2="256" stroke="#0f766e" stroke-width="1.3" marker-end="url(#mSM)"/><rect x="754" y="270" width="44" height="16" rx="2" fill="#ccfbf1" stroke="#0f766e"/><text x="776" y="282" text-anchor="middle" font-size="9" fill="#115e59">G3</text><line x1="564" y1="252" x2="750" y2="278" stroke="#0f766e" stroke-width="1.3" marker-end="url(#mSM)"/><text x="650" y="220" text-anchor="middle" font-size="9.5" fill="#0f766e">multimem.ld_reduce</text><text x="516" y="300" text-anchor="start" font-size="10.5" fill="#57534e">交换网络内直接归约，软件不参与</text></g></svg>
+      </div>
+      <p class="figcap">图 2 · 对称内存的物理基础：每张卡上同名对象布局一致，因此可以用「同一逻辑地址 + PE 编号」寻址；LSA 让远端访问变成本地 load/store，NVLS 更进一步把多播与归约下沉到交换网络。</p>
+<h3>3.3 范围限定：只看 scale-up 域</h3>
+      <div class="callout">
+        <strong>论文明确把范围收在"同一个 NVLink domain 内的 GPU"。</strong>理由有三条：① LLM 推理的并行组通常就落在一个 scale-up 域里；② 多节点系统一般已经采用分层集合通信（把节点内和 scale-out 阶段分开），所以 scale-up 内的改进与上层优化是<em>互补</em>而非竞争关系；③ GB200 NVL72 这类系统在持续扩大域内规模，越来越多延迟敏感负载可以完全跑在域内。
+      </div>
+      <p>
+        这个限定非常重要，它决定了所有实验结论的适用范围。<strong>本文的所有数字都不能外推到跨节点、跨 IB 网络的场景。</strong>
+      </p>
+      <p>
+        论文还很坦率地声明了可移植性边界：LL、sentinel、双缓冲这三项机制<strong>不是 NVIDIA 专有的</strong>——只要平台满足"GPU 可发起对端内存访问、远端写对 GPU 侧轮询可见、缓冲区复用前有 device 侧 fence"这三个性质，协议就能成立。但 LL128 atomic 不一样，它依赖 NVLink 的 cache-line 级原子加，这条限制后文会详细展开。
+      </p>
+    </section>
+
+    
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img"><g font-family="Segoe UI, sans-serif" font-size="11"><rect x="20" y="30" width="570" height="240" rx="4" fill="#f0f4f8" stroke="#1e3a5f"/><text x="36" y="52" text-anchor="start" font-size="12" fill="#1e3a5f" font-weight="700">scale-up 域（本文范围）</text><rect x="46" y="146" width="518" height="24" rx="4" fill="#1e3a5f" stroke="#1e3a5f"/><text x="305" y="163" text-anchor="middle" font-size="11" fill="#fff">NVSwitch · NVLink</text><rect x="56" y="92" width="100" height="36" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="106" y="114" text-anchor="middle" font-size="10.5" fill="#1e3a5f">GPU 0</text><line x1="106" y1="128" x2="106" y2="146" stroke="#78716c" stroke-width="1.4"/><rect x="56" y="188" width="100" height="36" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="106" y="210" text-anchor="middle" font-size="10.5" fill="#1e3a5f">GPU 4</text><line x1="106" y1="170" x2="106" y2="188" stroke="#78716c" stroke-width="1.4"/><rect x="181" y="92" width="100" height="36" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="231" y="114" text-anchor="middle" font-size="10.5" fill="#1e3a5f">GPU 1</text><line x1="231" y1="128" x2="231" y2="146" stroke="#78716c" stroke-width="1.4"/><rect x="181" y="188" width="100" height="36" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="231" y="210" text-anchor="middle" font-size="10.5" fill="#1e3a5f">GPU 5</text><line x1="231" y1="170" x2="231" y2="188" stroke="#78716c" stroke-width="1.4"/><rect x="306" y="92" width="100" height="36" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="356" y="114" text-anchor="middle" font-size="10.5" fill="#1e3a5f">GPU 2</text><line x1="356" y1="128" x2="356" y2="146" stroke="#78716c" stroke-width="1.4"/><rect x="306" y="188" width="100" height="36" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="356" y="210" text-anchor="middle" font-size="10.5" fill="#1e3a5f">GPU 6</text><line x1="356" y1="170" x2="356" y2="188" stroke="#78716c" stroke-width="1.4"/><rect x="431" y="92" width="100" height="36" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="481" y="114" text-anchor="middle" font-size="10.5" fill="#1e3a5f">GPU 3</text><line x1="481" y1="128" x2="481" y2="146" stroke="#78716c" stroke-width="1.4"/><rect x="431" y="188" width="100" height="36" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="481" y="210" text-anchor="middle" font-size="10.5" fill="#1e3a5f">GPU 7</text><line x1="481" y1="170" x2="481" y2="188" stroke="#78716c" stroke-width="1.4"/><text x="36" y="248" text-anchor="start" font-size="10.5" fill="#57534e">GB200 NVL72：72 颗 GPU 同处一个域，聚合带宽 130 TB/s</text><text x="36" y="264" text-anchor="start" font-size="10.5" fill="#57534e">本文全部微基准与推理实验都在这个域内完成</text><rect x="610" y="30" width="350" height="240" rx="4" fill="#faf7f2" stroke="#cbd5e1"/><text x="626" y="52" text-anchor="start" font-size="12" fill="#78716c" font-weight="700">scale-out（本文排除）</text><rect x="626" y="88" width="80" height="48" rx="4" fill="#f5f5f4" stroke="#a8a29e"/><text x="666" y="117" text-anchor="middle" font-size="10" fill="#57534e">节点 0</text><rect x="716" y="88" width="80" height="48" rx="4" fill="#f5f5f4" stroke="#a8a29e"/><text x="756" y="117" text-anchor="middle" font-size="10" fill="#57534e">节点 1</text><rect x="806" y="88" width="80" height="48" rx="4" fill="#f5f5f4" stroke="#a8a29e"/><text x="846" y="117" text-anchor="middle" font-size="10" fill="#57534e">节点 2</text><line x1="706" y1="112" x2="716" y2="112" stroke="#a8a29e" stroke-width="1.6" stroke-dasharray="3 2"/><line x1="796" y1="112" x2="806" y2="112" stroke="#a8a29e" stroke-width="1.6" stroke-dasharray="3 2"/><text x="671" y="158" text-anchor="middle" font-size="10" fill="#78716c">InfiniBand / 跨节点</text><text x="626" y="186" text-anchor="start" font-size="10.5" fill="#57534e" font-weight="700">排除理由</text><text x="626" y="206" text-anchor="start" font-size="10.5" fill="#57534e">· 并行组通常落在单个 scale-up 域内</text><text x="626" y="224" text-anchor="start" font-size="10.5" fill="#57534e">· 多节点已用分层集合通信</text><text x="626" y="242" text-anchor="start" font-size="10.5" fill="#9a3412">· 本文改进与之互补，但未联合验证</text></g></svg>
+      </div>
+      <p class="figcap">图 3 · 论文的范围界定：只在一个 NVLink 域内部做优化。左侧是实验平台的实际形态（72 卡单域）；右侧跨节点部分被明确排除，因此本文所有数字都不能外推到 IB 网络。</p>
+<section class="card" id="s4">
+      <h2>4. 诊断：&gt;1 μs 的全局屏障吃掉了 40% 延迟</h2>
+      <p>
+        论文的批判对象非常具体：<strong>现有 one-shot / two-shot AllReduce 实现（无论 push 还是 pull）几乎都靠显式内存屏障来做对端同步和数据就绪信号</strong>。作者考察了 TensorRT-LLM、MSCCL++、vLLM、NVSHMEM 等多个实现，发现它们尽管细节不同，本质上都是同一个模式：
+      </p>
+      <div class="callout teal">
+        "把一个 flag 传播到所有对端 → 每张 GPU 等到自己观察到来自<em>每一个</em>参与者的信号 → 才开始干活。"
+      </div>
+      <p>
+        作者用 NCCL 的 <code>ncclLsaBarrierSession</code>（LSA 设备的屏障实现）在 relaxed memory ordering 下做了测量，结论是<strong>每次屏障开销超过 1 μs</strong>。而很多 AllReduce kernel 需要两次屏障。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="屏障版与无屏障版 AllReduce 时间线对比">
+          <defs>
+            <marker id="arw2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#78716c"/>
+            </marker>
+          </defs>
+          <g font-family="Segoe UI, sans-serif" font-size="11">
+            <!-- 上：带屏障 -->
+            <text x="20" y="24" font-weight="700" font-size="12" fill="#991b1b">① 传统实现：两次全局屏障</text>
+            <g>
+              <rect x="20" y="34" width="120" height="40" fill="#dbeafe" stroke="#1e3a5f"/>
+              <text x="80" y="59" text-anchor="middle" fill="#1e3a5f">本地 load</text>
+
+              <rect x="140" y="34" width="120" height="40" fill="#fecaca" stroke="#991b1b"/>
+              <text x="200" y="52" text-anchor="middle" font-weight="700" fill="#991b1b">屏障 1</text>
+              <text x="200" y="67" text-anchor="middle" font-size="10" fill="#7f1d1d">&gt;1 μs</text>
+
+              <rect x="260" y="34" width="230" height="40" fill="#ffedd5" stroke="#c2410c"/>
+              <text x="375" y="52" text-anchor="middle" fill="#9a3412">数据交换 / 归约</text>
+              <text x="375" y="67" text-anchor="middle" font-size="10" fill="#7c2d12">真正有用的工作</text>
+
+              <rect x="490" y="34" width="120" height="40" fill="#fecaca" stroke="#991b1b"/>
+              <text x="550" y="52" text-anchor="middle" font-weight="700" fill="#991b1b">屏障 2</text>
+              <text x="550" y="67" text-anchor="middle" font-size="10" fill="#7f1d1d">&gt;1 μs</text>
+
+              <rect x="610" y="34" width="100" height="40" fill="#dbeafe" stroke="#1e3a5f"/>
+              <text x="660" y="59" text-anchor="middle" fill="#1e3a5f">写回</text>
+
+              <line x1="20" y1="88" x2="710" y2="88" stroke="#78716c" stroke-width="1.2" marker-end="url(#arw2)"/>
+              <text x="366" y="104" text-anchor="middle" font-size="10.5" fill="#78716c">总延迟 ≈ 5 μs，其中约 40% 是两个屏障</text>
+            </g>
+
+            <!-- 下：无屏障 -->
+            <text x="20" y="146" font-weight="700" font-size="12" fill="#115e59">② 本文实现：屏障被 LL / sentinel / 双缓冲彻底消除</text>
+            <g>
+              <rect x="20" y="156" width="120" height="40" fill="#dbeafe" stroke="#1e3a5f"/>
+              <text x="80" y="181" text-anchor="middle" fill="#1e3a5f">本地 load</text>
+
+              <rect x="140" y="156" width="470" height="40" fill="#ccfbf1" stroke="#0f766e"/>
+              <text x="375" y="174" text-anchor="middle" fill="#115e59">推送 + 轮询 + 归约，全部在一次交换里完成</text>
+              <text x="375" y="189" text-anchor="middle" font-size="10" fill="#134e4a">数据自带"到达"信号（LL 打 flag / sentinel 值变化）</text>
+
+              <rect x="610" y="156" width="100" height="40" fill="#dbeafe" stroke="#1e3a5f"/>
+              <text x="660" y="181" text-anchor="middle" fill="#1e3a5f">写回</text>
+
+              <line x1="20" y1="210" x2="710" y2="210" stroke="#0f766e" stroke-width="1.2" marker-end="url(#arw2)"/>
+              <text x="366" y="226" text-anchor="middle" font-size="10.5" fill="#0f766e">剩下的开销主要是 L2 RTT 与远端写延迟——即硬件下界本身</text>
+            </g>
+
+            <rect x="20" y="244" width="940" height="44" rx="6" fill="#f5f0e6" stroke="#e7e0d4"/>
+            <text x="490" y="263" text-anchor="middle" font-size="11" fill="#57534e">屏障之所有贵的根本原因：它要求"所有人都到齐"才放行，而 AllReduce 的语义只要求"每人贡献一次"。把后者映射到前者的代价，就是一次全局往返。</text>
+            <text x="490" y="279" text-anchor="middle" font-size="10.5" fill="#78716c">论文用 ncclLsaBarrierSession 实测屏障成本，并说明这不依赖 NCCL 的具体实现细节——任何"传播 flag + 全员等待"的设计都有同量级开销。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 4 · 论文 Figure 3 隐含的结论可视化。上排是传统实现的时间构成（小消息 AllReduce 约 5 μs，两个屏障占约 40%）；下排是本文的目标形态。</p>
+      <div class="callout warn">
+        <strong>作者对自己测量的诚实声明值得单独指出。</strong>论文承认 NCCL 的 <code>ncclLsaBarrierSession</code> "可能没有被完全优化"，但论证方式是：<em>任何替代设计都逃不出同一个基本模式</em>——传 flag、全员等待——所以这个测量对"这一类方法的固有成本"是有代表性的。这是一个合理的辩护，但也意味着 1 μs 这个数字是"这一实现"的实测值，不是理论下界。
+      </div>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 四件武器：LL / Sentinel / 双向双缓冲 / LL128 Atomic</h2>
+      <p>
+        这是全文的技术核心（第 IV 节）。四件武器解决的是三个层次的问题，先把分工理清楚再逐个拆开：
+      </p>
+      <table>
+        <thead>
+          <tr><th>技术</th><th>解决什么</th><th>代价</th><th>最适用</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>LL</strong>（低延迟）</td>
+            <td>单次交换里"数据是否到达"如何判定</td>
+            <td>有效载荷带宽减半、scratch 翻倍</td>
+            <td>极小消息</td>
+          </tr>
+          <tr>
+            <td><strong>Sentinel</strong>（哨兵）</td>
+            <td>同上，但不牺牲带宽</td>
+            <td>需预置/重置哨兵值；真实数据不得等于哨兵</td>
+            <td>中等偏小消息</td>
+          </tr>
+          <tr>
+            <td><strong>双向 + 双缓冲</strong></td>
+            <td>多次迭代时如何避免覆盖对端未读数据</td>
+            <td>要求每次迭代与每个 peer 只通信一次</td>
+            <td>消息大于 scratch 容量</td>
+          </tr>
+          <tr>
+            <td><strong>LL128 Atomic</strong></td>
+            <td>大规模下两阶段 AllReduce 的可扩展性</td>
+            <td>非确定性、只支持加法、只支持 fp16/fp32、依赖 NVLink 原子性</td>
+            <td>中大消息、多卡</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>5.1 先明确算法骨架：one-shot vs two-shot</h3>
+      <p>
+        消息小的时候，延迟主要由<strong>同步次数（通信阶段数）</strong>决定。所以 <i>O</i>(log <i>N</i>) 的树形/递归倍增算法优于 <i>O</i>(<i>N</i>) 的 ring；而在 scale-up 网络里，阶段数还能进一步压到 <i>O</i>(1)——这就是 one-shot 与 two-shot。
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>One-shot：一个阶段搞定</h4>
+          <p>每张 GPU 从所有 peer 取数据、本地归约、写结果。<strong>push 模式</strong>（先写到对端 scratch 再本地归约）比 pull（远程 load）快——只需半个 GPU-to-GPU RTT，代价是要额外的 scratch 缓冲。通信量 <i>O</i>(<i>N</i>·<i>M</i>)。</p>
+        </div>
+        <div class="tile">
+          <h4>Two-shot：ReduceScatter + AllGather</h4>
+          <p>第一阶段各自归约自己负责的分片，第二阶段把分片换回来。多一次同步，但通信量降到 <i>O</i>(<i>M</i>)——在中等消息尺寸上赢。</p>
+        </div>
+      </div>
+      <p>
+        本文所有设计都基于 <strong>push 模式</strong>，因为目标是逼近 SoL，而 push 用一半的 RTT。代价是"scratch buffer"这个词会在后文反复出现——它就是为 push 准备的临时对称内存。
+      </p>
+
+      
+      <div class="fig">
+        <svg viewBox="0 0 980 380" xmlns="http://www.w3.org/2000/svg" role="img"><g font-family="Segoe UI, sans-serif" font-size="11"><text x="20" y="22" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">每个格子表示「行 rank 发给列 rank 的内容」</text><rect x="20" y="36" width="300" height="280" rx="4" fill="#fff" stroke="#e7e0d4"/><text x="170" y="58" text-anchor="middle" font-size="11.5" fill="#1e3a5f" font-weight="700">One-shot：单阶段</text><text x="119" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU0</text><text x="153" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU1</text><text x="187" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU2</text><text x="221" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU3</text><text x="94" y="125" text-anchor="end" font-size="9" fill="#a8a29e">GPU0</text><text x="94" y="159" text-anchor="end" font-size="9" fill="#a8a29e">GPU1</text><text x="94" y="193" text-anchor="end" font-size="9" fill="#a8a29e">GPU2</text><text x="94" y="227" text-anchor="end" font-size="9" fill="#a8a29e">GPU3</text><rect x="102" y="104" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="136" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="153" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="170" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="187" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="204" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="221" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="102" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="119" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="136" y="138" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="170" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="187" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="204" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="221" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="102" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="119" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="136" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="153" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="170" y="172" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="204" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="221" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="102" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="119" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="136" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="153" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="170" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="187" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">M</text><rect x="204" y="206" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><text x="36" y="266" text-anchor="start" font-size="10" fill="#44403c">每个 rank 向 N−1 个 peer 各发一整份 M</text><text x="36" y="284" text-anchor="start" font-size="10" fill="#57534e">同步阶段：1</text><text x="36" y="302" text-anchor="start" font-size="10" fill="#57534e">总通信量：O(N·M)</text><rect x="340" y="36" width="300" height="280" rx="4" fill="#fff" stroke="#e7e0d4"/><text x="490" y="58" text-anchor="middle" font-size="11.5" fill="#1e3a5f" font-weight="700">Two-shot · ReduceScatter</text><text x="439" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU0</text><text x="473" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU1</text><text x="507" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU2</text><text x="541" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU3</text><text x="414" y="125" text-anchor="end" font-size="9" fill="#a8a29e">GPU0</text><text x="414" y="159" text-anchor="end" font-size="9" fill="#a8a29e">GPU1</text><text x="414" y="193" text-anchor="end" font-size="9" fill="#a8a29e">GPU2</text><text x="414" y="227" text-anchor="end" font-size="9" fill="#a8a29e">GPU3</text><rect x="422" y="104" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="456" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="473" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">B</text><rect x="490" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="507" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">C</text><rect x="524" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="541" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">D</text><rect x="422" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="439" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">A</text><rect x="456" y="138" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="490" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="507" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">C</text><rect x="524" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="541" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">D</text><rect x="422" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="439" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">A</text><rect x="456" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="473" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">B</text><rect x="490" y="172" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="524" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="541" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">D</text><rect x="422" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="439" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">A</text><rect x="456" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="473" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">B</text><rect x="490" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="507" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">C</text><rect x="524" y="206" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><text x="356" y="266" text-anchor="start" font-size="10" fill="#44403c">只把分片 j 发给 GPU j，每份 M/N</text><text x="356" y="284" text-anchor="start" font-size="10" fill="#57534e">同步阶段：1（共 2）</text><text x="356" y="302" text-anchor="start" font-size="10" fill="#57534e">总通信量：(N−1)/N · M</text><rect x="660" y="36" width="300" height="280" rx="4" fill="#fff" stroke="#e7e0d4"/><text x="810" y="58" text-anchor="middle" font-size="11.5" fill="#1e3a5f" font-weight="700">Two-shot · AllGather</text><text x="759" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU0</text><text x="793" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU1</text><text x="827" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU2</text><text x="861" y="96" text-anchor="middle" font-size="9" fill="#a8a29e">GPU3</text><text x="734" y="125" text-anchor="end" font-size="9" fill="#a8a29e">GPU0</text><text x="734" y="159" text-anchor="end" font-size="9" fill="#a8a29e">GPU1</text><text x="734" y="193" text-anchor="end" font-size="9" fill="#a8a29e">GPU2</text><text x="734" y="227" text-anchor="end" font-size="9" fill="#a8a29e">GPU3</text><rect x="742" y="104" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="776" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="793" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">A</text><rect x="810" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="827" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">A</text><rect x="844" y="104" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="861" y="126" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">A</text><rect x="742" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="759" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">B</text><rect x="776" y="138" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="810" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="827" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">B</text><rect x="844" y="138" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="861" y="160" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">B</text><rect x="742" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="759" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">C</text><rect x="776" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="793" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">C</text><rect x="810" y="172" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="844" y="172" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="861" y="194" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">C</text><rect x="742" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="759" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">D</text><rect x="776" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="793" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">D</text><rect x="810" y="206" width="34" height="34" rx="0" fill="#ffedd5" stroke="#c2410c"/><text x="827" y="228" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">D</text><rect x="844" y="206" width="34" height="34" rx="0" fill="#f5f5f4" stroke="#e7e0d4"/><text x="676" y="266" text-anchor="start" font-size="10" fill="#44403c">把已归约的分片 r 广播给所有 peer</text><text x="676" y="284" text-anchor="start" font-size="10" fill="#57534e">同步阶段：1（共 2）</text><text x="676" y="302" text-anchor="start" font-size="10" fill="#57534e">总通信量：(N−1)/N · M</text><rect x="20" y="330" width="940" height="34" rx="4" fill="#fff7ed" stroke="#fdba74"/><text x="490" y="351" text-anchor="middle" font-size="10.5" fill="#9a3412">two-shot 多一次同步，换来通信量从 O(N·M) 降到 O(M)——这就是它在中等消息尺寸上胜出的原因</text></g></svg>
+      </div>
+      <p class="figcap">图 5 · 两种算法骨架的通信矩阵。One-shot 的每一格都是一整份 M；Two-shot 的每一格只有 M/N，但需要两个阶段。注意对角线（自己发给自己）都是空的。</p>
+<h3>5.2 LL：把 flag 和数据打成 16 字节原子写</h3>
+      <p>
+        LL 取自 NCCL 自身的 LL 协议（NVSHMEM、MSCCL++ 里也有）。思路是把<strong>8 字节的 flag 和 8 字节的数据打包，用一次 16 字节原子 store 一起发出去</strong>。接收端不需要单独的"数据到了吗"信号，直接检查 flag 就知道数据可用了。
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LL 与 sentinel 两种就绪检测机制对比">
+          <g font-family="Segoe UI, sans-serif" font-size="11">
+            <!-- LL -->
+            <text x="24" y="24" font-weight="700" font-size="12" fill="#1e3a5f">LL 模式：flag 与数据同一次原子写</text>
+            <rect x="24" y="36" width="110" height="42" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="79" y="62" text-anchor="middle" font-weight="700" fill="#1e3a5f">8B flag</text>
+            <rect x="134" y="36" width="110" height="42" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="189" y="62" text-anchor="middle" font-weight="700" fill="#1e3a5f">8B 数据</text>
+            <rect x="24" y="78" width="220" height="22" fill="#1e3a5f"/>
+            <text x="134" y="94" text-anchor="middle" fill="#fff" font-size="10.5">一条 16B 原子 store 发出</text>
+            <text x="270" y="62" font-size="11.5" fill="#57534e">接收端：flag == 当前 epoch？→ 数据到齐</text>
+            <text x="270" y="84" font-size="10.5" fill="#9a3412">代价：8B 里只有 8B 是数据 → 有效带宽减半，scratch 用量翻倍</text>
+
+            <!-- Sentinel -->
+            <text x="24" y="134" font-weight="700" font-size="12" fill="#0f766e">Sentinel 模式：缓冲区预置哨兵值，写进去就算到</text>
+            <rect x="24" y="146" width="110" height="42" fill="#f5f5f4" stroke="#78716c" stroke-dasharray="4 3"/>
+            <text x="79" y="172" text-anchor="middle" fill="#57534e">−NaN（哨兵）</text>
+            <text x="144" y="172" font-size="14" fill="#78716c">→</text>
+            <rect x="166" y="146" width="78" height="42" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="205" y="172" text-anchor="middle" font-weight="700" fill="#115e59">真实值</text>
+            <text x="270" y="164" font-size="11.5" fill="#57534e">接收端：轮询到值 ≠ 哨兵 → 数据到齐</text>
+            <text x="270" y="184" font-size="10.5" fill="#0f766e">全带宽、scratch 更省；代价：复用前必须重置，且真实数据不能碰巧等于哨兵</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 6 · 两种"数据自带到达信号"的方案。LL 用额外的 flag 位换确定性，sentinel 用哨兵值换带宽。论文的实测显示二者存在交叉点。</p>
+
+      <h3>5.3 Sentinel：用 −NaN 当哨兵</h3>
+      <p>
+        Sentinel 走的是另一条路：接收侧 scratch buffer 先填一个合法计算里几乎不可能出现的值（论文举例 <strong>−NaN</strong>），发送方直接把数据写进去，接收方轮询直到值不再是哨兵——说明新数据到了。
+      </p>
+      <p>
+        它的优点是<strong>保留全带宽、scratch 更省</strong>，对中等偏大的消息效率更高。缺点有两个，论文都点到了：
+      </p>
+      <ul>
+        <li><strong>必须重置。</strong>LL 的 flag 每轮会更新，sentinel 不会——缓冲区复用前得显式重置，缓冲管理更麻烦。</li>
+        <li><strong>数据不能撞上哨兵。</strong>如果某个真实值恰好等于哨兵，接收端会误判"还没到"，直接挂死。这个正确性约束把校验责任推给了用户。</li>
+      </ul>
+      <div class="callout">
+        用一个"几乎不可能的数"做标记，本质上是把<strong>协议正确性建立在一个概率假设上</strong>。−NaN 在浮点运算里确实稀缺（NaN 的传播性甚至会让它自我放大），但这不是形式化保证。对 HPC 里的特殊数据（大量 NaN 填充、特殊掩码）需要额外小心。论文没有深入讨论这个边界，读者自行评估。
+      </div>
+
+      <h3>5.4 双向通信 + 双缓冲：把"收到"当作"可以发"的凭证</h3>
+      <p>
+        LL 和 sentinel 只解决了<strong>单次交换</strong>的同步。一旦消息大于 scratch 容量，就必须分块、多轮迭代，而多轮迭代的经典问题是：<strong>不能在对端还没读完 Buffer 0 的时候就把它覆盖掉</strong>。传统做法是在迭代之间插屏障。论文的做法是消除它：
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="双向通信与双缓冲的三步协议">
+          <defs>
+            <marker id="arw3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#78716c"/>
+            </marker>
+            <marker id="arw3b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"/>
+            </marker>
+          </defs>
+          <g font-family="Segoe UI, sans-serif" font-size="11">
+            <!-- 步骤 1 -->
+            <text x="20" y="22" font-weight="700" font-size="11.5" fill="#57534e">① 双方都从 Buffer 0 开始</text>
+            <rect x="20" y="34" width="200" height="34" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="120" y="56" text-anchor="middle" fill="#1e3a5f">Rank 0 · Buffer 0</text>
+            <rect x="240" y="34" width="200" height="34" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="340" y="56" text-anchor="middle" fill="#1e3a5f">Rank 1 · Buffer 0</text>
+
+            <!-- 步骤 2 -->
+            <text x="20" y="104" font-weight="700" font-size="11.5" fill="#57534e">② 交换第一块 C⁰；Rank 0 更快，做完归约 R 后先写输出</text>
+            <rect x="20" y="116" width="200" height="34" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+            <text x="120" y="138" text-anchor="middle" fill="#115e59">Rank 0·Buf0 已收 C₁⁰</text>
+            <rect x="240" y="116" width="200" height="34" rx="4" fill="#fef3c7" stroke="#d97706"/>
+            <text x="340" y="138" text-anchor="middle" fill="#92400e">Rank 1 仍在处理</text>
+            <path d="M 224 132 L 236 132" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arw3b)"/>
+            <path d="M 236 150 L 224 150" stroke="#0f766e" stroke-width="1.8" marker-end="url(#arw3b)"/>
+
+            <!-- 步骤 3 -->
+            <text x="20" y="186" font-weight="700" font-size="11.5" fill="#57534e">③ Rank 0 换到 Buffer 1 发下一块 C⁰₁，并等 C¹₁ —— 这是不覆盖 Buffer 0 的保证</text>
+            <rect x="20" y="198" width="200" height="34" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+            <text x="120" y="220" text-anchor="middle" fill="#9a3412">Rank 0·Buf1 发送 C₀¹</text>
+            <rect x="240" y="198" width="200" height="34" rx="4" fill="#dbeafe" stroke="#1e3a5f"/>
+            <text x="340" y="220" text-anchor="middle" fill="#1e3a5f">Rank 1·Buf0 收尾</text>
+            <path d="M 224 214 L 236 214" stroke="#c2410c" stroke-width="1.8" marker-end="url(#arw3)"/>
+
+            <rect x="490" y="40" width="472" height="190" rx="7" fill="#fff7ed" stroke="#fdba74"/>
+            <text x="512" y="64" font-weight="700" font-size="11.5" fill="#9a3412">为什么这样就安全？</text>
+            <text x="512" y="88" font-size="11" fill="#57534e">"我在第 k 轮收到了来自 peer 的数据"</text>
+            <text x="512" y="106" font-size="11" fill="#57534e">⇒"peer 一定已经读完了它第 k−1 轮该读的东西"</text>
+            <text x="512" y="124" font-size="11" fill="#57534e">⇒"我可以安全地用它下一个 buffer 发第 k+1 轮"</text>
+            <text x="512" y="154" font-size="11" fill="#7c2d12">本质上就是**信用制流控（credit-based flow control）**：</text>
+            <text x="512" y="172" font-size="11" fill="#7c2d12">每次 recv 就是下一轮 send 的隐式许可。</text>
+            <text x="512" y="202" font-size="10.5" fill="#78716c">前提：每轮对同一个 peer 至多写一次（不能对同一远端地址多次 store）。</text>
+
+            <rect x="20" y="256" width="940" height="58" rx="6" fill="#f5f0e6" stroke="#e7e0d4"/>
+            <text x="490" y="276" text-anchor="middle" font-size="11" fill="#57534e">这个协议的美妙之处在于：它把"缓冲区生命周期"的正确性证明，转化成了一条时序依赖——你无法在收到 k 轮数据前发出 k+1 轮，而收到 k 轮数据本身就证明了对端已释放 k−1 轮的 buffer。</text>
+            <text x="490" y="296" text-anchor="middle" font-size="10.5" fill="#78716c">因此本轮设计不需要任何全局屏障，也不需要所有 rank 都对齐——快慢不一的 rank 可以各跑各的节拍。</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 7 · 论文 Figure 4 的双向双缓冲协议。①②③ 对应论文的步骤编号；右侧是把它解释为信用制流控的直觉。</p>
+
+      <h3>5.5 两阶段 LL128 Atomic：本文唯一真正的新算法</h3>
+      <p>
+        前三个技术是对既有方法的系统化，<strong>two-shot LL128 atomic 是本文提出的新东西</strong>。动机有两条：一，在 L2 上做原子加、由硬件完成同步，可能比"等所有数据到齐再在 CTA 里归约"更便宜；二，所需 scratch 只有 <i>D</i>/<i>N</i>（<i>D</i> 是数据总量，<i>N</i> 是 rank 数），空间效率高得多。
+      </p>
+      <p>
+        它的核心技巧是<strong>把一个 flag 元素嵌进每 128 字节的数据里，用 cache line 级原子加来同时完成"累加"和"计数"</strong>。具体流程：
+      </p>
+      <h4>ReduceScatter 阶段</h4>
+      <ol class="steps">
+        <li>输入被切成 <i>N</i> 块，CTA 均匀分配到各 rank，每个 CTA 认领一个目标 rank。线程以 <strong>8 个为一组</strong>，每人处理 16 字节 → 8×16 = 128 字节，正好一条 cache line。</li>
+        <li>组内<strong>第一个线程充当 flag carrier</strong>，把它的第一个元素 <i>e</i><sub>0</sub> 挪到预留的共享内存区（"displaced values"），然后 <code>__syncthreads()</code> 保证可见。</li>
+        <li>"额外线程组"从共享内存读走这些被挪走的元素。</li>
+        <li>每个 flag carrier 把自己向量的第一个元素设为 <strong>1</strong>。</li>
+        <li>所有线程对目标 rank 的 scratch buffer 做 <strong>atomic add</strong>。NVLink 保证这些操作在 cache line 粒度上原子生效。</li>
+      </ol>
+      <h4>AllGather 阶段</h4>
+      <ol class="steps">
+        <li>目标 rank 等于自身 rank 的 CTA 轮询 scratch 对应区域；每 8 线程组里，flag carrier 反复检查自己向量的第一个元素，<strong>直到它等于 <i>N</i></strong>——因为每条 cache line 收到 1 次贡献就 +1，等于 <i>N</i> 说明所有 rank 都贡献过了。</li>
+        <li>数据确认就绪后，"额外线程"把各自的 16 字节 displaced 元素写回共享内存，<code>__syncthreads()</code>。</li>
+        <li>常规线程组的 flag carrier 从共享内存读回 displaced 元素，恢复自己向量里被顶替的那一位。</li>
+        <li>常规线程把数据写到输出 buffer 的对应区域。</li>
+        <li>CTA 再轮询各自目标 rank 的输出分区，直到完整数据可用。</li>
+      </ol>
+      <div class="callout teal">
+        <strong>为什么 flag 用"加 1"而不用"置 1"？</strong>因为它依赖原子加的<strong>交换律</strong>——<i>N</i> 个 rank 各加一次 1，无论到达顺序如何，结果都是 <i>N</i>。同样因为交换律，这个算法<strong>只能支持加法</strong>（CUDA 没有向量化原子乘）。这个限制在 LLM 推理里几乎无痛（归约基本都是加法），但它确实把算法从"通用 AllReduce"收窄成了"加法 AllReduce"。
+      </div>
+      <p>
+        开销数字很漂亮：FP32 每 128 字节只需额外 4 字节（约 <strong>3%</strong>），FP16 每 128 字节只需 2 字节（约 <strong>1.5%</strong>）。相比之下 LL 是带宽腰斩。
+      </p>
+      <div class="callout warn">
+        <strong>四条限制，论文自己列得很清楚：</strong>
+        <ul>
+          <li><strong>依赖 NVLink</strong> 的 cache-line 级原子加保证。</li>
+          <li><strong>只支持 fp16 / fp32</strong>（CUDA 向量原子指令的可用范围）。</li>
+          <li><strong>只支持加法</strong>（因为 flag 靠交换律，且无向量化原子乘）。</li>
+          <li><strong>非确定性</strong>：浮点原子加的顺序不保证一致。</li>
+        </ul>
+        论文还补了一句很关键的话：<em>"A one-shot variant is possible, but different ranks may observe different results, which violates AllReduce semantics."</em> 也就是说 one-shot 版本在语义上就不成立——不同 rank 可能看到不同的结果，那就不叫 AllReduce 了。这是本文中对"什么算正确的 AllReduce"最清晰的一次表述。
+      </div>
+      <p>
+        数值稳定性方面，论文给出标准的浮点求和前向误差界，并给了一个具体数字：FP32、64 个 rank 时最坏情况系数 γ<sub>63</sub> ≈ 3.8×10<sup>−6</sup>。结论也很克制——<strong>"LL128 atomic 应当被视为面向性能的选项，只用于能容忍所选累加格式精度的负载"</strong>。
+      </p>
+    </section>
+
+    
+      <div class="fig">
+        <svg viewBox="0 0 980 470" xmlns="http://www.w3.org/2000/svg" role="img"><g font-family="Segoe UI, sans-serif" font-size="11"><defs><marker id="mD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"/></marker><marker id="mDR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#991b1b"/></marker></defs><text x="20" y="22" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">① 128 B 的 cache line 由 8 个线程协作写入（FP32：每线程 4 个元素）</text><rect x="40" y="34" width="96" height="30" rx="4" fill="#ffedd5" stroke="#c2410c"/><text x="88" y="53" text-anchor="middle" font-size="10" fill="#9a3412">16 B</text><text x="88" y="78" text-anchor="middle" font-size="9" fill="#78716c">线程 0</text><rect x="142" y="34" width="96" height="30" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="190" y="53" text-anchor="middle" font-size="10" fill="#1e3a5f">16 B</text><text x="190" y="78" text-anchor="middle" font-size="9" fill="#78716c">线程 1</text><rect x="244" y="34" width="96" height="30" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="292" y="53" text-anchor="middle" font-size="10" fill="#1e3a5f">16 B</text><text x="292" y="78" text-anchor="middle" font-size="9" fill="#78716c">线程 2</text><rect x="346" y="34" width="96" height="30" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="394" y="53" text-anchor="middle" font-size="10" fill="#1e3a5f">16 B</text><text x="394" y="78" text-anchor="middle" font-size="9" fill="#78716c">线程 3</text><rect x="448" y="34" width="96" height="30" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="496" y="53" text-anchor="middle" font-size="10" fill="#1e3a5f">16 B</text><text x="496" y="78" text-anchor="middle" font-size="9" fill="#78716c">线程 4</text><rect x="550" y="34" width="96" height="30" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="598" y="53" text-anchor="middle" font-size="10" fill="#1e3a5f">16 B</text><text x="598" y="78" text-anchor="middle" font-size="9" fill="#78716c">线程 5</text><rect x="652" y="34" width="96" height="30" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="700" y="53" text-anchor="middle" font-size="10" fill="#1e3a5f">16 B</text><text x="700" y="78" text-anchor="middle" font-size="9" fill="#78716c">线程 6</text><rect x="754" y="34" width="96" height="30" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="802" y="53" text-anchor="middle" font-size="10" fill="#1e3a5f">16 B</text><text x="802" y="78" text-anchor="middle" font-size="9" fill="#78716c">线程 7</text><text x="20" y="106" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">② flag carrier（线程 0）把首元素 e0 挪到共享内存，再把自己的首元素置 1</text><text x="40" y="130" text-anchor="start" font-size="10" fill="#78716c">原数据</text><rect x="90" y="118" width="72" height="30" rx="4" fill="#ffedd5" stroke="#c2410c"/><text x="126" y="138" text-anchor="middle" font-size="10.5" fill="#9a3412">e0</text><rect x="166" y="118" width="72" height="30" rx="4" fill="#fff" stroke="#a8a29e"/><text x="202" y="138" text-anchor="middle" font-size="10.5" fill="#57534e">e1</text><rect x="242" y="118" width="72" height="30" rx="4" fill="#fff" stroke="#a8a29e"/><text x="278" y="138" text-anchor="middle" font-size="10.5" fill="#57534e">e2</text><rect x="318" y="118" width="72" height="30" rx="4" fill="#fff" stroke="#a8a29e"/><text x="354" y="138" text-anchor="middle" font-size="10.5" fill="#57534e">e3</text><rect x="470" y="110" width="250" height="48" rx="4" fill="#f0fdfa" stroke="#0f766e"/><text x="595" y="130" text-anchor="middle" font-size="10.5" fill="#115e59">共享内存 · displaced values</text><text x="595" y="148" text-anchor="middle" font-size="10" fill="#134e4a">暂时存放被顶掉的 e0</text><line x1="162" y1="148" x2="466" y2="134" stroke="#0f766e" stroke-width="1.4" marker-end="url(#mD)"/><text x="40" y="186" text-anchor="start" font-size="10" fill="#78716c">置 1 后</text><rect x="90" y="172" width="72" height="30" rx="4" fill="#fee2e2" stroke="#991b1b"/><text x="126" y="192" text-anchor="middle" font-size="12" fill="#991b1b" font-weight="700">1</text><rect x="166" y="172" width="72" height="30" rx="4" fill="#fff" stroke="#a8a29e"/><text x="202" y="192" text-anchor="middle" font-size="10.5" fill="#57534e">e1</text><rect x="242" y="172" width="72" height="30" rx="4" fill="#fff" stroke="#a8a29e"/><text x="278" y="192" text-anchor="middle" font-size="10.5" fill="#57534e">e2</text><rect x="318" y="172" width="72" height="30" rx="4" fill="#fff" stroke="#a8a29e"/><text x="354" y="192" text-anchor="middle" font-size="10.5" fill="#57534e">e3</text><line x1="126" y1="152" x2="126" y2="168" stroke="#991b1b" stroke-width="1.4" marker-end="url(#mDR)"/><text x="20" y="232" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">③ 8 个线程对目标 rank 的 scratch 做 128 B 原子加（NVLink 保证 cache line 级原子）</text><rect x="40" y="248" width="84" height="28" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="82" y="267" text-anchor="middle" font-size="10" fill="#1e3a5f">GPU 0</text><line x1="128" y1="262" x2="426" y2="262" stroke="#78716c" stroke-width="1.2" marker-end="url(#mD)"/><text x="280" y="257" text-anchor="middle" font-size="9.5" fill="#9a3412">+1</text><rect x="40" y="284" width="84" height="28" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="82" y="303" text-anchor="middle" font-size="10" fill="#1e3a5f">GPU 1</text><line x1="128" y1="298" x2="426" y2="298" stroke="#78716c" stroke-width="1.2" marker-end="url(#mD)"/><text x="280" y="293" text-anchor="middle" font-size="9.5" fill="#9a3412">+1</text><rect x="40" y="320" width="84" height="28" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="82" y="339" text-anchor="middle" font-size="10" fill="#1e3a5f">GPU 2</text><line x1="128" y1="334" x2="426" y2="334" stroke="#78716c" stroke-width="1.2" marker-end="url(#mD)"/><text x="280" y="329" text-anchor="middle" font-size="9.5" fill="#9a3412">+1</text><rect x="430" y="246" width="300" height="110" rx="4" fill="#fff7ed" stroke="#c2410c"/><text x="580" y="268" text-anchor="middle" font-size="10.5" fill="#9a3412" font-weight="700">目标 rank 的 scratch（一条 cache line）</text><text x="580" y="292" text-anchor="middle" font-size="10.5" fill="#7c2d12">flag 元素累加：1 + 1 + 1 = 3</text><text x="580" y="312" text-anchor="middle" font-size="10.5" fill="#7c2d12">等于 rank 数 N ⇒ 所有贡献到齐</text><text x="580" y="334" text-anchor="middle" font-size="10" fill="#78716c">其余 124 B 是叠加后的数据</text><text x="20" y="382" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">④ AllGather：轮询到 flag == N 后，从共享内存取回 e0，恢复完整向量</text><rect x="40" y="398" width="250" height="46" rx="4" fill="#ccfbf1" stroke="#0f766e"/><text x="165.0" y="426" text-anchor="middle" font-size="10.5" fill="#115e59">轮询首元素，直到 == N</text><rect x="310" y="398" width="250" height="46" rx="4" fill="#f0fdfa" stroke="#0f766e"/><text x="435.0" y="426" text-anchor="middle" font-size="10.5" fill="#115e59">从共享内存取回 displaced e0</text><rect x="580" y="398" width="300" height="46" rx="4" fill="#dbeafe" stroke="#1e3a5f"/><text x="730.0" y="426" text-anchor="middle" font-size="10.5" fill="#1e3a5f">写回输出 buffer</text><line x1="292" y1="421" x2="306" y2="421" stroke="#78716c" stroke-width="1.4" marker-end="url(#mD)"/><line x1="562" y1="421" x2="576" y2="421" stroke="#78716c" stroke-width="1.4" marker-end="url(#mD)"/></g></svg>
+      </div>
+      <p class="figcap">图 8 · LL128 atomic 的全部机制。上半：用一个 flag 元素顶替 e0，e0 暂存共享内存；下半：N 份原子加让 flag 恰好等于 N，从而在硬件层面完成「计数 + 归约」两件事。额外的 displaced-value 往返正是它只多 3% 带宽的代价。</p>
+<section class="card" id="s6">
+      <h2>6. API 设计：以 ncclLLBuffer 为中心的线程级原语</h2>
+      <p>
+        这套技术如果只停留在论文里，价值有限。第 V 节把它们抽象成可复用的 NCCL device-side API，这是本文对社区最直接的可交付物。三条设计目标写得很明确：① 与 NCCL 既有 device-side 接口兼容；② 把低延迟技术封装成统一抽象；③ 足够灵活，能当作自定义 kernel 的积木。
+      </p>
+
+      <h3>6.1 缓冲中心（buffer-centric）的设计</h3>
+      <p>
+        核心对象是 <code>ncclLLBuffer</code>：它包住任意一块对称内存，把低延迟原语暴露成直接作用于这块 buffer 的方法。两个模板参数控制行为：
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4><code>ncclLLSyncMode</code></h4>
+          <p>在初始化时选择 LL 还是 sentinel 同步。切换机制几乎不需要改代码——这是"统一抽象"的直接体现。</p>
+        </div>
+        <div class="tile">
+          <h4>multicast 开关</h4>
+          <p>控制是否使用 NVLS 多播指令。开与不开在通信模式上差别很大，但用户视角只是一个布尔值。</p>
+        </div>
+      </div>
+      <p>
+        多缓冲通过 <code>bytesPerCtaPerEpoch</code> 与 <code>roundRobinFactor</code> 描述：buffer 地址由 epoch 和 CTA 索引推导，不同迭代自动落到不相交的内存区。当 <code>roundRobinFactor = 0</code> 时不做细分、偏移固定、<code>advanceEpoch()</code> 变成空操作，此时用户需自己管理偏移。对象内部还维护一个 epoch 值——在 LL 模式下，它<strong>就是随数据一起发出的 flag</strong>。
+      </p>
+
+      
+      <div class="fig">
+        <svg viewBox="0 0 980 310" xmlns="http://www.w3.org/2000/svg" role="img"><g font-family="Segoe UI, sans-serif" font-size="11"><defs><marker id="mE" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9a3412"/></marker></defs><text x="20" y="22" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">ncclLLBuffer：对称 scratch 按 epoch 与 CTA 切分（示例 roundRobinFactor = 2）</text><text x="283" y="56" text-anchor="middle" font-size="11" fill="#1e3a5f" font-weight="700">epoch 0</text><text x="737" y="56" text-anchor="middle" font-size="11" fill="#1e3a5f" font-weight="700">epoch 1</text><rect x="60" y="64" width="446" height="74" rx="4" fill="#fff" stroke="#1e3a5f"/><rect x="62" y="66" width="108" height="70" rx="4" fill="#dbeafe" stroke="#93c5fd"/><text x="116" y="90" text-anchor="middle" font-size="10.5" fill="#1e3a5f">CTA 0</text><text x="116" y="108" text-anchor="middle" font-size="8.5" fill="#334155">bytesPerCtaPerEpoch</text><text x="116" y="126" text-anchor="middle" font-size="9" fill="#78716c">epoch 0</text><rect x="174" y="66" width="108" height="70" rx="4" fill="#dbeafe" stroke="#93c5fd"/><text x="228" y="90" text-anchor="middle" font-size="10.5" fill="#1e3a5f">CTA 1</text><text x="228" y="108" text-anchor="middle" font-size="8.5" fill="#334155">bytesPerCtaPerEpoch</text><text x="228" y="126" text-anchor="middle" font-size="9" fill="#78716c">epoch 0</text><rect x="286" y="66" width="108" height="70" rx="4" fill="#dbeafe" stroke="#93c5fd"/><text x="340" y="90" text-anchor="middle" font-size="10.5" fill="#1e3a5f">CTA 2</text><text x="340" y="108" text-anchor="middle" font-size="8.5" fill="#334155">bytesPerCtaPerEpoch</text><text x="340" y="126" text-anchor="middle" font-size="9" fill="#78716c">epoch 0</text><rect x="398" y="66" width="108" height="70" rx="4" fill="#dbeafe" stroke="#93c5fd"/><text x="452" y="90" text-anchor="middle" font-size="10.5" fill="#1e3a5f">CTA 3</text><text x="452" y="108" text-anchor="middle" font-size="8.5" fill="#334155">bytesPerCtaPerEpoch</text><text x="452" y="126" text-anchor="middle" font-size="9" fill="#78716c">epoch 0</text><rect x="514" y="64" width="446" height="74" rx="4" fill="#fff" stroke="#1e3a5f"/><rect x="516" y="66" width="108" height="70" rx="4" fill="#ccfbf1" stroke="#5eead4"/><text x="570" y="90" text-anchor="middle" font-size="10.5" fill="#1e3a5f">CTA 0</text><text x="570" y="108" text-anchor="middle" font-size="8.5" fill="#334155">bytesPerCtaPerEpoch</text><text x="570" y="126" text-anchor="middle" font-size="9" fill="#78716c">epoch 1</text><rect x="628" y="66" width="108" height="70" rx="4" fill="#ccfbf1" stroke="#5eead4"/><text x="682" y="90" text-anchor="middle" font-size="10.5" fill="#1e3a5f">CTA 1</text><text x="682" y="108" text-anchor="middle" font-size="8.5" fill="#334155">bytesPerCtaPerEpoch</text><text x="682" y="126" text-anchor="middle" font-size="9" fill="#78716c">epoch 1</text><rect x="740" y="66" width="108" height="70" rx="4" fill="#ccfbf1" stroke="#5eead4"/><text x="794" y="90" text-anchor="middle" font-size="10.5" fill="#1e3a5f">CTA 2</text><text x="794" y="108" text-anchor="middle" font-size="8.5" fill="#334155">bytesPerCtaPerEpoch</text><text x="794" y="126" text-anchor="middle" font-size="9" fill="#78716c">epoch 1</text><rect x="852" y="66" width="108" height="70" rx="4" fill="#ccfbf1" stroke="#5eead4"/><text x="906" y="90" text-anchor="middle" font-size="10.5" fill="#1e3a5f">CTA 3</text><text x="906" y="108" text-anchor="middle" font-size="8.5" fill="#334155">bytesPerCtaPerEpoch</text><text x="906" y="126" text-anchor="middle" font-size="9" fill="#78716c">epoch 1</text><path d="M 450 142 Q 505 178 560 142" fill="none" stroke="#9a3412" stroke-width="1.6" marker-end="url(#mE)"/><text x="505" y="190" text-anchor="middle" font-size="10.5" fill="#9a3412">advanceEpoch() → 指向下一个子 buffer，无需任何屏障</text><rect x="20" y="206" width="940" height="34" rx="4" fill="#f5f0e6" stroke="#e7e0d4"/><text x="490" y="228" text-anchor="middle" font-size="11" fill="#44403c">地址推导：addr = base + epoch × epoch_stride + ctaIdx × bytesPerCtaPerEpoch</text><rect x="20" y="256" width="940" height="34" rx="4" fill="#fff7ed" stroke="#fdba74"/><text x="490" y="278" text-anchor="middle" font-size="10.5" fill="#9a3412">roundRobinFactor = 0：不再细分、偏移固定，advanceEpoch() 变成空操作，由用户自行管理偏移</text></g></svg>
+      </div>
+      <p class="figcap">图 9 · ncclLLBuffer 的内存布局。多缓冲不是靠额外数据结构，而是靠「epoch × CTA 索引」算出的地址偏移；这也是为什么双缓冲协议对用户几乎透明。</p>
+<h3>6.2 原语清单</h3>
+      <table>
+        <thead>
+          <tr><th>原语</th><th>语义</th><th>实现要点</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>send</code></td>
+            <td>把值写到指定 peer 的 slot</td>
+            <td>目标布局由类型 <code>T</code> 决定：每元素 <code>sizeof(T)</code>，LL 模式下 <code>2×sizeof(T)</code>（flag + 数据）</td>
+          </tr>
+          <tr>
+            <td><code>recv</code></td>
+            <td>轮询单个 slot 直到看到有效数据</td>
+            <td>sentinel 模式等"值 ≠ 哨兵"；LL 模式等"flag == 当前 epoch"。可选 <code>Reset</code> 参数在读取后重置，<strong>但重置的可见性不保证</strong>，需 <code>__threadfence()</code></td>
+          </tr>
+          <tr>
+            <td><code>recvUnrolled</code></td>
+            <td>接收多个元素，<strong>编译期展开</strong></td>
+            <td>用户给 min/max 元素数：<code>[0, MinEltCount)</code> 必访问，<code>[MinEltCount, MaxEltCount)</code> 按 <code>eltCount</code> 条件访问。多 peer 接收时收益显著</td>
+          </tr>
+          <tr>
+            <td><code>recvReduce</code></td>
+            <td>接收 + 归约二合一</td>
+            <td>内部复用 <code>recvUnrolled</code>，从多个 peer 收、转成累加器类型、应用用户定义的归约算子</td>
+          </tr>
+          <tr>
+            <td><code>bcast</code></td>
+            <td>一次写到所有 peer</td>
+            <td>开了多播就走硬件多播（一条指令），否则循环各 peer；有模板展开因子控制循环展开</td>
+          </tr>
+          <tr>
+            <td><code>reset</code> / <code>resetRange</code></td>
+            <td>清空 slot</td>
+            <td>sentinel 模式恢复该类型的哨兵值，LL 模式清零。同样不保证全局可见性</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>主机侧只保留两个最小接口：</p>
+      <ul>
+        <li><code>ncclCalcScratchBufferSize()</code>：按元素大小、rank 数、CTA 数、同步模式、round-robin 因子算出最小 buffer 需求。</li>
+        <li><code>ncclLLBufferInitSentinel()</code>：把 buffer 填成对应类型的哨兵值。</li>
+      </ul>
+      <p>
+        论文对主机侧"刻意最小化"的解释是：用户只需像往常一样分配并初始化对称 buffer，<strong>不需要额外的编排（orchestration）</strong>；一旦被 device 侧抽象包住，所有低延迟原语都自动可用。这是一个很克制的 API 设计取向——不试图接管生命周期，只暴露能力。
+      </p>
+
+      <h3>6.3 关键约束：为什么 API 只到线程级</h3>
+      <div class="callout navy">
+        <strong>NVSHMEM 提供线程 / warp / block 三级 API，本文只暴露线程级。</strong>理由是：粒度越细，用户对时序的控制越精确，越有可能逼近最低延迟。代价是易用性。这属于典型的"为性能牺牲抽象"的取舍，论文也把"未来提供 warp/block 级抽象"列为后续工作。
+      </div>
+      <p>另一条约束更重要，它决定了哪些算法能用这套 API：</p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4 class="y" style="color:#166534">✓ 能用：双向通信 + 每步 buffer 不相交</h4>
+          <p>one-shot、two-shot AllReduce 都符合——每一步用独立 buffer，且每个 rank 在同一轮既发也收。于是可以完全无屏障。</p>
+        </div>
+        <div class="tile">
+          <h4 style="color:#991b1b">✗ 不能用：有跨步依赖且非双向</h4>
+          <p><strong>ring AllReduce 仍需显式屏障。</strong>因为每个 rank 必须"收到一块 → 归约 → 转发"，提前推进就可能覆盖尚未被消费的数据。</p>
+        </div>
+      </div>
+      <p>
+        这段约束的价值被低估了：它实际上给出了一个<strong>判别准则</strong>——"这个集合通信算法能否做成无屏障的？"答案取决于它的依赖图是否每轮自相邻（self-adjacent）且双向。论文用 ring 这个反例把边界画得很清楚。
+      </p>
+
+      <h3>6.4 集成进 NCCL 的开关</h3>
+      <p>编译好的 kernel 通过环境变量选择，这意味着用户可以逐项对照测试：</p>
+      <table>
+        <thead>
+          <tr><th>变量</th><th>取值</th><th>含义</th></tr>
+        </thead>
+        <tbody>
+          <tr><td rowspan="3"><code>NCCL_SYM_KERNEL</code></td><td><code>AllReduce_LLBuffer</code></td><td>one-shot</td></tr>
+          <tr><td><code>AllReduce_LLBuffer_Twoshot</code></td><td>two-shot</td></tr>
+          <tr><td><code>AllReduce_LL128_Atomic</code></td><td>LL128 atomic 变体</td></tr>
+          <tr><td><code>NCCL_SYM_LLBUFFER_SYNC</code></td><td>LL / sentinel</td><td>同一算法下切换同步机制</td></tr>
+        </tbody>
+      </table>
+      <p>
+        还有一条容易忽略但对正确性很关键的说明：<strong>two-shot 需要对称（LSA）输出 buffer；one-shot 只依赖 NCCL 自己初始化的对称 scratch buffer，对输出没有这个要求</strong>。这解释了为什么后文 vLLM 实验里"开启 PyTorch symmetric memory"能带来额外收益——不开的时候，two-shot 和 LL128 atomic 都用不了。
+      </p>
+
+      <h3>6.5 一个完整的 one-shot AllReduce 长什么样</h3>
+      <p>论文 Figure 9 的例子把整个调用序列压缩成了五行左右的逻辑：</p>
+      <pre><span class="c">// 伪代码，按论文 Figure 9 的文字描述还原</span>
+ncclLLBuffer buf(sym_scratch, <span class="k">/*double buffered*/</span>);
+
+<span class="k">for</span> (每个线程负责的元素 e) {
+    <span class="k">auto</span> v = input[e];          <span class="c">// 本地读</span>
+    buf.bcast(v);               <span class="c">// 推到所有 peer 的 slot（多播或循环）</span>
+    <span class="k">auto</span> r = buf.recvReduce(v); <span class="c">// 轮询 + 接收所有 rank + 本地归约</span>
+    output[e] = r;
+    buf.advanceEpoch();         <span class="c">// 切到下一个子 buffer</span>
+}</pre>
+      <p>
+        这正是"API 能简洁表达集合通信算法"的论证：<strong>没有屏障、没有显式信号、没有分阶段编排</strong>，同步信息完全隐含在数据路径里。
+      </p>
+      <p>
+        除了 AllReduce，发布的 artifact 还包含用同一套 LL / sentinel 原语构造的 <strong>Broadcast、Reduce、ReduceScatter、AllGather</strong> kernel。
+      </p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 如何度量"光速"：L_SOL 的推导与实测</h2>
+      <p>
+        这是本文方法论上最值得学习的一节。很多论文说"接近下限"但不下定义；这篇把下界拆成了可测的物理量。
+      </p>
+      <p>
+        定义：<strong>SoL = 完成 AllReduce 所必需的最小数据搬运，忽略一切其他开销（指令调度、计算等）</strong>。由于小消息延迟由内存系统处理的最小单位决定，所以聚焦<strong>一条 128 字节 cache line</strong> 的搬运。
+      </p>
+      <p>因为远端 store 比远端 load 快、且假设 buffer 足够大，SoL 对应的就是 <strong>one-shot push</strong> 算法。它包含四步：</p>
+      <div class="fig">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AllReduce SoL 下界的四步数据搬运与时间构成">
+          <defs>
+            <marker id="arw4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#78716c"/>
+            </marker>
+          </defs>
+          <g font-family="Segoe UI, sans-serif" font-size="11">
+            <!-- 步骤条 -->
+            <g>
+              <rect x="20" y="30" width="130" height="52" rx="5" fill="#dbeafe" stroke="#1e3a5f"/>
+              <text x="85" y="50" text-anchor="middle" font-weight="700" fill="#1e3a5f">① 载入寄存器</text>
+              <text x="85" y="68" text-anchor="middle" font-size="10" fill="#334155">假设 L2 命中</text>
+
+              <rect x="175" y="30" width="160" height="52" rx="5" fill="#ffedd5" stroke="#c2410c"/>
+              <text x="255" y="50" text-anchor="middle" font-weight="700" fill="#9a3412">② 广播到所有 peer</text>
+              <text x="255" y="68" text-anchor="middle" font-size="10" fill="#7c2d12">假设同时发出</text>
+
+              <rect x="360" y="30" width="130" height="52" rx="5" fill="#dbeafe" stroke="#1e3a5f"/>
+              <text x="425" y="50" text-anchor="middle" font-weight="700" fill="#1e3a5f">③ 从 L2 载入</text>
+              <text x="425" y="68" text-anchor="middle" font-size="10" fill="#334155">各 peer 并行</text>
+
+              <rect x="515" y="30" width="150" height="52" rx="5" fill="#ccfbf1" stroke="#0f766e"/>
+              <text x="590" y="50" text-anchor="middle" font-weight="700" fill="#115e59">④ SM 内归约 + 写回</text>
+              <text x="590" y="68" text-anchor="middle" font-size="10" fill="#134e4a">store 延迟不计入</text>
+            </g>
+            <path d="M 154 56 L 171 56" stroke="#78716c" stroke-width="1.4" marker-end="url(#arw4)"/>
+            <path d="M 339 56 L 356 56" stroke="#78716c" stroke-width="1.4" marker-end="url(#arw4)"/>
+            <path d="M 494 56 L 511 56" stroke="#78716c" stroke-width="1.4" marker-end="url(#arw4)"/>
+
+            <!-- 公式区 -->
+            <rect x="690" y="22" width="272" height="70" rx="6" fill="#f5f0e6" stroke="#d6d3d1"/>
+            <text x="826" y="46" text-anchor="middle" font-weight="700" font-size="12" fill="#44403c">L_SOL = 2·L_L2_RTT + L_remote_store</text>
+            <text x="826" y="66" text-anchor="middle" font-size="10.5" fill="#57534e">与 rank 数 N 无关：广播到 N 个 peer</text>
+            <text x="826" y="82" text-anchor="middle" font-size="10.5" fill="#57534e">与广播到 1 个 peer 的延迟相同</text>
+
+            <!-- 实测 -->
+            <text x="20" y="126" font-weight="700" font-size="12" fill="#1e3a5f">在 2×GB200 上的测量（论文 VII 节）</text>
+            <g>
+              <rect x="20" y="138" width="300" height="60" rx="5" fill="#fff" stroke="#1e3a5f"/>
+              <text x="170" y="160" text-anchor="middle" font-weight="700" fill="#1e3a5f">L_L2_RTT = 0.306 μs</text>
+              <text x="170" y="180" text-anchor="middle" font-size="10.5" fill="#57534e">测法：单条 __threadfence() 的延迟</text>
+
+              <rect x="340" y="138" width="300" height="60" rx="5" fill="#fff" stroke="#c2410c"/>
+              <text x="490" y="160" text-anchor="middle" font-weight="700" fill="#9a3412">L_remote_store = 0.792 μs</text>
+              <text x="490" y="180" text-anchor="middle" font-size="10.5" fill="#57534e">测法：两卡 ping-pong 后反解</text>
+
+              <rect x="660" y="138" width="302" height="60" rx="5" fill="#fee2e2" stroke="#9a3412"/>
+              <text x="811" y="160" text-anchor="middle" font-weight="700" fill="#9a3412">⇒ L_SOL = 1.404 μs</text>
+              <text x="811" y="180" text-anchor="middle" font-size="10.5" fill="#7f1d1d">2×0.306 + 0.792 = 1.404</text>
+            </g>
+
+            <!-- ping-pong 分解 -->
+            <rect x="20" y="218" width="942" height="66" rx="6" fill="#f0f4f8" stroke="#cbd5e1"/>
+            <text x="40" y="240" font-size="11" fill="#1e3a5f">为什么能从 ping-pong 反解出 L_remote_store？</text>
+            <text x="40" y="260" font-size="11" fill="#57534e">一次往返 = 去程一次远端 store + 回程一次远端 store，两端各一次 L2 访问：</text>
+            <text x="40" y="278" font-size="11" fill="#57534e">L_ping_pong = 2·L_L2_RTT + 2·L_remote_store   ⇒   L_remote_store = (L_ping_pong − 2·L_L2_RTT) / 2</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 10 · SoL 下界的四步构成、测量方法与实测值。最后一步的 store 延迟不计入，因为 store 指令发出后内存系统会在后台完成写入。</p>
+      <div class="callout teal">
+        <strong>一个很重要的推论：L<sub>SOL</sub> 与 <i>N</i> 无关。</strong>因为 SoL 假设"发到 <i>N</i> 个 peer 和发到 1 个 peer 延迟相同"（所有 store 同时发出、所有贡献同时到达、并行取回）。这既是本文设计目标的数学表述，也解释了为什么论文 Figure 11 里即使 64 卡，理论上仍可逼近同一个下界——实际做不到，是因为多播/轮询/归约的软件开销开始显现。
+      </div>
+      <p>
+        这个下界的定义有明确的边界条件，读数字时必须记住：假设 <strong>L2 命中</strong>（所考虑的消息确实通常能装进 L2）、假设 <strong>buffer 足够大</strong>（所以是 one-shot）、<strong>忽略归约计算和指令调度</strong>。所以"7% overhead"的含义是：<em>相对这个理想化的搬运时间，只多花了 7%</em>，而不是"物理极限只差 7%"。
+      </p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 实验：微基准与三个观察</h2>
+
+      <h3>8.1 实验平台</h3>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>微基准 / LLM 推理</h4>
+          <p><strong>GB200 NVL72</strong>：单节点 4 颗 Blackwell，72 卡在同一 NVLink 域，聚合带宽 130 TB/s。<br />容器 vLLM v26.02（Ubuntu 24.04、CUDA 13.1、vLLM 0.15.1、PyTorch 2.11、OpenMPI 4.1.9）。</p>
+        </div>
+        <div class="tile">
+          <h4>HPC 案例</h4>
+          <p><strong>Alps 超算</strong>：每节点 4 颗 GH200，节点内 NVLink 150 GB/s。容器 v25.10（CUDA 12.6、cuSOLVERMp 0.7.2）。<em>选这个平台是因为它对领域科学家更可得。</em></p>
+        </div>
+        <div class="tile">
+          <h4>统计口径</h4>
+          <p>每个实验 10 次取均值，误差棒为标准差，<strong>通常小到看不见</strong>。vLLM 部分 5 次。NCCL 侧统一 64 CTA × 512 线程；其他库用各自的默认配置。</p>
+        </div>
+      </div>
+
+      <h3>8.2 先定 scratch 大小，再谈延迟</h3>
+      <p>
+        论文在比较延迟之前先做了一件很多论文会跳过的事：<strong>研究 scratch buffer 容量对性能的影响</strong>，以便给出合理的默认值。实验条件是 8 卡、32 MiB 消息、64 CTA、每 CTA 最多 512 线程。
+      </p>
+      <p>结论有两层，而且里面藏着一个反直觉现象：</p>
+      <div class="callout">
+        <strong>one-shot kernel：buffer 太小不行，太大也不行。</strong>因为每条 rank 同时向所有 peer 写，buffer 越大，每轮发出的数据越多，对 NVLink 的<strong>瞬时带宽压力</strong>越大。所以超过某个点后，加大 buffer 收益极小，甚至<em>轻微变差</em>。
+      </div>
+      <p>最终选定的默认值：</p>
+      <table>
+        <thead>
+          <tr><th>kernel 类型</th><th>默认 scratch</th><th>理由</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>one-shot</td><td><strong>4 MiB</strong></td><td>更大 buffer 收益有限</td></tr>
+          <tr><td>two-shot / LL128 atomic</td><td><strong>64 MiB</strong></td><td>需要容纳整条消息的分片</td></tr>
+        </tbody>
+      </table>
+      <p>
+        论文还单独表扬了 LL128 atomic 的空间效率：<strong>它不存来自所有 rank 的中间数据，而是直接往目标 buffer 里累加</strong>，所以处理整条消息所需的 scratch 大幅减少。这是"<i>D</i>/<i>N</i> scratch"这一设计目标的实测印证。
+      </p>
+
+      
+      <div class="fig">
+        <svg viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img"><g font-family="Segoe UI, sans-serif" font-size="11"><defs><marker id="mF" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#78716c"/></marker></defs><text x="20" y="22" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">scratch buffer 大小对延迟的影响（定性示意，非论文原始数据）</text><line x1="80" y1="270" x2="900" y2="270" stroke="#78716c" stroke-width="1.3" marker-end="url(#mF)"/><line x1="80" y1="70" x2="80" y2="270" stroke="#78716c" stroke-width="1.3" marker-end="url(#mF)"/><text x="72" y="66" text-anchor="end" font-size="10" fill="#57534e">延迟</text><text x="898" y="290" text-anchor="end" font-size="10" fill="#57534e">scratch 大小（对数）</text><line x1="120" y1="270" x2="120" y2="276" stroke="#78716c"/><text x="120" y="290" text-anchor="middle" font-size="9.5" fill="#78716c">64 KB</text><line x1="240" y1="270" x2="240" y2="276" stroke="#78716c"/><text x="240" y="290" text-anchor="middle" font-size="9.5" fill="#78716c">256 KB</text><line x1="360" y1="270" x2="360" y2="276" stroke="#78716c"/><text x="360" y="290" text-anchor="middle" font-size="9.5" fill="#78716c">1 MB</text><line x1="480" y1="270" x2="480" y2="276" stroke="#78716c"/><text x="480" y="290" text-anchor="middle" font-size="9.5" fill="#78716c">4 MB</text><line x1="600" y1="270" x2="600" y2="276" stroke="#78716c"/><text x="600" y="290" text-anchor="middle" font-size="9.5" fill="#78716c">16 MB</text><line x1="720" y1="270" x2="720" y2="276" stroke="#78716c"/><text x="720" y="290" text-anchor="middle" font-size="9.5" fill="#78716c">64 MB</text><line x1="840" y1="270" x2="840" y2="276" stroke="#78716c"/><text x="840" y="290" text-anchor="middle" font-size="9.5" fill="#78716c">256 MB</text><line x1="480" y1="70" x2="480" y2="270" stroke="#9a3412" stroke-width="1" stroke-dasharray="4 3"/><text x="486" y="84" text-anchor="start" font-size="9.5" fill="#9a3412">4 MiB · one-shot 默认</text><line x1="720" y1="70" x2="720" y2="270" stroke="#9a3412" stroke-width="1" stroke-dasharray="4 3"/><text x="726" y="102" text-anchor="start" font-size="9.5" fill="#9a3412">64 MiB · two-shot / LL128 默认</text><polyline points="100,110 200,178 300,216 400,230 500,234 600,237 700,245 820,258" fill="none" stroke="#c2410c" stroke-width="2.2"/><polyline points="100,142 200,186 300,212 400,226 500,232 600,233 700,233 820,232" fill="none" stroke="#0f766e" stroke-width="2.2"/><rect x="620" y="300" width="14" height="4" fill="#c2410c"/><text x="642" y="307" text-anchor="start" font-size="10" fill="#9a3412">one-shot：先降后平，过大反而略升（瞬时带宽压力）</text><rect x="620" y="318" width="14" height="4" fill="#0f766e"/><text x="642" y="325" text-anchor="start" font-size="10" fill="#0f766e">two-shot / LL128：持续下降到平台</text></g></svg>
+      </div>
+      <p class="figcap">图 11 · scratch 容量的两个阶段。左段：缓冲区太小无法容纳一轮数据，延迟高；中段：收益快速兑现；右段：one-shot 因每轮发送量增大而触及 NVLink 瞬时带宽上限，曲线微微回升——这正是论文为 one-shot 只选 4 MiB 的原因。</p>
+<h3>8.3 延迟对比：三个观察</h3>
+      <p>
+        对比对象包括 NCCL legacy ring / tree、NCCL 2.29.1 的对称内存 kernel（AGxLL 是 one-shot，RSxLD-AGxST 是 two-shot）、NVSHMEM 3.5.21、MSCCL++ 0.8.0、vLLM 自定义 AllReduce 0.15.1，以及 NCCLX CTran 的 ctdirect。
+      </p>
+      <div class="callout warn">
+        <strong>基线本身的可比性有几个坑，论文都点明了：</strong>
+        <ul>
+          <li>NCCLX CTran 的 ctdirect 只支持单节点 → 只报 2 卡和 4 卡；ctring 每节点只支持 1 个 rank 且不为低延迟优化 → 直接省略。</li>
+          <li>vLLM 自定义 AllReduce 同样受单节点限制。</li>
+          <li>MSCCL++ 的 multicast 实现在 GB200 上<strong>稳定挂死</strong> → 排除；非 multicast 变体只能在 2/4 卡上测（当时不支持多节点）；其 two-shot 也不支持 2 rank、不支持小于 4 KiB 的消息 → 图上缺数据点。</li>
+        </ul>
+        这些排除让对比表出现大量空缺，读图时不能把"空缺点"当成"表现好"。
+      </div>
+
+      <h4>Observation 1：小消息延迟最低，且存在 LL / sentinel 交叉点</h4>
+      <p>
+        LLBuffer 的 one-shot AllReduce 在所有卡数下都是小消息延迟最低的。具体数字：<strong>2 卡时相对 SoL 只有约 7% 开销</strong>；即使到 <strong>64 卡，多播 one-shot 变体也只在 SoL 之上约 70%</strong>。
+      </p>
+      <p>
+        与同样采用 LL 风格同步的 NCCL AGxLL、MSCCL++ 相比，本文的优势来自几项针对性优化：<strong>激进的编译期展开</strong>（对应 <code>recvUnrolled</code>）与<strong>跨 rank 的并行轮询与归约</strong>，这压缩了"检测到数据就绪"和"完成累加"这两个环节的延迟。
+      </p>
+      <div class="callout teal">
+        <strong>交叉点现象：</strong>LL 在极小尺寸上略好，随着消息尺寸和 rank 数增加，<strong>sentinel 变得更优</strong>——因为它省掉了 flag 的开销。这直接解释了为什么 API 要把同步模式做成模板参数：最优选择依赖运行时参数，不能写死。
+      </div>
+
+      <h4>Observation 2：LL128 atomic 的可扩展性优势随卡数显现</h4>
+      <p>
+        卡少的时候，LL128 atomic 相对标准 two-shot 的优势有限——因为 <strong>L2 原子操作会因串行化而延迟略高</strong>，不如在 scratch buffer 里本地累加。但随卡数增加，原子操作的可扩展性优势显现，LL128 在更宽的小/中等消息区间上超过 two-shot。
+      </p>
+      <p>
+        这正好呼应了论文提出它的第一条动机：<em>"atomic additions synchronized at the L2 cache may be cheaper than waiting for all data and performing reductions within CTAs."</em> 关键限定词是 <strong>may</strong>——小规模下并不成立。
+      </p>
+
+      <h4>Observation 3：硬件多播在规模上不可替代</h4>
+      <p>
+        小规模时硬件多播相对单播甚至有轻微开销，但随着规模增长它变得关键。表现超过 LLBuffer 设计的 kernel，主要就是利用 <code>multimem.ld_reduce</code> 把跨 rank 贡献合并的多播变体——<strong>大幅减少了显式内存操作数量和软件管理的归约量</strong>。
+      </p>
+      <div class="callout navy">
+        <strong>论文在这里做了一个很诚实的自我限定：</strong>"LLBuffer 系列 kernel <em>不能完全取代</em>现有的对称 kernel（two-shot RSxLD-AGxST），因为它们的轮询开销随卡数和消息尺寸增长。但它们显著降低小到中等消息的延迟、逼近硬件极限，因此是<em>补充</em>而非替代。"
+        <br /><br />
+        这个"补充而非替代"的定位比摘要里"接近光速"的口号更可信，也是本文最该被记住的一句话——<strong>实际部署时应该是并存 + 按尺寸选路，不是全量替换。</strong>
+      </div>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 案例研究：从 kernel 到真实负载</h2>
+      <p>
+        论文在进入案例之前先说明了选路策略的依据：<strong>根据实测经验在 NCCL 里选择表现最好的低延迟算法</strong>。给出的具体例子是 4 个 rank 时，<strong>小于 1 MiB 用 one-shot，1–2 MiB 用 two-shot</strong>。
+      </p>
+      <div class="callout warn">
+        这个阈值是<strong>凭经验测出来的</strong>，不是模型算出来的。论文在"未来工作"里自己也承认：选路目前由经验测量驱动，可以用精确的性能模型改进，但那需要 warp 调度、指令级行为等 GPU 微架构的细节知识，超出本文范围。这个坦白很重要——它意味着<strong>在别的硬件配置上，这套阈值不能照搬</strong>。
+      </div>
+
+      <h3>9.1 LLM 推理（vLLM）</h3>
+      <p>实验设置：</p>
+      <div class="grid-4">
+        <div class="tile"><h4>两种拓扑</h4><p>1 节点 4 卡（TP=4）；2 节点 8 卡（TP=8）</p></div>
+        <div class="tile"><h4>负载形态</h4><p>输入 100–200k token，生成 16K token，batch = 8</p></div>
+        <div class="tile"><h4>模型覆盖面</h4><p>Llama（dense）、DeepSeek（MoE）、Qwen3-Next（hybrid attention）</p></div>
+        <div class="tile"><h4>统计</h4><p>vLLM serving benchmark，每配置 5 次</p></div>
+      </div>
+      <p>几个对照配置的含义需要分清，否则读不懂结果：</p>
+      <table>
+        <thead>
+          <tr><th>配置</th><th>含义</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>NCCL baseline</td><td>只用 legacy kernel</td></tr>
+          <tr><td><strong>NCCL LL</strong></td><td>用 LLBuffer 的 one-shot kernel</td></tr>
+          <tr><td><strong>No MC</strong></td><td>关闭 NVLS 多播</td></tr>
+          <tr><td><strong>Sym Mem</strong></td><td>用 PyTorch symmetric memory 把输入/输出 buffer 注册为对称内存，从而解锁 two-shot 与 LL128 atomic。<strong>不开的话 AllReduce 只能用 one-shot LL，超过 LL 阈值就退回 legacy</strong></td></tr>
+        </tbody>
+      </table>
+      <p><strong>结果：</strong></p>
+      <div class="kpi">
+        <div><div class="n">−7~13%</div><div class="k">4 卡场景的 ITL 降幅</div></div>
+        <div><div class="n">−9~11%</div><div class="k">8 卡场景的 ITL 降幅</div></div>
+        <div><div class="n">&gt;$11</div><div class="k">8 卡 DeepSeek-V3 每百万输出 token 估计节省</div></div>
+        <div><div class="n">3 类架构</div><div class="k">dense / MoE / hybrid 全部受益</div></div>
+      </div>
+      
+      <div class="fig">
+        <svg viewBox="0 0 980 330" xmlns="http://www.w3.org/2000/svg" role="img"><g font-family="Segoe UI, sans-serif" font-size="11"><defs><marker id="mG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9a3412"/></marker></defs><text x="20" y="22" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">同一解码步的耗时构成（示意，比例非实测）</text><text x="20" y="56" text-anchor="start" font-size="11" fill="#44403c" font-weight="700">NCCL baseline（仅 legacy kernel）</text><rect x="20" y="64" width="940" height="30" rx="2" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="22" y="66" width="496" height="26" rx="2" fill="#dbeafe" stroke="#93c5fd"/><text x="270" y="84" text-anchor="middle" font-size="10" fill="#1e3a5f">计算 / 访存（不变）</text><rect x="518" y="66" width="162" height="26" rx="2" fill="#fecaca" stroke="#991b1b"/><text x="599.0" y="84" text-anchor="middle" font-size="10" fill="#7f1d1d" font-weight="700">AllReduce</text><text x="20" y="118" text-anchor="start" font-size="11" fill="#44403c" font-weight="700">+ NCCL LL（one-shot，小消息）</text><rect x="20" y="126" width="940" height="30" rx="2" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="22" y="128" width="496" height="26" rx="2" fill="#dbeafe" stroke="#93c5fd"/><text x="270" y="146" text-anchor="middle" font-size="10" fill="#1e3a5f">计算 / 访存（不变）</text><rect x="518" y="128" width="66" height="26" rx="2" fill="#fecaca" stroke="#991b1b"/><text x="551.0" y="146" text-anchor="middle" font-size="10" fill="#7f1d1d" font-weight="700">AllReduce</text><text x="20" y="180" text-anchor="start" font-size="11" fill="#44403c" font-weight="700">+ Sym Mem（two-shot / LL128，中消息）</text><rect x="20" y="188" width="940" height="30" rx="2" fill="#f5f5f4" stroke="#e7e0d4"/><rect x="22" y="190" width="496" height="26" rx="2" fill="#dbeafe" stroke="#93c5fd"/><text x="270" y="208" text-anchor="middle" font-size="10" fill="#1e3a5f">计算 / 访存（不变）</text><rect x="518" y="190" width="38" height="26" rx="2" fill="#fecaca" stroke="#991b1b"/><text x="537.0" y="208" text-anchor="middle" font-size="10" fill="#7f1d1d" font-weight="700">AllReduce</text><line x1="700" y1="70" x2="700" y2="196" stroke="#9a3412" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#mG)"/><text x="708" y="150" text-anchor="start" font-size="10" fill="#9a3412">缩短的部分</text><text x="708" y="166" text-anchor="start" font-size="10" fill="#9a3412">= AllReduce 延迟</text><rect x="20" y="238" width="300" height="74" rx="4" fill="#fff7ed" stroke="#fdba74"/><text x="170" y="264" text-anchor="middle" font-size="12" fill="#9a3412" font-weight="700">ITL</text><text x="170" y="290" text-anchor="middle" font-size="11" fill="#7c2d12">−7 ~ 13%（4 卡）</text><rect x="340" y="238" width="300" height="74" rx="4" fill="#fff7ed" stroke="#fdba74"/><text x="490" y="264" text-anchor="middle" font-size="12" fill="#9a3412" font-weight="700">ITL</text><text x="490" y="290" text-anchor="middle" font-size="11" fill="#7c2d12">−9 ~ 11%（8 卡）</text><rect x="660" y="238" width="300" height="74" rx="4" fill="#f0fdfa" stroke="#5eead4"/><text x="810" y="264" text-anchor="middle" font-size="12" fill="#115e59" font-weight="700">成本</text><text x="810" y="290" text-anchor="middle" font-size="10.5" fill="#134e4a">> $11 / 百万输出 token（8 卡 DeepSeek-V3）</text></g></svg>
+      </div>
+      <p class="figcap">图 12 · vLLM 案例的收益来源。计算部分完全不变，缩短的只有 AllReduce 段；两级配置分别对应「小消息走 one-shot」与「中消息走 two-shot/LL128」。吞吐的收益比 ITL 更明显，因为它还计入了 prefill 阶段的改善。</p>
+<p>几个值得单独拎出来的细节：</p>
+      <ul>
+        <li><strong>只开 NCCL LL 就已经表现不错</strong>，因为解码步的 AllReduce 很小，one-shot LLBuffer 基本贴着 SoL。</li>
+        <li><strong>Sym Mem 带来额外收益</strong>，主要在 vLLM 的 prefill/decode 混合执行里——有些操作的尺寸超过 LL 阈值，此时 two-shot 更合适。</li>
+        <li><strong>吞吐的收益比 ITL 更明显</strong>。原因很好理解：吞吐衡量的是整段墙钟时间内的总 token 数，因此也捕获了 prefill 阶段的改进；而 ITL 只看解码步间隔。</li>
+      </ul>
+      <p>
+        成本估算用的是 <i>p</i>·10<sup>6</sup>/(3600<i>r</i>)（<i>p</i> 为小时价，<i>r</i> 为输出吞吐），并明确声明<strong>这不是完整部署成本模型</strong>——生产环境常用 prefill/decode 分离部署、节点池不同。它估算的只是"更快集合通信所贡献的那部分节省"。这种自我限定值得肯定。
+      </p>
+
+      <h3>9.2 传统 HPC（cuSOLVERMp）</h3>
+      <p>
+        选型过程本身就是一段有价值的说明：很多生产级 GPU 应用（GROMACS、LAMMPS、AMReX）仍用 MPI 而非 NCCL；QMCPACK 虽支持 NCCL 但仅限 AFQMC 方法且维护不佳；NVIDIA HPCG 因为只用点对点通信而被排除。最后选了 <strong>cuSOLVERMp</strong>——NVIDIA 的分布式稠密线性代数库，其广义对称正定特征值求解器广泛用于电子结构计算。
+      </p>
+      <p>
+        平台限制值得注意：Alps <strong>不提供跨节点的 NVSwitch scale-up fabric</strong>，所以研究限制在单节点。矩阵尺寸 <i>m</i>=32768 与 <i>m</i>=65536 超出单卡显存，因此走分布式模式。
+      </p>
+      <p>
+        结果：低延迟 kernel 在两个配置下都稳定改善 cuSOLVERMp，且 <strong><i>m</i>=32768 的收益更明显</strong>——因为那个尺寸下通信占运行时间的比例更大。
+      </p>
+      <div class="callout">
+        一个隐藏的局限：<strong>cuSOLVERMp 不把 buffer 注册为对称内存，所以只用了 1 MiB 以下的 one-shot kernel</strong>，two-shot 和 LL128 atomic 都没跑起来。这意味着这个案例展示的是"低延迟集合通信的下限收益"，而非完整方案的效果。如果 cuSOLVERMp 也注册对称内存，收益应该更大。这条信息藏在正文里，容易被漏读。
+      </div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 定位、局限与批判性阅读</h2>
+
+      <h3>10.1 它实际交付了什么</h3>
+      <ul>
+        <li><strong>一个可计算、可复现的"光速"定义</strong>：L<sub>SOL</sub> = 2·L<sub>L2_RTT</sub> + L<sub>remote_store</sub>，两项都能用简单微基准测出来。这是本文最有复用价值的部分——任何人都能拿它校准自己的实现。</li>
+        <li><strong>一套可复用的 API</strong>：<code>ncclLLBuffer</code> 与六个原语，开源在 <a href="https://github.com/ss16118/low-latency-nccl">ss16118/low-latency-nccl</a>。</li>
+        <li><strong>一个真正的新算法</strong>：two-shot LL128 atomic（用 cache-line 原子加同时完成累加与计数），并把它的适用边界（加法、fp16/fp32、NVLink、非确定性）全部列清。</li>
+        <li><strong>两类真实负载的端到端验证</strong>：vLLM（三种模型架构、两种拓扑）与 cuSOLVERMp（单节点 GH200）。</li>
+        <li><strong>一个有判别力的负面结论</strong>：ring AllReduce 无法用这套 API 做成无屏障的，因为它不满足"每轮双向、buffer 不相交"的前提。</li>
+      </ul>
+
+      <h3>10.2 它没有覆盖什么</h3>
+      <table>
+        <thead>
+          <tr><th>未覆盖项</th><th>影响</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>scale-out（跨节点）</strong></td>
+            <td>论文明确排除。虽然论证了"与分层集合通信互补"，但没有实验证明跨节点拼接后收益仍然保持。</td>
+          </tr>
+          <tr>
+            <td><strong>非 NVIDIA 平台</strong></td>
+            <td>LL / sentinel / 双缓冲原则上可移植，但 LL128 atomic 依赖 NVLink cache-line 原子性。<strong>没有在 AMD / 其他互连上的任何实验。</strong></td>
+          </tr>
+          <tr>
+            <td><strong>精确性能模型</strong></td>
+            <td>kernel 选路靠经验阈值（4 卡：&lt;1 MiB one-shot / 1–2 MiB two-shot）。换硬件就得重测。论文自己把它列为未来工作。</td>
+          </tr>
+          <tr>
+            <td><strong>warp / block 级抽象</strong></td>
+            <td>当前只暴露线程级原语，易用性差；论文承认这是为性能牺牲抽象，未来再补。</td>
+          </tr>
+          <tr>
+            <td><strong>非加法归约</strong></td>
+            <td>LL128 atomic 只支持加法。Max/Min/Product 等仍需走 LL 或 sentinel 路径。</td>
+          </tr>
+          <tr>
+            <td><strong>基线完整对照</strong></td>
+            <td>MSCCL++ 挂死、CTran 与 vLLM 只支持单节点、部分数据点缺失——对比表有不少空缺。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      
+      <div class="fig">
+        <svg viewBox="0 0 980 312" xmlns="http://www.w3.org/2000/svg" role="img"><g font-family="Segoe UI, sans-serif" font-size="11"><text x="20" y="22" text-anchor="start" font-size="12" fill="#57534e" font-weight="700">这项技术在哪里成立、在哪里不成立</text><rect x="175" y="34" width="188" height="34" rx="0" fill="#f5f0e6" stroke="#e7e0d4"/><text x="269" y="56" text-anchor="middle" font-size="10" fill="#57534e" font-weight="700">单 cache line</text><rect x="367" y="34" width="188" height="34" rx="0" fill="#f5f0e6" stroke="#e7e0d4"/><text x="461" y="56" text-anchor="middle" font-size="10" fill="#57534e" font-weight="700">小（&lt; 1 MiB）</text><rect x="559" y="34" width="188" height="34" rx="0" fill="#f5f0e6" stroke="#e7e0d4"/><text x="653" y="56" text-anchor="middle" font-size="10" fill="#57534e" font-weight="700">中（1–2 MiB）</text><rect x="751" y="34" width="188" height="34" rx="0" fill="#f5f0e6" stroke="#e7e0d4"/><text x="845" y="56" text-anchor="middle" font-size="10" fill="#57534e" font-weight="700">大（&gt; 2 MiB / 超 L2 驻留）</text><rect x="20" y="72" width="150" height="52" rx="2" fill="#faf7f2" stroke="#e7e0d4"/><text x="95" y="103" text-anchor="middle" font-size="10.5" fill="#44403c">单域 · N 小（2–4）</text><rect x="175" y="72" width="188" height="52" rx="0" fill="('#dcfce7', '#166534')" stroke="#d6d3d1"/><text x="269" y="93" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">one-shot LL</text><text x="269" y="110" text-anchor="middle" font-size="9.5" fill="#57534e">2 卡时 7% 开销</text><rect x="367" y="72" width="188" height="52" rx="0" fill="('#dcfce7', '#166534')" stroke="#d6d3d1"/><text x="461" y="93" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">one-shot ↔ two-shot</text><text x="461" y="110" text-anchor="middle" font-size="9.5" fill="#57534e">按尺寸选路</text><rect x="559" y="72" width="188" height="52" rx="0" fill="('#fef3c7', '#92400e')" stroke="#d6d3d1"/><text x="653" y="93" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">two-shot</text><text x="653" y="110" text-anchor="middle" font-size="9.5" fill="#57534e">需对称输出 buffer</text><rect x="751" y="72" width="188" height="52" rx="0" fill="('#fef3c7', '#92400e')" stroke="#d6d3d1"/><text x="845" y="93" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">LL128 atomic</text><text x="845" y="110" text-anchor="middle" font-size="9.5" fill="#57534e">或既有对称 kernel</text><rect x="20" y="128" width="150" height="52" rx="2" fill="#faf7f2" stroke="#e7e0d4"/><text x="95" y="159" text-anchor="middle" font-size="10.5" fill="#44403c">单域 · N 大（多播）</text><rect x="175" y="128" width="188" height="52" rx="0" fill="('#dcfce7', '#166534')" stroke="#d6d3d1"/><text x="269" y="149" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">one-shot + 多播</text><text x="269" y="166" text-anchor="middle" font-size="9.5" fill="#57534e">延迟最低</text><rect x="367" y="128" width="188" height="52" rx="0" fill="('#dcfce7', '#166534')" stroke="#d6d3d1"/><text x="461" y="149" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">多播 one-shot</text><text x="461" y="166" text-anchor="middle" font-size="9.5" fill="#57534e">64 卡约 70% 开销</text><rect x="559" y="128" width="188" height="52" rx="0" fill="('#fef3c7', '#92400e')" stroke="#d6d3d1"/><text x="653" y="149" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">LL128 atomic</text><text x="653" y="166" text-anchor="middle" font-size="9.5" fill="#57534e">规模优势显现</text><rect x="751" y="128" width="188" height="52" rx="0" fill="('#fef3c7', '#92400e')" stroke="#d6d3d1"/><text x="845" y="149" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">轮询开销上升</text><text x="845" y="166" text-anchor="middle" font-size="9.5" fill="#57534e">需与既有 kernel 并存</text><rect x="20" y="184" width="150" height="52" rx="2" fill="#faf7f2" stroke="#e7e0d4"/><text x="95" y="215" text-anchor="middle" font-size="10.5" fill="#44403c">跨节点 scale-out</text><rect x="175" y="184" width="188" height="52" rx="0" fill="('#fee2e2', '#991b1b')" stroke="#d6d3d1"/><text x="269" y="205" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">本文未覆盖</text><text x="269" y="222" text-anchor="middle" font-size="9.5" fill="#57534e">仅与分层方案互补</text><rect x="367" y="184" width="188" height="52" rx="0" fill="('#fee2e2', '#991b1b')" stroke="#d6d3d1"/><text x="461" y="205" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">本文未覆盖</text><text x="461" y="222" text-anchor="middle" font-size="9.5" fill="#57534e">仅与分层方案互补</text><rect x="559" y="184" width="188" height="52" rx="0" fill="('#fee2e2', '#991b1b')" stroke="#d6d3d1"/><text x="653" y="205" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">本文未覆盖</text><text x="653" y="222" text-anchor="middle" font-size="9.5" fill="#57534e">仅与分层方案互补</text><rect x="751" y="184" width="188" height="52" rx="0" fill="('#fee2e2', '#991b1b')" stroke="#d6d3d1"/><text x="845" y="205" text-anchor="middle" font-size="10.5" fill="#1c1917" font-weight="700">本文未覆盖</text><text x="845" y="222" text-anchor="middle" font-size="9.5" fill="#57534e">仅与分层方案互补</text><rect x="20" y="244" width="940" height="56" rx="4" fill="#f0f4f8" stroke="#cbd5e1"/><text x="36" y="266" text-anchor="start" font-size="10.5" fill="#1e3a5f" font-weight="700">硬性前提</text><text x="36" y="286" text-anchor="start" font-size="10" fill="#334155">同处一个 NVLink 域 · buffer 已注册为对称内存 · 每轮与每个 peer 至多写一次 · LL128 另需「加法 + fp16/fp32 + 可接受非确定性」</text></g></svg>
+      </div>
+      <p class="figcap">图 13 · 把全文的适用范围压缩成一张图。绿色是论文实测覆盖的区间，黄色是"能用但有前提或收益递减"，红色是论文明确排除的部分。底部的硬性前提比矩阵本身更容易被忽略，落地时先对照这一行。</p>
+<h3>10.3 三个值得追问的点</h3>
+      <div class="callout warn">
+        <strong>① "7% 开销"的分母是什么？</strong>分母是 L<sub>SOL</sub>，一个假设 L2 命中、忽略计算与调度、假设 buffer 无限的理想值。它衡量的是"你的实现离理想搬运差多远"，<strong>不是"离物理极限差多远"</strong>。摘要里的"within 7% of the absolute SoL lower bound"字面上容易让人以为已经到头了，实际是"在一个已经做了多项乐观假设的下界之上多花 7%"。
+      </div>
+      <div class="callout">
+        <strong>② sentinel 的正确性依赖概率假设。</strong>"合法计算里几乎不会出现的值"不是一个可证明的性质。对包含大量 NaN / 特殊掩码的数据，需要用户自己保证。论文点出了这个约束但没有给检测手段或断言机制。
+      </div>
+      <div class="callout teal">
+        <strong>③ HPC 案例的收益被自身限制低估了。</strong>cuSOLVERMp 不注册对称内存，所以 only one-shot 生效。这既说明当前 HPC 生态对 NCCL 新接口的适配还很浅（论文第 II 节也提到很多应用根本还在用 MPI），也意味着<strong>这个案例应被读作"下限收益"</strong>，而不是"完整方案在 HPC 上的表现"。
+      </div>
+
+      <h3>10.4 与同期工作的关系</h3>
+      <table>
+        <thead>
+          <tr><th>工作</th><th>关系</th><th>本文的差异化</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>vLLM custom AllReduce / SGLang / FlashInfer</td>
+            <td>同类低延迟 AllReduce</td>
+            <td>论文认为它们的设计与 vLLM 自定义实现大体相似、性能特征接近，故未逐一入表；实测中本文仍更快</td>
+          </tr>
+          <tr>
+            <td>TensorRT-LLM</td>
+            <td>已有 sentinel 风格同步</td>
+            <td><strong>但仍依赖全局 barrier flag 做协调</strong>，因此比本文多一层开销</td>
+          </tr>
+          <tr>
+            <td>MSCCL++（ASPLOS'26）</td>
+            <td>最直接的竞争者，也提供 LL、one-shot/two-shot</td>
+            <td>本文赢在编译期展开与跨 rank 并行轮询/归约；MSCCL++ 在 GB200 上 multicast 挂死</td>
+          </tr>
+          <tr>
+            <td>DeepEP / NCCL EP</td>
+            <td>面向专家并行的低延迟原语</td>
+            <td>它们面向更窄的通信模式，<strong>不可泛化</strong>；本文 API 是通用的，需要时也能实现类似功能</td>
+          </tr>
+          <tr>
+            <td>NIXL</td>
+            <td>传输与编排层</td>
+            <td>设计空间不同，论文明确说不做对比——NIXL 关注跨异构后端的调度与集成，而非集合通信的延迟本身</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>10.5 如果要跟进这项工作</h3>
+      <ol>
+        <li><strong>先读可复现的部分</strong>：<code>ss16118/low-latency-nccl</code> 里有完整文档与示例（论文说"因篇幅只描述关键原语"，完整内容在仓库里）。</li>
+        <li><strong>用它的方法测自己的平台</strong>：<code>__threadfence()</code> 测 L<sub>L2_RTT</sub>，两卡 ping-pong 反解 L<sub>remote_store</sub>，得到自己机器上的 L<sub>SOL</sub>。这是最廉价、最有信息量的一步。</li>
+        <li><strong>先看瓶颈是否真的在同步</strong>：如果目标负载的消息尺寸远超 L2、或并行组跨节点，本文的收益会显著缩水——此时该看的是分层集合通信与网内归约的工作（如网络卸载的 broadcast/allgather）。</li>
+        <li><strong>关注配套的 API 生态</strong>：PyTorch symmetric memory 是否开启，直接决定 two-shot / LL128 能不能用。这是落地时最常见的"配置陷阱"。</li>
+      </ol>
+    </section>
+
+    <section class="card" id="s10b">
+      <h2>11. 关键数字速查表</h2>
+      <table>
+        <thead>
+          <tr><th>指标</th><th>数值</th><th>条件 / 出处</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>小消息 AllReduce 延迟（旧 → 新）</td><td>11.0 μs → 2.37 μs</td><td>4×GB200，NCCL ring vs 本文 kernel</td></tr>
+          <tr><td>对 Llama-3.1-70B 的 ITL 改善</td><td>8.7%</td><td>同上</td></tr>
+          <tr><td>每微秒的等效成本下降</td><td>约 0.9%</td><td>CoreWeave 4×GB200 @ $42/h</td></tr>
+          <tr><td>单次内存屏障开销</td><td>&gt; 1 μs</td><td><code>ncclLsaBarrierSession</code>，relaxed ordering</td></tr>
+          <tr><td>屏障占小消息 AllReduce 延迟比例</td><td>约 40%</td><td>约 5 μs 总延迟中两个屏障</td></tr>
+          <tr><td>L<sub>L2_RTT</sub></td><td>0.306 μs</td><td>2×GB200，单条 <code>__threadfence()</code></td></tr>
+          <tr><td>L<sub>remote_store</sub></td><td>0.792 μs</td><td>2×GB200，ping-pong 反解</td></tr>
+          <tr><td>SoL 下界</td><td>1.404 μs</td><td>2×0.306 + 0.792</td></tr>
+          <tr><td>相对 SoL 的开销（2 卡）</td><td>约 7%</td><td>LLBuffer one-shot，单 cache line 消息</td></tr>
+          <tr><td>相对 SoL 的开销（64 卡）</td><td>约 70%</td><td>多播 one-shot 变体</td></tr>
+          <tr><td>LL 的有效带宽</td><td>减半</td><td>8B flag + 8B 数据 / 16B 原子写</td></tr>
+          <tr><td>LL128 atomic 额外开销</td><td>约 3%（fp32）/ 约 1.5%（fp16）</td><td>每 128 字节</td></tr>
+          <tr><td>LL128 atomic scratch</td><td><i>D</i>/<i>N</i></td><td><i>D</i> 为数据量，<i>N</i> 为 rank 数</td></tr>
+          <tr><td>LL128 atomic 误差系数</td><td>γ<sub>63</sub> ≈ 3.8×10<sup>−6</sup></td><td>FP32、64 rank、无溢出/下溢</td></tr>
+          <tr><td>默认 scratch（one-shot）</td><td>4 MiB</td><td>更大无益甚至轻微变差</td></tr>
+          <tr><td>默认 scratch（two-shot / LL128）</td><td>64 MiB</td><td></td></tr>
+          <tr><td>NVL72 聚合带宽</td><td>130 TB/s</td><td>72 卡单 NVLink 域</td></tr>
+          <tr><td>vLLM ITL 降幅</td><td>7–13%（4 卡）/ 9–11%（8 卡）</td><td>best config</td></tr>
+          <tr><td>8 卡 DeepSeek-V3 成本节省</td><td>&gt; $11 / 百万输出 token</td><td>CoreWeave GB200 价格估算</td></tr>
+          <tr><td>Alps 节点内 NVLink</td><td>150 GB/s</td><td>4×GH200 / 节点</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      分析基于 arXiv:2607.16100v1（2026-07-17，cs.DC）· 13 位作者 · 代码：<a href="https://github.com/ss16118/low-latency-nccl" target="_blank" rel="noopener">low-latency-nccl</a> · <a href="Every%20Microsecond%20Matters.pdf">本目录 PDF</a>
+    </footer>
+  </div>
+</body>
+</html>
