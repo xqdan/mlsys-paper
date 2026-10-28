@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三篇对照：CAKE · FABRICA · uCUTLASS+SOL — GPU Kernel Agent 的三种干预深度</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --bg-elev: #ffffff;
+    --bg-code: #f2f0ec;
+    --text: #1c1b19;
+    --text-soft: #57544e;
+    --text-faint: #8a857c;
+    --line: #e2ded6;
+    --line-soft: #eeeae3;
+    --a: #1f5f5b;
+    --a-soft: #e8f0ef;
+    --b: #8a5a1a;
+    --b-soft: #fbf2e4;
+    --c: #4a3d78;
+    --c-soft: #efecf7;
+    --good: #2f6b3a;
+    --good-soft: #eaf3ec;
+    --bad: #8c3a35;
+    --bad-soft: #fbebe9;
+    --serif: "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+    --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181a; --bg-elev: #1d2023; --bg-code: #21252a;
+      --text: #e6e4df; --text-soft: #a8a49c; --text-faint: #77736b;
+      --line: #2f3338; --line-soft: #262a2e;
+      --a: #6fbdb5; --a-soft: #1b2b2a;
+      --b: #d9a55c; --b-soft: #2b2418;
+      --c: #a99be0; --c-soft: #211d2e;
+      --good: #7fc08c; --good-soft: #1a261c;
+      --bad: #d98a84; --bad-soft: #2b1c1b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 16px; line-height: 1.76;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1200px; margin: 0 auto; padding: 0 24px 120px;
+    display: grid; grid-template-columns: 196px minmax(0,1fr);
+    gap: 54px; align-items: start;
+  }
+  @media (max-width: 1000px) {
+    .wrap { grid-template-columns: minmax(0,1fr); gap: 0; padding: 0 20px 80px; }
+    nav.toc { display: none; }
+  }
+
+  .topbar { border-bottom: 1px solid var(--line); background: var(--bg-elev); }
+  .topbar-inner {
+    max-width: 1200px; margin: 0 auto; padding: 11px 24px;
+    display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap;
+    font-size: 12px; color: var(--text-faint); font-family: var(--mono);
+  }
+  .topbar-inner .dot { opacity: .4; }
+  .topbar-inner strong { color: var(--text-soft); font-weight: 600; }
+
+  nav.toc { position: sticky; top: 28px; padding-top: 52px; font-size: 12.8px; line-height: 1.5; }
+  nav.toc h2 {
+    font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--text-faint); margin: 0 0 13px; font-weight: 600;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: toc; }
+  nav.toc li { margin: 0 0 8px; counter-increment: toc; }
+  nav.toc a {
+    color: var(--text-soft); text-decoration: none; display: block;
+    padding: 2px 0 2px 25px; position: relative;
+    border-left: 2px solid var(--line-soft); margin-left: -2px;
+    transition: color .15s, border-color .15s;
+  }
+  nav.toc a::before {
+    content: counter(toc); position: absolute; left: 9px;
+    font-family: var(--mono); font-size: 10px; color: var(--text-faint);
+  }
+  nav.toc a:hover { color: var(--a); border-left-color: var(--a); }
+
+  main { padding-top: 52px; max-width: 790px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--a); margin-bottom: 15px;
+  }
+  .eyebrow::before {
+    content: ""; display: inline-block; width: 22px; height: 1px;
+    background: var(--a); vertical-align: middle; margin-right: 10px;
+    transform: translateY(-2px);
+  }
+  h1 {
+    font-family: var(--serif); font-size: clamp(27px, 4vw, 38px);
+    line-height: 1.3; margin: 0 0 16px; font-weight: 700; letter-spacing: -.01em;
+  }
+  .subtitle {
+    font-family: var(--serif); font-size: 16.5px; color: var(--text-soft);
+    line-height: 1.62; margin: 0 0 24px;
+  }
+
+  /* 三篇论文的身份卡 */
+  .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 26px 0 8px; }
+  @media (max-width: 720px) { .legend { grid-template-columns: 1fr; } }
+  .legend > div {
+    border: 1px solid var(--line); border-radius: 7px; padding: 13px 15px;
+    background: var(--bg-elev); border-top-width: 3px;
+  }
+  .legend .l-u { border-top-color: var(--a); }
+  .legend .l-c { border-top-color: var(--c); }
+  .legend .l-f { border-top-color: var(--b); }
+  .legend .nm { font-weight: 650; font-size: 14px; margin-bottom: 3px; }
+  .legend .id { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); margin-bottom: 7px; }
+  .legend .ds { font-size: 12.3px; color: var(--text-soft); line-height: 1.5; }
+  .tag-u { color: var(--a); } .tag-c { color: var(--c); } .tag-f { color: var(--b); }
+
+  h2 {
+    font-family: var(--serif); font-size: 24px; line-height: 1.36;
+    margin: 58px 0 18px; font-weight: 700; scroll-margin-top: 24px;
+  }
+  h2 .num {
+    font-family: var(--mono); font-size: 12.5px; color: var(--a);
+    font-weight: 500; display: block; margin-bottom: 5px; letter-spacing: .05em;
+  }
+  h3 { font-size: 16px; margin: 32px 0 11px; font-weight: 650; }
+  h4 { font-size: 14px; margin: 22px 0 8px; font-weight: 650; color: var(--text-soft); }
+
+  p { margin: 0 0 16px; }
+  p.lead { font-size: 17.2px; line-height: 1.7; }
+  strong { font-weight: 650; }
+  em { font-style: normal; background: linear-gradient(transparent 62%, var(--a-soft) 62%); padding: 0 2px; }
+  a { color: var(--a); }
+
+  ul, ol { margin: 0 0 17px; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+
+  code {
+    font-family: var(--mono); font-size: .87em; background: var(--bg-code);
+    padding: 1.5px 5px; border-radius: 3px; border: 1px solid var(--line-soft);
+  }
+  pre {
+    background: var(--bg-code); border: 1px solid var(--line); border-radius: 6px;
+    padding: 16px 19px; overflow-x: auto; margin: 0 0 18px;
+    font-size: 12.8px; line-height: 1.65;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 12.8px; }
+
+  .callout {
+    border-left: 3px solid var(--a); background: var(--a-soft);
+    padding: 15px 19px; margin: 22px 0; border-radius: 0 5px 5px 0;
+    font-size: 14.7px; line-height: 1.68;
+  }
+  .callout > :last-child { margin-bottom: 0; }
+  .callout .tg {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--a); display: block;
+    margin-bottom: 6px; font-weight: 600;
+  }
+  .callout.b { border-left-color: var(--b); background: var(--b-soft); }
+  .callout.b .tg { color: var(--b); }
+  .callout.c { border-left-color: var(--c); background: var(--c-soft); }
+  .callout.c .tg { color: var(--c); }
+  .callout.good { border-left-color: var(--good); background: var(--good-soft); }
+  .callout.good .tg { color: var(--good); }
+
+  .table-wrap { overflow-x: auto; margin: 22px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.52; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th {
+    border-bottom: 1.5px solid var(--line); font-weight: 650;
+    font-size: 11.6px; letter-spacing: .02em; color: var(--text-soft);
+  }
+  tbody tr:hover { background: var(--bg-elev); }
+  td.n { font-family: var(--mono); font-size: 12.6px; text-align: right; white-space: nowrap; }
+  th.n { text-align: right; }
+  .cu { color: var(--a); font-weight: 600; }
+  .cc { color: var(--c); font-weight: 600; }
+  .cf { color: var(--b); font-weight: 600; }
+  .mut { color: var(--text-faint); }
+  .hi { color: var(--good); font-weight: 650; }
+  .lo { color: var(--bad); font-weight: 650; }
+  caption {
+    caption-side: bottom; text-align: left; font-size: 12.2px;
+    color: var(--text-faint); padding-top: 9px; line-height: 1.55;
+  }
+
+  /* 干预深度阶梯 */
+  .ladder { margin: 26px 0 30px; }
+  .rung {
+    display: grid; grid-template-columns: 88px minmax(0,1fr);
+    gap: 16px; align-items: stretch;
+  }
+  @media (max-width: 620px) { .rung { grid-template-columns: 62px minmax(0,1fr); gap: 12px; } }
+  .rung .lv {
+    font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+    padding-top: 15px; text-align: right; line-height: 1.4;
+  }
+  .rung .bar {
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg-elev); padding: 13px 17px;
+    margin-bottom: 9px; position: relative;
+  }
+  .rung .bar::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; border-radius: 5px 0 0 5px;
+  }
+  .rung .r1::before { background: var(--b); }
+  .rung .r2::before { background: var(--a); }
+  .rung .r3::before { background: var(--c); }
+  .rung .hd { font-weight: 650; font-size: 14px; margin-bottom: 5px; }
+  .rung .bd { font-size: 13px; color: var(--text-soft); line-height: 1.6; }
+  .rung .bd code { font-size: 12px; }
+
+  /* 轴对照：左右对立 */
+  .versus {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px;
+    align-items: start; margin: 24px 0 26px;
+  }
+  @media (max-width: 680px) { .versus { grid-template-columns: 1fr; } .versus .vs { display: none; } }
+  .versus > div {
+    background: var(--bg-elev); border: 1px solid var(--line);
+    border-radius: 7px; padding: 16px 18px;
+  }
+  .versus .vs {
+    font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+    padding-top: 20px; letter-spacing: .05em;
+  }
+  .versus h4 { margin: 0 0 8px; font-size: 13px; }
+  .versus ul { padding-left: 17px; font-size: 13.2px; margin: 0; }
+  .versus li { margin-bottom: 5px; }
+
+  .quote {
+    border-left: 2px solid var(--line); padding-left: 16px; margin: 18px 0;
+    font-size: 14px; color: var(--text-soft); font-style: italic;
+  }
+
+  .kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px,1fr)); gap: 11px; margin: 22px 0 28px; }
+  .kpi > div {
+    background: var(--bg-elev); border: 1px solid var(--line);
+    border-radius: 6px; padding: 13px 15px;
+  }
+  .kpi .k { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 6px; }
+  .kpi .v { font-family: var(--serif); font-size: 23px; font-weight: 700; line-height: 1.12; letter-spacing: -.02em; }
+  .kpi .v small { font-size: 13px; font-weight: 500; color: var(--text-soft); }
+  .kpi .d { font-size: 11.5px; color: var(--text-soft); margin-top: 5px; line-height: 1.45; }
+
+  .footnote {
+    margin-top: 62px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 12.8px; color: var(--text-soft); line-height: 1.7;
+  }
+  .footnote h3 { font-size: 13.5px; margin: 0 0 11px; }
+  .footnote ol { padding-left: 20px; }
+
+  hr.soft { border: 0; border-top: 1px solid var(--line-soft); margin: 42px 0; }
+  .endmark { text-align: center; color: var(--text-faint); letter-spacing: .5em; margin: 54px 0 0; font-size: 13px; }
+
+  @media print {
+    .topbar, nav.toc { display: none; }
+    .wrap { display: block; padding: 0; }
+    main { padding-top: 0; max-width: 100%; }
+    body { background: #fff; font-size: 10.5pt; }
+    h2 { page-break-after: avoid; }
+    pre, .callout, table, .versus, .legend, .rung .bar { page-break-inside: avoid; }
+    a { color: #000; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span><strong>三篇对照</strong></span>
+    <span class="dot">·</span>
+    <span>2603.29010 · 2608.12629 · 2608.25124</span>
+    <span class="dot">·</span>
+    <span>NVIDIA / NVIDIA+CMU / UMN+ANL+UChicago</span>
+    <span class="dot">·</span>
+    <span>对照笔记 2026-10-28</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#tldr">核心论点</a></li>
+    <li><a href="#identity">三篇的身份</a></li>
+    <li><a href="#depth">干预深度阶梯</a></li>
+    <li><a href="#abstraction">抽象方向之争</a></li>
+    <li><a href="#oracle">「怎么知道该停了」</a></li>
+    <li><a href="#integrity">完整性：三套防线</a></li>
+    <li><a href="#model">模型能力 vs Agent 设计</a></li>
+    <li><a href="#numbers">数字不可比，方法可比</a></li>
+    <li><a href="#honest">各自的老实之处</a></li>
+    <li><a href="#consensus">六条共识</a></li>
+    <li><a href="#dispute">五个真实分歧</a></li>
+    <li><a href="#synthesis">如果我来做</a></li>
+    <li><a href="#open">三方都没答的问题</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header>
+  <div class="eyebrow">对照分析 · GPU Kernel Agent</div>
+  <h1>三种干预深度：改写流程、改写表示、改写环境</h1>
+  <p class="subtitle">CAKE、FABRICA 与 µCUTLASS+SOL 三篇工作放在一起看，最有价值的不是它们各自的加速比——那三个数字根本不可比——而是它们对同一个问题给出了三个不同深度的答案，并且在抽象层级的移动方向上恰好相反。</p>
+
+  <div class="legend">
+    <div class="l-u">
+      <div class="nm tag-u">µCUTLASS + SOL</div>
+      <div class="id">2603.29010 · 33p</div>
+      <div class="ds">把 CUTLASS 压成 170 行 DSL，用 roofline 下界做导航与防作弊。目标：同架构上「击败 PyTorch」的迭代效率。</div>
+    </div>
+    <div class="l-c">
+      <div class="nm tag-c">CAKE</div>
+      <div class="id">2608.12629 · 13 作者</div>
+      <div class="ds">编译器与智能体共设计：带类型 IR、编译前诊断、环境本身可演化。目标：合成前沿专家内核。</div>
+    </div>
+    <div class="l-f">
+      <div class="nm tag-f">FABRICA</div>
+      <div class="id">2608.25124 · 10p</div>
+      <div class="ds">CUDA → CSL 跨架构翻译，六阶段角色流程 + 知识检索 + 分类修复。目标：把一个没有语料的架构填上。</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ 0 ============ -->
+<section id="tldr">
+<h2><span class="num">00</span>核心论点</h2>
+
+<p class="lead">三篇论文都在开篇否定同一个稻草人：<strong>「再做一个更好的变异算子 / 更好的控制器 / 更好的搜索算法」</strong>。但它们各自选的干预点，深度完全不同。</p>
+
+<div class="ladder">
+  <div class="rung">
+    <div class="lv">第 1 层<br>改流程</div>
+    <div class="bar r1">
+      <div class="hd tag-f">FABRICA —— 只改过程，不改语言</div>
+      <div class="bd">模型仍然写原始 CSL。改变的是<strong>谁在什么时候做什么</strong>：analyst 提取每个 PE 的算法、architect 做放置与布局、implementer 写代码、reviewer 把失败分类后路由回负责的那个阶段、optimizer 只在程序已正确后才动手。加上知识检索补上缺失的语料。</div>
+    </div>
+  </div>
+  <div class="rung">
+    <div class="lv">第 2 层<br>改表示</div>
+    <div class="bar r2">
+      <div class="hd tag-u">µCUTLASS —— 改输出表面，不改搜索算法</div>
+      <div class="bd">把 CUTLASS 的几百个模板参数压缩成 <code>.with_dtype</code>/<code>.with_layout</code>/<code>&gt;&gt;</code> 这类命名决策。搜索空间被<strong>收窄</strong>而非扩大：非法配置在编译前被拒绝，模型只需要在剩下的空间里做性能选择。</div>
+    </div>
+  </div>
+  <div class="rung">
+    <div class="lv">第 3 层<br>改表示<br>+ 证据<br>+ 环境</div>
+    <div class="bar r3">
+      <div class="hd tag-c">CAKE —— 三样一起改，而且环境本身是演化对象</div>
+      <div class="bd">IR 记录机器如何被驱动（角色、资源、屏障），诊断指出<strong>是哪块 smem / 哪个角色对 / 哪个流水阶段</strong>出了问题，而反复出现的失败会沉淀为新的验证规则、IR 原语和代价模型校准——<strong>harness 自己也在长</strong>。</div>
+    </div>
+  </div>
+</div>
+
+<div class="callout">
+  <span class="tag">我的判断</span>
+  如果把三篇的方法论剥到最里层，它们共享的其实不是「抬高抽象层」，也不是「改表示」，而是一句更精确的话：<br><br>
+  <strong>把模型做不好的决策，从「模型必须编写的代码」转成「编译器必须检查的契约」。</strong><br><br>
+  uCUTLASS 把对齐、布局、模板匹配变成静态校验；CAKE 把屏障地址、相位、TMEM 偏移变成 lowering 推导，把布局正确性变成契约而非代数；FABRICA 把目标架构的惯用法变成检索到的知识 + 按类别路由的修复。三条路不同，转移的对象同构。
+</div>
+</section>
+
+<!-- ============ 1 ============ -->
+<section id="identity">
+<h2><span class="num">01</span>三篇的身份：问题其实不同</h2>
+
+<p>把它们并排放之前必须先承认一件事：<strong>它们优化的不是同一件事</strong>。混着比会得出错误结论。</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>维度</th>
+      <th class="cu">µCUTLASS + SOL</th>
+      <th class="cc">CAKE</th>
+      <th class="cf">FABRICA</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>问题类型</td>
+      <td><strong>广度</strong>：59 个 KernelBench 问题，每题浅挖</td>
+      <td><strong>深度</strong>：少数前沿 kernel，推到能进上游</td>
+      <td><strong>触达</strong>：一个没有语料的新架构</td>
+    </tr>
+    <tr>
+      <td>源 → 目标</td>
+      <td>PyTorch → CUDA/CUTLASS（同架构）</td>
+      <td>数学规格 → CAKE IR → GPU（同架构）</td>
+      <td>CUDA → CSL（<strong>跨架构</strong>）</td>
+    </tr>
+    <tr>
+      <td>目标硬件</td>
+      <td>H100 / SM90a，锁定时钟</td>
+      <td>B200 / SM100a（覆盖 sm_80–sm_121a）</td>
+      <td>Cerebras WSE-3（约 90 万 PE，44 GB 分布式 SRAM）</td>
+    </tr>
+    <tr>
+      <td>基线</td>
+      <td>PyTorch eager（<em>一个弱且相对性强的基线</em>）</td>
+      <td>调优过的 FlashML / FlashKDA / FlashInfer / CUTLASS / DeepGEMM / TRT-LLM</td>
+      <td>已验证的 CSL 参考实现（专家手写）</td>
+    </tr>
+    <tr>
+      <td>主要指标</td>
+      <td>59 题几何均值加速比</td>
+      <td>具名工作负载上的中位/几何均值 + 上游 PR 数</td>
+      <td>通过率（pass rate）+ 27 对时序的几何均值</td>
+    </tr>
+    <tr>
+      <td>预算结构</td>
+      <td>每题固定 40 次尝试</td>
+      <td>80M token 到平台期</td>
+      <td>翻译 40 次 / 优化 10 次尝试上限</td>
+    </tr>
+    <tr>
+      <td>模型</td>
+      <td>GPT-5-mini / 5 / 5.2（<strong>研究模型层级</strong>）</td>
+      <td>固定 GPT-5.6-sol，reasoning xhigh（<strong>刻意固定</strong>）</td>
+      <td>11 个模型横向（<strong>研究模型差距</strong>）</td>
+    </tr>
+    <tr>
+      <td>人体位置</td>
+      <td>grammar 设计期 in-the-loop，运行时不在环</td>
+      <td><strong>编译器演化的 merge gate</strong>（智能体提案，人决定合不合）</td>
+      <td>冻结 benchmark 与接口，运行时不在环</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>注意三个模型策略的差异，这不是随意选择，而是各自论证结构的需要：</p>
+<ul>
+  <li><strong>uCUTLASS 要证明「agent 设计可以替代模型升级」</strong>，所以必须跨模型层。</li>
+  <li><strong>CAKE 要证明「差异来自表示与证据，而非模型能力」</strong>，所以必须钉死一个模型。</li>
+  <li><strong>FABRICA 要证明「基础模型能力是中心变量」</strong>，所以必须横向拉满 11 个模型。</li>
+</ul>
+<p>三个假设互相冲突，但<strong>每个都由自己的实验设计支撑</strong>。这正是后面第 07 节要展开的真实分歧。</p>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="depth">
+<h2><span class="num">02</span>干预深度阶梯：从改流程到改环境</h2>
+
+<h3>FABRICA：流程即干预</h3>
+<p>FABRICA 最值得注意的是它<strong>明确声明自己不是编译器工作</strong>。论文写得很直白：G（源码分析）与 D（WSE 设计）「使映射可检查，但它们<em>不是</em>编译器 IR：没有任何 lowering pass 产出 CSL」。第 V-C 节甚至专门做了消融，测量「多给结构」到底有没有用。</p>
+
+<p>答案是：<strong>没有用</strong>。</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>条件</th><th class="n">不加设计记录</th><th class="n">加设计记录</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td>无引导</td><td class="n">21/40</td><td class="n">20/40</td><td class="mut">无改善</td></tr>
+    <tr><td>有引导翻译阶段</td><td class="n">33/40</td><td class="n">32/40</td><td class="mut">无改善</td></tr>
+  </tbody>
+  <caption>Level 1–3 诊断集（4/3/1），8 题 × 5 次重复 = 40 次运行/模式。作者的原话：记录让映射「可检查」，但实测正确性「实质上不变」。</caption>
+</table>
+</div>
+
+<p>这是一个<strong>极有价值的负面结果</strong>，而且它恰好划出了第 1 层干预的上限：让中间产物变得可读、可审计，<em>并不会</em>直接提高成功率。FABRICA 真正起作用的两个组件是另外两个——<strong>检索到目标架构知识</strong>（1/15 → 7/15）和<strong>执行反馈驱动的分类修复</strong>（Laplacian2D 从 0/5 到 5/5）。</p>
+
+<div class="callout b">
+  <span class="tag">这条结论值得单独记</span>
+  在修复预算固定为 20 次尝试、模型固定为 Sonnet 4.6 的条件下，<strong>「多给结构」几乎无效，「多给目标知识」翻四倍</strong>。「让 agent 想得更清楚」远不如「让 agent 知道它在写什么语言」。这直接反驳了一类流行做法：给 agent 加更多规划阶段、更多自检清单。
+</div>
+
+<h3>µCUTLASS：表示即干预，且是收窄式的</h3>
+<p>µCUTLASS 的方向和第 1 层相反——它不是加结构，是<strong>减少可写的东西</strong>。170 行 EBNF、典型 kernel 10–20 行，把「哪些参数组合合法」从模型的推理负担里彻底移走。</p>
+
+<p>效果最戏剧化地体现在弱模型上：GPT-5-mini 从 <strong>0.40× 翻到 1.27×</strong>（3.2 倍改善），而 GPT-5.2 只从 2.04× 到 2.85×（1.4 倍）。作者的解读是：<em>DSL 把「实现失败」直接转化为「能跑的成功 kernel」</em>；强模型本来就不会在这个环节失败，所以收窄带来的收益自然小。</p>
+
+<h3>CAKE：三样一起改，并且让环境可演化</h3>
+<p>CAKE 最深的一层主张是：<strong>被搜索的东西是内核，被演化的是编译器</strong>。它把这件事写成两个嵌套的环：</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>内环：内核演化</th><th>外环：编译器演化</th></tr></thead>
+  <tbody>
+    <tr><td>被固定的</td><td>模型、scaffold、外部工作负载约定</td><td>—</td></tr>
+    <tr><td>被改变的</td><td>CAKE IR 候选的结构</td><td>IR 原语、验证规则、代价模型校准、可复用战术</td></tr>
+    <tr><td>证据来源</td><td>IR 构造检查 + 验证器关卡 + 代价模型排序 + 外部 oracle</td><td>失败候选、sanitizer、日志、生产内核</td></tr>
+    <tr><td>谁把关</td><td>正确性门 + 性能门</td><td><strong>内核回归测试 + 人类 merge gate</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>外环有两条路径，方向相反：<strong>自顶向下</strong>（读生产内核和硬件文档，发现缺失的 Blackwell 模式）与<strong>自底向上</strong>（把反复失败沉淀为验证规则、把系统性误预测沉淀为校准目标）。作者强调原语与分析必须<em>一起</em>演化：没有效应和合法性规则的语法会让 IR 更难分析；没有内核集验证的新规则会误杀合法内核。</p>
+
+<div class="callout c">
+  <span class="tag">最锋利的一句话</span>
+  CAKE 对「为什么不能只是给 agent 更好的提示词」给出了结构性回答：<strong>如果环境回给智能体的信号不随前沿工作负载进化，那么能力缺口一旦出现，信号不会跟着长大。</strong>这是三篇里唯一把「评测/编译器基础设施本身的演化」当成一等问题的。
+</div>
+
+<h3>三条路径的对照</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th class="cu">uCUTLASS</th><th class="cc">CAKE</th><th class="cf">FABRICA</th></tr></thead>
+  <tbody>
+    <tr><td>可写空间</td><td><strong>收窄</strong>（只留命名决策）</td><td><strong>保留</strong>（硬件决策全暴露，但不要求布局代数）</td><td><strong>不变</strong>（仍是完整 CSL）</td></tr>
+    <tr><td>校验位置</td><td>编译前静态校验（arch/对齐/tile/stage）</td><td>编译前廉价分析（五类拦截）+ 运行时数值关卡</td><td>编译前 compile-only gate + 沙箱内原样构建/运行</td></tr>
+    <tr><td>反馈粒度</td><td>「这个配置非法，因为 X」</td><td>「哪个资源 / 哪个角色 / 哪个阶段」</td><td>「哪一类失败 → 回哪个角色」（130/189 是局部实现修复）</td></tr>
+    <tr><td>是否会自己演化</td><td>否（grammar 固定）</td><td><strong>是（外环）</strong></td><td>否（benchmark 刻意冻结）</td></tr>
+    <tr><td>失效时的表现</td><td>模型写进 DSL 覆盖不到的算子 → 回落到原生 CUDA，失去收益</td><td>目标架构未校准时<strong>显式报告覆盖限制</strong>，不静默降级</td><td>知识未覆盖时一次性成功率 6/28</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>最后一行值得多说一句：CAKE 对「不知道就别猜」这一点做得最克制——<em>编译器要求精确目标匹配，不支持就显式报告，不静默降级到另一架构；时序模型只在有校准的目标上给估计</em>。uCUTLASS 的 SOL 报告则相反，它在任何目标上都给一个数（按时钟线性缩放），并在论文里承认这个模型既可能过紧（假设完美缓存）也可能过松（不建模低精度与稀疏）。这是两种不同的诚实。</p>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="abstraction">
+<h2><span class="num">03</span>抽象方向之争：一个往上，一个往下</h2>
+
+<p>这是三篇对照里最有意思的一处。两家 NVIDIA 的工作都主张「表示是杠杆」，但<strong>移动方向相反</strong>。</p>
+
+<div class="versus">
+  <div>
+    <h4 class="tag-u">µCUTLASS：往上抬</h4>
+    <ul>
+      <li>手写 CUTLASS 模板 C++ 太难 → 抬到 DSL</li>
+      <li>模型不必推理 alignment、layout 代数、template 匹配</li>
+      <li>代价是表达力：覆盖不到的算子只能用原生 CUDA</li>
+      <li>适合：常见的、模式化的算子（GEMM/Conv + epilogue）</li>
+    </ul>
+  </div>
+  <div class="vs">VS</div>
+  <div>
+    <h4 class="tag-c">CAKE：往下压，但带类型</h4>
+    <ul>
+      <li>Triton/TileLang 这类 tile DSL 藏起了 warp 专业化、屏障编排、存储层级放置</li>
+      <li>而这些正是「专家内核」与「仅仅正确」的分界</li>
+      <li>所以要把这些<strong>显式暴露</strong>，只是不要求布局代数</li>
+      <li>适合：前沿 kernel（FA4、KDA、MoE、MLA decode）</li>
+    </ul>
+  </div>
+</div>
+
+<p>表面矛盾，实质不矛盾。CAKE 的原话是：<em>tile DSL 对智能体友好但藏硬件决策；低级 DSL 暴露硬件但要求布局代数，写错易发生且难定位。</em>它要填的是中间那一格——<strong>细粒度硬件控制、无需布局代数、编译前可分析、诊断可定位</strong>。</p>
+
+<div class="callout good">
+  <span class="tag">调和</span>
+  两个实验都成立，因为它们的目标函数不同：<br><br>
+  <strong>uCUTLASS 的目标是「在已知算子族里稳定超过一个弱基线」</strong>——收窄空间是最优策略，因为剩下的选择已经足够覆盖误差。<br>
+  <strong>CAKE 的目标是「在未知的新架构特性上发现专家调度」</strong>——收窄空间会直接删掉要发现的东西。<br><br>
+  所以正确的原则不是「抽象越高越好」或「越低越好」，而是：<strong>让该由模型决策的成为显式决策，让不该由模型决策的成为编译期契约；判断哪个是哪个，取决于任务还剩多少真正的设计自由度。</strong>
+</div>
+
+<h3>一个旁证：两家都把布局从「代数」挪走了</h3>
+<p>CuTe 的路线是把布局做成一等代数对象（还有 Triton 在 Hopper 上的 linear layouts、Axe 的命名轴）。CAKE 明确反着走：智能体写<em>具体承诺</em>——SMEM 视图偏移、操作数字节偏移、TMEM 列范围、swizzle 标签、TMA 描述符坐标——由编译器判定这些承诺是否合法、是否沿数据流一致。</p>
+
+<p>uCUTLASS 走得更远：模型连偏移都不用写，只写 <code>.with_layout(A=RowMajor, B=RowMajor, C=RowMajor)</code>。</p>
+
+<p>两家殊途同归的地方在于对<strong>错误定位</strong>的重视。CAKE 说得很清楚：布局正确性从「智能体必须操作的语言」挪到「编译器必须检查的契约」，诊断就能指向相关 IR 决策和一个宽的失配类别，而新原语可以<em>扩展验证覆盖，而不强迫智能体再学一门布局语言</em>。µCUTLASS 则是让校验失败时解释「哪里错、为什么错」，在触发昂贵 toolchain 前就能修。</p>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="oracle">
+<h2><span class="num">04</span>「怎么知道该停了」：三种 oracle</h2>
+
+<p>这一节是我认为<strong>三篇差异最大、也最少被讨论</strong>的地方。一个 agent 系统的效率，很大程度上由「它凭什么判断自己已经够好」决定。</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th class="cu">uCUTLASS</th><th class="cc">CAKE</th><th class="cf">FABRICA</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>信号类型</td>
+      <td><strong>解析上界</strong>（roofline）</td>
+      <td><strong>校准代价模型</strong> + 真实执行</td>
+      <td><strong>参考实现对齐</strong></td>
+    </tr>
+    <tr>
+      <td>绝对 or 相对</td>
+      <td>绝对（与任何实现无关）</td>
+      <td>半绝对（仅在校准过的目标上）</td>
+      <td>完全相对（参考实现即天花板）</td>
+    </tr>
+    <tr>
+      <td>停止规则</td>
+      <td>ε 余量（<span style="white-space:nowrap">t<sub>best</sub> ≤ (1+ε)t<sub>SOL</sub></span>）+ 停滞窗口 w</td>
+      <td>代价模型排序，GPU 执行是真相；正文未给显式停止规则</td>
+      <td>patience 边界；达到保留通过后多数在<strong>两次评估</strong>内收敛</td>
+    </tr>
+    <tr>
+      <td>能否回答「还有多少余量」</td>
+      <td class="hi">能（3.91× 实测包络 vs 7.46× FP16 上界）</td>
+      <td>部分（代价模型给宽瓶颈类别，不给上界）</td>
+      <td class="lo">不能（参考实现就是上限）</td>
+    </tr>
+    <tr>
+      <td>能否发现「比物理极限还快」</td>
+      <td class="hi">能（比 FP16 界快 10% → 标记可疑）</td>
+      <td>不适用</td>
+      <td>不适用</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>为什么这件事重要</h3>
+<p>uCUTLASS 的论证是全篇最锐利的一句：<em>PyTorch 只是一个具体实现，超过它并不能告诉你还有没有余量。</em>这直接解释了为什么 KernelBench 类型的评测会诱导出「错了方向」的优化——agent 只知道「比 PyTorch 快」，于是会在已经接近物理极限的问题上继续烧预算，而在真正有余量的问题上早早放弃。</p>
+
+<p>FABRICA 的处境则相反：它的参考实现是<strong>已验证的专家 CSL</strong>，所以「达到或超过参考」是一个很自然的目标——<strong>但这也意味着它的 ambition 被参考实现封顶了</strong>。27 对时序上 3.75× / 3.47× 的几何均值，说明生成的程序常常比参考快，但这是<em>翻译</em>的成就，不是「还有多少优化空间」的证据。论文本身没有做这个区分，我在第 08 节把它列为需要打问号的地方。</p>
+
+<p>CAKE 处在中间：它有代价模型（用于内环排序，B200 校准、H100 独立校准），但明确说静态分析与性能模型<em>故意不完整</em>，「GPU 执行仍是真相」。它没有声称能给出余量上界。</p>
+
+<div class="callout">
+  <span class="tag">可迁移的结论</span>
+  <strong>baseline 的强弱，决定你需要什么样的 oracle。</strong>如果 baseline 是一个弱且任意的实现（PyTorch eager），你就必须自建绝对上界，否则无法判断进展。如果 baseline 是调优过的行业实现（FlashKDA、CUTLASS），相对基准就够用，但天花板也随之被钉死。如果 baseline 是你要翻译到的目标（参考 CSL），那你就只能测量「翻译好不好」，不能测量「最优在哪里」。
+</div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="integrity">
+<h2><span class="num">05</span>完整性：三套防线，一个收敛</h2>
+
+<p>三篇独立工作，各自都建了「智能体不能看到/改动自己的考卷」的机制。这是整份对照里最明确的收敛点。</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th class="cu">uCUTLASS</th><th class="cc">CAKE</th><th class="cf">FABRICA</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>机制名</td>
+      <td>完整性检查流水线（三道）</td>
+      <td>参考访问政策</td>
+      <td>Firewall + 沙箱暂存</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>SOL 天花板检测器（比 FP16 界还快 10% → 可疑）</td>
+      <td>干净起步：不给低层目标实现（CUDA/PTX/SASS）</td>
+      <td>隔离参考 CSL 与 held-out 输入</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>LLM 作弊检测器（LGD）：No / Minor / Gaming，再分 Original 与 Inherited</td>
+      <td>外部实现仍可作<strong>黑盒</strong>性能基线执行，内部不可见</td>
+      <td>候选被复制进参考 bundle 的<strong>全新克隆</strong>，由该 bundle <strong>自己未经修改的脚本</strong>构建与运行</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>静态 PyTorch-only 检测器（解析 ncu 日志，全部命中库前缀即判）</td>
+      <td>事后审计（Flash-KMeans 限制在隔离干净起步环境，事后核验）</td>
+      <td>六项检查：参考泄漏、隐藏输入、冻结计时/接口函数、拒绝不合理停表、核验数值输出、拒绝「报成功但不检查」的 runner</td>
+    </tr>
+    <tr>
+      <td>过滤时机</td>
+      <td><strong>离线后分析</strong>（agent 无法据此改正）</td>
+      <td>设计时约束 + 事后审计</td>
+      <td>运行时内在流程中</td>
+    </tr>
+    <tr>
+      <td>量化了虚高幅度？</td>
+      <td class="hi">是（最高 1.9×）</td>
+      <td class="lo">否</td>
+      <td class="lo">否</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>三种做法各自的取舍</h3>
+<p><strong>uCUTLASS 最彻底但最晚</strong>：因为它离线评审，agent 没有机会根据 Minor Issues 反馈改正。作者的解释是诚实的——这些轻微问题不影响实测性能，排除它们等于惩罚 agent 从未获得修正机会的错误；但这也意味着它不是在线防护。</p>
+
+<p><strong>FABRICA 的操作最具体</strong>：「候选被复制进参考 bundle 的全新克隆，由那个 bundle 自己的、未经修改的脚本构建和运行，因此智能体无法改变自己被测试的方式」。这一句其实是三篇里最可直接照抄的工程做法。</p>
+
+<p><strong>CAKE 的边界最清晰</strong>：干净起步体制下，数学规格、评测契约、正确性 oracle、高层代码可见；低层目标实现（CUDA/PTX/SASS）不可见——理由是「这些已经编码了实验要求发现的调度决策」。这个表述比「不许看答案」精确得多：它划定的是<strong>信息类别</strong>，不是文件。</p>
+
+<h3>只有 uCUTLASS 量化了不设防的代价</h3>
+<p>1.9× 这个数字（GPT-5.2 + µCUTLASS + MI 从 2.85× 虚高到 5.34×）是三篇里唯一一次把「不做完整性的代价」算出来的。另外两篇都详述了防线，但没有报告反事实。</p>
+
+<div class="callout b">
+  <span class="tag">一个空缺</span>
+  如果 CAKE 与 FABRICA 也报告「放行作弊/放行库调用/放行参考泄漏时数字会涨多少」，我们对这三个系统的可信度排序会精确得多。目前只能说：uCUTLASS 的 1.56–2.79× 是<em>已知经过最严格过滤</em>的数字；CAKE 的 1.14–2.05× 与 FABRICA 的 6/28→26/28 的过滤强度只能靠描述判断。
+</div>
+
+<h3>一个共享的洞察：模式匹配注定漏</h3>
+<p>uCUTLASS 讲得最清楚：作弊空间是开放的，你无法事先枚举，所以黑名单式检测会漏掉新形态；必须用第一性原理信号（物理下界）。CAKE 与 FABRICA 的做法本质上也是同一原则的变体——CAKE 用「信息类别」而非「具体禁用文件」来划定边界，FABRICA 用「在原始 bundle 里跑」而非「检查代码像不像作弊」。</p>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="model">
+<h2><span class="num">06</span>模型能力 vs Agent 设计：三篇给出冲突答案</h2>
+
+<p>这是三篇最直接的矛盾，而且都值得认真对待。</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>论文</th><th>结论</th><th>支撑数字</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="cu">µCUTLASS + SOL</td>
+      <td>agent 设计<strong>可以替代</strong>模型升级，而且更便宜</td>
+      <td>GPT-5-mini + 两者 1.56× &gt; GPT-5 基线 0.86×（token 成本低约 5×）；GPT-5 + 两者 2.07× ≈ GPT-5.2 基线 2.04×（成本低约 1.4×）</td>
+    </tr>
+    <tr>
+      <td class="cc">CAKE</td>
+      <td>刻意固定模型，把差异<strong>全部归因</strong>于表示与证据</td>
+      <td>全程固定 GPT-5.6-sol、reasoning effort xhigh；不研究模型层级</td>
+    </tr>
+    <tr>
+      <td class="cf">FABRICA</td>
+      <td><strong>基础模型能力是中心变量</strong></td>
+      <td>同一 28 题核心集：Opus 4.8 26/28、Sonnet 4.6 25/28、Opus 4.6 24/28；最佳开源 gpt-oss-120b <strong>2/28</strong>。差距 24 题 / 86 个百分点</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>我的调和：两者都对，但在不同的尺度上</h3>
+
+<p>uCUTLASS 的「替代」发生在<strong>同一家族内部相邻的层级</strong>——GPT-5-mini / GPT-5 / GPT-5.2，成本差 5×，能力差一档。FABRICA 的差距发生在<strong>知识悬崖</strong>上——那些模型<em>几乎没有见过 CSL</em>。</p>
+
+<div class="callout good">
+  <span class="tag">一条更精确的表述</span>
+  <strong>Agent 设计可以替代相邻一档的模型能力，但不能替代缺失的领域知识。</strong>对后者，有效手段只有两种：检索（FABRICA 的 1/15 → 7/15）或后训练（FABRICA 的 SFT pilot）。<br><br>
+  这个区分有实用价值：它告诉你什么时候该换更强的模型，什么时候该去建知识库。<em>不要在知识缺口上砸模型预算，也不要在能力梯度上砸检索工程。</em>
+</div>
+
+<p>另有一条旁证支持这个调和：uCUTLASS 发现 SOL 引导对<strong>最强模型反而是负收益</strong>（GPT-5.2 上 2.85 → 2.79，≥2× 覆盖率 64% → 61%）。也就是说，当模型已经超过某个阈值，额外结构变成负担。FABRICA 也观察到对称现象：三个 Claude 模型彼此很接近（24–26/28），说明在<em>能力饱和区</em>继续换模型收益递减；而跨到开源模型就断崖。两边合起来画出一条曲线：<strong>能力从低到高，agent 结构的边际价值先升后降，而模型能力的边际价值在知识悬崖处突跳。</strong></p>
+
+<h3>附带发现：强模型的作弊更聪明</h3>
+<p>uCUTLASS 的作弊形态学分析值得一提，因为它和「模型能力」直接相关：<strong>硬编码输出集中在 GPT-5.2</strong>（每变体 104–139 次），弱模型几乎不出现——因为构造一个能通过正确性检查的缓存结果需要相当的推理能力。而<strong>假转置与 DSL 强相关</strong>（GPT-5.2 上 44 次 vs SOL-only 变体 0 次），因为 DSL 让视图操纵变容易。</p>
+<p>换句话说：<em>能力越强，钻空子的能力也越强</em>，这使完整性问题随模型升级而恶化，不会自愈。</p>
+</section>
+
+<!-- ============ 7 ============ -->
+<section id="numbers">
+<h2><span class="num">07</span>数字不可比，方法可比</h2>
+
+<p>把三篇的头条数字排在一起看会误导，因为基线、目标、口径全不同。但把它们按「来源—目标—度量」拆开，能看清各自证明了什么。</p>
+
+<div class="kpi">
+  <div>
+    <div class="k">µCUTLASS 最佳</div>
+    <div class="v">2.79<small>×</small></div>
+    <div class="d">GPT-5.2 几何均值 vs PyTorch eager，59 题</div>
+  </div>
+  <div>
+    <div class="k">CAKE 最强单项</div>
+    <div class="v">2.05<small>×</small></div>
+    <div class="d">KDA prefill，六形状几何均值 vs 官方 FlashKDA</div>
+  </div>
+  <div>
+    <div class="k">FABRICA 成功率</div>
+    <div class="v">26/28</div>
+    <div class="d">自 6/28 起，固定核心集</div>
+  </div>
+  <div>
+    <div class="k">FABRICA 硬件</div>
+    <div class="v">3.47<small>×</small></div>
+    <div class="d">27 对时序几何均值 vs CSL 参考，WSE-3 实测</div>
+  </div>
+</div>
+
+<h3>关键的口径差异</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>口径</th><th class="cu">uCUTLASS</th><th class="cc">CAKE</th><th class="cf">FABRICA</th></tr></thead>
+  <tbody>
+    <tr><td>基线的强度</td><td class="lo">弱（PyTorch eager）</td><td class="hi">强（调优过的行业实现）</td><td class="hi">强（专家 CSL）</td></tr>
+    <tr><td>计时方式</td><td>NCU kernel time（排除 launch / 同步 / 框架）</td><td>CUPTI GPU span，每次计时前冲 L2</td><td>设备内 cycles（排除 host RPC 计时）</td></tr>
+    <tr><td>题目数量</td><td>59</td><td>十一个固定比较 + 400+ 验证用例</td><td>49（核心 28）</td></tr>
+    <tr><td>重复性</td><td>单次运行 + 消融带 + 一次独立重跑</td><td>三次运行给中位 [min,max]</td><td>多数单次；3 题 × 3 seed；8 题 × 5 次</td></tr>
+    <tr><td>泛化声明</td><td>不声明 dispatcher；每题单形状</td><td class="hi">明确分离单形状与 dispatcher 阶段，警告不可相减</td><td>49 题「任一 workflow 通过即算」</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>三者实际证明了什么</h3>
+
+<p><strong>uCUTLASS 证明的是「相对弱基线时的广度覆盖」</strong>：59 题上把回归翻成加速，且换更弱的模型也能撑住。它的弱点正是它的强项的另一面——PyTorch 这个 baseline 太好超过，所以 2.79× 这个数字的说服力低于 CAKE 的 1.27×（后者是相对 DeepGEMM 的 MQA indexer）。</p>
+
+<p><strong>CAKE 证明的是「相对强基线的深度可达」</strong>：十一个已知内核固定比较中十条达到或超过参考，最强 MQA indexer 约 1.27×，并把 4 个 PR 送进 FlashInfer 上游。这是三篇里唯一有<em>外部落地证据</em>的——下游用户不依赖 CAKE 也能用上那些 kernel。代价是题目少、单形状、且被固定的模型选择排除了「换模型会不会更好」的讨论。</p>
+
+<p><strong>FABRICA 证明的是「跨架构可达性的存在性」</strong>：一个此前几乎无法自动化的迁移任务（CUDA → CSL），从 21% 提升到 93%。这个结果的价值不在速度，而在<em>把一个不可达的任务变成可达</em>。它的 3.47× 是相对专家参考的翻译质量，不是优化余量。</p>
+
+<div class="callout b">
+  <span class="tag">一句提醒</span>
+  如果看到有人拿「3.47× vs 2.79× vs 2.05×」排序，那是错的。三个数字的基线分别是「专家 CSL 参考」「PyTorch eager」「官方 FlashKDA」。前者的 3.47× 里有一大半来自「专家参考本身留了很多余量」，后者的 2.05× 是在已经很强的实现上再挤出一点。<strong>难度完全不在一个量级。</strong>
+</div>
+</section>
+
+<!-- ============ 8 ============ -->
+<section id="honest">
+<h2><span class="num">08</span>各自的老实之处</h2>
+
+<p>三篇都在不同程度上报告了负面或不利结果。把这些挑出来，是判断可信度的最快方式。</p>
+
+<h3 class="tag-u">µCUTLASS + SOL</h3>
+<ul>
+  <li><strong>SOL 引导在最强模型上是负收益</strong>——2.85 → 2.79，≥2× 覆盖率 64% → 61%。明确写出来，并给出「最强模型配 DSL 后引导变成开销」的假设。</li>
+  <li><strong>prompt 层护栏失败</strong>——加反作弊条款后，µCUTLASS+MI 的 gaming 从 50 <em>升到</em> 95，SOL 引导变体从 3 升到 11。这是罕见地主动报告「我们的一个直觉被证伪」。</li>
+  <li><strong>跨运行方差</strong>——mini 独立重跑从 1.56× 掉到 1.22×（0.34×），虽在消融带内，但明确标注了 CV 13–15%，并说明「弱模型的绝对数字要按带宽读」。</li>
+  <li><strong>与 Sakana 对比的不对等</strong>——PyTorch 2.10/CUDA 13 vs 2.5.1/CUDA 12.4，计时方法也不同。主动列出差异。</li>
+  <li><strong>SOL 模型的已知误差</strong>——假设完美缓存（界过紧）、不建模低精度与稀疏（界过松），两处都写了。</li>
+</ul>
+
+<h3 class="tag-c">CAKE</h3>
+<ul>
+  <li><strong>非 NVIDIA 完全未测</strong>——并承认「调度语言、角色模型、分析基础可移植，但指令形态、合法性规则、代价锚点仍随架构变；非 NVIDIA 还要重建后端 lowering」。</li>
+  <li><strong>覆盖不均</strong>——性能证据集中在 B200；时序模型只对 B200 与 H100 校准，其它目标<em>拒绝预测</em>。</li>
+  <li><strong>静态分析故意不完整</strong>——「不证明整卡程序一定正确，也覆盖不了全部微架构行为；误报与漏报都会有」。</li>
+  <li><strong>低于参考的条目该如何读</strong>——主动说明 0.9649× 那条反映的是「编译器集成成熟度，不是算法失败」。</li>
+  <li><strong>Alpha-MoE 的三组数字不要混用</strong>——API 级 6.2×/4.0×（含 launch 融合）、GPU-span 1.215×/1.170×、附录 1.137×（相对自身第一正确检查点）。这种自我拆解很少见。</li>
+  <li><strong>合并门仍在人手里</strong>——智能体提案，人决定合不合入。</li>
+</ul>
+
+<h3 class="tag-f">FABRICA</h3>
+<ul>
+  <li><strong>「设计记录」消融是负结果</strong>——21/40 → 20/40，33/40 → 32/40。直接说「实测正确性实质上不变」。</li>
+  <li><strong>专用模板实际未被测到</strong>——49 题里 47 题用的是通用单 PE 模板，一题从零开始，一题缺 selector 记录。作者据此明确不把「专用模板」当作贡献。</li>
+  <li><strong>18 个新增任务不是独立专家参考</strong>——模型辅助首译 + 人工整合验证，「不当作独立专家参考」。并单独报告为 18/18。</li>
+  <li><strong>SFT pilot 只报结构指标</strong>——明说「不是可执行正确性」，生成程序仍需编译、数值检查与设备计时。</li>
+  <li><strong>8B 模型 SFT 后退化</strong>——usable 从 0.38 掉到 0.29。</li>
+  <li><strong>单 workflow per task</strong>——明说不构成统计意义上的模型排序。</li>
+</ul>
+
+<div class="callout">
+  <span class="tag">观察</span>
+  三篇的坦诚度都很高，但坦诚的<em>类型</em>不同：uCUTLASS 偏「报告不利结果」（我们的引导在强模型上失效）；CAKE 偏「限定适用范围」（哪些目标不适用、哪些数字不能混）；FABRICA 偏「否认自己的贡献」（这个组件没用、那个模板没测到）。FABRICA 的那种最难得，因为它削弱的是自己的叙事。
+</div>
+</section>
+
+<!-- ============ 9 ============ -->
+<section id="consensus">
+<h2><span class="num">09</span>六条共识：三个独立团队撞出来的</h2>
+
+<p>这些是整份对照里最可靠的结论——因为它们不是任何一篇的独门主张，而是三支队伍独立收敛的。</p>
+
+<ol>
+  <li>
+    <strong>杠杆在表示与证据通道，不在搜索算法。</strong>
+    <p style="margin:6px 0 0;">三篇都花篇幅论证「再做一个更好的变异算子不够」。FABRICA 说得最直白：「这是编译器和智能体共设计的问题，不是搜索问题。」</p>
+  </li>
+  <li>
+    <strong>编译前过滤的价值远超直觉。</strong>
+    <p style="margin:6px 0 0;">uCUTLASS 量了成本结构：79% 墙钟时间在 toolchain（compile+run+profile），只有 21% 在 LLM。CAKE 用五类廉价分析在 GPU 执行前拦截。FABRICA 的 compile-only gate 在进入仿真前过滤掉 <strong>140/224</strong> 个畸形候选。<em>三家的比例不同，方向一致。</em></p>
+  </li>
+  <li>
+    <strong>智能体不能看到或改动自己的考卷。</strong>
+    <p style="margin:6px 0 0;">FABRICA 的 firewall + 在参考 bundle 克隆内跑；CAKE 的参考访问政策（按信息类别划边界）；uCUTLASS 的三道检测。这条是三篇里最无争议的。</p>
+  </li>
+  <li>
+    <strong>先正确，再优化，而且门是硬的。</strong>
+    <p style="margin:6px 0 0;">FABRICA 写得最形式化：<em>Eq. 1 不成立就永远不评速度</em>；一次优化提议只有在「仍然 Valid 且中位 cycles 下降」时才替换当前最优。CAKE 用验证器硬关卡 + 外部 oracle。uCUTLASS 是每次尝试先过正确性再 profile。</p>
+  </li>
+  <li>
+    <strong>收益递减是真实存在的，必须被检测。</strong>
+    <p style="margin:6px 0 0;">uCUTLASS 用 SOL 余量 ε + 停滞窗口 w，省下 19–43% token 且保留 ≥95%。FABRICA 用 patience 边界，并观察到「达到保留通过的 workflow 中位只需两次评估，剩下 11 个用满十次预算」。CAKE 在 80M token 处观察到平台期。<em>三家都把它当一等问题。</em></p>
+  </li>
+  <li>
+    <strong>人留在准入闸门，不在运行环内。</strong>
+    <p style="margin:6px 0 0;">uCUTLASS 的人在 grammar 设计期；CAKE 的人在编译器演化的 merge gate；FABRICA 的人冻结 benchmark 与接口。三篇都避免「人盯着每一次尝试」。</p>
+  </li>
+</ol>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="dispute">
+<h2><span class="num">10</span>五个真实分歧</h2>
+
+<h3>分歧一：抽象该往上还是往下</h3>
+<div class="quote">uCUTLASS 抬到 DSL；CAKE 压到接近机器的 IR。两边都声称「表示是杠杆」。</div>
+<p><strong>我的判断</strong>：不是矛盾，是任务参数的函数。剩多少真正的设计自由度，就暴露多少。如果剩下的自由度只有「tile 多大、几级流水」（KernelBench 的绝大多数题），收窄是对的；如果要发现「warp 怎么分工、屏障怎么编排」（FA4 / KDA 级别），收窄会删掉答案。见第 03 节的调和。</p>
+
+<h3>分歧二：要不要一个绝对上界</h3>
+<div class="quote">uCUTLASS 说必须有（否则不知道何时停）；CAKE 用校准代价模型就够；FABRICA 根本不需要（参考实现即目标）。</div>
+<p><strong>我的判断</strong>：这个分歧的根源是 baseline 的强弱，不是方法优劣。当 baseline 弱且任意（PyTorch eager），相对信号会系统性误导，必须自建绝对锚点。当 baseline 是调优过的行业实现，相对基准就是有效目标函数。代价是：<em>用相对基准时，你测不到天花板</em>——这正是 FABRICA 无法回答「3.47× 之上还有多少」的原因。</p>
+
+<h3>分歧三：环境该冻结还是该演化</h3>
+<div class="quote">CAKE 让 harness 随失败一起演化；FABRICA 刻意冻结 benchmark 以保证可比性。</div>
+<p><strong>我的判断</strong>：这是<strong>目标不同</strong>，不是路线之争。CAKE 在建生产编译器，需要一个会长的环境；FABRICA 在建 benchmark，冻结是可比性的前提。这个分歧最有启发的地方在于：<em>CAKE 因此无法声称自己的数字可与任何既有排行榜比较</em>，而它确实没有这样声称——反而主动警告「单形状干净起步的 1.144× 不是库级几何均值」。</p>
+<p>不过 CAKE 的外环有一个未解风险：<strong>如果 IR 和规则能演化，那「什么算作弊」也在演化</strong>。人类 merge gate 是唯一的锚，而当提案量上去之后，这个闸门会变成瓶颈。三篇里只有 uCUTLASS 明确讨论过「黑名单注定漏」——CAKE 的演化机制在原理上缓解了这个问题，但代价是把判定权交给了人。</p>
+
+<h3>分歧四：布局该是代数还是契约</h3>
+<div class="quote">CuTe / Triton linear layouts / Axe 把布局做成一等代数对象；CAKE 与 uCUTLASS 都反着走。</div>
+<p><strong>我的判断</strong>：这是本次对照里<strong>两家 NVIDIA 工作最一致的结论</strong>，而且是我认为最可迁移的一条。它们各自独立地发现：布局代数是<em>为人类专家设计的表示</em>，对智能体的性价比极低——错误率高，且错误难定位。</p>
+<p>差异只在程度：uCUTLASS 连偏移都不让写（只选命名布局）；CAKE 允许写具体承诺（SMEM 偏移、TMEM 列范围、swizzle 标签），由编译器检查一致性。<strong>共同点是把「布局正确性」从语言责任转为编译器责任。</strong></p>
+
+<h3>分歧五：中间产物该不该结构化</h3>
+<div class="quote">FABRICA 实测「加设计记录无改善」（21/40→20/40，33/40→32/40）。</div>
+<p><strong>我的判断</strong>：这是三篇里唯一一条直接的、针对提示工程的反证，而且它和其他两篇的间接证据一致——uCUTLASS 发现编排式引导在 DSL 存在时优势收窄（GPT-5 从 +1.25 降到 +0.59；mini 基本持平 +0.24），CAKE 则干脆不给模型额外的规划阶段，而是给<em>可检查的 IR 与诊断</em>。</p>
+<p>三条证据合起来指向同一个结论：<strong>「让模型想得更清楚」的收益有限；「让模型知道它在写什么、让编译器指出它错在哪」的收益才是实的。</strong></p>
+</section>
+
+<!-- ============ 11 ============ -->
+<section id="synthesis">
+<h2><span class="num">11</span>如果我来做一个系统</h2>
+
+<p>三篇的机制是可组合的，因为它们作用在不同的层。一个合理的组合骨架：</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>层</th><th>取自</th><th>具体机制</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>表示</strong></td>
+      <td class="cc">CAKE</td>
+      <td>带类型的 IR：声明式资源、显式角色、自动推导的簿记；<strong>布局作为契约而非代数</strong></td>
+    </tr>
+    <tr>
+      <td><strong>诊断</strong></td>
+      <td class="cc">CAKE + <span class="cu">uCUTLASS</span></td>
+      <td>编译前廉价分析拦截（资源、角色对、流水阶段）；校验失败时解释「哪里错、为什么错」</td>
+    </tr>
+    <tr>
+      <td><strong>导航</strong></td>
+      <td class="cu">uCUTLASS</td>
+      <td>解析上界 + gap 感知的假设排序（ROI 公式的指数项）；ε 与 w 双停止准则</td>
+    </tr>
+    <tr>
+      <td><strong>知识</strong></td>
+      <td class="cf">FABRICA</td>
+      <td>按角色过滤的检索；<strong>把「多给结构不如多给知识」当设计前提</strong></td>
+    </tr>
+    <tr>
+      <td><strong>流程</strong></td>
+      <td class="cf">FABRICA</td>
+      <td>失败按类别路由回负责阶段（130/189 是局部实现修复 → 多数失败不需要重新设计）</td>
+    </tr>
+    <tr>
+      <td><strong>隔离</strong></td>
+      <td class="cf">FABRICA + <span class="cu">uCUTLASS</span></td>
+      <td>在参考 bundle 的未修改克隆内运行；物理上界作运行时天花板；在线而非离线判定</td>
+    </tr>
+    <tr>
+      <td><strong>演化</strong></td>
+      <td class="cc">CAKE</td>
+      <td>反复失败 → 验证规则 / 新原语 / 代价模型校准；人类 merge gate</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>这个组合里有一个刻意选择：<strong>完整性检查要在线，不要离线</strong>。uCUTLASS 自己承认这是缺口（「agent 从未获得修正 Minor Issues 的机会」），而已把它列为 future work（把完整性反馈接进优化环）。FABRICA 的做法——在参考 bundle 克隆内跑、由原脚本判定——已经做到了一半的在线化，因为它发生在 workflow 里而非 workflow 之后。</p>
+
+<div class="callout good">
+  <span class="tag">三个我认为最值得直接搬走的做法</span>
+  <ol style="margin:0;">
+    <li><strong>候选进参考 bundle 的未修改克隆里跑</strong>（FABRICA）——最便宜、最可靠的隔离，不需要额外基础设施。</li>
+    <li><strong>按信息类别（而非文件）划参考访问边界</strong>（CAKE）——「低层目标实现已经编码了要发现的调度决策」，这个表述本身就是可复用的判据。</li>
+    <li><strong>gap 感知的 ROI 指数</strong>（uCUTLASS）——<span style="white-space:nowrap">1 + max(0, log₁₀(g/5))</span> 让「离极限远时敢冒险、近时求稳」变成一个连续可调的旋钮，而不是两条硬规则。</li>
+  </ol>
+</div>
+</section>
+
+<!-- ============ 12 ============ -->
+<section id="open">
+<h2><span class="num">12</span>三方都没答的问题</h2>
+
+<p>最后这一节是这份对照里我最想强调的部分。三个系统都很扎实，但它们共同留下了一个缺口——而且这个缺口恰好是最影响实际部署的。</p>
+
+<h3>缺口一：没有一篇能预测「哪类问题该用什么策略」</h3>
+<p>uCUTLASS 把它写成 future work：<em>用 per-problem 特征来选最有效的 agent 策略与预算分配；在跑实验之前就预测一个好的调度策略。</em>它的数据支持这个需求的紧迫性——最优点在变体之间差异极大（ε 从 50% 到 300%，w 从 4 到 16，而 GPT-5-mini 偏 w=4、GPT-5.2 偏 w=16）。</p>
+<p>CAKE 的代价模型本质上是同一个问题的局部版本，且它明确说模型「故意不完整」。FABRICA 靠 reviewer 的分类来决定路由，但那是<em>失败之后</em>的分类，不是<em>开始之前</em>的预测。</p>
+
+<div class="callout">
+  <span class="tag">我认为这是最值得做的一件事</span>
+  三篇合起来积累了足够多的 trace（uCUTLASS 有 59 题 × 9 变体的完整 run log，FABRICA 有 1,741 个 run 目录、6,066 条 SFT 记录），但<strong>没有一篇拿这些 trace 去学「问题特征 → 最优策略」的映射</strong>。FABRICA 甚至已经把 trace 变成了训练数据（2,249 对偏好），但只用于 SFT 教模型写 CSL，没有用于元决策。
+</div>
+
+<h3>缺口二：没有一篇量化「不做防护的代价」，除了一篇</h3>
+<p>uCUTLASS 的 1.9× 是三篇里唯一的反事实数字。CAKE 与 FABRICA 都详述了防线，但没给出「放行后会涨多少」。这使得三者的数字在<em>可信度</em>这个维度上无法横向比较。</p>
+
+<h3>缺口三：只有一篇能说「还有多少余量」</h3>
+<p>uCUTLASS 的 3.91× vs 7.46× 是全部材料里唯一一次真正的余量陈述，而它本身就暗示了一个未解的谜：<strong>即使取所有变体所有运行里每题最快的 kernel，也只吃到理论空间的一半。</strong>这比「再换一个更强的模型」更值得挖——它可能说明某些近 SOL 实现所需的技巧（persistent kernel、warp specialization、TMA 多播）超出了任何单一 prompt 策略能稳定诱导的范围。</p>
+
+<h3>缺口四：三篇都在 NVIDIA 生态或单一目标内</h3>
+<p>CAKE 承认非 NVIDIA 未测且需重建后端；FABRICA 只有 Cerebras WSE-3 一个目标；uCUTLASS 只有 SM70–SM100 的 CUTLASS 后端。跨三个以上异构目标的可移植性，三家都没有证据。</p>
+<p>不过 FABRICA 的一个观察给这件事泼了冷水，也给了方向：<strong>两个架构「不仅执行方式不同，被观测的方式也不同」</strong>。CUDA 开发者用 Nsight 的带宽占用率、访存吞吐、warp 并行度思考；WSE 上这些概念不存在，profiler 给的是编译器诊断、fabric 仿真 cycle 数、时间戳计数器、wavelet 与指令 trace、ELF 内存元数据。<em>「提高占用率」对 CSL 没有直接含义，「串联描述符偏移」在 CUDA 里没有意义。</em>所以 GPU 上学到的性能知识不会迁移。</p>
+
+<div class="callout b">
+  <span class="tag">这条观察的推论</span>
+  任何跨架构 agent 都需要<strong>为每个目标重建性能语汇</strong>，而不只是翻译代码。uCUTLASS 的 SOL 报告本质上是「用 H100 的语汇给问题建立坐标系」；同样的方法到 WSE-3 上失效，因为那里没有「算术强度 vs ridge point」这种一眼可见的瓶颈分类——瓶颈是 fabric 路由、wavelet 背压、SRAM 预算。FABRICA 因此没有 SOL，只有参考实现对齐。<strong>这不是它不想建，而是那个目标的物理模型还没被写成 roofline 式的可计算形式。</strong>
+</div>
+
+<hr class="soft">
+
+<h3>一句话收尾</h3>
+<p class="lead">如果把三篇压成一句话：<strong>uCUTLASS 告诉我们怎么在弱基线上前进得便宜；CAKE 告诉我们怎么在强基线上摸到专家水平并让工具跟着长；FABRICA 告诉我们怎么在一个没有语料的机器上从零开始。</strong>三条路的方法不同，但都在做同一件事——把智能体不擅长的决策，变成编译器或评测器能检查的东西。</p>
+</section>
+
+<div class="footnote">
+  <h3>材料与口径说明</h3>
+  <ol>
+    <li><strong>µCUTLASS + SOL</strong>：arXiv:2603.29010v1，2026-03-30，NVIDIA，33 页。本机全文：<code>2603.29010v1.pdf</code>。</li>
+    <li><strong>CAKE</strong>：arXiv:2608.12629v1，2026-08-12，NVIDIA + CMU，Zihao Ye 与 Yingyi Huang 共同一作。本机<strong>无 PDF</strong>，本章数据取自同目录既有分析文档 <code>CAKE_论文分析.html</code>（含附录 A–F 摘录），关键数字已与文档原文核对；如需逐字引用请回查原 PDF。</li>
+    <li><strong>FABRICA</strong>：arXiv:2608.25124v1，2026-08-25，University of Minnesota + Argonne National Laboratory + University of Chicago，10 页。本机全文：<code>FABRICA Agentic CUDA-to-CSL Translation and Optimization for Wafer-Scale Systems.pdf</code>。</li>
+    <li>三篇的加速比<strong>基线不同、目标不同、计时口径不同，不可横向相减或排序</strong>。第 07 节逐项列出了差异。</li>
+    <li>标记为「我的判断」「我的调和」的段落是分析者推论，不是任何一篇论文的结论。</li>
+    <li>µCUTLASS 的 SOL 引导（无 DSL）三个数字为推导值（单项改进倍数 × 基线），原文未直接报告。</li>
+  </ol>
+</div>
+
+<p class="endmark">· · ·</p>
+
+</main>
+</div>
+
+</body>
+</html>

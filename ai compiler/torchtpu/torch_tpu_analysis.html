@@ -1,0 +1,2659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TorchTPU 开源代码分析</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #5c6370;
+    --border: #e1e4e8;
+    --accent: #0b6bcb;
+    --accent-soft: #eaf3fd;
+    --code-bg: #f6f8fa;
+    --code-fg: #24292f;
+    --warn-bg: #fff8e6;
+    --warn-border: #e3b341;
+    --good-bg: #eefbf3;
+    --good-border: #2da44e;
+    --bad-bg: #fdf0ef;
+    --bad-border: #cf222e;
+    --sidebar-bg: #fafbfc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9198a1;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent-soft: #12283f;
+      --code-bg: #161b22;
+      --code-fg: #e6edf3;
+      --warn-bg: #2b2416;
+      --warn-border: #9e6a03;
+      --good-bg: #12261a;
+      --good-border: #2ea043;
+      --bad-bg: #2b1618;
+      --bad-border: #f85149;
+      --sidebar-bg: #010409;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* ---------- sidebar ---------- */
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 64px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--sidebar-bg);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  nav.toc .brand {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: .01em;
+    margin-bottom: 4px;
+  }
+  nav.toc .brand small {
+    display: block;
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  nav.toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0 0;
+    counter-reset: toc;
+  }
+  nav.toc li { counter-increment: toc; margin: 1px 0; }
+  nav.toc a {
+    display: block;
+    padding: 5px 10px 5px 34px;
+    position: relative;
+    color: var(--muted);
+    text-decoration: none;
+    border-radius: 5px;
+    border-left: 2px solid transparent;
+  }
+  nav.toc a::before {
+    content: counter(toc) ".";
+    position: absolute;
+    left: 10px;
+    color: var(--muted);
+    opacity: .55;
+    font-variant-numeric: tabular-nums;
+  }
+  nav.toc a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* ---------- main ---------- */
+  main {
+    padding: 56px 56px 120px;
+    max-width: 940px;
+  }
+
+  h1 {
+    font-size: 2.1rem;
+    line-height: 1.25;
+    margin: 0 0 12px;
+    letter-spacing: -.02em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+    margin: 0 0 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    margin: 56px 0 16px;
+    padding-top: 12px;
+    letter-spacing: -.01em;
+    border-top: 1px solid var(--border);
+  }
+  h2:first-of-type { border-top: none; }
+
+  h3 {
+    font-size: 1.12rem;
+    margin: 32px 0 10px;
+  }
+
+  h4 {
+    font-size: 1rem;
+    margin: 22px 0 8px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  p { margin: 12px 0; }
+
+  a { color: var(--accent); }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+                 "Liberation Mono", monospace;
+    font-size: 0.875em;
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0;
+    font-size: 14.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    border-bottom-width: 2px;
+  }
+  tbody tr:hover { background: var(--code-bg); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 14px 20px;
+    margin: 20px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+  .callout.good { border-color: var(--good-border); background: var(--good-bg); }
+  .callout.bad  { border-color: var(--bad-border);  background: var(--bad-bg); }
+  .callout .label {
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+  }
+
+  ul, ol { padding-left: 24px; }
+  li { margin: 6px 0; }
+
+  .lede {
+    font-size: 1.06rem;
+    color: var(--muted);
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 22px 0;
+  }
+  .stat {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    background: var(--sidebar-bg);
+  }
+  .stat .n {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .l {
+    display: block;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .arch {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 22px;
+    margin: 20px 0;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+    }
+    nav.toc ol { columns: 2; column-gap: 16px; }
+    nav.toc li { break-inside: avoid; }
+    main { padding: 36px 24px 80px; }
+  }
+  @media (max-width: 620px) {
+    nav.toc ol { columns: 1; }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.25rem; }
+    table { font-size: 13px; }
+    th, td { padding: 7px 9px; }
+  }
+
+  /* ---------- print ---------- */
+  @media print {
+    nav.toc { display: none; }
+    .layout { display: block; }
+    main { padding: 0; max-width: none; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+    h2 { page-break-after: avoid; }
+    table, pre, .callout { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <div class="brand">TorchTPU 代码分析
+    <small>google-pytorch/torch_tpu · v0.2.0</small>
+  </div>
+  <ol>
+    <li><a href="#overview">概览</a></li>
+    <li><a href="#problem">它解决什么问题</a></li>
+    <li><a href="#architecture">整体架构</a></li>
+    <li><a href="#storage">存储层间接（地基）</a></li>
+    <li><a href="#view">View decomposition</a></li>
+    <li><a href="#execution">执行模型</a></li>
+    <li><a href="#ops">算子层</a></li>
+    <li><a href="#cache">两级编译缓存</a></li>
+    <li><a href="#compile">torch.compile 与动态形状</a></li>
+    <li><a href="#distributed">分布式</a></li>
+    <li><a href="#kernels">自定义 kernel</a></li>
+    <li><a href="#build">构建系统</a></li>
+    <li><a href="#testing">测试与性能实验</a></li>
+    <li><a href="#craft">工程实践</a></li>
+    <li><a href="#risks">设计取向与风险</a></li>
+    <li><a href="#torchxla">专题：与 PyTorch/XLA 的区别</a></li>
+    <li><a href="#appendix">附录：数据表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<h1>TorchTPU 开源代码分析</h1>
+<p class="subtitle">
+  对 <code>google-pytorch/torch_tpu</code> 的静态代码分析 —— 一个把 PyTorch 语义翻译到
+  XLA/TPU 的树外后端。基于 v0.2.0，HEAD <code>2092cb8a</code>（2026-10-26）。
+</p>
+
+<div class="stat-row">
+  <div class="stat"><span class="n">218,976</span><span class="l">C++ 行数 (csrc/)</span></div>
+  <div class="stat"><span class="n">42,936</span><span class="l">Python 行数 (src/)</span></div>
+  <div class="stat"><span class="n">853</span><span class="l">OpName 枚举</span></div>
+  <div class="stat"><span class="n">4,640</span><span class="l">提交数</span></div>
+  <div class="stat"><span class="n">194</span><span class="l">算子目录</span></div>
+  <div class="stat"><span class="n">400+</span><span class="l">测试 target</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="overview">1. 概览</h2>
+
+<p class="lede">
+  这个项目的本质是<strong>一个语义翻译层，不是一个 kernel 库</strong>。它的核心工作是把
+  PyTorch 的「命令式 + 可变 + 指针」语义，忠实地映射到 XLA 的「声明式 + 不可变 + SSA」
+  世界，同时不修改 PyTorch 源码。
+</p>
+
+<table>
+  <thead><tr><th>维度</th><th>事实</th></tr></thead>
+  <tbody>
+    <tr><td>仓库</td><td><code>google-pytorch/torch_tpu</code>，Apache 2.0</td></tr>
+    <tr><td>最新 tag</td><td><code>v0.2.0</code></td></tr>
+    <tr><td>历史跨度</td><td>2026-02-11 首提交 → 2026-10-26 HEAD</td></tr>
+    <tr><td>开发速率</td><td>2 月 219 次提交 → 10 月 896 次，持续加速</td></tr>
+    <tr><td>构建</td><td>Bazel 8.6.0，bzlmod，XLA 按 commit 固定</td></tr>
+    <tr><td>Python</td><td>3.11 / 3.12 / 3.13 / 3.14 / 3.14t（free-threaded）</td></tr>
+    <tr><td>PyTorch</td><td>2.11（默认）/ 2.12 / 2.13 / 2.14 / nightly</td></tr>
+    <tr><td>TPU</td><td>v5e / v5p / v6e (Trillium) / v7x (Ironwood)</td></tr>
+  </tbody>
+</table>
+
+<h3>代码量的真实分布</h3>
+
+<table>
+  <thead>
+    <tr><th>子系统</th><th class="num">行数</th><th class="num">占比</th><th>说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>csrc/ops</code></td><td class="num">138,671</td><td class="num">63%</td><td>194 个算子目录</td></tr>
+    <tr><td><code>csrc/common</code></td><td class="num">26,197</td><td class="num">12%</td><td>缓存键、错误、dtype、shape</td></tr>
+    <tr><td><code>csrc/eager</code></td><td class="num">21,717</td><td class="num">10%</td><td>DeferredOp 图、物化</td></tr>
+    <tr><td><code>csrc/internal</code></td><td class="num">18,542</td><td class="num">8%</td><td>compile、mosaic、profiler</td></tr>
+    <tr><td><code>csrc/distributed</code></td><td class="num">6,293</td><td class="num">3%</td><td>集合通信、slicebuilder</td></tr>
+    <tr><td><code>csrc/mlir</code></td><td class="num">2,812</td><td class="num">1.3%</td><td>4 个自定义 pass</td></tr>
+    <tr><td><code>csrc/pjrt</code></td><td class="num">2,280</td><td class="num">1%</td><td>PjRt 客户端封装</td></tr>
+    <tr><td><code>csrc/api</code></td><td class="num">492</td><td class="num">0.2%</td><td>唯一出货的头文件</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">观察</span>
+  <p>
+    这是一个<strong>以算子覆盖率为中心</strong>的项目。基础设施（编译、执行、内存）只占 30%，
+    其余全是把 ATen 语义忠实转成 StableHLO 的工程量。
+  </p>
+  <p>
+    反过来说，<code>csrc/mlir/passes</code> 只有 4 个 pass、合计不到 3 千行，说明团队
+    <strong>刻意避免自己写图优化</strong>，把 fusion/tiling 完全交给 XLA。这个克制是对的。
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="problem">2. 它解决什么问题</h2>
+
+<p>TPU 的编程模型和 CUDA 从根本上不同：</p>
+
+<table>
+  <thead><tr><th></th><th>CUDA</th><th>TPU + XLA</th></tr></thead>
+  <tbody>
+    <tr><td>执行单元</td><td>数千线程</td><td>单线程 TensorCore（脉动阵列 MXU）+ VPU + SparseCore</td></tr>
+    <tr><td>内存模型</td><td>一维字节数组，任意偏移读写</td><td>二维 tile 对齐，寄存器对齐</td></tr>
+    <tr><td>编程范式</td><td>命令式，void 内核</td><td>声明式，函数式，SSA</td></tr>
+    <tr><td>可变性</td><td>原地写入天然支持</td><td>值不可变，只能产生新值</td></tr>
+    <tr><td>形状</td><td>运行时任意</td><td>编译期已知（或 bounded）</td></tr>
+  </tbody>
+</table>
+
+<p>而 PyTorch 的语义深度绑定 CUDA 模型：</p>
+
+<ul>
+  <li><code>as_strided</code> 手动 stride，视图共享同一块 storage</li>
+  <li><code>x[i] += 1</code> 原地修改，对其他共享 storage 的视图可见</li>
+  <li><code>torch.UntypedStorage.data_ptr()</code> 就是一个裸地址</li>
+</ul>
+
+<p>
+  TorchTPU 要做的是在这两套模型之间做双向翻译，<strong>且不修改 PyTorch 源码</strong>。
+  官方定位很明确：PyTorch/XLA 已废弃，这是继任者，且<strong>零 JAX 运行时依赖</strong>
+  （Pallas 只在 trace 时用一次）。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="architecture">3. 整体架构</h2>
+
+<div class="arch">用户代码  import torch → device="tpu"
+   │
+   ├─ 自动加载: entry point "torch.backends" → torch_tpu._loader:load
+   │            (build_files/entry_points.bzl)
+   │
+   ├─ PrivateUse1 dispatch key → 改名 "tpu"
+   │
+   ▼
+┌──────────────────────────────────────────────────────────┐
+│ Python 层  src/torch_tpu/                                 │
+│   _internal/compile/    torch.compile backend "tpu"       │
+│     TpuBackend.__call__ → AOTAutograd → fx_to_mlir        │
+│   _internal/distributed/  tpu_dist, handshake, SPMD       │
+│   _internal/pallas/       jax_op                          │
+│   _internal/public_api.py 自制模块系统                     │
+└──────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────┐
+│ C++ 层  csrc/                                             │
+│   csrc/ops/         853 个 OpName，每 op 一个 SHLO builder │
+│   csrc/eager/       DeferredOp 图、Traversal、物化         │
+│   csrc/common/      缓存键、编译缓存、错误处理             │
+│   csrc/pjrt/        PjRt C-API client、传输、执行          │
+│   csrc/distributed/ 集合通信、slicebuilder                 │
+│   csrc/mlir/        4 个自定义 MLIR pass                   │
+│   csrc/internal/mosaic/kiln   TPU 原生 kernel DSL          │
+└──────────────────────────────────────────────────────────┘
+   │
+   ▼
+PjRt → XLA compiler → StableHLO → Mosaic → TPU ISA（不公开）</div>
+
+<h3>依赖方向是严格的</h3>
+
+<pre><code>api         → eager → {common, ops, pjrt}
+distributed → {eager, pjrt, common}
+mlir        → common
+internal    → {eager, common, pjrt, ops, distributed}
+ops         → {eager, common}</code></pre>
+
+<p>
+  <code>common</code> <strong>不依赖 <code>xla/layout.h</code></strong>（所以自造了
+  <code>CustomLayout</code>），也避开 <code>c10::Stream</code> / <code>Device.h</code>
+  （注释说它们 "cause build issues"）。这个严格的层次是为
+  <code>libxla_base.so</code> 服务的：<code>common</code> 越干净，能抽出的共享库越大。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="storage">4. 存储层间接（地基）</h2>
+
+<p>这是整个项目最重要的一个决策，在 <code>docs/torchtpu_memory_model.md</code>
+  和 <code>csrc/eager/device_buffer.h</code> 里讲得最清楚。</p>
+
+<h3>问题</h3>
+
+<p>PyTorch 的指针链是：</p>
+
+<pre><code>at::Tensor → c10::TensorImpl → c10::Storage → c10::StorageImpl
+  → c10::DataPtr → c10::UniqueVoidPtr { data_, ctx_ }</code></pre>
+
+<p>
+  <code>data_ptr()</code> 返回一个地址。在 CUDA 上这就是显存地址。但在 TPU 上，
+  XLA 的缓冲区<strong>是有类型的、有确定多维形状的</strong> —— 一个裸地址加字节数
+  根本不够描述。
+</p>
+
+<h3>解法</h3>
+
+<p>
+  在 TPU 上，<code>data_ptr()</code> <strong>不指向 HBM</strong>，而是指向一块 CPU 内存，
+  里面装着 <code>DeviceBufferRef</code>。
+</p>
+
+<pre><code>// csrc/eager/device_buffer.h:144
+// The c10::DataPtr at the root of the torch/aten/c10 data hierarchy holds a
+// unique pointer (as a c10::UniqueVoidPointer) to a DeviceBufferRef.</code></pre>
+
+<p>
+  <code>DeviceBufferRef</code> 只是 <code>(shared_ptr&lt;DeviceBufferList&gt;, index)</code>
+  两个字段 —— 16 字节。<code>DeviceBufferList</code> 才持有真正的数据形态：
+</p>
+
+<ul>
+  <li>若已物化：一个或多个 <code>PjRtBuffer</code></li>
+  <li>若延迟：<code>DeferredOp</code>，里面有 <code>MlirOpBuilder</code>（惰性构造 StableHLO
+      的闭包）、输入 <code>DeviceBufferRef</code> 列表、输出 <code>Shape</code> 列表、缓存键</li>
+</ul>
+
+<h3>为什么必须是三层递归结构</h3>
+
+<div class="callout">
+  <span class="label">关键约束</span>
+  <p><code>device_buffer.h:56</code> 的注释：</p>
+  <blockquote>
+    one aten operation can produce multiple outputs; this is common for normalization
+    functions (e.g. layer norm, batch norm, group norm). This means that deferred
+    operations are not one-to-one with individual tensors.
+  </blockquote>
+</div>
+
+<p>
+  <code>native_layer_norm</code> 返回 <code>(out, mean, rstd)</code> 三个张量，
+  但只对应<strong>一次编译</strong>。所以必须拆成三层：
+</p>
+
+<div class="arch">DeviceBufferRef   ← 单个张量的"句柄"（索引）
+      ↓
+DeviceBufferList  ← 一次 aten 调用的全部产出
+      ↓
+DeferredOp        ← 一次 aten 调用本身</div>
+
+<p>如果按张量一对一建模，<code>layer_norm</code> 会被编译三次，或者要额外写去重逻辑。</p>
+
+<h3>原地写怎么实现</h3>
+
+<p>XLA 是 SSA，值不可变。但 PyTorch 要求 <code>x[i] += 1</code>
+   对其他共享同一 storage 的视图可见。</p>
+
+<p><code>device_buffer.h:168</code>：</p>
+
+<blockquote>
+  the aten/c10 hierarchy may overwrite the <code>void* data_</code> in a
+  <code>c10::DataPtr</code> … changing which DeviceBufferRef backs the at::Tensor …
+  while respecting immutability at the XLA level, <strong>and preserving the
+  <code>void* data_</code> pointer's heap address</strong>.
+</blockquote>
+
+<p>
+  <strong>data_ 的堆地址不变，但里面的 DeviceBufferRef 换了。</strong>
+  从 aten 的角度看，指向同一 storage 的所有 Tensor 都「看到」了新值；
+  从 XLA 的角度看，只是产生了一个新 buffer。
+</p>
+
+<p>
+  这同时满足了 PyTorch 的指针语义和 XLA 的不可变性，而且不需要修改 PyTorch。
+</p>
+
+<h3>由此衍生的四个能力</h3>
+
+<table>
+  <thead><tr><th>能力</th><th>实现</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>视图</td>
+      <td>view decomposition（下一节）</td>
+    </tr>
+    <tr>
+      <td>原地写 / out= </td>
+      <td>view inversion + <code>stablehlo.dynamic_update_slice</code></td>
+    </tr>
+    <tr>
+      <td>buffer donation</td>
+      <td>最后一个引用消失时标注 donate，让 XLA 消费输入</td>
+    </tr>
+    <tr>
+      <td>copy-on-write</td>
+      <td><code>clone()</code> 只是引用同一 buffer，写时才真拷贝</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="label">反直觉的性能建议</span>
+  <p>官方文档的原话：</p>
+  <blockquote>
+    <strong>Partial writes are sometimes memory-expensive</strong>: if buffer donation is
+    not possible, the memory cost of a write is proportional to the size of the
+    <code>torch.UntypedStorage</code>, not the size of the written data. Prefer using
+    many small tensors rather than slices of large ones.
+  </blockquote>
+  <p>这和 CUDA 上的最佳实践（合并分配）正好相反。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="view">5. View decomposition —— 项目里最硬核的算法</h2>
+
+<p>
+  <code>csrc/ops/view_decomposition/</code> 10,824 行，是整个仓库最大的单一模块，
+  <strong>比 LSTM 和 GRU 加起来还多</strong>。
+</p>
+
+<h3>为什么需要它</h3>
+
+<p>
+  CUDA 用 <code>(sizes, strides, storage_offset, dtype)</code> 描述索引到字节的映射。
+  StableHLO <strong>没有手写 stride 的能力</strong>。所以任意 stride 模式必须分解成
+  一串 StableHLO 原语。
+</p>
+
+<h3>原语集</h3>
+
+<pre><code>// csrc/ops/view_decomposition/view_sequence.h:44
+using ViewPrimitive = std::variant&lt;
+    ReshapePrimitive, TransposePrimitive, BroadcastPrimitive,
+    SlicePrimitive, PadPrimitive, RealToRealBitcast,
+    ComplexToRealBitcast, ViewAsComplex, UnfoldPrimitive, ConjPrimitive&gt;;</code></pre>
+
+<p>
+  <code>StridedLayout</code> 被压到<strong>正好 64 字节 = 一个 cache line</strong>
+  （<code>strided_layout.h:79</code> 有 <code>static_assert</code>），
+  用 <code>InlinedVector&lt;StridedDimension, 3&gt;</code> 避免堆分配。
+</p>
+
+<pre><code>static_assert(sizeof(StridedDimension) == 16, "");
+static_assert(sizeof(StridedLayout) == 64, "wrong size");
+static_assert(sizeof(ViewPrimitive) == 176, "");
+static_assert(sizeof(Shape) == 232);</code></pre>
+
+<div class="callout">
+  <span class="label">观察</span>
+  <p>每个热路径结构体都有尺寸断言。这不是洁癖，是防止某次字段调整悄悄破坏 cache line 行为。</p>
+</div>
+
+<h3>算法：头尾夹逼</h3>
+
+<p>
+  <code>DecomposeIntoViewSequence()</code>（<code>decomposition.cc:1250</code> 附近）
+  不是正向贪心，而是：
+</p>
+
+<ol>
+  <li><strong>尾</strong>：<code>BuildTail()</code> 求出末端的 1–2 个算子。有 broadcast 走
+      <code>broadcast_in_dim</code>；维度乱序走 reshape+transpose</li>
+  <li><strong>头</strong>：把连续 base 摊成 1D，<code>pad</code> 到需要容量，
+      再 <code>slice</code> 出窗口</li>
+  <li><strong>身</strong>：<code>BuildBodyStep()</code> 循环，每次补一维，直到头尾秩相等</li>
+  <li><strong>收尾</strong>：<code>BuildFinalDimension()</code>、<code>RemoveExtraDim()</code></li>
+</ol>
+
+<p>两个 fast path 直接短路：纯 <code>unsqueeze/transpose/expand</code>，
+   以及「至多一个非平凡维度」。LLM 里这两个情况都很常见。</p>
+
+<h3>view inversion：反向跑 + mask 合成</h3>
+
+<p><code>inversion.h:37</code> 把动机写得很直白：</p>
+
+<pre><code>x = torch.zeros(3)
+y = x[1]
+y += 1</code></pre>
+
+<p>求解需要把分解<strong>逐条求逆</strong>：</p>
+
+<pre><code>Reshape   的逆 → Reshape
+Transpose 的逆 → Transpose
+Slice     的逆 → Pad
+Pad       的逆 → Slice</code></pre>
+
+<p>
+  然后生成<strong>两个</strong>张量：一是把更新值散回 base 坐标的数据张量（空位补零）；
+  二是 mask 张量，标出哪些位置被更新。最后用 <code>stablehlo.select</code>
+  （等价 <code>torch.where</code>）合并。
+</p>
+
+<div class="callout good">
+  <span class="label">关键优化</span>
+  <p>
+    如果没有 slice，就没有 pad，mask 全 true，<strong>select 可以整个省掉</strong>。
+    这覆盖了 <code>x[i] = v</code> 这类全切片更新。
+  </p>
+</div>
+
+<h3>两个踩过坑才写得出的细节</h3>
+
+<p><code>inversion.h:60</code> 的注释：</p>
+
+<blockquote>
+  If the dtypes are different sizes, we need to cast both tensors to the
+  <strong>smaller</strong> bitwidth … to avoid truncation, and ensure that partial
+  updates to larger base elements preserve unmodified bits.
+  <br><br>
+  If the contiguous base tensor is <strong>boolean</strong> type, then it needs to be
+  converted to a <strong>uint8</strong> tensor to preserve all assigned bytes (and not
+  collapse them to only 0x00 or 0x01 values).
+</blockquote>
+
+<p>
+  <code>torch.bool</code> 在存储里占 1 字节但只允许 0/1。如果直接 bitcast 到 bool 再写回，
+  未修改的字节会被「规范化」成 0/1，破坏其他视图的数据。这是典型的「只有正确性测试覆盖到
+  才会发现」的 bug。
+</p>
+
+<h3><code>contiguous_to_view</code>：反函数</h3>
+
+<p><code>contiguous_to_view.h:30</code> 是 <code>torch.Tensor.contiguous()</code> 的逆。
+   注释诚实地列了两个副作用：</p>
+
+<ul>
+  <li><code>contiguous()</code> 对 broadcast/重叠视图会<strong>复制</strong>数据，
+      逆操作于是会<strong>去重</strong>，若数据不一致则 "last write wins"</li>
+  <li><code>contiguous()</code> 会丢弃视图外的数据，所以逆操作必须<strong>填垃圾数据</strong>，
+      遵循 <code>torch.utils.deterministic.fill_uninitialized_memory</code> 的策略。
+      用户之后 <code>as_strided</code> 越界能把「僵尸数据」读出来</li>
+</ul>
+
+<p>
+  还有一个递归优化 <code>GetContiguousBaseShape()</code>：对
+  <code>torch.ones(30).view(2,15)[:, :14].view(2,2,7)</code> 这种链式视图，
+  它先按最小元素数做一次分解，再看首算子是不是 reshape —— 如果是，就用那个更优的
+  base shape 重来。<strong>用分解算法反推该不该换 base 形状。</strong>
+</p>
+
+<div class="callout">
+  <span class="label">测试覆盖</span>
+  <p>
+    <code>inversion_test.cc</code> 1,619 行 + <code>decomposition_test.cc</code> 753 行，
+    合计 96 个 TEST。这符合判断：view inversion 一旦错了，所有原地写都会静默出错。
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="execution">6. 执行模型：延迟、分割、物化</h2>
+
+<h3>OpSplitMode</h3>
+
+<pre><code>enum class OpSplitMode {
+  kNone,
+  kSplitBefore,   // 在此 op 前切图
+  kSplitAfter,    // 在此 op 后切图
+  kSplitBoth,     // 前后都切
+};</code></pre>
+
+<p>collective 算子会强制 <code>kSplitBoth</code> —— 因为它们必须单独编译成「瘦」模块。</p>
+
+<h3>Traversal：从输出倒推输入</h3>
+
+<p><code>csrc/eager/traversal.h:70</code>：</p>
+
+<blockquote>
+  In eager mode, the outputs are known at traversal time, but the arguments need to be
+  identified. In this case, we traverse the graph from the outputs to the arguments.
+</blockquote>
+
+<p>
+  Eager 模式下，物化触发时你知道要哪些输出，但不知道谁是最上游的输入。
+  所以从输出反向 DFS，遇到非 <code>kDeferred</code> 状态的节点就当作 argument。
+</p>
+
+<p>
+  编译模式下反过来：参数和输出都已知，但图关系未知。这时需要
+  <code>ValidateAndReorderArguments</code> 显式重排，保证 Python 层的参数顺序和 PjRt
+  可执行体的参数顺序对齐 —— <strong>DAG 拓扑序不唯一</strong>，这是个隐蔽的正确性陷阱。
+</p>
+
+<h3>物化：两个后台线程，职责严格分离</h3>
+
+<pre><code>class MaterializationWorker {
+  std::thread materialize_thread_;  // 图分析 + 准备执行任务
+  std::thread execute_thread_;      // 真正调 PjRt，阻塞等待
+};
+
+using ReadyWork = std::variant&lt;EagerExecution, CompiledExecution, SnapshotRequest&gt;;</code></pre>
+
+<p>两个线程都做同样两件事：</p>
+
+<pre><code>DisallowThisThreadToAccessContextState();
+RouteWarningsOnThisThreadToDispatchThread();</code></pre>
+
+<p>
+  后台线程不能读线程局部的编译上下文状态，但警告要能传回 Python 的发起线程。
+</p>
+
+<h3>MaterializationReason —— 图断裂归因</h3>
+
+<p>8 个值，都会写进 <code>StructuredLogEvent</code>：</p>
+
+<pre><code>kCpuTransfer, kScalarConversion, kExplicitSync, kAutogradSync,
+kRepeatedOpDetection, kDebugMode, kDistributedOp, kCompileModeExecution</code></pre>
+
+<p>这样在 trace 里能看出<strong>每一次图断裂是被谁触发的</strong>。</p>
+
+<h3>物化启发式：把实测结论编码进编译器</h3>
+
+<p><code>csrc/eager/materialization_heuristics.h</code>：</p>
+
+<pre><code>// Returns true if the deferred op is a 2D spatial convolution that
+// significantly benefits from FastRuntime (O2) compilation over default
+// FastCompile (O1).
+//
+// - O1 wins on: small batches (batch &lt;= 1), vector-aligned widths (W % 128 == 0),
+//   channels_last (NHWC) layouts, and low compute volume (&lt; 100M MACs). In
+//   these cases, compact binaries fit in on-chip IMEM without overlay paging,
+//   avoiding O2's fixed ~2.0 ms execution latency floor.
+// - O2 wins on: heavy unaligned NCHW convolutions (batch &gt; 1, W % 128 != 0,
+//   MACs &gt;= 100M). ... achieving 35x-106x speedups that easily amortize
+//   the ~2.0 ms overlay paging cost.</code></pre>
+
+<div class="callout">
+  <span class="label">观察</span>
+  <p>
+    这不是理论推导，是<strong>测出来的</strong>。<code>~2.0 ms</code> 的 overlay paging
+    地板、<code>35x-106x</code> 的加速区间，这种具体数字只可能来自 XProf 实测。
+    团队把性能实验的结论<strong>编码进了编译器决策</strong>，而不是留成文档。
+  </p>
+</div>
+
+<h3>五种执行模式</h3>
+
+<table>
+  <thead><tr><th>模式</th><th>行为</th><th>编译级别</th></tr></thead>
+  <tbody>
+    <tr><td><code>kDeferNever</code></td><td>严格 eager，op-by-op</td><td>-O1</td></tr>
+    <tr><td><code>kDeferNeverAndLaunchBlocking</code></td><td>每个 op 都同步（<code>TORCH_TPU_LAUNCH_BLOCKING=1</code>）</td><td>-O1</td></tr>
+    <tr><td><code>kDeferAndFuse</code></td><td>延迟到物化点攒成大图（<code>TORCH_TPU_DEFER_AND_FUSE=1</code>）</td><td>-O2</td></tr>
+    <tr><td><code>kInternalDeferAll</code></td><td>全部延迟，不可延迟就报错（测试用）</td><td>—</td></tr>
+    <tr><td><code>kInternalCompileFxGraph</code></td><td>完全禁止上设备，<code>torch.compile</code> trace 用</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<p>docs 说 DeferAndFuse 相比默认 eager 有 <strong>50% 提升，且不改模型代码</strong>。</p>
+
+<!-- ============================================================ -->
+<h2 id="ops">7. 算子层：853 个 OpName 的工程组织</h2>
+
+<h3>单个算子的两文件结构</h3>
+
+<p>以 <code>mm</code> 为例：</p>
+
+<h4><code>csrc/ops/mm/mm.cc</code> —— 纯 StableHLO 构造（105 行）</h4>
+
+<pre><code>absl::StatusOr&lt;mlir::MlirOp&gt; BuildMmShlo(mlir::MlirOp lhs, mlir::MlirOp rhs,
+                                         mlir::stablehlo::Precision precision) {
+  // ... 参数校验 ...
+  // XLA doesn't support matmul with i64, so we convert them to f64.
+  const bool is_any_i64 = ...;
+  if (is_any_i64) { lhs = ConvertElementType(lhs, F64); ... }
+  // NB: deliberately using DotGeneral instead of Dot because Dot is scheduled
+  // for removal from StableHLO.
+  auto dot_result = stablehlo::DotGeneral(lhs, rhs, dot_dimension_numbers,
+                                          precision_config_attr);
+  return is_any_i64 ? ConvertElementType(dot_result, ...) : dot_result;
+}</code></pre>
+
+<h4><code>csrc/ops/mm/mm_aten_kernels.cc</code> —— aten 语义层（162 行）</h4>
+
+<pre><code>absl::Status ValidateMmOutInputs(const at::Tensor&amp; lhs, const at::Tensor&amp; rhs,
+                                 at::Tensor&amp; out, ...) {
+  // DType 检查 → 维度检查 →
+  // Must come after the dtype and shape checks. CUDA validates those criteria
+  // before reaching the dispatch that reports the dtype as unimplemented.
+  TT_RET_CHECK(lhs.numel() == 0 || ... || c10::isFloatingType(...) ||
+               c10::isComplexType(...), error::kPythonNotImplementedError)
+      &lt;&lt; "not implemented for " &lt;&lt; ToString(lhs.scalar_type());</code></pre>
+
+<div class="callout">
+  <span class="label">这个分层很重要</span>
+  <p>
+    StableHLO 构造是纯函数，可以单测；aten 校验要复刻 CUDA 的<strong>精确报错顺序</strong> ——
+    注释明确写了「CUDA 先校验 dtype 和 shape，才报 unimplemented」。
+    目的是让用户从 CUDA 迁移过来时，报错行为一致。
+  </p>
+</div>
+
+<h4>没有 <code>"mm"</code> 绑定</h4>
+
+<pre><code>ImplStable&lt;OpName::kMmDtype&gt;     → "mm.dtype"
+ImplStable&lt;OpName::kMmDtypeOut&gt;  → "mm.dtype_out"
+ImplStable&lt;OpName::kMmOut&gt;       → "mm.out"</code></pre>
+
+<p>
+  <strong>没有 <code>OpName::kMm</code>，没有 <code>"mm"</code> 绑定。</strong>
+  原因：<code>aten::mm</code> 是 structured kernel，它的函数式形式由 <code>mm.out</code>
+  派生。注册 <code>out</code> 变体就覆盖了全部。这是 PyTorch structured kernel
+  机制的实际应用 —— 理解这一点才知道为什么 853 个 OpName 能覆盖 450 个 ATen 算子。
+</p>
+
+<h3><code>TT_KERNEL</code> 宏</h3>
+
+<pre><code>#define TT_KERNEL(op_name, param_keys, args, ...)                          \
+  do {                                                                     \
+    ::torch_tpu::internal::ScopedOpName _scoped_op_name(op_name);          \
+    TT_CHECK_AND_LOG_KERNEL_ARGS_(op_name, TT_REMOVE_PARENS_(args));       \
+    TT_IF_DEBUG(... CollectPromotedScalarPointers ... CheckTensorsUsed ...)\
+    ::torch_tpu::ScopedPythonContextCapturer _capturer(op_name);           \
+    if constexpr (std::string_view(#param_keys) == "_") { ... }            \
+    else {                                                                 \
+      TT_ASSIGN_OR_THROW(OpParamCacheKeys param_keys,                      \
+                         TT_MAKE_OP_PARAM_CACHE_KEYS_NO_ENFORCE_ args);    \
+      ... }                                                                \
+  } while (false)</code></pre>
+
+<p>它一次性处理：</p>
+
+<ol>
+  <li><strong>日志</strong> —— <code>ScopedOpName</code></li>
+  <li><strong>Python 上下文捕获</strong> —— <code>ScopedPythonContextCapturer</code></li>
+  <li><strong>参数缓存键计算</strong> —— 遍历所有非 Tensor 参数</li>
+  <li><strong>错误归属</strong> —— 把错误归到正确的根 op</li>
+</ol>
+
+<p>其中有个细节很聪明：</p>
+
+<pre><code>// When compiled in debug mode, TT_KERNEL() checks that all PromotedScalar-
+// typed arguments have their GetTensor() method called when the kernel
+// finishes successfully. This prevents bugs where the kernel uses the
+// original Scalar instead of the Tensor promoted from it.</code></pre>
+
+<p>
+  <code>PromotedScalar</code> 是惰性的 —— <code>aten::add</code> 的标量参数在需要时才
+  提升为张量（因为 XLA 需要同构输入）。如果 kernel 忘了调 <code>GetTensor()</code>，
+  就会静默用原始 Scalar 算。debug 模式下用 <code>absl::Cleanup</code> 检查这个。
+</p>
+
+<h3>注册机制：阶段化 API + 编译期零开销警告</h3>
+
+<pre><code>template &lt;OpName op_name, typename KernelFn&gt;
+void ImplStable(torch::Library&amp; m, KernelFn kernel_fn);       // 无警告
+void ImplExperimental(...);  // 首次调用警告
+void ImplDeprecated(...);    // 首次调用警告 + 版本号</code></pre>
+
+<p><code>ImplExperimental</code> 的实现有个精妙之处（<code>tpu_aten_kernels.cc:322</code>）：</p>
+
+<blockquote>
+  It is critical that <code>op_name</code> is a compile-time template parameter rather than
+  a runtime parameter. <code>TT_WARN_ONCE</code> dedupes warnings by its macro expansion
+  site using a local <code>static</code> flag.
+  <br><br>
+  If <code>op_name</code> were a runtime parameter, the macro would be expanded in a single
+  shared helper function. This would result in "once-per-program" behavior …
+  <br><br>
+  By making <code>op_name</code> a template parameter,
+  <code>ImplExperimental&lt;OpName::kFoo&gt;</code> and
+  <code>ImplExperimental&lt;OpName::kBar&gt;</code> become distinct function template
+  instantiations. This forces the compiler to instantiate a unique lambda and a unique
+  <code>TT_WARN_ONCE</code> static flag for each operator, achieving the desired
+  "once-per-operator" warning semantics with <strong>zero runtime overhead</strong>
+  (no mutexes or registries required).
+</blockquote>
+
+<h3>Fallback 链：静默回落到 CPU</h3>
+
+<pre><code>TORCH_LIBRARY_IMPL(aten, PrivateUse1, m) { /* 684 个 ImplStable */ }
+
+TORCH_LIBRARY_IMPL(_, PrivateUse1, m) {   // 兜底
+  m.fallback(torch::CppFunction::makeFromBoxedFunction&lt;&amp;TpuMissingOpFallback&gt;());
+}</code></pre>
+
+<pre><code>ABSL_LOG(WARNING) &lt;&lt; "operator '" &lt;&lt; op_name
+                  &lt;&lt; "' is not implemented for TPU. Falling back to CPU";
+at::native::cpu_fallback(op, stack);</code></pre>
+
+<div class="callout warn">
+  <span class="label">取舍</span>
+  <p>
+    GPU 后端遇到不支持的 op 会报错，但 TPU 后端选择<strong>静默回落到 CPU 并警告</strong>。
+    理由是「开箱即用」优先 —— 用户迁移陌生模型时，宁可慢也不愿意卡在一个次要算子上。
+    <strong>代价是可能掉进「某个 op 悄悄在 CPU 上跑」的性能陷阱。</strong>
+  </p>
+</div>
+
+<h3>四个 dispatch key</h3>
+
+<table>
+  <thead><tr><th>注册</th><th>条目数</th><th>作用</th></tr></thead>
+  <tbody>
+    <tr><td><code>aten, PrivateUse1</code></td><td>684</td><td>主表</td></tr>
+    <tr><td><code>_, PrivateUse1</code></td><td>1</td><td>兜底 → CPU fallback</td></tr>
+    <tr><td><code>aten, SparsePrivateUse1</code></td><td>37</td><td>稀疏 COO</td></tr>
+    <tr><td><code>_, SparsePrivateUse1</code></td><td>1</td><td>全部报 "sparse not supported yet"</td></tr>
+    <tr><td><code>_, AutogradPrivateUse1</code></td><td>1</td><td><code>makeFallthrough()</code></td></tr>
+    <tr><td><code>aten, AutogradPrivateUse1</code></td><td>18</td><td>自定义 autograd（ctc_loss、einsum、fft、linear…）</td></tr>
+  </tbody>
+</table>
+
+<h3>原生 HLO vs custom call 的划分</h3>
+
+<p>这个划分标准是<strong>「XLA 能不能自动做好」</strong>。</p>
+
+<table>
+  <thead><tr><th>原生 StableHLO</th><th><code>stablehlo.custom_call</code></th></tr></thead>
+  <tbody>
+    <tr><td><code>dot</code>、<code>conv</code>、<code>reduce</code></td><td><code>flash_attention</code></td></tr>
+    <tr><td>所有逐元素算子</td><td>LU（<code>"LuDecomposition"</code>）</td></tr>
+    <tr><td>collectives</td><td>QR（<code>"Qr"</code>、<code>"ProductOfElementaryHouseholderReflectors"</code>）</td></tr>
+    <tr><td></td><td><code>PadRealToStatic</code></td></tr>
+    <tr><td></td><td><code>_ao_offload</code>（<code>"annotate_device_placement"</code>）</td></tr>
+    <tr><td></td><td>sparse* 家族</td></tr>
+    <tr><td></td><td><code>ragged_all_to_all</code></td></tr>
+  </tbody>
+</table>
+
+<p>
+  矩阵乘和卷积 XLA 的 tiling 已经很好；LU/QR 的 pivoting、flash attention 的 on-chip
+  分块、稀疏访存，XLA 做不好，必须自己写。新 custom call 用
+  <code>API_VERSION_TYPED_FFI</code>，老用 <code>API_VERSION_ORIGINAL</code>/<code>STATUS_RETURNING</code>。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="cache">8. 两级编译缓存</h2>
+
+<div class="callout warn">
+  <span class="label">常见误解</span>
+  <p>
+    文档说的「三级缓存」是指 <strong>TorchTPU 自己的 executable 缓存</strong>有 3 个 tier。
+    但在这之上还有一层 <strong>PyTorch 的 AOTAutogradCache</strong>。两层不能混为一谈。
+  </p>
+</div>
+
+<h3>(a) TorchTPU 的 executable 缓存</h3>
+
+<table>
+  <thead><tr><th>Tier</th><th>范围</th><th>位置 / 开关</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>进程内内存</td>
+      <td><code>CompilationCache</code> 单例，<code>flat_hash_map</code>，总是开启</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>同机跨进程</td>
+      <td><code>/dev/shm/torch_tpu_cache/&lt;cache_name&gt;/&lt;hex16&gt;/&lt;key&gt;.bin</code></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>远程 / 持久</td>
+      <td><code>&lt;root&gt;/&lt;hex16&gt;/&lt;key&gt;.bin</code>，<code>TORCH_TPU_TIER3_COMPILATION_CACHE_ROOT</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>Tier 2 的并发控制</h4>
+
+<p>
+  <code>mmap</code> 用 <code>MAP_SHARED | MAP_POPULATE</code>（文件在 tmpfs 上），
+  访问由 <code>&lt;key&gt;.lock</code> 上的 <code>flock</code> 串行化 —— 并发进程只编译一次。
+</p>
+
+<p>默认策略：<code>world_size == 1</code> 时关闭，<code>&gt; 1</code>
+   或启用 tier 3 时开启。<strong>Tier 3 需要 tier 2 开启。</strong></p>
+
+<h4>本地备份任务</h4>
+
+<pre><code>UsesLocalBackupTaskForTier3Read()  // 默认 true
+// TORCH_TPU_INTERNAL_TIER3_COMPILATION_CACHE_LOCAL_BACKUP_TASK</code></pre>
+
+<p>
+  读 tier 3 的同时<strong>并行发起一次正常编译</strong>，谁先完成用谁。
+  这是个务实的赌注：远程读可能比本地编译还慢。
+</p>
+
+<h4>二进制指纹</h4>
+
+<pre><code>FingerprintCat(kTorchTpuBinaryVersion /* = 6 */, GetPjRtVersion())</code></pre>
+
+<p>
+  TorchTPU 二进制版本或 PjRt 变更 → 整体失效。硬编码的版本号 <code>6</code>
+  意味着每次破坏性变更要手动 bump。
+</p>
+
+<h4>查找顺序的并发正确性</h4>
+
+<div class="callout">
+  <span class="label">只有实际跑过才会发现的坑</span>
+  <blockquote>
+    Miss → compile on the pool, read the tier-1 future <strong>outside the mutex</strong>
+    (explicitly noted: <code>f.get()</code> inside the lock deadlocks against a backup
+    compilation).
+  </blockquote>
+</div>
+
+<h3>(b) 缓存键的构成</h3>
+
+<pre><code>CompilationCacheKey = GraphKey + CompileOptionsKey + id_key
+
+GraphKey       = ShapelessKey(FingerprintType) + DimensionsKey(FingerprintType)
+CompilationKey = "&lt;shapeless:016x&gt;_&lt;dims:016x&gt;_&lt;compileopts:016x&gt;" (+ "_&lt;id_key&gt;")</code></pre>
+
+<ul>
+  <li><strong>ShapelessKey</strong> —— 从 deferred-op 图构建 <code>GraphSignature</code>：
+      每个 op 的 <code>op_name</code>、输入张量下标、<code>op_param_cache_keys</code>，
+      加上 donated indices、core-pinning 模式、<code>device_assignment</code></li>
+  <li><strong>DimensionsKey</strong> —— <code>FingerprintCat(input_dimensions)</code></li>
+  <li><strong>CompileOptionsKey</strong> ——
+      <code>FingerprintCat(Fingerprint(XLA_FLAGS), Fingerprint(LIBTPU_INIT_ARGS), Fingerprint(options))</code>。
+      只有非默认字段参与指纹（「to keep existing keys stable」）</li>
+</ul>
+
+<p>缓存键的计算是<strong>分散的</strong>：每个 op kernel 通过 <code>param_keys</code>
+   贡献自己的键。比如 <code>div</code> 的 <code>floor</code> vs <code>trunc</code> 必须区分；
+   精度也是键的一部分。</p>
+
+<h3>(c) Python 侧的 AOTAutogradCache 补丁</h3>
+
+<p>这一层有四个 TorchTPU 特有的补丁：</p>
+
+<h4>1. 保留 <code>storage_offset</code></h4>
+
+<p>
+  补丁打在 <code>extract_tensor_metadata_for_cache_key</code>（
+  <code>_aot_autograd</code> 和 <code>torch._inductor.codecache</code> 两处）。
+  上游会<strong>把 storage_offset 归零</strong> —— 对其他后端无所谓，
+  但对 TPU 静态编译是错的，因为 slice 的偏移被编译进去了。
+</p>
+
+<h4>2. 把 <code>inputs_meta</code> 纳入 key</h4>
+
+<pre><code>hash = sha256(f"torch={ver}_torchtpu={ver}:{cache_key_tag}:{graph_str}:{inputs_meta}")</code></pre>
+
+<p>注释明说：<strong>少了 inputs_meta，只在 storage_offset 上不同的图会撞 key。</strong></p>
+
+<h4>3. process group 的 key tag</h4>
+
+<pre><code>_process_group_cache_key_tag(gm) = "name:devices;..."</code></pre>
+
+<p>原因：<strong>图里引用的 process group 是按创建顺序编号的，不是按成员。</strong>
+   两个不同的 group 可能拿到同一个序号。</p>
+
+<h4>4. stub 掉 <code>generate_guards_expression</code></h4>
+
+<p>它需要 <code>ShapeEnv</code>/<code>TracingContext</code>，这里无法安全提供。</p>
+
+<!-- ============================================================ -->
+<h2 id="compile">9. torch.compile 管线与动态形状</h2>
+
+<h3>它是一个 AOTAutograd 后端，不是 Inductor 后端</h3>
+
+<pre><code>result = aot_autograd(
+    fw_compiler=fw_compiler, bw_compiler=bw_compiler,
+    partition_fn=min_cut_rematerialization_partition,
+    decompositions=_TPU_DECOMPOSITIONS,
+    keep_inference_input_mutations=False,
+)(graph_module, example_inputs)</code></pre>
+
+<p>
+  走的是和 Inductor 完全相同的 AOTAutograd 路径（包括
+  <code>min_cut_rematerialization_partition</code> 这个 activation checkpoint 分区算法），
+  只是把 fw/bw compiler 换成 TorchTPU 自己的。
+</p>
+
+<p>Inductor 只用了四处：</p>
+
+<ul>
+  <li><code>torch._inductor.utils.InputType</code></li>
+  <li><code>torch._inductor.output_code.OutputCode</code>（继承它，让 AOTAutogradCache 认）</li>
+  <li><code>torch._inductor.codecache.extract_tensor_metadata_for_cache_key</code></li>
+  <li><code>torch._inductor.fx_passes.post_grad.decompose_auto_functionalized</code></li>
+</ul>
+
+<p><code>_TPU_DECOMPOSITIONS</code> 只有两个：</p>
+
+<pre><code>get_decompositions([aten.masked_fill.Tensor, aten.masked_fill_.Tensor])</code></pre>
+
+<p>为了让 <code>masked_fill</code> 的语义和 GPU 的 modular-truncation 行为一致。</p>
+
+<div class="callout good">
+  <span class="label">这才是关键</span>
+  <p>
+    TorchTPU 复用了 PyTorch 编译栈的<strong>前半段</strong>（Dynamo → AOTAutograd → 分区
+    → 反式分解），只在「生成设备代码」这一步换成 XLA。这才是它能做到
+    <code>torch.compile(backend="tpu")</code> 一行切换的真正原因。
+  </p>
+</div>
+
+<h3>FakeTensorMode 的架构性不兼容</h3>
+
+<pre><code># AOT autograd will trace the model with FakeTensorMode enabled. This
+# converts all tensors to FakeTensors which do not have valid storage to
+# avoid computation.
+#
+# TorchTPU tracing requires all tensors to have valid storage, so is not
+# compatible with FakeTensorMode.
+with unset_fake_temporarily():</code></pre>
+
+<p>
+  TorchTPU 的 trace 需要真实 storage（因为它要调 aten kernel 生成 StableHLO），
+  而 FakeTensor 故意没有 storage。所以必须<strong>临时退出 FakeTensorMode</strong>，
+  用自己造的 "storage-aware placeholder" 代替。
+</p>
+
+<h3>动态形状：bounded dynamism</h3>
+
+<p>
+  XLA 传统上要求<strong>编译期形状完全已知</strong>。LLM 自回归解码时 KV cache 每步 +1，
+  如果按静态形状编译，每一步都触发完整重编译 —— 毫秒级的步骤变成秒级。
+</p>
+
+<p>解法不是动态形状（不支持），而是<strong>分桶</strong>：</p>
+
+<pre><code>start_val          = max(L, hint)
+first_bucket_upper = ceil((start_val + c) / step) * step - c      # _align_up
+B_i                = first_bucket_upper + i * step                 # 受 aligned_upper 封顶</code></pre>
+
+<div class="callout">
+  <span class="label">为什么是 <code>128k - c</code> 而不是简单的 <code>128k</code></span>
+  <p>
+    不是美观选择：<strong>XLA:TPU derives a bounded output's layout from its bound</strong>，
+    所以桶的边界落在不同的对齐类上，输出 layout 会变，<strong>触发重编译</strong>。
+    <code>-c</code>（输出形状的常量偏移，如 <code>S+1</code> 里的 1）就是为了让输出形状
+    在所有桶里保持在同一对齐类。
+  </p>
+</div>
+
+<h3>分桶的完整规则</h3>
+
+<ol>
+  <li><strong>128 对齐</strong> —— TPU 的 tile 是 128 lane，<code>bucket_size</code> 默认 128</li>
+  <li><strong>单次 guard 覆盖全部桶</strong> —— 注册整个桶跨度的 range guard 给 Dynamo，
+      只有超出总上界才重编译</li>
+  <li><strong>最多 8 个桶</strong>（<code>num_dynamic_buckets &lt;= 8</code>）</li>
+  <li>每个候选桶都用 <code>find_violated_guard(shape_env, upper_bounds)</code> 验证；
+      任一桶违反活跃 guard → 回退到 <code>2 × lower_bound</code> 单桶</li>
+</ol>
+
+<h3>Padding 的语义要求</h3>
+
+<blockquote>
+  XLA pads the dynamic input tensor up to the bucket's static upper bound <code>U</code>
+  and <strong>resets values in the padded region beyond the active runtime size to
+  algebraic identity values</strong>, ensuring that padded elements do not affect the
+  output result.
+  <br><br>
+  For dynamic output tensors, padding remains at the end of the buffer, allowing TorchTPU
+  to return the buffer to PyTorch with a <strong>lightweight shape metadata update rather
+  than physically slicing</strong> the tensor.
+</blockquote>
+
+<p>
+  pad 成 0 对 <code>sum</code> 是单位元，对 <code>prod</code> 就不是；对 <code>max</code>
+  也不对。所以 pad 值必须<strong>按算子语义选择代数单位元</strong>。
+</p>
+
+<h3>实测性能（<code>docs/dynamic_shapes.md</code>）</h3>
+
+<table>
+  <thead>
+    <tr><th>解码步骤</th><th class="num"><code>dynamic=False</code></th><th class="num"><code>dynamic=None</code></th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td class="num">49.54 ms</td><td class="num">49.59 ms</td></tr>
+    <tr><td>2</td><td class="num">43.51 ms</td><td class="num">206.68 ms</td></tr>
+    <tr><td>3</td><td class="num">39.52 ms</td><td class="num">64.29 ms</td></tr>
+    <tr><td>4</td><td class="num">38.63 ms</td><td class="num"><strong>0.51 ms</strong></td></tr>
+    <tr><td>10</td><td class="num">37.75 ms</td><td class="num"><strong>0.37 ms</strong></td></tr>
+  </tbody>
+</table>
+
+<p>
+  <strong>约 100x</strong>。注意前 3 步 dynamic 版本反而更慢（编译开销），第 4 步才开始收敛。
+</p>
+
+<h3>FX passes 清单</h3>
+
+<table>
+  <thead><tr><th>Pass</th><th>动机 / 机制</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>detect_causal_mask</code></td>
+      <td>常量折叠 bias 子图，判定「对角线以上恰好 0、以下 -inf/False、方阵」，
+          然后设置 <code>is_causal=True</code>。消除每层物化 <code>[S,S]</code> mask</td>
+    </tr>
+    <tr>
+      <td><code>fold_gqa</code></td>
+      <td>精确匹配 <code>unsqueeze(2) → expand(H_kv,G,S,D) → reshape(H_q,S,D)</code>
+          （即 HF 的 <code>repeat_kv</code>）；反向还删掉 <code>grad_key</code>/<code>grad_value</code>
+          后面的 <code>.sum(dim=2)</code></td>
+    </tr>
+    <tr>
+      <td><code>mark_activation_checkpoints</code></td>
+      <td>每个 remat 区域首个节点前插<strong>变参</strong>
+          <code>_optimization_barrier</code>。因为 <code>trace_autograd_ops=True</code>
+          会让 fwd+loss+bwd 合成一张图，此时 XLA 的 CSE 会把 backward remat 和 forward
+          去重 —— <strong>重算白做，内存优化归零</strong></td>
+    </tr>
+    <tr>
+      <td><code>force_collectives_output</code></td>
+      <td><code>wait_tensor</code> 是弹出 <code>TpuWork</code> 的那个动作；若子模块输出
+          不依赖它，切分就会<strong>泄漏</strong>该对象</td>
+    </tr>
+    <tr>
+      <td><code>sink_get_attr_constants</code></td>
+      <td><code>split_module</code> 会把所有 <code>get_attr</code> 提到根；这个 pass
+          搬回去让常量折叠能触发</td>
+    </tr>
+    <tr>
+      <td><code>propagate_symints</code> / <code>reorder_symints</code></td>
+      <td><code>split_module</code> 只转发子模块显式用到的 SymInt；张量形状依赖
+          <code>s95</code> 但从不提它的子模块会拿到不一致的签名</td>
+    </tr>
+    <tr>
+      <td><code>clone_mutated_returned_placeholders</code></td>
+      <td>既是返回又是计算输入的 placeholder，切分后输出可能变成纯透传，用户就
+          <strong>看不到那次 mutation</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>CPU/TPU 混合图的奇偶分区</h3>
+
+<pre><code>stage = max(input stages)
+stage += 1 if (stage % 2 == 1) != (device == TPU) else 0</code></pre>
+
+<p>
+  <strong>偶数 stage 是 CPU，奇数是 TPU。</strong>这样保证 CPU 和 TPU 分区交替，
+  而且同一设备的相对顺序不变。
+</p>
+
+<p>其他规则：</p>
+
+<ul>
+  <li>random op 会人为依赖<strong>同设备上一个 random op</strong> —— 否则 split 之后重排
+      会打乱采样序列</li>
+  <li>不在 <code>spmd_safe</code> 区域内的 collective <strong>自己开头自己结尾</strong></li>
+  <li><code>wait_tensor</code> 和 collective 的 <code>getitem</code> <strong>固定在生产者分区</strong>
+      —— 否则 <code>TpuWork</code> 注册表项永远不会弹出</li>
+  <li><code>ao.offload</code> 及其派生全部强制 TPU + pinned host memory（fake tensor 会误报成 CPU）</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="distributed">10. 分布式：SPMD 与 MPMD 的矛盾</h2>
+
+<p>核心矛盾：</p>
+
+<ul>
+  <li><strong>XLA/TPU 通信栈假设 SPMD</strong> —— 每个 rank 编译并执行<strong>完全相同</strong>
+      的 StableHLO 模块，里面的 collective 必须匹配</li>
+  <li><strong>PyTorch 允许 MPMD</strong> —— <code>if dist.get_rank() == 0:</code> 这种分支、
+      不均匀分片都是合法的</li>
+</ul>
+
+<p>
+  如果不同 rank 执行不同的 StableHLO，synchronization flag ID 或 buffer offset 错位，
+  会导致<strong>死锁或内存损坏</strong>。
+</p>
+
+<h3>三种方案</h3>
+
+<table>
+  <thead><tr><th>模式</th><th>配置</th><th>图行为</th><th>适合</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Skinny collectives<br>（默认）</td>
+      <td>自动</td>
+      <td>在 collective 周围插 graph break，每个 collective 编成独立
+          StableHLO 模块</td>
+      <td>通用 MPMD 安全，但 XLA 无法 overlap 计算和通信</td>
+    </tr>
+    <tr>
+      <td><code>@spmd_safe</code></td>
+      <td><code>@torch.tpu.distributed.spmd_safe</code></td>
+      <td>去掉 graph break，融合</td>
+      <td>确定 SPMD 的函数/训练步</td>
+    </tr>
+    <tr>
+      <td>Compilation Handshake</td>
+      <td><code>TORCH_TPU_SPMD_HANDSHAKE_STAGE</code></td>
+      <td>跨 rank 校验 FX 图一致再决定是否融合</td>
+      <td>自动化的折中</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>DISPATCH_STAGE 处理的刁钻场景</h3>
+
+<pre><code>iteration = 0
+divergent_rank = ...
+
+def divergence_after_iteration(x, y):
+  z = torch.add(x, y)
+  if rank == divergent_rank and iteration == 1:
+    z = torch.mul(z, 5.0)
+  dist.all_reduce(z)
+  return z</code></pre>
+
+<p>
+  只有 <code>divergent_rank</code> 在第 1 次迭代后重编译。<code>COMPILE_STAGE</code>
+  会<strong>超时</strong>（只有那个 rank 进入握手），所以必须有 <code>DISPATCH_STAGE</code>
+  在 dispatch 时校验。这个用例被写进文档，说明是真实用户踩过的。
+</p>
+
+<h3><code>replica_groups</code> 的坐标系转换</h3>
+
+<pre><code>device_assignment_.local  = 本组设备,按 PG rank 排
+device_assignment_.global = 所有子组的设备(给 tiled Megascale 用)
+replica_groups_ = positions into device_assignment_</code></pre>
+
+<p>
+  注释强调：<code>replica_groups_</code> 是 <strong>"positions into
+  <code>device_assignment_</code>"，不是 world ranks</strong>。
+  StableHLO 的 <code>replica_groups</code> 期望的是 device assignment 里的下标，
+  不是全局 rank。<strong>搞混了就是死锁。</strong>
+</p>
+
+<pre><code>%0 = "stablehlo.all_reduce"(%arg0) &lt;{
+  replica_groups = dense&lt;[[4, 0, 1, 3], [5, 2, 6, 7]]&gt; : tensor&lt;2x4xi64&gt;
+}&gt; ({ ... })</code></pre>
+
+<p>
+  PyTorch 的 <code>dist.all_reduce</code> 只拿到<strong>调用者所在的 subgroup</strong>。
+  但 <code>stablehlo.all_reduce</code> 需要<strong>全班</strong>的
+  <code>replica_groups</code> —— 即使当前 rank 只在 <code>[5,2,6,7]</code> 里，
+  也必须知道 <code>[4,0,1,3]</code> 的存在。
+</p>
+
+<h3>子组发现的三种路径</h3>
+
+<ol>
+  <li>world PG → 直接全收集</li>
+  <li>size-1 → 无需通信</li>
+  <li><code>GatherSubgroupsViaNodeLocalStore</code> → <strong>节点本地 store 多路复用</strong></li>
+</ol>
+
+<p>
+  第 3 条的设计目的：让 world-store 的流量是 <strong>O(节点数)</strong> 而不是 O(rank 数)。
+  8K 芯片的场景下这个差异是致命的。
+</p>
+
+<h3>通信实现：没有独立通信库</h3>
+
+<p>
+  <code>allreduce.cc</code> / <code>allgather.cc</code> / <code>alltoall.cc</code> /
+  <code>reduce_scatter.cc</code> <strong>不实现通信本身</strong>，而是把 collective
+  降低成 <code>stablehlo.all_reduce</code> / <code>all_gather</code> / <code>all_to_all</code>，
+  让 XLA 编进 TPU 可执行体。
+</p>
+
+<div class="callout">
+  <span class="label">取舍</span>
+  <p>
+    好处是 XLA 能做计算-通信 overlap；代价是 collective 必须参与图的编译决策
+    （所以才有 <code>OpSplitMode::kSplitBoth</code>）。
+  </p>
+</div>
+
+<h3>拓扑感知</h3>
+
+<p>
+  <code>TORCH_TPU_TOPOLOGY</code> 指定物理 mesh 几何（如 <code>"2,2,1"</code>、
+  <code>"4,4,4"</code>），<code>TORCH_TPU_SLICEBUILDER_ADDRESSES</code> 指定 ICI mesh
+  构建用的地址。这些<strong>必须在 <code>init_process_group()</code> 之前设好</strong>
+  —— 因为每个 worker 进程<strong>只绑定一个 TPU 设备</strong>，不能像 GPU 那样自动枚举。
+</p>
+
+<blockquote>
+  Order your logical mesh dimensions from <strong>lowest communication intensity</strong>
+  (outermost) to <strong>highest communication intensity</strong> (innermost)
+</blockquote>
+
+<p>TP 放最内环（每层 fwd+bwd 都通信），DP 放外环。这个映射错了会白丢一大截带宽。</p>
+
+<!-- ============================================================ -->
+<h2 id="kernels">11. 自定义 kernel</h2>
+
+<table>
+  <thead><tr><th>路径</th><th>状态</th><th>适合</th></tr></thead>
+  <tbody>
+    <tr><td>Tokamax</td><td>生产就绪</td><td>常见 LLM/MoE 构件，不写代码</td></tr>
+    <tr><td>Pallas（<code>jax_op</code>）</td><td>生产就绪</td><td>定制最高性能 TPU kernel</td></tr>
+    <tr><td>Kiln（C++ DSL）</td><td>内部孵化</td><td>生成 Mosaic IR</td></tr>
+    <tr><td>Helion</td><td>实验性</td><td>跨加速器可移植 kernel</td></tr>
+  </tbody>
+</table>
+
+<h3>Pallas：JAX 只在 trace 时用一次</h3>
+
+<blockquote>
+  <strong>JAX is not executed at runtime.</strong> Pallas is distributed inside the
+  <code>jax</code> package, so the kernel is written with <code>jax</code> syntax.
+  However, <code>torch.tpu.pallas.jax_op</code> only uses JAX <strong>once, at trace
+  time</strong>, with abstract shape/dtype placeholders to export the kernel as an MLIR
+  module.
+</blockquote>
+
+<p>
+  Schema 是从 <code>jax.Array</code> 类型注解<strong>自动推断</strong>的。
+</p>
+
+<div class="callout bad">
+  <span class="label">边界</span>
+  <p>
+    <strong>Pallas kernel 不支持 bounded dynamic shapes。</strong>
+    所以「自定义 kernel + 动态形状」不能组合。
+  </p>
+</div>
+
+<h3>Kiln：Pallas 形状的 C++ 内核语言</h3>
+
+<pre><code>// csrc/internal/mosaic/kiln/core/kernel.h:33
+// Current iteration index along `axis` (Pallas `pl.program_id(axis)`).
+Scalar ProgramId(int axis);
+// Grid bound along `axis` (Pallas `pl.num_programs(axis)`).
+int64_t NumPrograms(int axis);</code></pre>
+
+<pre><code>// csrc/internal/mosaic/kiln/core/tile.h:34
+// A vector-typed value: a tile living in vregs.
+// ... Their operands broadcast numpy-style ...
+// Element types are never promoted implicitly; use AsType.</code></pre>
+
+<p>
+  最后那句很关键：TPU 上隐式类型提升会引入额外的转换指令，所以 kiln 强制显式。
+  <code>MemorySpace { kVmem, kSmem, kHbm }</code> 对应 TPU 的真实内存层级。
+</p>
+
+<p>Kiln 到 StableHLO 的桥接：</p>
+
+<pre><code>const std::string backend_config_json = absl::StrFormat(R"({
+  "custom_call_config": {"body": "%s", "needs_layout_passes": true,
+                          "serialization_format": 1},
+  "device_type": "DEVICE_TYPE_TENSORCORE"%s})",
+  absl::Base64Escape(body), scoped_memory_configs);</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="build">12. 构建系统：多 ABI wheel</h2>
+
+<p>这是本项目工程复杂度里最容易被低估的部分。</p>
+
+<h3>问题</h3>
+
+<p>PyTorch 的 C++ ABI 不稳定。一个 wheel 要同时服务 2.11 / 2.12 / 2.13 / 2.14 / nightly，怎么办？</p>
+
+<h3>解法：薄 glue + 运行时选择</h3>
+
+<pre><code>DEFAULT_TORCH_VERSION       = "2.11.0"
+EXTRA_PYTORCH_VERSIONS      = ["2.12.0", "2.13.0", "2.14.0"]
+WHEEL_TORCH_VERSIONS        = [DEFAULT] + EXTRA
+NIGHTLY_TORCH_VERSION       = "2.16.0"
+GLUE_TORCH_VERSIONS         = WHEEL + [NIGHTLY]
+INTERMEDIATE_PATCH_VERSIONS = ["2.12.1"]</code></pre>
+
+<blockquote>
+  A version is added here only when that PyTorch release <strong>breaks ABI
+  compatibility</strong> with the previous glue; the runtime dispatch then serves each
+  install from the <strong>newest glue at or below its version</strong>, so every release
+  between two entries — and everything after the last one — loads the preceding glue.
+</blockquote>
+
+<p>
+  所以 glue 的粒度是 <strong>ABI 断点</strong>，不是 PyTorch 版本号。
+  2.11.0 的 glue 服务 2.11.0 到 2.11.x 所有补丁版。
+  <code>INTERMEDIATE_PATCH_VERSIONS</code> 存在是为了<strong>证明这个声明是真的</strong>
+  —— 有一个 nox session 专门验证 2.12.1 真的能在 2.12.0 glue 上跑。
+</p>
+
+<h3>运行时选择机制</h3>
+
+<blockquote>
+  A <code>PathEntryFinder</code> installed on <code>sys.path_hooks</code> at import time
+  rewrites imports and <code>pkgutil</code> module discovery inside <code>torch_tpu</code>
+  to the glue that matches the installed PyTorch, and an <code>ExtensionProxyLoader</code>
+  bridges the artifact's version-suffixed filename to the unversioned
+  <code>PyInit_&lt;module&gt;</code> symbol the C++ code actually exports.
+</blockquote>
+
+<p>把 <code>env_2_12_0.so</code> 伪装成 <code>env.so</code> 给 import 系统看。</p>
+
+<p>两个安全措施：</p>
+
+<ol>
+  <li><strong><code>-z now</code> 链接</strong> —— eager 绑定全部符号。ABI 不匹配时
+      <strong>导入阶段就崩</strong>，而不是运行到一半才段错误</li>
+  <li><strong>版本无法确定时直接报错</strong>，不做猜测</li>
+</ol>
+
+<p>夜版的处理也讲究：</p>
+
+<blockquote>
+  A dev build's version compares by the release triple it leads up to
+  (<code>2.14.0.dev20260711</code> and <code>2.14.0a0</code> → <code>2.14.0</code>)
+</blockquote>
+
+<h3>共享 libxla_base.so 的三道闸</h3>
+
+<ol>
+  <li><code>pin_glue_backend_deps(name, deps)</code> —— 遍历 glue 的直接依赖，
+      凡是 <code>is_backend_dep()</code> 的包一层 <code>reset_torch_config</code></li>
+  <li><strong>遇到 <code>select()</code> 直接硬 <code>fail()</code></strong> ——
+      因为藏在 select 里的 backend 依赖发现不了，会静默分片</li>
+  <li><code>xla_base_filter</code> —— 把 XLA/MLIR/absl 抽成单一 <code>libxla_base.so</code></li>
+</ol>
+
+<div class="callout warn">
+  <span class="label">硬约束</span>
+  <p>
+    第 2 条是对所有后续贡献者的硬约束：<strong>你写不出条件式的 C++ 依赖。</strong>
+    这是架构代价，不是疏忽。
+  </p>
+</div>
+
+<h3>wheel 的「不可能误建」</h3>
+
+<p>
+  <code>ci/wheel/pywrap_mapper.bzl</code> 用<strong>失败的 action</strong>而不是
+  <code>fail()</code> 来实现守卫：
+</p>
+
+<ul>
+  <li>必须传 <code>--//:wheel_build=True</code></li>
+  <li>必须 <code>-c opt</code>，除非 <code>--//:allow_unoptimized_wheel=True</code></li>
+</ul>
+
+<p>
+  原因：<code>fail()</code> 会让 <code>bazel cquery //...</code> 和 bazel-diff 也分析失败，
+  而 CI 靠它们决定要不要占用昂贵的 TPU runner。
+</p>
+
+<h3>三个校验测试</h3>
+
+<table>
+  <thead><tr><th>测试</th><th>断言</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>wheel_structure_test</code></td>
+      <td>恰好一个 <code>libxla_base.so</code>；每版本一套 glue；用 <code>nm</code> +
+          <code>c++filt</code> 验证 base 不导出任何 torch 符号；不打包 libtorch</td>
+    </tr>
+    <tr>
+      <td><code>pywrap_split_test</code></td>
+      <td>真的 dlopen 每个 glue，读 <code>/proc/self/maps</code> 确认加载路径，
+          断言符号分区干净</td>
+    </tr>
+    <tr>
+      <td><code>wheel_single_source_test</code></td>
+      <td>pyproject 与构建出的 wheel 元数据一致</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <code>pywrap_split_test</code> 用 <code>/proc/self/maps</code> 而不是信任构建图，
+  是务实做法 —— 构建图对、运行时错的情况真实存在。
+</p>
+
+<h3>16 个 pywrap 扩展</h3>
+
+<p>
+  <code>bazel/pywrap_extensions.bzl</code> 里硬编码了 16 个（<code>env</code>、
+  <code>testing</code>、<code>warnings_impl</code>、<code>tpu_torch_compile</code>、
+  <code>tpu_distributed</code>、<code>tpu_torch_pallas</code>、
+  <code>_profiler_backend</code>、<code>_tpu_torch_sync</code>…）。
+  <strong>新增 pybind_extension 必须手动加进这个列表</strong>，否则不会被打进 wheel。
+</p>
+
+<h3>.bazelrc 51 个 config 里的关键决策</h3>
+
+<table>
+  <thead><tr><th>配置</th><th>作用</th></tr></thead>
+  <tbody>
+    <tr><td><code>--check_visibility=false</code></td><td>XLA 不导出部分 pjrt target</td></tr>
+    <tr><td><code>--analysis_testing_deps_limit=16000</code></td><td>RBE 分析测试要拉整个 wheel，6596 条边</td></tr>
+    <tr><td><code>--per_file_copt=...-std=c++20</code> 但 <code>onednn|llvm-project</code> 退回 c++17</td><td>逐文件 last-wins</td></tr>
+    <tr><td><code>precompile=force_disabled</code></td><td>同一份 py 源在不同 <code>requires-</code> tag 配置下会产生 action 冲突</td></tr>
+    <tr><td><code>rbe_test_execution</code> 清空所有 <code>TPU_*</code></td><td>防止客户端环境变量进入远程缓存键</td></tr>
+    <tr><td><code>ci_tpu_base</code> 两阶段</td><td>RBE 上 build，本地 test</td></tr>
+    <tr><td><code>tsan_py</code> 指向自建的插桩 CPython 3.12</td><td>未插桩解释器会通过 GIL 产生上千误报</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">TSan 的代价</span>
+  <p>
+    为了让 TSan 真正跑得起来，先得自己构建一个插桩版解释器 ——
+    未插桩解释器 → GIL 导致误报洪流；<code>dlopen(RTLD_LOCAL)</code> 会隐藏扩展符号
+    → runtime 必须 <code>LD_PRELOAD</code>。这是很多项目放弃 TSan 的原因。
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="testing">13. 测试与性能实验</h2>
+
+<h3>规模</h3>
+
+<div class="stat-row">
+  <div class="stat"><span class="n">87</span><span class="l">C++ 测试文件</span></div>
+  <div class="stat"><span class="n">29,925</span><span class="l">C++ 测试行数</span></div>
+  <div class="stat"><span class="n">200</span><span class="l">Python 测试文件</span></div>
+  <div class="stat"><span class="n">400+</span><span class="l">测试 target</span></div>
+</div>
+
+<p>C++ 测试占 <code>csrc</code> 的 13.7%。框架是 <strong>absltest</strong>，不是 pytest
+  （106 个顶层文件里 92 个 import <code>absltest</code>，36 个用
+  <code>absl.testing.parameterized</code>）。</p>
+
+<h3>测试 target 分布</h3>
+
+<table>
+  <thead><tr><th>目录</th><th class="num">target 数</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>tests/torch/</code></td><td class="num">185</td><td>自动生成</td></tr>
+    <tr><td><code>tests/</code>（根）</td><td class="num">114</td><td>算子、错误、lint</td></tr>
+    <tr><td><code>tests/distributed/</code></td><td class="num">40</td><td></td></tr>
+    <tr><td><code>tests/compile/</code></td><td class="num">35</td><td>每个 FX pass 一个</td></tr>
+    <tr><td><code>tests/dynamism/</code></td><td class="num">14</td><td></td></tr>
+  </tbody>
+</table>
+
+<p>
+  <code>tests/BUILD</code> 单个文件 2,968 行。再叠加 <code>run_on_accelerators</code>
+  的 fan-out（一个 target 派生出 <code>&lt;name&gt;_tpu-v5lite</code>、
+  <code>&lt;name&gt;_tpu-v6e</code>），<strong>合计超过 400 个测试 target</strong>。
+</p>
+
+<h3>185 个 target 是自动生成的</h3>
+
+<p>
+  <code>ci/tools/gen_torch_tests.py</code> 正则扫描 PyTorch 源码树，找
+  <code>instantiate_device_type_tests(</code>，在
+  <code># GENERATED_TEST_TARGETS_BEGIN/END</code> 之间生成 target。
+</p>
+
+<p>
+  <code>torch_test_runner.py</code> 钩住
+  <code>PrivateUse1TestBase.set_test_configs()</code>，用
+  <code>torch_test_configs.py</code> 里的 per-module <code>TEST_EXCLUSIONS</code>
+  排除已知失败。
+</p>
+
+<div class="callout good">
+  <span class="label">这相当于直接复用 PyTorch 官方测试套件验证 TPU 后端</span>
+  <p>这比自建测试覆盖率高得多，也是 853 个 OpName 敢声称覆盖 450 个 ATen 算子的底气。</p>
+</div>
+
+<h3>GPU golden 的双硬件</h3>
+
+<p>
+  <code>tests/ops_test.py</code> 是主力算子正确性 harness，<code>ops_test</code>
+  目标分 50 shard，<code>ops_test_grad_tpu_vs_gpu</code> 分 35 shard。
+</p>
+
+<p>
+  golden 数据从 GCS 拉取，且<strong>分 Blackwell（默认）和 Hopper
+  （<code>requires-gpu-sm90</code>）两套</strong>。原因是
+  <code>_scaled_mm_v2</code> 的某些 recipe 只有 Hopper 的 cuBLAS 实现了。
+  <strong>这是在拿 NVIDIA 硬件当参照标准</strong> —— TPU 结果的「正确」定义是
+  「和 GPU 一致」。
+</p>
+
+<h3>tag 代数</h3>
+
+<p><code>_check_and_adjust_test_tags</code> 做了一堆自动修正：</p>
+
+<ul>
+  <li>拒绝字面量 <code>nopresubmit</code>/<code>postsubmit</code> tag，
+      <strong>必须用参数</strong>，强制写理由</li>
+  <li><code>*_errors_*</code> 测试强制 <code>nosan</code></li>
+  <li><code>nobuild_oss</code> ⇒ <code>notest_oss</code>，<code>notap</code> ⇒ <code>notest</code></li>
+  <li><code>_clamp_shard_count</code> 在 OSS 侧按 runner 芯片数钳制 shard 数</li>
+</ul>
+
+<p>
+  而且这套 tag 代数<strong>自己在分析期被测</strong>：
+  <code>build_defs_test.bzl</code> 51 KB，11 个 <code>analysis_test</code>。
+</p>
+
+<h3>perflab：硬件是「声明」的，不是检测的</h3>
+
+<pre><code>PLATFORM_ENV_VAR = "BENCHMARK_PLATFORM"
+Platform = {cpu, b200_{1,2,4,8}, v5e_1x1, v6e_1x1, v5p_1x1x1,
+            v7_1x1x1, v7_1x1x1_2tc, v7_1x2x1, v7_2x2x1, v7_2x2x2, v7_2x2x4, v7_2x4x4}</code></pre>
+
+<p>
+  docstring 明说理由：<strong>避免 import PyTorch/JAX，它们会争抢设备锁文件</strong>。
+</p>
+
+<h4>三层分离</h4>
+
+<table>
+  <thead><tr><th>层</th><th>内容</th><th>生命周期</th></tr></thead>
+  <tbody>
+    <tr><td><code>registry.py</code></td><td><code>BenchmarkSpec(...)</code></td><td>全局注册</td></tr>
+    <tr><td><code>cases.py</code></td><td><code>(benchmark, mode)</code> 对</td><td>收集期解析</td></tr>
+    <tr><td>运行参数</td><td>platform / scope / mode / profiling</td><td>每次调用</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <code>cases.py</code> 的顺序是 <code>sha256(seed:name)</code> —— 避免按字母序分片
+  造成尾部偏斜。
+</p>
+
+<h4><code>PresubmitPolicy</code> 是必填的</h4>
+
+<pre><code>PresubmitPolicy { RUN, CPU_SMOKE_ONLY, SKIP }</code></pre>
+
+<p>
+  <code>__post_init__</code> 强制检查：两个非 <code>RUN</code> 的值
+  <strong>必须附带理由</strong>。presubmit 覆盖成为显式、被 review 的决策。
+</p>
+
+<h4>forkserver + 单向管道</h4>
+
+<p>
+  每个测试方法跑在<strong>全新的 forkserver 子进程</strong>里，通过单向管道回传
+  <code>(Outcome, detail, payload)</code>。硬崩溃或挂起变成该 case 的
+  <code>CRASHED</code>/<code>TIMED_OUT</code>。注释写了取舍：fork 在 CUDA/gRPC
+  加载后会死锁，spawn 则每个 case 重新 import torch。
+</p>
+
+<h4>跨硬件对照</h4>
+
+<p>
+  <code>benchmark_registry.pbtxt</code> 声明 19 个 BAP 套件，每个套件声明两个环境：
+</p>
+
+<ul>
+  <li><strong>tpu-v7</strong> —— <code>linux-x86-tpu7x-224-4tpu</code>，
+      <code>torch==2.14.0</code>、<code>libtpu==0.0.50</code></li>
+  <li><strong>gpu-b200</strong> —— <code>linux-x86-a4-224-b200-8gpu</code>，
+      <code>TORCH_DEVICE_BACKEND_AUTOLOAD=0</code></li>
+</ul>
+
+<p><strong>同一个 benchmark 在 TPU 和 B200 上跑</strong>，这是 TPU 与 GPU 对照的数据来源。</p>
+
+<h4><code>known_failures.py</code> 的反向开关</h4>
+
+<p>
+  <code>--skip_behavior=run_skipped</code> <strong>只跑被跳过的</strong>，
+  用来确认它们是不是还在失败。这是处理「跳过列表只增不减」的标准手法。
+</p>
+
+<h3>examples 的 doc-test</h3>
+
+<p>
+  每个 example 包都有一个 <code>torch_tpu_oss_doc_test</code>，它把 README 里
+  <code>&lt;!-- doc-test: X --&gt;</code> 标记的代码块<strong>从 example 目录重跑，
+  且 sys.path 上没有 <code>examples/</code></strong>。
+</p>
+
+<div class="callout good">
+  <span class="label">这抓到一类真 bug</span>
+  <p>
+    测试在 Bazel 下通过，只因为 Bazel 把每个 package 都放进了 import path。
+    文档里的示例其实跑不起来。
+  </p>
+</div>
+
+<h3>CI 的隐式性</h3>
+
+<blockquote>
+  Nothing in the repository states directly which tests a CI job runs. The answer is
+  derived from <strong>three places</strong>: <code>.bazelrc</code> 的
+  <code>--test_tag_filters</code>、BUILD 里的 <code>tags</code>、
+  <code>.github/workflows/</code> 的机器绑定。
+  <br><br>
+  Working out whether a particular test runs in a particular job therefore means
+  <strong>evaluating Bazel's tag-filter algebra by hand across hundreds of targets</strong>.
+</blockquote>
+
+<p>所以写了 <code>ci/tools/list_ci_tests.py</code> 自动求值。工具报告的规模：</p>
+
+<pre><code>ci_cpu                 CPU      841 tests
+ci_cpu_presubmit       CPU      837
+ci_tpu_nightly         TPU v6e  148
+ci_tpu_v5              TPU v5e  151
+ci_tpu_v7              TPU v7x   142
+wheel_test_cpu         CPU      821</code></pre>
+
+<p>
+  CPU 上 841 个测试，TPU 上约 150 个。<strong>5 倍差距</strong> —— 说明大量测试是纯逻辑的
+  （C++ 单测、FX pass 单测、builder 单测），不需要真硬件。TPU 资源贵，这是好设计。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="craft">14. 工程实践</h2>
+
+<h3>Copybara 双源仓库</h3>
+
+<pre><code>def is_oss():
+  # copybara:comment(oss-only)
+  return True
+  # copybara:uncomment return False</code></pre>
+
+<p>
+  <strong>同一个 BUILD 文件同时编译 Google 内部和 OSS 两个版本</strong>，
+  靠 Copybara 在导出时改写注释标记。配套的痕迹遍布全仓：
+</p>
+
+<ul>
+  <li><code># LINT.IfChange</code> / <code># LINT.ThenChange</code></li>
+  <li><code># ALLOW_CC_TARGETS=</code>、<code># NOTAP_OK=</code>、
+      <code># NOTEST_OSS_OK=</code>、<code># PY_ENVIRON_OK=</code>（内部 lint 抑制）</li>
+  <li><code># go/keep-sorted start/end</code>（内部排序工具）</li>
+  <li><code>shims/</code> 24 个目录是内部 label 到 OSS label 的<strong>映射层</strong></li>
+</ul>
+
+<p>
+  这解释了为什么 <code>csrc/ops</code> 有 853 个 OpName 却只有约 150 个 TPU CI 测试
+  —— <strong>大量验证跑在内部的 Forge 上</strong>，OSS 侧只保留子集。
+</p>
+
+<h3>错误处理：统一前缀 + 根 op 归属</h3>
+
+<pre><code>TT_RET_CHECK(cond, error_code)      // 返回 Status
+TT_CHECK_THROW(cond, error_code)    // 抛异常
+TT_ASSIGN_OR_RETURN(lhs, rexpr)     // 解包 StatusOr
+TT_RETURN_IF_ERROR(status)</code></pre>
+
+<p>
+  <code>TT_ASSIGN_OR_RETURN</code> 会注入 <code>TT_NORMALIZED_FILE</code>、
+  <code>__LINE__</code>、<code>__func__</code> —— <strong>保留源头位置</strong>。
+  <code>TT_CHECK_THROW</code> 还会调 <code>SetRootOpNamePayload</code>，
+  把错误归属到正确的根 op。
+</p>
+
+<p>
+  这个「根 op 归属」机制在多层 op 组合时很关键：用户写
+  <code>torch.nn.functional.layer_norm</code>，内部可能调十几个 aten op，
+  报错要指向 <code>layer_norm</code> 不是某个内部 <code>_native_layer_norm</code>。
+</p>
+
+<h3>粘性错误闩锁</h3>
+
+<pre><code>HasStickyError()  // 每次 dispatch 都读，std::memory_order_relaxed，单调 false→true</code></pre>
+
+<p>
+  注释详细论证了内存序：只需要单调性，不需要同步。异步断言失败后置位，
+  后续所有 dispatch 立即短路。这是处理「设备侧错误不能在出错的 op 处抛出」的标准手法。
+</p>
+
+<h3>错误码标注 + 覆盖测试</h3>
+
+<pre><code>TT_RET_CHECK(  // ERROR_COV_INFEASIBLE=Rank constraint is checked before Mlir lowering.
+    lhs_shape.size() == 2, error::kInvalidArgument)</code></pre>
+
+<p>
+  <code>ERROR_COV_INFEASIBLE</code> 是给<strong>错误覆盖测试</strong>用的标记。
+  <code>tests/error_coverage_data.yaml</code> + <code>error_coverage_test.py</code>
+  说明团队有工具追踪每个错误分支是否被测试覆盖，并允许显式标注「这个不可达/无法覆盖」。
+</p>
+
+<h3>注释质量</h3>
+
+<p>代码注释的水平明显高于一般开源项目。举三个典型：</p>
+
+<h4>讲清楚为什么，不只是做什么</h4>
+
+<pre><code>// NB: deliberately using DotGeneral instead of Dot because Dot is scheduled
+// for removal from StableHLO.</code></pre>
+
+<h4>讲清楚历史约束</h4>
+
+<pre><code>// Must come after the dtype and shape checks. CUDA validates those criteria
+// before reaching the dispatch that reports the dtype as unimplemented.</code></pre>
+
+<h4>讲清楚微妙之处</h4>
+
+<pre><code>// When compiled in debug mode, TT_KERNEL() checks that all PromotedScalar-
+// typed arguments have their GetTensor() method called ... This prevents bugs
+// where the kernel uses the original Scalar instead of the Tensor promoted
+// from it.</code></pre>
+
+<p>
+  而且注释里带着内部 bug 号（<code>TODO(b/448113143)</code>）和内部文档链接
+  （<code>go/torch-tpu-op-easy</code>、<code>go/catto-design</code>）。
+  这是从内部代码库开源出来的痕迹 —— <strong>没有清理掉</strong>，反而保留了有价值的上下文。
+</p>
+
+<h3>循环依赖的精确拆解</h3>
+
+<p><code>_tcmalloc_check.py</code> 的注释解释了为什么这个模块<strong>不能 import torch</strong>：</p>
+
+<blockquote>
+  It is part of the torch-free preamble of <code>torch_tpu/__init__.py</code> … importing
+  <code>torch</code> makes PyTorch load the <code>torch_tpu._loader</code> backend entry
+  point, which loads TorchTPU's C++ extensions. Doing that from here would run that setup
+  in the middle of <code>torch_tpu/__init__.py</code>, and from module scope even
+  <strong>before the version-dispatch import hook of <code>_versioned_so_loader</code></strong>
+  that selects those extensions is installed.
+</blockquote>
+
+<p>
+  这是个<strong>循环依赖的精确拆解</strong>：<code>import torch</code> → autoload →
+  <code>torch_tpu._loader</code> → C++ 扩展 → 但版本 dispatch hook 还没装。
+</p>
+
+<p>
+  有个 C++ 侧的对应技巧：<code>common/static_shape_check.h</code> 的
+  <code>at::Tensor</code> 重载多传一个 <code>DeviceBufferRef</code> 参数，
+  专门用于打断 <code>tensor_to_buffer → view primitive → static_shape_check → tensor_to_buffer</code>
+  的循环。
+</p>
+
+<h3>仓库里的 AI 相关配置</h3>
+
+<p>
+  <code>.agents/skills/docs-review/SKILL.md</code> 是给 AI agent 用的文档写作规范。
+  <code>AGENTS.md</code> 明确写了给 AI agent 的指引（80 列、requirements 不要手改、
+  Bazel query 的用法）。<code>CLAUDE.md</code> 只有两行：
+</p>
+
+<pre><code>@AGENTS.md
+
+## Writing style
+Please remove all mannered prose.</code></pre>
+
+<p>
+  <strong>「remove all mannered prose」</strong> —— 这条很像是对 AI 生成文本的针对性指令。
+  团队在用 AI 参与开发，并且已经形成了具体的风格约束。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="risks">15. 设计取向与风险</h2>
+
+<h3>值得学的七个设计</h3>
+
+<ol>
+  <li><strong>在存储层做适配，而不是在 API 层</strong> ——
+      <code>data_ptr()</code> 指向元数据而不是设备内存，一个决策解决了 stride、视图、
+      原地写、copy-on-write 四个问题</li>
+  <li><strong>不自己写图优化器</strong> —— 4 个 MLIR pass 不到 3 千行，其余全交给 XLA</li>
+  <li><strong>把性能实验结论编码进编译器</strong> ——
+      <code>IsFastRuntimeConvolutionCandidate</code> 里的数字是决策而不是文档</li>
+  <li><strong>缓存键分散计算</strong> —— 每个 op 自己贡献 <code>param_keys</code>，
+      新增 op 不会忘记更新缓存键</li>
+  <li><strong>API 阶段化 + 编译期零开销的警告</strong> —— 模板实例化生成独立
+      <code>static</code> 标志，没有运行时哈希表</li>
+  <li><strong>错误覆盖测试</strong> —— <code>ERROR_COV_INFEASIBLE</code> 标注 + 自动化工具</li>
+  <li><strong>诚实文档</strong> —— 动态形状 8 条限制、<code>contiguous_to_view</code>
+      的僵尸数据、<code>FakeTensorMode</code> 不兼容</li>
+</ol>
+
+<h3>主要风险</h3>
+
+<table>
+  <thead><tr><th>风险</th><th>具体表现</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>语义等价但性能不等价</strong></td>
+      <td>视图在 CUDA 上是免费的，在 TPU 上可能触发完整 relayout；部分写可能复制整个
+          storage。代码不改就能跑，但性能特征完全不同，<strong>而且不报错</strong></td>
+    </tr>
+    <tr>
+      <td><strong>CPU fallback 是静默的</strong></td>
+      <td>不支持的 op 只 <code>ABSL_LOG(WARNING)</code>。大量 op 悄悄在 CPU 上跑时，
+          性能灾难性下降但程序正常结束</td>
+    </tr>
+    <tr>
+      <td><strong>动态形状边界很硬</strong></td>
+      <td>最多 8 桶、不支持无界、和 Pallas kernel 不兼容、和 <code>dynamic=True</code>
+          不兼容、不进 AOTAutogradCache（每进程重编译）、计算量按桶上界算</td>
+    </tr>
+    <tr>
+      <td><strong>代码量集中在算子</strong></td>
+      <td>63% 在 <code>csrc/ops</code>。<code>gru_aten_kernels.cc</code> 7,117 行、
+          <code>lstm_aten_kernels.cc</code> 6,424 行，是新贡献者的门槛</td>
+    </tr>
+    <tr>
+      <td><strong>两处手工同步无守卫</strong></td>
+      <td><code>bazel/pytorch_versions.bzl</code> → <code>MODULE.bazel</code> 的复制只有注释，
+          没有像 Python 版本那样的 <code>sync_module_bazel_versions.py</code></td>
+    </tr>
+    <tr>
+      <td><strong>上游化的障碍</strong></td>
+      <td>大量依赖 PyTorch 未稳定的内部 API
+          （<code>torch._inductor.*</code>、<code>torch._functorch._aot_autograd.*</code>）</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>一处明显的重复实现</h3>
+
+<p>
+  view decomposition 在 <strong>C++ 和 Python 里各实现一遍</strong>：
+  <code>csrc/ops/view_decomposition/</code>（静态路径）和
+  <code>_internal/compile/dynamic/view_decomposition.py</code>（731 行，动态路径，
+  用 SymPy 做符号代数）。这是整个代码库里唯一一处明显的重复实现 ——
+  静态和动态两条路径的算法无法共享。
+</p>
+
+<h3>一个观察</h3>
+
+<p>
+  这是 <strong>Copybara 持续导出的双源仓库</strong>，意味着内部和 OSS 共享同一份代码。
+  对开源用户的影响：
+</p>
+
+<ul>
+  <li>你看到的是<strong>真实的产品代码</strong>，不是「开源版阉割版」</li>
+  <li>但 CI 覆盖面在 OSS 侧是打折扣的（841 CPU / ~150 TPU）</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="torchxla">16. 专题：与 PyTorch/XLA 的区别</h2>
+
+<div class="callout bad">
+  <span class="label">先说结论</span>
+  <p>
+    <strong>TorchTPU 没有复用任何一行 PyTorch/XLA（<code>torch_xla</code>）的代码。</strong>
+    全仓库对 <code>torch_xla</code> 的引用只有 8 个文件、共 6 处，其中 3 处是注释里的
+    bug 溯源链接，3 处是独立的基准对比代码，<strong>没有一处是 import、链接或代码拷贝</strong>。
+  </p>
+  <p>
+    两者共享的只是<strong>下层的 OpenXLA 组件</strong>（XLA 编译器、StableHLO、PjRt、libtpu），
+    这些是 Google 的公共基础设施，不是 torch_xla 的代码。
+  </p>
+</div>
+
+<h3>16.1 全仓对 <code>torch_xla</code> 的完整引用清单</h3>
+
+<p>用 <code>grep -rIn -i "torch_xla\|torchxla"</code> 扫全仓，命中恰好如下：</p>
+
+<table>
+  <thead>
+    <tr><th>文件</th><th>性质</th><th>内容</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>csrc/ops/copy_from/copy_from_aten_kernels.h:55</code></td>
+      <td><strong>注释</strong>（bug 溯源）</td>
+      <td>「Per <a>pytorch/xla#2881</a> it is introduced in 2021 to fix an issue with
+          aten:cpufallback for pytorch_xla.」</td>
+    </tr>
+    <tr>
+      <td><code>csrc/eager/tpu_aten_kernels.cc:475</code></td>
+      <td><strong>注释</strong>（同一 bug）</td>
+      <td>「per <a>pytorch/xla#2881</a>, this function was added to fix aten:cpufallback
+          for pytorch_xla in 2021. But it isn't registered for CPU…」</td>
+    </tr>
+    <tr>
+      <td><code>src/torch_tpu/_internal/pallas/pallas.py:47</code></td>
+      <td><strong>注释</strong>（经验借鉴）</td>
+      <td>「TODO: TorchXLA hit issues when working with both JAX and PT in the same
+          process, hitting deadlocks when each framework tried to access the PJRT
+          plugin.」</td>
+    </tr>
+    <tr>
+      <td><code>docs/faq.md</code> / <code>docs/source/faq.py</code></td>
+      <td><strong>文档</strong></td>
+      <td>解释三者关系（见 16.2）</td>
+    </tr>
+    <tr>
+      <td><code>perflab/torchax/BUILD</code><br><code>torchax_benchmark_test.py</code><br><code>torchax_device_ops.py</code></td>
+      <td><strong>基准测试</strong></td>
+      <td><code>import torch_xla2 as torchax</code> —— 这是
+          <strong>TorchAX / torch_xla2</strong>，不是 <code>torch_xla</code>，
+          用于在 perflab 里跑跨框架对照</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>构建系统侧的交叉验证：</p>
+
+<ul>
+  <li><code>MODULE.bazel</code> / <code>WORKSPACE</code> 里<strong>没有</strong>
+      <code>torch_xla</code> 依赖，只有 <code>bazel_dep(name = "xla")</code></li>
+  <li><code>pyproject.toml</code> 与所有 <code>requirements_*.txt</code> 里
+      <strong>没有</strong> <code>torch_xla</code></li>
+  <li><code>shims/</code> 24 个目录里<strong>没有</strong> xla 相关 shim</li>
+  <li>没有 <code>NOTICE</code> 文件，也没有 PyTorch/Meta 的代码归属声明
+      （唯一的 Meta 版权头在 <code>examples/fsdp/simple_fsdp.py</code>，
+      那是 SimpleFSDP 示例，与 torch_xla 无关）</li>
+  <li><code>git log</code> 里从未出现 <code>torch_xla</code>；公开历史起点是
+      2026-02-11 的「Start of public TorchTPU history」</li>
+</ul>
+
+<div class="callout">
+  <span class="label">那两处 <code>_copy_from_and_resize</code> 是什么关系</span>
+  <p>
+    <code>AtenCopyFromAndResize</code> 之所以存在，是因为 PyTorch 核心的
+    <code>aten/native/CPUFallback.cpp</code> 会调用它 —— 这是
+    <strong>PyTorch 上游的 CPU fallback 机制</strong>，不是 torch_xla 的代码。
+    torch_xla 在 2021 年先踩过这个坑（issue #2881），TorchTPU 的注释只是
+    <strong>表达了「我们知道这个历史」</strong>，实现完全独立。
+  </p>
+</div>
+
+<h3>16.2 三者的定位（官方 FAQ 口径）</h3>
+
+<table>
+  <thead>
+    <tr><th></th><th>PyTorch/XLA</th><th>TorchAX (torch_xla2)</th><th>TorchTPU</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>拦截层级</strong></td>
+      <td>C++ ATen（<code>XLATensor</code> 惰性图）</td>
+      <td><strong>Python 层</strong>（运行时把 op 降到 JAX）</td>
+      <td>C++ ATen（<code>PrivateUse1</code> dispatch key）</td>
+    </tr>
+    <tr>
+      <td><strong>降到什么</strong></td>
+      <td>XLA HLO</td>
+      <td>JAX（进而 XLA）</td>
+      <td>StableHLO</td>
+    </tr>
+    <tr>
+      <td><strong>JAX 运行时依赖</strong></td>
+      <td>有（历史包袱）</td>
+      <td><strong>核心依赖</strong></td>
+      <td><strong>零</strong>（Pallas 仅 trace 时用一次）</td>
+    </tr>
+    <tr>
+      <td><strong>API 形态</strong></td>
+      <td><code>xm.*</code>、<code>xm.mark_step()</code>、
+          <code>PJRT_DEVICE</code> 等专有 API</td>
+      <td>近乎透明</td>
+      <td>纯 <code>torch.*</code>，只多一个 <code>device="tpu"</code></td>
+    </tr>
+    <tr>
+      <td><strong>用户可见的图边界</strong></td>
+      <td>需要显式 <code>mark_step()</code></td>
+      <td>隐式</td>
+      <td><strong>无 mark_step</strong>，由物化点自动决定</td>
+    </tr>
+    <tr>
+      <td><strong>现状</strong></td>
+      <td><strong>已废弃</strong>，由 TorchTPU 取代</td>
+      <td>仍在用于基准与原型</td>
+      <td>官方新标准</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>官方 FAQ 原文：</p>
+
+<blockquote>
+  PyTorch/XLA historically served as a bridging framework, heavily dependent on JAX
+  runtime components and specialized APIs. TorchTPU offers a native PyTorch backend for
+  Google Cloud TPUs and <strong>zero JAX runtime dependencies</strong>…
+  <br><br>
+  <strong>PyTorch/XLA is deprecated and replaced by TorchTPU.</strong>
+</blockquote>
+
+<h3>16.3 架构上的根本差异</h3>
+
+<table>
+  <thead><tr><th>维度</th><th>PyTorch/XLA 的做法</th><th>TorchTPU 的做法</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>设备接入</strong></td>
+      <td>自定义 <code>XLATensor</code> 类型 + 私有 dispatch key</td>
+      <td>标准 <code>PrivateUse1</code> dispatch key，导入时
+          <code>rename_privateuse1_backend("tpu")</code> 改名</td>
+    </tr>
+    <tr>
+      <td><strong>存储抽象</strong></td>
+      <td><code>XLATensor</code> 自己持有惰性 IR</td>
+      <td>复用 <code>at::Tensor</code>，<code>data_ptr()</code>
+          <strong>指向 CPU 元数据</strong>（<code>DeviceBufferRef</code>）</td>
+    </tr>
+    <tr>
+      <td><strong>视图 / 原地写</strong></td>
+      <td>受限，很多情况需要 <code>contiguous()</code> 或改写模型</td>
+      <td>完整支持 <code>as_strided</code>、原地写、buffer donation，
+          靠 view decomposition + inversion（10,824 行）</td>
+    </tr>
+    <tr>
+      <td><strong><code>torch.compile</code></strong></td>
+      <td>后期才接入，路径不统一</td>
+      <td>原生注册为 Dynamo backend <code>"tpu"</code>，走 AOTAutograd</td>
+    </tr>
+    <tr>
+      <td><strong>执行模式</strong></td>
+      <td>惰性图 + <code>mark_step</code> 显式边界</td>
+      <td>5 种模式（DeferNever / DeferAndFuse / LaunchBlocking / …），
+          物化点自动决定</td>
+    </tr>
+    <tr>
+      <td><strong>动态形状</strong></td>
+      <td>重编译或改写模型</td>
+      <td>bounded dynamism，<code>128k - c</code> 分桶</td>
+    </tr>
+    <tr>
+      <td><strong>算子覆盖</strong></td>
+      <td><code>XLATensor</code> 上的方法</td>
+      <td>853 个 <code>OpName</code> 直接注册进
+          <code>TORCH_LIBRARY_IMPL(aten, PrivateUse1)</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout good">
+  <span class="label">最关键的一条</span>
+  <p>
+    <strong>TorchTPU 是真正的树外后端（out-of-tree backend）。</strong>
+    它不需要自定义张量类型，不需要 <code>mark_step</code>，不需要 PyTorch 的 fork。
+    用户代码里 <code>.to("cuda")</code> → <code>.to("tpu")</code> 就完事了，
+    其余 API 全部是标准 PyTorch。这正是它必须重新实现而不是继承 torch_xla 的原因
+    —— torch_xla 的架构（自定义张量类型）无法满足这个目标。
+  </p>
+</div>
+
+<h3>16.4 共享的部分：OpenXLA 基础设施</h3>
+
+<p>
+  两者都站在同一套 Google 公共基础设施上。这些<strong>不是 torch_xla 的代码</strong>，
+  而是 OpenXLA 项目：
+</p>
+
+<table>
+  <thead><tr><th>组件</th><th>用途</th><th>TorchTPU 的接入方式</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>XLA 编译器</strong></td>
+      <td>把 StableHLO 编成 TPU 机器码</td>
+      <td><code>bazel_dep(name = "xla")</code>，按 commit
+          <code>4dc8a901…</code> 固定，外加一个
+          <code>remove_stablehlo_source_location.patch</code></td>
+    </tr>
+    <tr>
+      <td><strong>StableHLO</strong></td>
+      <td>TorchTPU 的<strong>唯一</strong> lowering 目标</td>
+      <td>经由 XLA 的 <code>third_party_ext</code> 传递引入</td>
+    </tr>
+    <tr>
+      <td><strong>PjRt</strong></td>
+      <td>运行时：编译、加载、执行、内存传输</td>
+      <td><code>@xla//xla/pjrt/c_api_client:pjrt_c_api_client</code><br>
+          <code>@xla//xla/pjrt/plugin/xla_tpu:xla_tpu_pjrt_client</code></td>
+    </tr>
+    <tr>
+      <td><strong>libtpu</strong></td>
+      <td>TPU 驱动插件（闭源）</td>
+      <td><code>import libtpu; libtpu.configure_library_path()</code>；
+          版本写进编译缓存指纹</td>
+    </tr>
+    <tr>
+      <td><strong>Mosaic</strong></td>
+      <td>比 StableHLO 更低一层的 TPU IR</td>
+      <td>Kiln DSL 生成 Mosaic，经 <code>tpu_custom_call</code> 嵌入</td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>
+  官方原话：「TPUs are programmed with the XLA compiler stack through two different
+  entry points: <strong>StableHLO</strong> and <strong>Mosaic</strong>.
+  Effectively, one can think of StableHLO and (even more so) of Mosaic as equivalent
+  to <strong>PTX</strong>.」
+</blockquote>
+
+<p>
+  也就是说，XLA/StableHLO/PjRt 对 TorchTPU 而言相当于 CUDA 之于 GPU 后端 ——
+  是<strong>目标平台的 SDK</strong>，不是「别人的后端代码」。
+</p>
+
+<h3>16.5 JAX 依赖的真相</h3>
+
+<p>
+  「零 JAX 运行时依赖」这个说法需要精确理解：
+</p>
+
+<table>
+  <thead><tr><th></th><th>是否依赖 JAX</th><th>细节</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>纯 PyTorch 程序</strong></td>
+      <td>否</td>
+      <td>eager 和 <code>torch.compile</code> 路径完全不碰 JAX</td>
+    </tr>
+    <tr>
+      <td><strong>Pallas 自定义 kernel</strong></td>
+      <td>仅 <strong>trace 时</strong>一次</td>
+      <td><code>jax_op</code> 用抽象 shape/dtype 占位符把 kernel 导出成 MLIR
+          模块，之后运行时只跑 <code>torch.Tensor</code> + TPU buffer</td>
+    </tr>
+    <tr>
+      <td><strong>Tokamax 预制 kernel</strong></td>
+      <td>构建期</td>
+      <td>kernel 已编译成 Mosaic 字节数组嵌入 C++</td>
+    </tr>
+    <tr>
+      <td><strong><code>pyproject.toml</code></strong></td>
+      <td>声明了 <code>jax &gt;= 0.9.2</code></td>
+      <td>作为依赖存在，但不是运行时路径的必需品</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="label">Pallas 的那个 TODO 值得注意</span>
+  <p><code>pallas.py:47</code>：</p>
+  <blockquote>
+    TODO: TorchXLA hit issues when working with both JAX and PT in the same process,
+    hitting deadlocks when each framework tried to access the PJRT plugin. Unclear if
+    this applies for trace-only, but <strong>we may need to better protect against
+    this</strong>, see <code>@requires_jax</code> in PT/XLA repo.
+  </blockquote>
+  <p>
+    这说明团队<strong>读了 torch_xla 的踩坑记录并借鉴了教训</strong>，
+    但这是「读文档」而非「用代码」。而且他们自己也不确定 trace-only
+    场景是否会中招 —— 这是一个已知的开放风险。
+  </p>
+</div>
+
+<h3>16.6 TorchAX 在仓库里的角色</h3>
+
+<p>
+  <code>perflab/torchax/</code> 是<strong>性能实验室里的对照组</strong>，
+  不是产品代码：
+</p>
+
+<pre><code># perflab/torchax/torchax_benchmark_test.py:52
+import torch_xla2 as torchax  # pylint: disable=unused-import</code></pre>
+
+<pre><code># perflab/torchax/BUILD
+# TODO: remove this. It's needed now to avoid `import torch_xla2 as torchax`
+# triggering "RuntimeError: torch.register_privateuse1_backend() has already been set!
+# Current backend: tpu".
+autoload = False,</code></pre>
+
+<div class="callout">
+  <span class="label">这个 TODO 很有意思</span>
+  <p>
+    TorchAX 和 TorchTPU <strong>都会</strong>调用
+    <code>torch.register_privateuse1_backend()</code>，两者不能在同一进程共存 ——
+    所以跑 TorchAX 基准时必须关掉 TorchTPU 的 autoload。
+    这从侧面证明：<strong>TorchTPU 走的是 PrivateUse1 路线，TorchAX 走的是另一条路，
+    二者互斥。</strong>
+  </p>
+</div>
+
+<p>
+  <code>perflab</code> 的设计目标就是「同一套 benchmark 注册表，跑 TPU、GPU、CPU
+  和 TorchAX 四个后端」，用于横向对比。所以这里出现 <code>torch_xla2</code>
+  是<strong>测量需要</strong>，不是依赖。
+</p>
+
+<h3>16.7 迁移影响</h3>
+
+<p>如果用户从 PyTorch/XLA 迁到 TorchTPU，需要删掉的是：</p>
+
+<table>
+  <thead><tr><th>torch_xla 里的东西</th><th>TorchTPU 里怎么办</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>import torch_xla.core.xla_model as xm</code></td>
+      <td>删掉，用 <code>torch.accelerator.*</code></td>
+    </tr>
+    <tr>
+      <td><code>xm.mark_step()</code></td>
+      <td><strong>删掉</strong>，没有对应物。物化点由
+          <code>.cpu()</code>/<code>.item()</code>/<code>synchronize()</code>
+          自动触发</td>
+    </tr>
+    <tr>
+      <td><code>xm.xla_device()</code></td>
+      <td><code>torch.device("tpu")</code> 或
+          <code>torch.accelerator.current_accelerator()</code></td>
+    </tr>
+    <tr>
+      <td><code>xm.optimizer_step(opt)</code></td>
+      <td><code>opt.step()</code>（标准 PyTorch）</td>
+    </tr>
+    <tr>
+      <td><code>xm.mesh_reduce / rendezvous</code></td>
+      <td>标准 <code>torch.distributed</code> + <code>tpu_dist</code></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_DEVICE=TPU</code> 环境变量</td>
+      <td>不需要；用 <code>TPU_VISIBLE_DEVICES</code>、<code>TORCH_TPU_TOPOLOGY</code></td>
+    </tr>
+    <tr>
+      <td><code>xm.save / xm.load</code></td>
+      <td>标准 <code>torch.save</code> / <code>torch.load</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>反面，TorchTPU 提供而 torch_xla 没有的：</p>
+
+<ul>
+  <li><code>torch.compile(backend="tpu")</code> 原生支持</li>
+  <li>bounded dynamism（避免 KV cache 增长导致的重编译）</li>
+  <li>完整的 <code>as_strided</code> / 原地写 / buffer donation 语义</li>
+  <li>三级编译缓存（进程内 / 同机跨进程 / 远程 GCS）</li>
+  <li>多 PyTorch ABI 的单 wheel</li>
+</ul>
+
+<h3>16.8 继承的「基因」：不是代码，是设计</h3>
+
+<p>虽然没有任何代码复用，但 TorchTPU 明显<strong>继承了一系列工程经验</strong>：</p>
+
+<table>
+  <thead><tr><th>痕迹</th><th>证据</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>知道 CPU fallback 的历史坑</td>
+      <td><code>AtenCopyFromAndResize</code> 的注释直接引用
+          pytorch/xla#2881</td>
+    </tr>
+    <tr>
+      <td>知道 JAX + PyTorch 共进程的 PJRT 死锁风险</td>
+      <td><code>pallas.py:47</code> 的 TODO</td>
+    </tr>
+    <tr>
+      <td>知道 Pallas 是 TPU kernel 的正解</td>
+      <td>直接采用 JAX 的 Pallas 作为自定义 kernel 入口</td>
+    </tr>
+    <tr>
+      <td>知道 TPU 的 tile 对齐是 128</td>
+      <td>动态形状分桶 <code>bucket_size = 128</code></td>
+    </tr>
+    <tr>
+      <td>知道 SparseCore 的存在</td>
+      <td><code>CorePinningMode { kUnpinned, kTensorCore, kSparseCore }</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  这与「复用代码」有本质区别：前者是<strong>读懂了平台的物理约束</strong>，
+  后者是<strong>借用了别人的实现</strong>。TorchTPU 选择的是前者。
+</p>
+
+<div class="callout good">
+  <span class="label">一句话总结</span>
+  <p>
+    <strong>TorchTPU 是 torch_xla 的替代品，不是它的分支或衍生品。</strong>
+    它们的关系类似「同一个 API 的两个独立实现」—— 共享 OpenXLA 这层公共底座，
+    但在 PyTorch 接入方式上做了完全不同（且不兼容）的选择。
+    torch_xla 用自定义张量类型 + 惰性图 + <code>mark_step</code>；
+    TorchTPU 用标准 <code>PrivateUse1</code> + 存储层元数据间接 + 自动物化。
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="appendix">17. 附录：数据表</h2>
+
+<h3>最大的单文件</h3>
+
+<table>
+  <thead><tr><th>文件</th><th class="num">行数</th></tr></thead>
+  <tbody>
+    <tr><td><code>csrc/ops/gru/gru_aten_kernels.cc</code></td><td class="num">7,117</td></tr>
+    <tr><td><code>csrc/ops/lstm/lstm_aten_kernels.cc</code></td><td class="num">6,424</td></tr>
+    <tr><td><code>csrc/ops/foreach_aten_kernels.cc</code></td><td class="num">3,384</td></tr>
+    <tr><td><code>csrc/distributed/process_group_tpu.cc</code></td><td class="num">2,948</td></tr>
+    <tr><td><code>csrc/ops/op_names.h</code></td><td class="num">2,752</td></tr>
+    <tr><td><code>csrc/internal/compile/tpu_torch_compile.cc</code></td><td class="num">2,438</td></tr>
+    <tr><td><code>csrc/ops/grid_sampler/grid_sampler_aten_kernels.cc</code></td><td class="num">2,230</td></tr>
+  </tbody>
+</table>
+
+<h3>最大的算子目录</h3>
+
+<table>
+  <thead><tr><th>目录</th><th class="num">行数</th></tr></thead>
+  <tbody>
+    <tr><td><code>csrc/ops/view_decomposition/</code></td><td class="num">10,824</td></tr>
+    <tr><td><code>csrc/ops/gru/</code></td><td class="num">7,296</td></tr>
+    <tr><td><code>csrc/ops/lstm/</code></td><td class="num">6,604</td></tr>
+    <tr><td><code>csrc/ops/experimental/</code></td><td class="num">5,011</td></tr>
+    <tr><td><code>csrc/ops/pooling/</code></td><td class="num">4,406</td></tr>
+    <tr><td><code>csrc/ops/linalg/</code></td><td class="num">3,950</td></tr>
+    <tr><td><code>csrc/ops/scaled_dot_product_attention/</code></td><td class="num">3,935</td></tr>
+    <tr><td><code>csrc/ops/upsample/</code></td><td class="num">3,830</td></tr>
+  </tbody>
+</table>
+
+<h3>Python 子系统的规模</h3>
+
+<table>
+  <thead><tr><th>目录</th><th class="num">行数</th></tr></thead>
+  <tbody>
+    <tr><td><code>_internal/compile/</code></td><td class="num">12,560</td></tr>
+    <tr><td><code>_internal/utils/</code></td><td class="num">6,691</td></tr>
+    <tr><td><code>_internal/distributed/</code></td><td class="num">5,991</td></tr>
+    <tr><td><code>_internal/ops/</code></td><td class="num">5,903</td></tr>
+    <tr><td><code>_internal/pallas/</code></td><td class="num">2,113</td></tr>
+    <tr><td><code>_internal/optimizers/</code></td><td class="num">1,826</td></tr>
+    <tr><td><code>_internal/device/</code></td><td class="num">1,371</td></tr>
+  </tbody>
+</table>
+
+<h3>关键常量与尺寸断言</h3>
+
+<table>
+  <thead><tr><th>结构 / 常量</th><th>值</th><th>理由</th></tr></thead>
+  <tbody>
+    <tr><td><code>sizeof(StridedDimension)</code></td><td>16</td><td>紧凑打包</td></tr>
+    <tr><td><code>sizeof(StridedLayout)</code></td><td>64</td><td>一个 cache line</td></tr>
+    <tr><td><code>sizeof(ViewPrimitive)</code></td><td>176</td><td>variant 最大成员</td></tr>
+    <tr><td><code>sizeof(Shape)</code></td><td>232</td><td>热路径尺寸固定</td></tr>
+    <tr><td><code>bucket_size</code></td><td>128</td><td>TPU tile 宽度</td></tr>
+    <tr><td><code>num_dynamic_buckets</code></td><td>≤ 8</td><td>编译时间与覆盖的平衡</td></tr>
+    <tr><td><code>kMaxSmallTailConcatDimSize</code></td><td>16</td><td>attention sink 的尾巴</td></tr>
+    <tr><td><code>kTorchTpuBinaryVersion</code></td><td>6</td><td>缓存指纹版本</td></tr>
+    <tr><td><code>kTupleArgumentsThreshold</code></td><td>~16K</td><td>XLA:TPU 参数上限（v7）</td></tr>
+    <tr><td><code>kDefaultSerializationVersion</code></td><td>13</td><td>Mosaic kernel 序列化</td></tr>
+  </tbody>
+</table>
+
+<h3>模块加载时序（<code>__init__.py</code>，41 行但顺序严格）</h3>
+
+<ol>
+  <li><code>_versioned_so_loader.install_hook(...)</code> —— 必须早于任何
+      <code>torch_tpu._internal</code> C++ 扩展导入</li>
+  <li><code>import libtpu; libtpu.configure_library_path()</code></li>
+  <li><code>_tcmalloc_check.check_tcmalloc()</code> —— 放最后，让探测能看到所有库</li>
+  <li><code>from torch_tpu import _loader</code> —— 真正干活的</li>
+</ol>
+
+<footer>
+  <p>
+    分析对象：<code>google-pytorch/torch_tpu</code> @ <code>2092cb8a</code>（v0.2.0 之后）。
+    基于静态代码阅读，未在 TPU 硬件上运行验证。性能数字引自仓库自带文档与代码注释。
+  </p>
+  <p>
+    文档生成于 2026-10-27。
+  </p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

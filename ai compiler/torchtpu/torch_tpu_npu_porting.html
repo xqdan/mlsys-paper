@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>把新 NPU 接入 TorchTPU — 硬件后端移植指南</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #5c6370;
+    --border: #e1e4e8;
+    --accent: #0b6bcb;
+    --accent-soft: #eaf3fd;
+    --code-bg: #f6f8fa;
+    --code-fg: #24292f;
+    --warn-bg: #fff8e6;
+    --warn-border: #e3b341;
+    --good-bg: #eefbf3;
+    --good-border: #2da44e;
+    --bad-bg: #fdf0ef;
+    --bad-border: #cf222e;
+    --sidebar-bg: #fafbfc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9198a1;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent-soft: #12283f;
+      --code-bg: #161b22;
+      --code-fg: #e6edf3;
+      --warn-bg: #2b2416;
+      --warn-border: #9e6a03;
+      --good-bg: #12261a;
+      --good-border: #2ea043;
+      --bad-bg: #2b1618;
+      --bad-border: #f85149;
+      --sidebar-bg: #010409;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 64px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--sidebar-bg);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  nav.toc .brand {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: .01em;
+    margin-bottom: 4px;
+  }
+  nav.toc .brand small {
+    display: block;
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  nav.toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0 0;
+    counter-reset: toc;
+  }
+  nav.toc li { counter-increment: toc; margin: 1px 0; }
+  nav.toc a {
+    display: block;
+    padding: 5px 10px 5px 34px;
+    position: relative;
+    color: var(--muted);
+    text-decoration: none;
+    border-radius: 5px;
+    border-left: 2px solid transparent;
+  }
+  nav.toc a::before {
+    content: counter(toc) ".";
+    position: absolute;
+    left: 10px;
+    color: var(--muted);
+    opacity: .55;
+    font-variant-numeric: tabular-nums;
+  }
+  nav.toc a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  main {
+    padding: 56px 56px 120px;
+    max-width: 940px;
+  }
+
+  h1 {
+    font-size: 2.1rem;
+    line-height: 1.25;
+    margin: 0 0 12px;
+    letter-spacing: -.02em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+    margin: 0 0 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    margin: 56px 0 16px;
+    padding-top: 12px;
+    letter-spacing: -.01em;
+    border-top: 1px solid var(--border);
+  }
+  h2:first-of-type { border-top: none; }
+
+  h3 {
+    font-size: 1.12rem;
+    margin: 32px 0 10px;
+  }
+
+  h4 {
+    font-size: 1rem;
+    margin: 22px 0 8px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  p { margin: 12px 0; }
+  a { color: var(--accent); }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+                 "Liberation Mono", monospace;
+    font-size: 0.875em;
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 16px 0;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0;
+    font-size: 14.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    border-bottom-width: 2px;
+  }
+  tbody tr:hover { background: var(--code-bg); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 14px 20px;
+    margin: 20px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+  .callout.good { border-color: var(--good-border); background: var(--good-bg); }
+  .callout.bad  { border-color: var(--bad-border);  background: var(--bad-bg); }
+  .callout .label {
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+  }
+
+  ul, ol { padding-left: 24px; }
+  li { margin: 6px 0; }
+
+  .lede {
+    font-size: 1.06rem;
+    color: var(--muted);
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 22px 0;
+  }
+  .stat {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    background: var(--sidebar-bg);
+  }
+  .stat .n {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .l {
+    display: block;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .arch {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 22px;
+    margin: 20px 0;
+  }
+
+  /* 阶段时间线 */
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px 22px 18px;
+    margin: 22px 0;
+    background: var(--sidebar-bg);
+  }
+  .phase h3 {
+    margin-top: 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .phase .tag {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .phase .goal {
+    font-size: 13.5px;
+    color: var(--muted);
+    margin: 4px 0 12px;
+    padding-left: 2px;
+    border-left: 2px solid var(--border);
+    padding-left: 12px;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  .kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--code-bg);
+  }
+
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+    }
+    nav.toc ol { columns: 2; column-gap: 16px; }
+    nav.toc li { break-inside: avoid; }
+    main { padding: 36px 24px 80px; }
+  }
+  @media (max-width: 620px) {
+    nav.toc ol { columns: 1; }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.25rem; }
+    table { font-size: 13px; }
+    th, td { padding: 7px 9px; }
+  }
+
+  @media print {
+    nav.toc { display: none; }
+    .layout { display: block; }
+    main { padding: 0; max-width: none; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+    h2 { page-break-after: avoid; }
+    table, pre, .callout, .phase { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <div class="brand">接入新 NPU
+    <small>TorchTPU 硬件后端移植指南</small>
+  </div>
+  <ol>
+    <li><a href="#tldr">结论先行</a></li>
+    <li><a href="#seams">接缝在哪</a></li>
+    <li><a href="#fork">决定性分叉：编译器输入</a></li>
+    <li><a href="#pjrt">PJRT plugin 要实现什么</a></li>
+    <li><a href="#patches">TorchTPU 侧改动清单</a></li>
+    <li><a href="#blockers">真正会卡住的地方</a></li>
+    <li><a href="#composite">高层算子与 composite 语义</a></li>
+    <li><a href="#phases">分阶段路线</a></li>
+    <li><a href="#advice">两个务实建议</a></li>
+    <li><a href="#judgement">架构判断</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<h1>把新 NPU 接入 TorchTPU</h1>
+<p class="subtitle">
+  基于对 <code>google-pytorch/torch_tpu</code> @ <code>2092cb8a</code> 的静态分析，
+  梳理一个自带 AI 编译器和 runtime 的 NPU 如何接入这套系统。
+  前提：你的 runtime 能包一层 PJRT。
+</p>
+
+<div class="stat-row">
+  <div class="stat"><span class="n">7</span><span class="l">非测试硬编码点</span></div>
+  <div class="stat"><span class="n">39</span><span class="l">全仓 "tpu" 字面量</span></div>
+  <div class="stat"><span class="n">63%</span><span class="l">设备无关的算子代码</span></div>
+  <div class="stat"><span class="n">3</span><span class="l">真正的硬件耦合区</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="tldr">1. 结论先行</h2>
+
+<p class="lede">
+  TorchTPU 对 TPU 的绑定<strong>比表面看起来浅得多</strong>。核心接缝只有约
+  <strong>7 处非测试代码</strong>，其余 39 处 <code>"tpu"</code> 字面量大部分是测试和注释。
+  真正的硬件耦合集中在三处，其中一处（PJRT plugin）本来就是官方设计的替换点。
+</p>
+
+<div class="callout good">
+  <span class="label">最关键的一句证据</span>
+  <p><code>csrc/common/device_type.h:22</code> 的注释：</p>
+  <blockquote>
+    PyTorch always sees TorchTPU as the PrivateUse1 device, but
+    <strong>TorchTPU can be used for any XLA device type with a PjRt plugin</strong>.
+    However, some kernel implementations may only work on some specific physical XLA
+    device types.
+  </blockquote>
+  <p>这个抽象<strong>是为多设备准备的，只是还没被填满</strong>。</p>
+</div>
+
+<h3>代码量与设备相关性的分布</h3>
+
+<table>
+  <thead>
+    <tr><th>子系统</th><th class="num">行数</th><th>与硬件的关系</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>csrc/ops</code></td>
+      <td class="num">138,671</td>
+      <td><strong>完全设备无关</strong> —— 纯 StableHLO 构造</td>
+    </tr>
+    <tr>
+      <td><code>csrc/common</code></td>
+      <td class="num">26,197</td>
+      <td>基本无关，约 3 处 TPU 分支</td>
+    </tr>
+    <tr>
+      <td><code>csrc/eager</code></td>
+      <td class="num">21,717</td>
+      <td>基本无关（PjRt 抽象之上）</td>
+    </tr>
+    <tr>
+      <td><code>csrc/internal</code></td>
+      <td class="num">18,542</td>
+      <td><strong>部分耦合</strong> —— mosaic/Kiln、profiler、dynamism</td>
+    </tr>
+    <tr>
+      <td><code>csrc/distributed</code></td>
+      <td class="num">6,293</td>
+      <td><strong>部分耦合</strong> —— slicebuilder 拓扑发现</td>
+    </tr>
+    <tr>
+      <td><code>csrc/mlir</code></td>
+      <td class="num">2,812</td>
+      <td>设备无关（但优化假设源于 TPU 实测）</td>
+    </tr>
+    <tr>
+      <td><code>csrc/pjrt</code></td>
+      <td class="num">2,280</td>
+      <td><strong>主要改动点</strong></td>
+    </tr>
+    <tr>
+      <td><code>csrc/api</code></td>
+      <td class="num">492</td>
+      <td>设备无关（一个 handle 抽象）</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="seams">2. 接缝在哪</h2>
+
+<p>全仓 <code>grep -rn '"tpu"' csrc</code> 得到 39 处，但去掉测试和注释后，真正影响行为的只有 7 处。</p>
+
+<h3>真正的硬编码点</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>文件 : 行</th><th>内容</th><th>改法</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><code>csrc/pjrt/pjrt_client.cc:33</code></td>
+      <td><code>if (device_type == "tpu") return GetCApiClient("tpu", …)</code></td>
+      <td>加 <code>"npu"</code> 分支</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><code>csrc/pjrt/pjrt_state.h:46</code></td>
+      <td><code>std::string device_type = "tpu";</code></td>
+      <td>默认值改从环境变量读</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><code>csrc/pjrt/pjrt_state.cc:247</code></td>
+      <td><code>if (options_.device_type == "tpu")</code> → 选 plugin name + 分布式初始化</td>
+      <td>按设备分派，跳过 slicebuilder</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><code>csrc/pjrt/pjrt_state.cc:290</code></td>
+      <td><code>if (options_.device_type == "tpu") MaybeRegisterProfiler(…)</code></td>
+      <td>按设备分派</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><code>csrc/internal/device/device_rt.cc:162</code></td>
+      <td><code>const bool is_tpu = device_type == "tpu";</code></td>
+      <td>按设备分派 hooks</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><code>csrc/common/compilation.cc:406</code></td>
+      <td><code>client->platform_id() == xla::TpuId()</code></td>
+      <td>按 platform_id() 分派</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><code>src/torch_tpu/_loader.py:237</code></td>
+      <td><code>assert device == "tpu"</code></td>
+      <td>参数化</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>已经做对的地方</h3>
+
+<p>有两处代码已经正确地做了平台判断，非 TPU 平台会自动走旁路：</p>
+
+<h4><code>csrc/common/tpu_subslice_utils.cc:62</code></h4>
+
+<pre><code>if (client.platform_id() != xla::TpuId() || !build.has_device_assignment()) {
+  return std::nullopt;   // 非 TPU 自然跳过，安全
+}</code></pre>
+
+<h4><code>csrc/common/device_type.h:44</code></h4>
+
+<pre><code>// Instead of hard-coding "tpu", call this function to get the device type to
+// use in error messages so that we have the flexibility to support other
+// hardware types in the future if we want to.
+[[nodiscard]] inline std::string GetPrivateUse1DeviceDebugName() {
+  return "tpu";
+}</code></pre>
+
+<p>
+  这个函数被 <strong>18 个文件</strong>调用（都是错误消息拼接）。函数体虽然还硬编码返回
+  <code>"tpu"</code>，但<strong>作者已经把钩子留出来了</strong> —— 改成读全局配置即可，
+  18 个调用点一个都不用动。
+</p>
+
+<div class="callout">
+  <span class="label">这说明什么</span>
+  <p>
+    这不是一个「必须 fork 才能改」的代码库。几处关键位置都预留了扩展点，
+    只是还没被第二个硬件填充。这对你是好消息 —— 改动可以做得无侵入，
+    有希望提 PR 回上游。
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="fork">3. 决定性分叉：你的编译器接受什么输入</h2>
+
+<p>
+  这是整个接入工作的分水岭。TorchTPU 的 lowering 目标<strong>只有一个</strong>：
+</p>
+
+<div class="arch">PyTorch 算子  →  StableHLO (MLIR)  →  [你的编译器]  →  可执行体</div>
+
+<p>
+  唯一的编译入口是 <code>csrc/common/compilation.cc</code> 里的
+  <code>CompileAndLoadMlirModule(client, mlir_module, options)</code>，
+  它把 MLIR 模块交给 <code>PjRtClient</code>。也就是说：
+</p>
+
+<div class="callout warn">
+  <span class="label">硬事实</span>
+  <p>
+    你的 PJRT plugin 的 <code>PJRT_Client_Compile</code> <strong>收到的就是
+    StableHLO MLIR 字节码</strong>。没有中间层，没有别的方言。
+  </p>
+</div>
+
+<h3>三条路线</h3>
+
+<table>
+  <thead>
+    <tr><th>路线</th><th>前提</th><th>工作量</th><th>评价</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>A. plugin 内转译</strong></td>
+      <td>你的编译器前端能直接吃 StableHLO / MHLO / 标准 MLIR</td>
+      <td><strong>最小</strong>：TorchTPU 侧零算子改动</td>
+      <td><strong>推荐</strong></td>
+    </tr>
+    <tr>
+      <td><strong>B. 自建前端</strong></td>
+      <td>你的编译器只接受自家 IR</td>
+      <td><strong>最大</strong>：要写 StableHLO → 你的 IR 的完整前端</td>
+      <td>取决于 IR 差异</td>
+    </tr>
+    <tr>
+      <td><strong>C. 注册成 XLA backend</strong></td>
+      <td>你的编译器能作为 XLA 的一个 backend</td>
+      <td>中，但耦合 XLA 内部 API</td>
+      <td>不推荐</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>路线 B 的真实难点</h3>
+
+<p>
+  TorchTPU 会为 853 个 <code>OpName</code> 生成各种 StableHLO 组合。你的前端需要覆盖的不只是
+  <code>stablehlo.add</code> / <code>dot_general</code> 这类基础算子，还包括：
+</p>
+
+<ul>
+  <li><strong>复合模式</strong>：softmax、layer_norm、RMSNorm 会被拆成
+      <code>reduce</code> + <code>subtract</code> + <code>exp</code> + <code>divide</code>
+      的序列，而不是单个算子</li>
+  <li><strong>动态形状</strong>：<code>stablehlo.set_dimension_size</code>、
+      <code>dynamic_update_slice</code>、bounded tensor types</li>
+  <li><strong>collective</strong>：<code>all_reduce</code> /
+      <code>all_gather</code> / <code>reduce_scatter</code> / <code>all_to_all</code>
+      （带 <code>replica_groups</code>）</li>
+  <li><strong>控制流</strong>：<code>while</code>、<code>case</code>
+      （来自 <code>scan</code> / <code>associative_scan</code> HOP）</li>
+</ul>
+
+<h3>为什么推荐 A</h3>
+
+<p>
+  PJRT C-API 是 XLA 官方<strong>为第三方硬件设计的稳定边界</strong>，也是
+  <code>xla_tpu</code> 自己走的路 —— TorchTPU 用的是
+  <code>xla::GetCApiClient</code>（C-API client），而不是进程内 client。
+  这意味着你的 plugin 和 TPU 的 plugin 在架构上是平级的。
+</p>
+
+<pre><code>// csrc/pjrt/pjrt_client.cc
+absl::StatusOr&lt;absl_nonnull std::unique_ptr&lt;xla::PjRtClient&gt;&gt; GetPjRtClient(
+    const std::string&amp; device_type, int64_t tpu_premapped_buffer_size) {
+  if (device_type == "tpu") {
+    return AdaptXlaError(
+        xla::GetCApiClient(
+            "tpu", {{"premapped_buffer_size", tpu_premapped_buffer_size}}),
+        /*context=*/"failed to retrieve the PjRt client");
+  }
+  return TT_ERROR(error::kInvalidArgument)
+         &lt;&lt; "unable to get PJRT client for unsupported device type: "
+         &lt;&lt; device_type;
+}</code></pre>
+
+<p>
+  <code>GetCApiClient</code> 走的是 <code>xla::LoadPjrtPlugin</code> 那套动态加载机制 ——
+  你的 <code>libnpu_pjrt_plugin.so</code> 只要导出 <code>GetPjrtApi()</code>，就能被同样地加载。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="pjrt">4. PJRT plugin 要实现什么</h2>
+
+<p>
+  下面是 TorchTPU 实际调用到的 PJRT 能力清单（从代码里 grep 出来的，不是猜的）。
+</p>
+
+<table>
+  <thead>
+    <tr><th>能力</th><th>用途</th><th>代码位置</th><th>必需性</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>PJRT_Client_Create</code></td>
+      <td>创建 client</td>
+      <td><code>pjrt_state.cc:275</code></td>
+      <td><strong>必需</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_Client_Compile</code></td>
+      <td><strong>吃 StableHLO</strong></td>
+      <td><code>compilation.cc</code></td>
+      <td><strong>必需</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_LoadedExecutable_Execute</code></td>
+      <td>执行</td>
+      <td><code>pjrt_execute.cc</code></td>
+      <td><strong>必需</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_Buffer_*</code></td>
+      <td>缓冲区生命周期</td>
+      <td>全局</td>
+      <td><strong>必需</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_Client_BufferFromHostBuffer</code></td>
+      <td>H2D 传输</td>
+      <td><code>pjrt_transfer.cc</code></td>
+      <td><strong>必需</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_Buffer_ToHostBuffer</code> / <code>ToLiteral</code></td>
+      <td>D2H 传输</td>
+      <td><code>pjrt_transfer.cc</code></td>
+      <td><strong>必需</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_Event_OnReady</code></td>
+      <td>异步完成回调</td>
+      <td>全局</td>
+      <td><strong>必需</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_Device_*</code>（attributes / memory space）</td>
+      <td>设备属性</td>
+      <td>全局</td>
+      <td><strong>必需</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_LoadedExecutable_Serialize</code> / <code>Deserialize</code></td>
+      <td><strong>编译缓存落盘</strong></td>
+      <td><code>compilation_cache_utils.cc:203</code></td>
+      <td><strong>强烈建议</strong></td>
+    </tr>
+    <tr>
+      <td><code>PJRT_Client_GetTopologyDescription</code></td>
+      <td>设备拓扑（分布式）</td>
+      <td><code>tpu_subslice_utils.cc</code></td>
+      <td>分布式时必需</td>
+    </tr>
+    <tr>
+      <td><code>PJRT_RawBuffer_Extension</code></td>
+      <td><strong>按字节偏移的零拷贝 DMA</strong></td>
+      <td><code>pjrt_transfer.cc:305</code></td>
+      <td>性能相关</td>
+    </tr>
+    <tr>
+      <td><code>PJRT_Profiler_Extension</code></td>
+      <td>profiler 接入</td>
+      <td><code>pjrt_state.cc</code></td>
+      <td>可选</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>两个必须注意的点</h3>
+
+<div class="callout bad">
+  <span class="label">1. Serialize / Deserialize 不是可选的</span>
+  <p>编译缓存 tier 2 / tier 3 完全依赖它：</p>
+  <pre><code>// csrc/common/compilation_cache_utils.cc:203
+executable-&gt;GetExecutable()-&gt;SerializeExecutable()</code></pre>
+  <p>
+    不支持的话，tier 2/3 全部失效，<strong>每个新进程都要重编译全部图</strong>。
+    对 <code>torch.compile</code> 的大模型来说，这是分钟级 vs 秒级的差别。
+  </p>
+</div>
+
+<div class="callout warn">
+  <span class="label">2. RawBuffer 可以退化，但有代价</span>
+  <p>
+    <code>TpuAsyncDmaCopyDtoH</code> / <code>HtoD</code> 用 PjRt RawBuffer C-API 做
+    按字节偏移的拷贝。如果你们的 runtime 没有对应的 raw buffer 抽象，
+    可以退化到 <code>ToLiteral</code> —— <strong>功能正确，但异步 DMA 路径会变慢</strong>。
+  </p>
+</div>
+
+<h3>plugin 版本号必须正确</h3>
+
+<p>编译缓存的二进制指纹包含 <code>GetPjRtVersion()</code>：</p>
+
+<pre><code>// csrc/common/compilation_cache_utils.cc
+FingerprintCat(kTorchTpuBinaryVersion /* = 6 */, GetPjRtVersion())</code></pre>
+
+<p>
+  你的 plugin 必须返回<strong>有意义的版本号</strong>，否则缓存会跨版本误命中 ——
+  编译器升级后旧的可执行体被加载，行为不可预测。
+</p>
+
+<p>
+  另外，缓存目录名 <code>/dev/shm/torch_tpu_cache/&lt;cache_name&gt;/</code>
+  应当带上设备类型，避免 TPU 和 NPU 在同一台机器上互相污染。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="patches">5. TorchTPU 侧改动清单</h2>
+
+<h3>5.1 扩展设备类型枚举</h3>
+
+<p><code>csrc/common/device_type.h</code></p>
+
+<pre><code>enum class PjRtDeviceType {
+  kUnknown = 0,
+  kTpu,
+  kNpu,        // 新增
+};</code></pre>
+
+<p>并让 <code>GetPrivateUse1DeviceDebugName()</code> 读全局配置而非硬编码（18 个调用点不用动）。</p>
+
+<h3>5.2 设备类型选择</h3>
+
+<p><code>csrc/pjrt/pjrt_state.h:46</code></p>
+
+<pre><code>struct PjRtInitializationOptions {
+  std::string device_type = "tpu";   // 改为从环境变量读取，如 TORCH_TPU_DEVICE_TYPE
+  ...
+};</code></pre>
+
+<h3>5.3 client 创建分派</h3>
+
+<p><code>csrc/pjrt/pjrt_client.cc</code></p>
+
+<pre><code>if (device_type == "tpu") {
+  return AdaptXlaError(xla::GetCApiClient("tpu", {{"premapped_buffer_size", ...}}), ...);
+}
+if (device_type == "npu") {                       // 新增
+  return AdaptXlaError(xla::GetCApiClient("npu", {}), ...);
+}</code></pre>
+
+<p>
+  <strong>关键点</strong>：插件名来自 <code>xla/pjrt/plugin/plugin_names.h</code>
+  （<code>kTpuPjrtName</code> 就在那里）。你需要让 XLA 认识 <code>"npu"</code> 这个插件名，
+  或者绕过它、直接用 <code>GetPjrtApi()</code> 拿到 C-API 表指针自己构造 client。
+</p>
+
+<h3>5.4 初始化分支</h3>
+
+<p><code>csrc/pjrt/pjrt_state.cc:247</code> 附近挂了四块 TPU 专有逻辑，需要按设备跳过：</p>
+
+<table>
+  <thead><tr><th>逻辑</th><th>作用</th><th>NPU 怎么办</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>GetDistributedWorkerConfiguration()</code><br>
+          <code>InitializeDistributedEnvironment()</code></td>
+      <td>TPU slicebuilder 的 ICI mesh 构建</td>
+      <td><strong>替换</strong>为你的拓扑发现</td>
+    </tr>
+    <tr>
+      <td><code>MaybeRegisterProfiler(plugin_name)</code></td>
+      <td>发现 <code>PJRT_Profiler_Extension</code></td>
+      <td>有就调，没有就跳过</td>
+    </tr>
+    <tr>
+      <td><code>MaybeSkipMegascaleForLaterClients()</code></td>
+      <td>Megascale 专有</td>
+      <td><strong>跳过</strong></td>
+    </tr>
+    <tr>
+      <td><code>TPU_PREMAPPED_BUFFER_SIZE</code> 读取</td>
+      <td>防止 libtpu 写入 4 GiB 默认值</td>
+      <td><strong>跳过</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.5 编译选项</h3>
+
+<p><code>csrc/common/compilation.cc:406</code></p>
+
+<pre><code>static absl::StatusOr&lt;bool&gt; SetTpuOptions(xla::CompileOptions&amp; options) {
+  TT_ASSIGN_OR_RETURN(const xla::PjRtClient* const client,
+                      PjrtBackend::GetInstance().GetClient());
+  const bool is_tpu = client-&gt;platform_id() == xla::TpuId();
+  if (is_tpu) {
+    options.env_option_overrides = {{
+        {"xla_tpu_vmem_scavenging_mode", std::string("SAFE_IFF_KERNEL_REQUIRED")},
+    }};
+  }
+  return is_tpu;
+}</code></pre>
+
+<p>
+  你的平台会返回自己的 <code>platform_id()</code>（PJRT plugin 自己定义），
+  这段自然跳过。<strong>但要注意下一节提到的参数元组化。</strong>
+</p>
+
+<h3>5.6 参数上限与元组化</h3>
+
+<p><code>csrc/common/compilation.cc:94</code> 和 <code>:243</code></p>
+
+<pre><code>// The number of arguments above which `CompileAndLoadMlirModule` passes a TPU
+// program's arguments as a single tuple, like JAX.
+constexpr int kTupleArgumentsThreshold = 2000;
+
+if (!options.parameter_is_tupled_arguments &amp;&amp;
+    client.platform_id() == xla::TpuId()) {
+  // 参数超过 2000 个时打包成单个 tuple 参数
+}</code></pre>
+
+<div class="callout">
+  <span class="label">这段存在的理由</span>
+  <p>
+    注释写得很清楚 —— XLA:TPU 限制程序参数个数约 <strong>16K</strong>（v7）。
+    一个 52 层的模型把每层权重都作为参数传入很容易撞上。
+  </p>
+  <p>
+    <strong>如果你的 runtime 没有这个限制，这段跳过即可。</strong>
+    如果有类似限制，需要为你的平台单独设阈值 —— 2000 这个数字是 TPU 调出来的。
+  </p>
+</div>
+
+<h3>5.7 Python 侧</h3>
+
+<p><code>src/torch_tpu/_loader.py</code></p>
+
+<pre><code>assert device == "tpu"        # :237  改为参数校验</code></pre>
+
+<p>以及大量 <code>"tpu"</code> 字符串需要参数化：</p>
+
+<ul>
+  <li>Dynamo backend 名（<code>registry.register_backend(name="tpu")</code>）</li>
+  <li><code>rename_privateuse1_backend("tpu")</code></li>
+  <li><code>tpu_dist</code> 进程组后端名</li>
+  <li><code>torch.tpu.*</code> 公开 API 命名空间（见 <code>_internal/public_api.py</code>）</li>
+</ul>
+
+<p><code>_loader.py:236</code> 有一行诚实的注释：<code># Only "tpu" is supported.</code></p>
+
+<div class="callout warn">
+  <span class="label">公开 API 的命名是个策略问题</span>
+  <p>
+    <code>public_api.py</code> 把整个 API 面挂在 <code>torch.tpu.*</code> 下
+    （<code>torch.tpu.ops</code>、<code>torch.tpu.pallas</code>、
+    <code>torch.tpu.optimizers</code>…）。
+    你的 NPU 是叫 <code>torch.npu.*</code>，还是复用 <code>torch.tpu.*</code>？
+    这会显著影响用户体验和上游 PR 的难度。
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="blockers">6. 真正会卡住的地方</h2>
+
+<h3>6.1 TPU 专有的硬件语义（最麻烦）</h3>
+
+<p>统计 TPU 物理概念在 C++ 里的分布：</p>
+
+<table>
+  <thead><tr><th>概念</th><th class="num">涉及文件数</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>mosaic</code></td><td class="num">53</td><td>TPU 专有的低层 IR</td></tr>
+    <tr><td><code>SparseCore</code></td><td class="num">32</td><td>TPU 专有的稀疏计算单元</td></tr>
+    <tr><td><code>Mosaic</code></td><td class="num">19</td><td>同上</td></tr>
+    <tr><td><code>VMEM</code></td><td class="num">15</td><td>TensorCore 的片上内存</td></tr>
+    <tr><td><code>SMEM</code></td><td class="num">10</td><td>SparseCore 的片上内存</td></tr>
+    <tr><td><code>TensorCore</code></td><td class="num">4</td><td>矩阵计算单元</td></tr>
+  </tbody>
+</table>
+
+<p>这些不是「配置一下就能换」的，它们在语义上依赖 TPU 的物理结构：</p>
+
+<ul>
+  <li>
+    <strong><code>CorePinningMode { kUnpinned, kTensorCore, kSparseCore }</code></strong>
+    —— 算子可以被钉到特定核心执行
+  </li>
+  <li>
+    <strong><code>MemorySpace { kVmem, kSmem, kHbm }</code></strong>
+    —— Kiln DSL 直接暴露三层内存
+  </li>
+  <li>
+    <strong>Pallas / Kiln kernel</strong> —— 手写 Mosaic，绑定
+    <code>tpu_custom_call</code>
+  </li>
+</ul>
+
+<div class="callout bad">
+  <span class="label">这不是「降级」，是「不存在」</span>
+  <p>
+    如果你的 NPU 没有对应的异构核心概念，这部分能力直接为空。
+    <strong>但这不影响主线功能</strong> —— 它们是可选加速路径，不是必需路径。
+  </p>
+</div>
+
+<h3>6.2 特定算子的 custom call</h3>
+
+<p>这些算子<strong>不是纯 StableHLO</strong>，依赖 runtime 提供对应实现：</p>
+
+<table>
+  <thead>
+    <tr><th>Custom call</th><th>算子</th><th>能否先跳过</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>tpu_custom_call</code></td>
+      <td>Pallas / Kiln kernel、precompiled kernels</td>
+      <td>能（不用 Pallas 即可）</td>
+    </tr>
+    <tr>
+      <td><code>LuDecomposition</code></td>
+      <td><code>torch.linalg.lu</code></td>
+      <td>能（回退到分解实现）</td>
+    </tr>
+    <tr>
+      <td><code>Qr</code> / <code>ProductOfElementaryHouseholderReflectors</code></td>
+      <td><code>torch.linalg.qr</code></td>
+      <td>能</td>
+    </tr>
+    <tr>
+      <td><code>PadRealToStatic</code></td>
+      <td>动态形状 pad</td>
+      <td><strong>不能</strong>（bounded dynamism 依赖它）</td>
+    </tr>
+    <tr>
+      <td><code>SparseMapRow</code> / <code>SparseIota</code> / <code>SparseGather</code></td>
+      <td>TorchRec 类稀疏算子</td>
+      <td>能</td>
+    </tr>
+    <tr>
+      <td><code>ragged_all_to_all</code></td>
+      <td>不等分 all-to-all</td>
+      <td>能（用普通 all_to_all 替代）</td>
+    </tr>
+    <tr>
+      <td><code>annotate_device_placement</code></td>
+      <td><code>ao.offload</code></td>
+      <td>能（Pinned host memory）</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="label">PadRealToStatic 是硬依赖</span>
+  <p>
+    只要你想用 bounded dynamism（LLM 解码场景），就必须实现它，
+    或者在 <code>_can_use_pad_real_to_static</code> 里全返回 False，
+    走 <code>_set_dimension_logical_size</code> 回退路径。
+  </p>
+  <p>
+    后者能在处理 64/128 位元素类型时保持正确，但<strong>性能会差一些</strong>。
+  </p>
+</div>
+
+<h3>6.3 分布式</h3>
+
+<p><code>csrc/distributed/</code> 6,293 行，其中相当一部分是 TPU 专有的：</p>
+
+<ul>
+  <li><code>slicebuilder/discovery.cc</code> —— 从
+      <code>TORCH_TPU_SLICEBUILDER_ADDRESSES</code> + <code>TORCH_TPU_TOPOLOGY</code>
+      构建 ICI mesh</li>
+  <li><code>O(节点数)</code> 而非 <code>O(rank数)</code> 的 store 多路复用
+      （8K 芯片场景下这个差异是致命的）</li>
+  <li><code>WindowTpu</code> —— 单边 RMA，走 PjRt raw DMA 分条带</li>
+</ul>
+
+<div class="callout good">
+  <span class="label">好消息</span>
+  <p>
+    collective 本身是降低成 <code>stablehlo.all_reduce</code> /
+    <code>all_gather</code> / <code>reduce_scatter</code> / <code>all_to_all</code>，
+    这些是<strong>标准 StableHLO collective</strong>。如果你的 runtime 实现了 collective 语义，
+    主体逻辑是设备无关的。
+  </p>
+  <p>
+    <strong>你需要替换的</strong>是初始化路径：<code>GetDistributedWorkerConfiguration()</code>
+    怎么发现拓扑。如果你有正常的 hostname / rank 机制，这部分可以大幅简化。
+  </p>
+</div>
+
+<h3>6.4 性能语义的隐性假设</h3>
+
+<p>几处硬编码了 TPU 的物理参数：</p>
+
+<table>
+  <thead>
+    <tr><th>假设</th><th>出处</th><th>你的 NPU 需要什么</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>tile 宽度 = 128</td>
+      <td>动态形状分桶 <code>bucket_size</code></td>
+      <td>改成你的向量宽度</td>
+    </tr>
+    <tr>
+      <td>参数上限 ~16K</td>
+      <td><code>kTupleArgumentsThreshold = 2000</code></td>
+      <td>通常更大，可关掉</td>
+    </tr>
+    <tr>
+      <td>O1/O2 的 paging 地板 ≈ 2 ms</td>
+      <td><code>materialization_heuristics.h</code></td>
+      <td>完全不同的启发式</td>
+    </tr>
+    <tr>
+      <td>卷积的 O1/O2 交叉点</td>
+      <td>同上（35x-106x 加速区间）</td>
+      <td><strong>必须重新测</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code>csrc/eager/materialization_heuristics.h</code> 的原文：</p>
+
+<pre><code>// - O1 wins on: small batches (batch &lt;= 1), vector-aligned widths (W % 128 == 0),
+//   channels_last (NHWC) layouts, and low compute volume (&lt; 100M MACs). In
+//   these cases, compact binaries fit in on-chip IMEM without overlay paging,
+//   avoiding O2's fixed ~2.0 ms execution latency floor.
+// - O2 wins on: heavy unaligned NCHW convolutions (batch &gt; 1, W % 128 != 0,
+//   MACs &gt;= 100M). ... achieving 35x-106x speedups that easily amortize
+//   the ~2.0 ms overlay paging cost.</code></pre>
+
+<div class="callout bad">
+  <span class="label">这段数字是 TPU 实测出来的</span>
+  <p>
+    <code>~2.0 ms</code> 的 overlay paging 地板、<code>35x-106x</code> 的加速区间，
+    在你的硬件上<strong>完全不适用</strong>。必须重新做这组实验，
+    否则会做出错误的编译决策 —— 而且这种错误<strong>不会报错，只会变慢</strong>。
+  </p>
+</div>
+
+<h3>6.5 一处真的重复实现</h3>
+
+<p>
+  view decomposition 在 C++ 和 Python 里各实现一遍：
+</p>
+
+<ul>
+  <li><code>csrc/ops/view_decomposition/</code>（10,824 行）—— 静态路径</li>
+  <li><code>_internal/compile/dynamic/view_decomposition.py</code>（731 行，
+      用 SymPy 做符号代数）—— 动态路径</li>
+</ul>
+
+<p>
+  这是整个代码库里唯一一处明显的重复实现，<strong>两套算法都要验证在你的平台上正确</strong>。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="composite">7. 高层算子与 composite 语义</h2>
+
+<p class="lede">
+  「composite op」在 TorchTPU 里有<strong>三个完全不同的含义</strong>，处理方式完全不同。
+  混淆这三层，是移植时最容易走错的地方。
+</p>
+
+<table>
+  <thead>
+    <tr><th>层面</th><th>含义</th><th>例子</th><th>TorchTPU 的策略</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>ATen</strong></td>
+      <td><code>CompositeImplicitAutograd</code>，由 PyTorch 用基本算子组合实现</td>
+      <td><code>aten::linear</code><br><code>aten::native_layer_norm</code></td>
+      <td><strong>拦截</strong>，自己注册，阻止分解</td>
+    </tr>
+    <tr>
+      <td><strong>StableHLO</strong></td>
+      <td>规范里的高层算子</td>
+      <td><code>stablehlo.convolution</code><br><code>stablehlo.reduce_window</code></td>
+      <td><strong>保留</strong>，原样传给编译器</td>
+    </tr>
+    <tr>
+      <td><strong>Mosaic / 自定义</strong></td>
+      <td>完全自定义的 kernel</td>
+      <td><code>tpu_custom_call</code></td>
+      <td><strong>包成 custom call</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>7.1 ATen composite op：TorchTPU 反过来阻止分解</h3>
+
+<p>
+  这是最反直觉的一点。<code>csrc/common/op_name_stack.cc</code> 里有一个
+  <code>known_composite_ops</code> 列表（150 项），但它的语义是
+  <strong>「允许被分解的白名单」</strong>，而不是「要保持的清单」：
+</p>
+
+<pre><code>// csrc/common/op_name_stack.cc:45
+// DO NOT ADD NEW ENTRIES TO THIS LIST! Our goal is to shrink the list
+// and eventually remove it.</code></pre>
+
+<p>检查逻辑（<code>op_name_stack.cc:219</code>）：</p>
+
+<pre><code>if (!stack_.empty()) {
+  // This op is delegated from the op at the top of the stack.
+  const OpName composite = stack_.top();
+  if (!known_composite_ops-&gt;contains(composite)) {
+    const std::string msg = absl::StrCat(
+        "CompositeOpCheck: Op ", ToString(composite), " is decomposed into ",
+        ToString(op_name),
+        ". This is unusually not allowed - please implement the ",
+        ToString(composite),
+        " op by lowering it to SHLO instead. This is a TorchTPU bug.");
+    ABSL_LOG(FATAL) &lt;&lt; msg;  // CRASH_OK
+  }
+}
+stack_.push(op_name);</code></pre>
+
+<h4>机制</h4>
+
+<p>
+  <code>TT_KERNEL</code> 会压栈。如果 <code>aten::linear</code> 的 kernel 内部又调了
+  <code>aten::mm</code>，栈顶是 <code>kLinear</code> → 压入 <code>kMmOut</code>。
+  如果 <code>kLinear</code> 不在白名单，<strong>直接 abort</strong>。
+</p>
+
+<p>而且有硬性断言防止白名单变大：</p>
+
+<pre><code>ABSL_CHECK_EQ(  // CRASH_OK
+    known_composite_ops-&gt;size(), 150 /* DO NOT increase this! */)
+    &lt;&lt; "The size of known_composite_ops MUST NOT go up. "
+       "If you are removing entries from known_composite_ops, please LOWER "
+       "the expected size in the comparison to match the new size and "
+       "prevent regression. If you are adding entries, please REVERT the "
+       "addition and implement the ops by lowering them to SHLO directly, "
+       "without delegating to other ops. DO NOT fix this crash by "
+       "increasing the expected size!";</code></pre>
+
+<div class="callout">
+  <span class="label">设计意图</span>
+  <p>
+    每个算子都必须<strong>直接生成 StableHLO</strong>，不能靠调用其他算子组合。
+    理由是缓存键的粒度 —— 如果 <code>linear</code> 展开成 <code>mm</code> + <code>add</code>，
+    <code>kLinear</code> 的 <code>param_keys</code> 就失去意义，而且编译图会变碎。
+  </p>
+</div>
+
+<p>
+  所以对 <code>aten::linear</code>、<code>native_layer_norm</code>、<code>rms_norm</code>
+  这类「复合算子」，TorchTPU 是主动接管的：
+</p>
+
+<pre><code>// csrc/eager/tpu_aten_kernels.cc
+ImplStable&lt;OpName::kLinear&gt;(m, AtenLinear);
+ImplStable&lt;OpName::kNativeLayerNorm&gt;(m, AtenNativeLayerNorm);
+ImplStable&lt;OpName::kRmsNorm&gt;(m, AtenRmsNorm);</code></pre>
+
+<p>
+  它们在 PrivateUse1 上直接注册，<code>CompositeImplicitAutograd</code> 的默认分解
+  <strong>根本不会发生</strong>。
+</p>
+
+<h3>7.2 StableHLO 层：高层算子确实被保留</h3>
+
+<p>这才是移植时真正关心的部分。<strong>TorchTPU 生成的 StableHLO 里，有一批高层算子没有被打散成基础算子</strong>：</p>
+
+<table>
+  <thead>
+    <tr><th>StableHLO 算子</th><th>出处</th><th>保留理由</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>stablehlo.convolution</code></td>
+      <td><code>ops/op_builder_utils.cc:839</code></td>
+      <td>让编译器做 tiling</td>
+    </tr>
+    <tr>
+      <td><code>stablehlo.reduce_window</code></td>
+      <td><code>ops/pooling/</code>、<code>ops/unique/</code></td>
+      <td>pooling 的高效表示</td>
+    </tr>
+    <tr>
+      <td><code>stablehlo.batch_norm_training</code><br>
+          <code>stablehlo.batch_norm_inference</code></td>
+      <td><code>ops/native_batch_norm/native_batch_norm.cc:386,424</code></td>
+      <td>保留给 XLA 决定分解策略</td>
+    </tr>
+    <tr><td><code>stablehlo.sort</code></td><td><code>ops/sort/</code></td><td>—</td></tr>
+    <tr><td><code>stablehlo.scatter</code> / <code>gather</code></td><td>全局</td><td>—</td></tr>
+    <tr>
+      <td><code>stablehlo.triangular_solve</code> / <code>cholesky</code></td>
+      <td><code>ops/linalg/</code></td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td><code>chlo.scan</code>（<code>is_associative=true</code>）</td>
+      <td><code>internal/compile/dispatch_scan.cc</code></td>
+      <td>映射到 XLA 的 <code>ScanEmitter</code></td>
+    </tr>
+    <tr>
+      <td><code>stablehlo.fft</code>、<code>rng_bit_generator</code></td>
+      <td>全局</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code>dispatch_scan.cc:327</code> 的注释说明了保留的代价：</p>
+
+<blockquote>
+  XLA's TPU <code>ScanEmitter</code> requires:
+  <br>1. No external non-scanned inputs (<code>total_inputs == num_scan_inputs</code>),
+  because <code>ChloPreserveHighLevelOpsPass</code> outlines <code>chlo.scan</code>
+  into a composite function taking only <code>(inputs, inits)</code>.
+  <br>2. Statically shaped non-complex tensors of identical shape across all
+  scanned inputs (<code>ScanEmitter</code> vectorizes across a uniform tile shape
+  and does not support complex element types).
+  <br>3. Every argument and return value of <code>main_func</code> has the per-step
+  <code>slice_shape</code>, and every body op is an elementwise StableHLO op.
+</blockquote>
+
+<p>
+  不满足这三条就退化到 <code>stablehlo.while</code> 顺序循环。
+  <strong>这说明保留高层算子是有条件的，不是无条件的。</strong>
+</p>
+
+<h3>7.3 <code>stablehlo.composite</code> 完全没被使用</h3>
+
+<div class="callout warn">
+  <span class="label">扫全仓结论</span>
+  <p>
+    全仓<strong>零处</strong>使用 <code>stablehlo.composite</code>。这是个遗憾，
+    因为它正是 StableHLO 规范里为「保留复合语义给后端」设计的机制。
+  </p>
+</div>
+
+<pre><code>%0 = stablehlo.composite "my.attention"(%q, %k, %v) {
+  decomposition = @attention_impl
+} : (tensor&lt;...&gt;, tensor&lt;...&gt;, tensor&lt;...&gt;) -&gt; tensor&lt;...&gt;</code></pre>
+
+<p>
+  它带一个 <code>decomposition</code> region，后端不认识时可以展开，认识时可以直接吃掉。
+</p>
+
+<h3>7.4 把语义保留给自研编译器的三条路</h3>
+
+<h4>路线 1：用已有的高层 StableHLO 算子（零成本）</h4>
+
+<p>
+  如果你的编译器已经能识别 <code>stablehlo.convolution</code>、<code>reduce_window</code>、
+  <code>chlo.scan</code> 等，<strong>这些已经在传给你的路上了</strong>，不需要任何改动。
+</p>
+
+<p>
+  先做的验证是把 <code>TpuCompileDebug.stablehlo_forward_text</code> 导出来，
+  看这些高层算子有没有被 TorchTPU 自己的 pass 打散。
+</p>
+
+<p>
+  <strong>注意</strong> <code>AddShloPasses</code> 里的
+  <code>createStablehloTargetIndependentOptimizationPass()</code> ——
+  这是 StableHLO 官方的通用优化 pass，会下沉一部分高层算子。
+  如果它把你想要的东西打散了，可以在 <code>csrc/mlir/pipeline.cc</code> 里注释掉这一行。
+</p>
+
+<h4>路线 2：引入 <code>stablehlo.composite</code>（中等工作量，推荐）</h4>
+
+<p>这是最符合需求的方案。改动点：</p>
+
+<ol>
+  <li>在 <code>csrc/ops/</code> 里，把关心的算子（比如
+      <code>scaled_dot_product_attention</code>）改成生成
+      <code>stablehlo.composite</code></li>
+  <li>加一个 <code>TORCH_TPU_INTERNAL_...</code> 环境变量控制「保留还是展开」，便于 A/B</li>
+  <li>在 <code>pipeline.cc</code> 的 <code>AddShloPasses</code> 里加一个 pass：
+      根据开关决定是否 decompose composite</li>
+</ol>
+
+<table>
+  <thead><tr><th>优点</th><th>代价</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>
+        语义边界清晰；<code>stablehlo.composite</code> 有标准定义；
+        你的编译器可以按名字识别
+      </td>
+      <td>
+        需要改 TorchTPU 代码；要处理 composite 的 <code>decomposition</code> region
+        在 <code>split_module</code> / 缓存键上的影响
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>路线 3：包成 <code>tpu_custom_call</code>（最灵活，但最重）</h4>
+
+<p>已有的机制在 <code>csrc/ops/custom_kernels.h</code>：</p>
+
+<pre><code>// Registers a custom kernel. This can be any kernel that has been
+// serialized into an MLIR module string. ...
+//  - name: The name of the custom kernel (user-provided).
+//  - kwargs: a string representation of the keyword arguments ...
+//  - mlir_module_string: The serialized representation of the MLIR
+//    for an mlir::ModuleOp. This must be a single MLIR module, with a @main
+//    function, which may have dynamic shapes (e.g. tensor&lt;?xf32&gt;).
+bool RegisterCustomKernel(std::string_view name, std::string_view kwargs,
+                          std::string_view mlir_module_string);</code></pre>
+
+<p>
+  以及 Python 侧的 <code>torch.tpu.pallas.jax_op</code> /
+  <code>torch.library.custom_op</code>。
+</p>
+
+<div class="callout bad">
+  <span class="label">代价</span>
+  <p>
+    把整个子图变成一个<strong>不透明的 custom call</strong>，里面的 MLIR 由你完全控制。
+    但 TorchTPU 会失去对内部的可见性 —— 不能做 fusion、不能跨算子优化、
+    缓存键只按 <code>(name, kwargs, shapes)</code> 走。
+    而且 <code>PadRealToStatic</code> 这类动态形状算子<strong>不能塞进去</strong>。
+  </p>
+</div>
+
+<h3>7.5 建议路径</h3>
+
+<div class="phase">
+  <h3>第一步：先测现状 <span class="tag">1 天</span></h3>
+
+  <pre><code>debugs = []
+torch.compile(model, backend="tpu", options={"debug_callback": debugs.append})
+# 跑一步 forward + backward
+d = debugs[-1]
+print(d.stablehlo_forward_text)</code></pre>
+
+  <p><strong>数一数里面有多少高层算子</strong>。具体看：</p>
+
+  <ul>
+    <li><code>stablehlo.convolution</code> 还在吗？还是变成了
+        <code>dot_general</code> + <code>pad</code>？</li>
+    <li><code>stablehlo.reduce_window</code> 还在吗？</li>
+    <li><code>chlo.scan</code> 还在吗？还是退化成 <code>stablehlo.while</code>？</li>
+    <li><code>stablehlo.batch_norm_training</code> 还在吗？</li>
+  </ul>
+
+  <div class="callout good">
+    <p>
+      如果这些都已经在，<strong>你就不需要做任何事</strong> ——
+      直接让编译器吃这些高层算子，比吃打散后的形式效率高得多。
+    </p>
+  </div>
+</div>
+
+<div class="phase">
+  <h3>第二步：按需加 composite <span class="tag">2–4 周</span></h3>
+
+  <p>
+    只有在你确实需要「某个复合语义完整传下去」时，才用路线 2 加
+    <code>stablehlo.composite</code>。典型场景：
+  </p>
+
+  <ul>
+    <li><strong>attention</strong>（SDPA / flash）</li>
+    <li><strong>MoE grouped matmul</strong></li>
+    <li><strong>归一化 + 缩放融合</strong></li>
+  </ul>
+
+  <p><strong>倾向路线 2 而不是路线 3</strong>，原因：</p>
+
+  <ul>
+    <li><code>stablehlo.composite</code> 有标准 semantics，你的编译器可以按名字匹配，
+        不匹配时还能 fallback 到 <code>decomposition</code></li>
+    <li><code>tpu_custom_call</code> 是不透明黑盒，失去所有跨算子优化机会</li>
+    <li>路线 2 的改动更小，更容易提 PR 回上游</li>
+  </ul>
+</div>
+
+<h3>7.6 一个陷阱：<code>precision_config</code></h3>
+
+<p>如果打算让编译器吃 <code>stablehlo.convolution</code>，注意 Attribute 里的精度配置：</p>
+
+<pre><code>// csrc/ops/op_builder_utils.cc
+stablehlo::PrecisionConfigAttr::get(&amp;ctx, {precision, precision})</code></pre>
+
+<p>
+  TorchTPU 的三档精度（<code>DEFAULT</code> / <code>HIGH</code> / <code>HIGHEST</code>）
+  是映射到 bfloat16 的 1 / 3 / 6 次 pass。
+</p>
+
+<div class="callout bad">
+  <span class="label">静默偏离</span>
+  <p>
+    这个语义在你的硬件上未必对应得上。<strong>如果你的编译器忽略
+    <code>precision_config</code>，数值行为会静默偏离</strong> —— 不会报错，
+    只是结果和 TPU 上不一样。
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="phases">8. 分阶段路线</h2>
+
+<div class="phase">
+  <h3>阶段 1：跑通单算子 <span class="tag">1–2 个月</span></h3>
+  <p class="goal">
+    目标：<code>torch.ones(4,4,device="npu") + torch.ones(4,4,device="npu")</code> 能出结果。
+  </p>
+
+  <ol>
+    <li>实现最小 PJRT plugin：<code>Client_Create</code> / <code>Compile</code> /
+        <code>Buffer_*</code> / <code>Execute</code> / <code>ToHostBuffer</code></li>
+    <li>让 <code>Compile</code> 接受一个极小的 StableHLO 模块（<code>stablehlo.add</code>）</li>
+    <li>改 <code>device_type.h</code> 加 <code>kNpu</code>，
+        改 <code>pjrt_client.cc</code> 的 <code>GetCApiClient</code> 分派</li>
+    <li>改 <code>_loader.py</code> 的 <code>assert device == "tpu"</code></li>
+    <li>跑 <code>tests/import_test.py</code> + 一个加法验证</li>
+  </ol>
+
+  <p><strong>成功标志</strong>：<code>tests/import_test.py</code> 通过，且一个加法能出正确结果。</p>
+</div>
+
+<div class="phase">
+  <h3>阶段 2：算子覆盖 <span class="tag">3–6 个月</span></h3>
+  <p class="goal">
+    这是<strong>工作量最大</strong>的阶段，且高度取决于你的编译器前端成熟度。
+  </p>
+
+  <ol>
+    <li>逐个跑 <code>tests/ops_test.py</code>，统计哪些 StableHLO 组合你的编译器不支持
+        （这个测试有 50 个 shard，覆盖面很广）</li>
+    <li>补编译器的 StableHLO 覆盖 —— 这是最耗时的部分</li>
+    <li>对暂不支持的算子，用 <code>TpuMissingOpFallback</code> 的 CPU fallback 先兜住
+        （注意：这是<strong>静默</strong>的，只打 WARNING）</li>
+    <li>实现 <code>Serialize</code> / <code>Deserialize</code>，打开 tier 2/3 编译缓存</li>
+  </ol>
+
+  <div class="callout">
+    <span class="label">压缩空间</span>
+    <p>
+      如果你们的编译器已经能吃 StableHLO，这阶段能压缩到 <strong>1–2 个月</strong>。
+      路线 A 和路线 B 的差距几乎全在这个阶段体现。
+    </p>
+  </div>
+</div>
+
+<div class="phase">
+  <h3>阶段 3：torch.compile + 动态形状 <span class="tag">1–2 个月</span></h3>
+
+  <ol>
+    <li>验证 <code>torch.compile(backend="tpu")</code> 能跑
+        （Python 侧只需改 backend 名）</li>
+    <li>决定是否支持 bounded dynamism：
+      <ul>
+        <li><strong>支持</strong> → 实现 <code>PadRealToStatic</code>，
+            把 <code>bucket_size</code> 重新标定为你的向量宽度</li>
+        <li><strong>不支持</strong> → 在 <code>_can_use_pad_real_to_static</code>
+            全返回 False，文档标注限制</li>
+      </ul>
+    </li>
+    <li>验证 AOTAutogradCache 的四个 TorchTPU 补丁在你的平台上仍然成立
+        （尤其 <code>storage_offset</code> 保留那条）</li>
+  </ol>
+</div>
+
+<div class="phase">
+  <h3>阶段 4：分布式 + 性能调优 <span class="tag">3–6 个月</span></h3>
+
+  <ol>
+    <li>替换 <code>slicebuilder</code> 的拓扑发现</li>
+    <li>重新做 <code>materialization_heuristics</code> 的实验
+        （O1/O2 交叉点、paging 成本）</li>
+    <li>profiler 接入（<code>PJRT_Profiler_Extension</code>）</li>
+    <li>如果有异构核心，考虑 Kiln 风格的 DSL</li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="advice">9. 三个务实建议</h2>
+
+<h3>建议一：先做「StableHLO 兼容性审计」</h3>
+
+<div class="callout good">
+  <span class="label">在写任何 TorchTPU 代码之前</span>
+  <p>
+    这是<strong>唯一的 go / no-go 判据</strong>，应该在投入人力之前花一周验证。
+  </p>
+</div>
+
+<p>具体做法：</p>
+
+<pre><code># 从 TorchTPU 里导出几个真实模型的 StableHLO
+torch.compile(
+    model,
+    backend="tpu",
+    options={"debug_callback": collect},   # TpuCompileDebug
+)
+
+# 取 collect[-1].stablehlo_forward_text / stablehlo_backward_text
+# 直接喂给你的编译器</code></pre>
+
+<p>
+  <code>TpuCompileDebug</code>（<code>_internal/compile/debug.py</code>）会给你完整的
+  <code>pre_autograd_fx_code</code>、<code>post_autograd_fx_forward_code</code>、
+  <code>stablehlo_forward_text</code>、<code>stablehlo_backward_text</code>。
+</p>
+
+<p>建议至少导出三个模型的 MLIR：</p>
+
+<ol>
+  <li><strong>一个 transformer 层</strong>（Llama / Qwen 的单层）——
+      覆盖 SDPA、RMSNorm、RoPE、GEMM</li>
+  <li><strong>一个 CNN</strong>（ResNet-50）—— 覆盖 conv、batch_norm、pooling</li>
+  <li><strong>一个 MoE 或稀疏模型</strong> —— 覆盖 gather/scatter/ragged</li>
+</ol>
+
+<p>
+  <strong>如果这些 MLIR 你的编译器吃不下，整个项目就不成立。</strong>
+</p>
+
+<h3>建议二：不要长期维护 fork</h3>
+
+<p>
+  <code>device_type.h</code> 的注释和 <code>GetPrivateUse1DeviceDebugName()</code>
+  的存在说明<strong>上游本来就想支持多设备</strong>。这些改动（加 <code>kNpu</code> 枚举、
+  把 <code>"tpu"</code> 参数化）几乎都是无侵入的，适合提 PR 回上游。
+</p>
+
+<p>长期维护 fork 的代价在这个项目上特别高：</p>
+
+<ul>
+  <li>上游提交量在加速（2026 年 2 月 <strong>219 次/月</strong> → 10 月
+      <strong>896 次/月</strong>）</li>
+  <li>大规模重构频繁 —— <code>_backend.py</code> 里那些 "slated for deprecation"
+      的注释说明接口还在快速演进</li>
+  <li><code>csrc/ops</code> 63% 的代码是设备无关的，你会持续收到上游的算子改进</li>
+</ul>
+
+<h3>建议三（额外）：注意 CPU fallback 的隐性成本</h3>
+
+<pre><code>// csrc/eager/tpu_aten_kernels.cc
+ABSL_LOG(WARNING) &lt;&lt; "operator '" &lt;&lt; op_name
+                  &lt;&lt; "' is not implemented for TPU. Falling back to CPU";
+at::native::cpu_fallback(op, stack);</code></pre>
+
+<p>
+  这个 fallback 是<strong>静默的</strong>，只打 WARNING。在你的 NPU 上，
+  如果大量算子走 CPU fallback，性能会灾难性下降但程序正常结束。
+</p>
+
+<p>
+  <strong>建议</strong>：在移植初期把这条日志升级成可配置的 error，
+  或者加一个统计计数器，每次训练结束打印「有多少 op 走了 fallback」。
+</p>
+
+<!-- ============================================================ -->
+<h2 id="judgement">10. 架构判断</h2>
+
+<p class="lede">
+  TorchTPU 之所以叫 TorchTPU，主要是因为它选择<strong>以 XLA/StableHLO 为目标、
+  以 PJRT 为运行时边界</strong>。这两条都是通用标准，不是 TPU 私有的。
+</p>
+
+<h3>真正的硬件耦合只有三处</h3>
+
+<table>
+  <thead><tr><th>耦合点</th><th>性质</th><th>你的处境</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>PJRT plugin</strong></td>
+      <td>官方设计的替换点</td>
+      <td>你本来就要写</td>
+    </tr>
+    <tr>
+      <td><strong>Pallas / Kiln + Mosaic</strong></td>
+      <td>TPU 专有</td>
+      <td>可以整体不用</td>
+    </tr>
+    <tr>
+      <td><strong>分布式拓扑发现</strong></td>
+      <td>TPU slicebuilder 专有</td>
+      <td>需要替换</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>这个项目对你的价值</h3>
+
+<div class="callout good">
+  <p>
+    如果你的 NPU 编译器接受 StableHLO、runtime 能包一层 PJRT，
+    那这个项目对你的价值就是
+    <strong>「一个已经写好的、覆盖 450 个 ATen 算子的 StableHLO 生成器 +
+    PyTorch 集成层」</strong> —— 这大概是 <strong>20 万行你不需要重写的东西</strong>。
+  </p>
+</div>
+
+<h3>但要清醒地看到不匹配的地方</h3>
+
+<ul>
+  <li>
+    <strong>性能语义不是免费的</strong>：<code>materialization_heuristics</code>
+    里的所有数字都是 TPU 实测的，迁移后必须重做
+  </li>
+  <li>
+    <strong>Pallas 生态用不了</strong>：<code>torch.tpu.pallas.jax_op</code> 生成的
+    是 Mosaic custom call，你的硬件没有对应物
+  </li>
+  <li>
+    <strong>动态形状可能成为瓶颈</strong>：如果 <code>PadRealToStatic</code> 实现不了，
+    LLM 解码场景会退化到静态形状 + 每步重编译，正好是 bounded dynamism 想解决的那个问题
+  </li>
+</ul>
+
+<hr>
+
+<h3>一句话总结</h3>
+
+<p>
+  这是一个<strong>可以做，但比想象中轻</strong>的移植工程。核心工作量不在 TorchTPU 侧
+  （7 处硬编码 + 几个分支），而在于<strong>你的编译器对 StableHLO 的覆盖度</strong>
+  和<strong>你的 runtime 对 PJRT 语义的完整性</strong>。
+</p>
+
+<p>
+  最明智的第一步不是写代码，而是<strong>拿 TorchTPU 导出的 StableHLO 去喂你的编译器</strong>，
+  用一周时间确认这条路通不通。
+</p>
+
+<footer>
+  <p>
+    分析对象：<code>google-pytorch/torch_tpu</code> @ <code>2092cb8a</code>。
+    基于静态代码阅读，未在 TPU 或任何 NPU 硬件上运行验证。
+    工作量估算为经验值，实际取决于团队规模与编译器成熟度。
+  </p>
+  <p>文档生成于 2026-10-27。</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
