@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scale Up Ethernet (SUE) 1.0 中文译文</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 20px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 8px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    caption {
+      caption-side: bottom; text-align: left; color: var(--muted);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; padding-top: 8px; margin-bottom: 18px;
+    }
+    .fig {
+      margin: 22px 0 0; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 12px; overflow-x: auto;
+    }
+    .fig img { display: block; margin: 0 auto; max-width: 100%; height: auto; background: #fff; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 8px 0 0;
+    }
+    .figexplain {
+      border: 1px solid #99f6e4; background: #f0fdfa; padding: 14px 16px 6px;
+      margin: 0 0 22px; font-size: 14.5px;
+    }
+    .figexplain h4 { margin: 0 0 8px; color: #115e59; font-size: 15px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    @media (max-width: 800px) {
+      .wrap { padding: 18px 12px 48px; }
+      header.hero, section.card { padding: 22px 16px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">OCP 规范译文</span>
+      <span class="badge ok">SUE 1.0.0</span>
+      <span class="badge">纵向扩展以太网</span>
+      <span class="badge">XPU 互连</span>
+    </div>
+    <h1>纵向扩展以太网（Scale Up Ethernet，SUE）</h1>
+    <p class="subtitle">版本 1.0.0 · 基础规范中文译文。文前有一节基本概念。图沿用原文插图，图下说明根据原图和正文整理。</p>
+    <p class="meta">
+      <strong>原文作者：</strong>Broadcom Corporation<br />
+      <strong>提交日期：</strong>2025 年 7 月 16 日 · <strong>批准日期：</strong>2025 年 9 月 5 日<br />
+      <strong>页眉日期：</strong>2025 年 8 月 1 日 · <strong>模板：</strong>三层（基础、设计、产品）规范模板 V1.6.0<br />
+      <strong>许可：</strong>修改版 Open Web Foundation Agreement 0.9（OWFa 0.9）及对应的最终规范协议（FSA）<br />
+      原文许可与免责以 OCP 文本为准。本页是学习用译文，不替代规范原文。
+    </p>
+  </header>
+
+  <div class="callout navy">
+    SUE 定义的是加速器（原文统称 XPU，包括 GPU 和各类机器学习加速器）之间、跑在以太网上的加载/存储与单边内存传输。它不是通用网卡，也不规定不同厂商 XPU 之间的互操作协议。每颗 XPU 上可以放很多个 SUE 实例，用现成的以太网交换机、线缆和 SerDes 把机柜内的纵向扩展带宽做到每实例 800 Gbps，并可以扩到 1.6 Tbps。往返时延目标小于 2 微秒。
+  </div>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#primer">基本概念</a></li>
+      <li><a href="#history">版本历史</a></li>
+      <li><a href="#license">许可</a></li>
+      <li><a href="#tenets">与 OCP 原则的符合性</a></li>
+      <li><a href="#scope">范围与概述</a></li>
+      <li><a href="#deploy">部署模型</a></li>
+      <li><a href="#stack">协议栈</a></li>
+      <li><a href="#req">需求与设计取舍</a></li>
+      <li><a href="#lite">SUE Lite</a></li>
+      <li><a href="#iface">三类接口</a></li>
+      <li><a href="#fifo">FIFO 信号接口</a></li>
+      <li><a href="#axi">AXI4 数据通路</a></li>
+      <li><a href="#encap">封装与可靠性头</a></li>
+      <li><a href="#eth">以太网端口与网络头</a></li>
+      <li><a href="#link">FEC、LLR、PFC、CBFC</a></li>
+      <li><a href="#mem">内存模型与处理流程</a></li>
+      <li><a href="#lb">负载均衡与打包</a></li>
+      <li><a href="#lat">单向时延预算</a></li>
+      <li><a href="#app">附录</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="primer">
+    <h2>基本概念</h2>
+    <p>这一章不属于规范原文，是给非专业读者的阅读准备。后面的译文尽量忠于原文，术语不再逐个展开。先把下面这些词和后面的图对上，正文会容易很多。</p>
+
+    <h3>这篇规范在做什么</h3>
+    <p>训练或运行一个大模型时，一颗芯片的算力和内存往往不够，需要很多颗一起干活。它们要不断把各自算出来的数据交给别人。SUE 规定的就是这些芯片之间的一条“专用搬运通道”：通道跑在大家已经会用的以太网上，目标是又宽又快，主要用在同一个机柜里。</p>
+    <p>可以把它想成芯片之间的内部道路，而不是你上网用的那条路。路上跑的不是网页，而是“请从那块内存读一个数”“请把这个数写进那块内存”这样的动作。</p>
+
+    <h3>芯片都叫什么</h3>
+    <ul>
+      <li><strong>CPU</strong> 是通用处理器，负责操作系统和普通程序。它什么都能做，但做大规模矩阵运算不是它的强项。</li>
+      <li><strong>GPU</strong> 原本为图形设计，里面有大量小计算单元，适合同时做很多相似的算术，因此成了训练神经网络的主力。</li>
+      <li><strong>XPU</strong> 是这篇规范造的总称。GPU 算一种，各家自己做的机器学习加速器也算。规范故意不绑定某一家的芯片。</li>
+      <li><strong>NOC</strong>（片上网络）是芯片内部的道路网，把计算单元、内存控制器连在一起。SUE 接在这条内部道路的出口处。</li>
+      <li><strong>HBM</strong> 是贴在芯片旁边的高带宽内存。计算单元要的数，很多就放在这里。</li>
+    </ul>
+
+    <h3>纵向扩展和横向扩展</h3>
+    <p><strong>纵向扩展（scale-up）</strong>是给同一台机器、同一个机柜加更多芯片，让它们近得像一块更大的芯片。距离短，通常只有几米到十几米，中间最多经过一台交换机。SUE 做的是这件事。</p>
+    <p><strong>横向扩展（scale-out）</strong>是把很多台机器连成一个数据中心。距离远、机器多、路径复杂，用的是另一类网络技术，例如文中提到的 RoCE。规范反复解释为什么那些为大网络设计的复杂办法，不必原样搬到机柜内部。</p>
+
+    <h3>带宽和时延</h3>
+    <p><strong>带宽</strong>是路有多宽，单位时间能过多少数据。800 Gbps 大约是每秒 100 GB。1.6 Tbps 是这个数的两倍。规范里的“每个 SUE 实例 800 Gbps”是说一小块搬运电路就有这么宽；一颗芯片上可以放 8 个、12 个这样的电路，总宽度再乘上去。</p>
+    <p><strong>时延</strong>是一趟要多久。往返时延（RTT）是“发出去，再收到对方的回应”的总时间。规范的目标是小于 2 微秒，也就是百万分之 2 秒。单向时延是只算去程。图 22 把这一趟拆成芯片内部的桥、线缆和交换机，每一段都是几十到几百纳秒（1 微秒 = 1000 纳秒）。</p>
+    <p>路宽和路程是两回事。路可以很宽，但若每一趟都要等很久，大量小块数据仍然搬不快。所以这篇规范对时延和带宽同时提要求。</p>
+
+    <h3>搬的是内存操作，不是一条聊天消息</h3>
+    <p><strong>加载（load）</strong>是从某处内存读数据，<strong>存储（store）</strong>是往某处内存写数据。<strong>原子操作</strong>是“读出来、改一下、写回去”合成一步，避免两颗芯片同时改同一个数时互相踩踏。put 可以理解为写给对方，get 可以理解为向对方要数据。</p>
+    <p><strong>单边操作</strong>的意思是：对方芯片上的程序不用被叫醒来配合。源芯片直接对目的芯片的内存硬件下命令。确认只表示“对方的搬运电路已经收到”，并不表示“数已经放进内存”。这和寄信不同：寄信要对方拆信；单边操作更像把文件放进对方的文件柜，柜子的锁和登记由硬件完成。</p>
+    <p><strong>共享内存</strong>是让很多颗芯片看起来在使用一块连在一起的地址空间。PGAS 是这种看法的一种编程模型。谁有权访问哪一段地址，由芯片在 SUE 之外自己管。SUE 只提供一个叫“分区”的字段，用来帮助做隔离。</p>
+
+    <h3>一包数据长什么样</h3>
+    <p>网络不把内存里的数连续不断地倒过去，而是分成一包一包。每一包像一个包裹：</p>
+    <ul>
+      <li><strong>包头</strong>是快递单，写着发给谁、从哪来、属于哪一类货。</li>
+      <li><strong>载荷</strong>是包裹里面真正的命令和数据。</li>
+      <li><strong>校验</strong>是包裹上的防拆封条。对不上就说明路上被弄坏了。</li>
+    </ul>
+    <p><strong>交换机</strong>只看快递单，把包裹转到下一条线，不打开看里面的命令。<strong>一跳</strong>就是经过一台交换机。规范预期的主要接法是单跳：两颗芯片之间只经过一台交换机。<strong>网状直连</strong>则是两颗芯片用线缆直接对接，中间没有交换机，对应图 2。</p>
+    <p><strong>平面</strong>可以想成并排的好几套独立道路。图 1 里 12 台交换机就是 12 个平面：每颗芯片在每个平面上各有一个出入口。任意两颗芯片之间可以同时走 12 条路。一条路堵住或断了，其他平面还在。</p>
+
+    <h3>以太网、端口和 SerDes</h3>
+    <p><strong>以太网</strong>是数据中心里已经大量使用的有线网络标准。交换机、光模块、铜缆、网管软件都有现成产品。SUE 选择骑在它上面，是为了少发明一套新的插头和交换机。</p>
+    <p>几个容易混在一起的词：</p>
+    <ul>
+      <li><strong>MAC</strong> 是帧在链路这一层的名字和收发规则。目的地址、源地址就写在这里。AFH 是把这个地址格式改短，让交换机少看一些字节。</li>
+      <li><strong>PHY</strong> 是真正把 0 和 1 变成电信号或光信号的物理层。</li>
+      <li><strong>SerDes</strong> 是芯片边上的一个小电路，负责把芯片内部并排的很多位，变成一根线上前后依次发出的串行信号，接收时再变回来。200G SerDes 表示这一根线每秒 200 Gbit。</li>
+      <li><strong>车道（lane）</strong>就是这样的一根线。四根 200G 的线并在一起，得到一个 800G 端口。</li>
+      <li><strong>端口</strong>是逻辑上的一个出入口。一个 SUE 实例可以做成 1 个 800G 口、2 个 400G 口，或 4 个 200G 口。口切得更小，一台交换机就能接更多芯片，这叫提高基数（radix）。</li>
+    </ul>
+
+    <h3>协议栈：分层各干各的</h3>
+    <p>图 3 把搬运分成几层，上层不用知道下层的细节：</p>
+    <ol>
+      <li><strong>XPU 事务。</strong>芯片说“写这块内存”。SUE 不解释命令的具体含义。</li>
+      <li><strong>打包。</strong>把发给同一目的地的好几条小命令放进同一个包裹，省得每条小命令都重复贴一次快递单。</li>
+      <li><strong>传输。</strong>给包裹编号，丢了就重发。SUE Lite 把这一层拿掉，改由下一层的链路重传负责。</li>
+      <li><strong>网络头。</strong>写上交换机能看懂的地址。</li>
+      <li><strong>以太网 MAC、链路、PHY。</strong>把包裹变成线上的信号，并处理这一小段线缆上的纠错和暂停。</li>
+    </ol>
+
+    <h3>数据在路上坏了或丢了</h3>
+    <p>线缆上会有噪声，包裹可能损坏。规范用好几道手续，从快到慢：</p>
+    <ul>
+      <li><strong>FEC（前向纠错）</strong>在数据旁边多带一些冗余位，让接收端直接把少量错误改对，不用重发。冗余越强，能改的错误越多，等待也越长。RS-272 比常用的 RS-544 改错能力弱一些，换来更低的等待。</li>
+      <li><strong>CRC / FCS</strong> 是校验和。对不上就认定这一包坏了，不能当好数据用。</li>
+      <li><strong>LLR（链路层重传）</strong>由这根线缆两端的设备马上重发坏包，不必通知两头的芯片。</li>
+      <li><strong>分组序号（PSN）</strong>是完整 SUE 给每个包裹编的连续号码。收到该收到的下一个号码，就回 <strong>ACK</strong>（确认）。号码对不上，就回 <strong>NACK</strong>（请重发），并把这个发送者后面先到的包丢掉，直到缺口被补上。</li>
+      <li><strong>Go-Back-N（回退 N）</strong>是一种简单的补发办法：从丢的那一号开始，后面的全部重发。它要记录的状态很少。规范认为机柜内丢包很少，用这种简单办法就够，不必上大网络里那种“只补丢的那一个”的复杂记账。</li>
+    </ul>
+
+    <h3>路堵了怎么办</h3>
+    <p>接收端的货架满了，就不能再往里塞，否则会把还没处理的包默默扔掉。<strong>流控</strong>就是接收端告诉发送端“先停一下”。</p>
+    <ul>
+      <li><strong>PFC</strong> 按优先级暂停。同一根线上有几类货，可以只让某一类暂停，其他类继续走。规范和请求、确认至少分成两类，这样确认不会被请求堵死。</li>
+      <li><strong>信用（CBFC 用的那种）</strong>更像进门代币。接收端告诉发送端“我还有 3 个空位”，发送端有代币才发。发送端因此知道对方有多忙，调度时可以避开已经满的路。</li>
+      <li><strong>虚拟通道（VC）</strong>是同一根物理线上的几条独立队列，最多 4 条。不同种类的事务进不同队列。请求走一条，响应走另一条，响应才不会被排成长队的请求挡住。</li>
+      <li><strong>死锁</strong>是互相等待：甲等乙先让路，乙等甲先让路，两边都不动。把请求和响应分成不同的通道和不同的流控类别，就是为了避开这种情况。</li>
+      <li><strong>多打一（incast）</strong>是很多芯片同时给同一颗芯片送数据。目的地的入口会突然堆满。这是单层网络里最主要的拥堵来源。</li>
+    </ul>
+
+    <h3>为什么要打包，又为什么不能干等</h3>
+    <p>单条内存事务不大，规范里的例子是 256 字节。每个以太网包裹都要带包头。若每条事务单独打一包，包头所占的比例会很高。打包就是把已经到齐、且去往同一目的地的几条事务放进同一个包裹。</p>
+    <p>规范同时规定：不许为了凑满一个大包而故意等待。队列里只有一条，就立刻发。这样小命令的时延不会为了提高装满率而被拖长。图 21 画的就是这件事。</p>
+    <p><strong>负载均衡</strong>是不要把所有货都堆到同一条路上。芯片上有多块 SUE 时，先在这些块之间分；一块 SUE 自己有多个端口时，还可以在端口之间再分。端口之间分货会打乱顺序，所以只有在允许“不按原顺序到达”时才这样做。</p>
+
+    <h3>芯片内部怎么把命令交给 SUE</h3>
+    <p>规范提供两种交接方式，芯片厂商选一种即可。</p>
+    <ul>
+      <li><strong>FIFO</strong> 是先来先走的队列。一边写入命令和数据，另一边用信用表示“队列还没满”。表 3、表 4 就是这组信号的名单，阅读时可以把它们当成一张接口引脚说明，不必先记每一位的宽度。</li>
+      <li><strong>AXI</strong> 是芯片内部常用的一条标准总线。它把一次传输拆成几条独立的线：写地址、写数据、写完成、读地址、读出的数据。图 6 到图 8 画的是这些线如何从芯片接到 SUE，再穿过交换机到达另一颗芯片。<strong>主设备（manager）</strong>是主动发起请求的一方，<strong>从设备（subordinate）</strong>是接受请求并回答的一方。同一块 SUE 两边都要当，因为既要替本芯片往外发，也要把网上收到的请求送进本芯片。</li>
+    </ul>
+    <p>另外还有一条很窄的<strong>管理接口</strong>，用来读状态、改配置，偶尔也发少量管理包。它不承担那 800 Gbps 的内存数据。</p>
+
+    <h3>建议的阅读顺序</h3>
+    <ol>
+      <li>先看图 1 和图 2，建立“很多芯片如何连在一起”的画面。</li>
+      <li>再看图 3 和图 4，分清完整 SUE 和精简的 SUE Lite 少了哪一层。</li>
+      <li>表 1 是设计目标的一页纸摘要，表 2 是两种档次的差别。</li>
+      <li>接口、包头和字段表可以当字典查。图 9 到图 17 都是“快递单长什么样”。</li>
+      <li>图 18 是完整的发送和接收流水线。把它看懂，前面的术语就串起来了。</li>
+      <li>最后看图 22 的时延账，理解“2 微秒以内”是由哪些零件加出来的。</li>
+    </ol>
+
+    <table>
+      <thead>
+        <tr><th>词</th><th>在这篇规范里可以先理解成</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>XPU</td><td>GPU 或任何机器学习加速芯片</td></tr>
+        <tr><td>SUE 实例</td><td>芯片上的一小块搬运电路，自带以太网出口</td></tr>
+        <tr><td>纵向扩展</td><td>同一个机柜里把很多芯片连成一块更大的计算体</td></tr>
+        <tr><td>带宽 / 时延</td><td>路有多宽 / 一趟要多久</td></tr>
+        <tr><td>加载、存储、原子操作</td><td>读内存、写内存、读改写合成一步</td></tr>
+        <tr><td>单边</td><td>对方的程序不用参与，硬件直接对内存下命令</td></tr>
+        <tr><td>PDU / 帧 / 包</td><td>一次发出去的一个包裹</td></tr>
+        <tr><td>VC 虚拟通道</td><td>同一根线上分开的几条队列，避免不同货物互相挡路</td></tr>
+        <tr><td>SerDes / 车道</td><td>一根高速串行线，多根并起来组成一个端口</td></tr>
+        <tr><td>FEC / LLR</td><td>先尽量把小错误改对；改不对就由这根线缆的两端立刻重发</td></tr>
+        <tr><td>ACK / NACK / Go-Back-N</td><td>收到了 / 缺号了请重发 / 从缺的那号起整段重发</td></tr>
+        <tr><td>PFC / 信用</td><td>按类别暂停 / 有空位代币才允许发送</td></tr>
+        <tr><td>SUE Lite</td><td>去掉端到端重发和拥塞控制、把电路面积大约减半的精简档</td></tr>
+      </tbody>
+      <caption>这一表是阅读辅助，不是规范里的正式术语表。</caption>
+    </table>
+  </section>
+
+  <section class="card" id="history">
+    <h2>版本历史</h2>
+    <table>
+      <thead>
+        <tr><th>日期</th><th>版本</th><th>作者</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2025-05-16</td><td>0.5.0</td><td>Broadcom</td><td>首次发布</td></tr>
+        <tr><td>2025-07-16</td><td>0.5.3</td><td>Broadcom</td><td>第二次发布，加入 SUE Lite，并做勘误</td></tr>
+        <tr><td>2025-08-05</td><td>0.5.5</td><td>Broadcom</td><td>按指导委员会审阅意见修订表述</td></tr>
+        <tr><td>2025-08-21</td><td>0.5.7</td><td>Broadcom</td><td>增加 AMBA AXI</td></tr>
+        <tr><td>2025-09-05</td><td>1.0.0</td><td>Broadcom</td><td>OCP 正式发布</td></tr>
+      </tbody>
+      <caption>表：原文 Version History。当前模板为三层规范模板 V1.6.0。</caption>
+    </table>
+  </section>
+
+  <section class="card" id="license">
+    <h2>1. 许可</h2>
+    <p>本规范的默认贡献者许可协议已更新为 OWFa 0.9。贡献方在使用前应确认实际签署的是正确的 CLA / FSA。</p>
+    <h3>1.1 Open Web Foundation（OWF）CLA</h3>
+    <p>对本规范的贡献，依据 2024 年 10 月 16 日版本的《修改版 Open Web Foundation Agreement 0.9》（OWFa 0.9，下称“贡献许可”）作出。本文件的贡献方是 Broadcom Corporation。</p>
+    <p>使用本规范，受同日版本的《修改版 OWFa 0.9 最终规范协议》（FSA，下称“规范许可”）约束。相关许可文本见 OCP 网站的贡献与协议模板页面；已签署的协议副本需直接向 OCP 索取。</p>
+    <p>上述许可不适用于附录。附录仅供参考，没有规范约束力。</p>
+    <p>尽管有前述许可，本规范由 OCP 按“原样”提供。OCP 明确否认任何明示、默示或其他保证，包括适销性、不侵权、特定目的适用性以及权属。实现或遵从本规范可能涉及未签署上述许可的第三方权利；OCP 不负责指出实现本规范还需要哪些许可。实现或使用本规范的全部风险由使用者承担。对因使用本规范引起的任何索赔，OCP 不承担金钱赔偿责任，包括利润损失以及任何后果性、附带性、间接性、特殊性或惩罚性损害，无论诉因是违约、侵权（含过失）还是其他，即使 OCP 已被告知可能发生此类损害。</p>
+    <h3>2. 致谢</h3>
+    <p>原文这一节是模板占位：要求列出提供过反馈、但没有贡献知识产权的公司或个人。1.0.0 文本中没有填入具体名单。</p>
+  </section>
+
+  <section class="card" id="tenets">
+    <h2>3. 与 OCP 原则的符合性</h2>
+    <h3>3.1 开放性</h3>
+    <p>规范把构建高度可扩展、面向加载/存储和单边内存事务的 XPU 到 XPU 以太网传输交给社区，以此符合开放性。</p>
+    <h3>3.2 效率</h3>
+    <p>它提供面积和功耗都经过优化的 XPU 间传输，一颗 XPU 封装里可以集成多个实例，并且直接跑在以太网上，从而沿用已有的以太网生态。</p>
+    <h3>3.3 影响力</h3>
+    <p>XPU 厂商可以借用以太网已经广泛部署的软件、管理、线缆和连接器。互连的部署和认证不必从零开始。</p>
+    <h3>3.4 规模</h3>
+    <p>实现在功耗、面积和工程复杂度上足够省，才能在一颗 XPU 里放进多个实例，凑出每秒数 Tb 的带宽。</p>
+    <h3>3.5 可持续性</h3>
+    <p>互连建立在已经多厂商化的以太网交换机和生态之上，是在复用现有技术，而不是再造一套封闭链路。</p>
+  </section>
+
+  <section class="card" id="scope">
+    <h2>4. 范围</h2>
+    <p>本规范描述 XPU 之间、用于加载/存储以及单边内存操作的以太网传输。</p>
+    <h2>5. 概述</h2>
+    <p>本规范定义上述传输。它是一份基础规范（Base Specification），不是某一款芯片或整机的产品规范。</p>
+  </section>
+
+  <section class="card" id="deploy">
+    <h2>6. 基础规范</h2>
+    <h3>6.1 引言</h3>
+    <p>机器学习和推理一类负载越来越复杂，对并行处理能力的需求明显上升。要把 GPU，或者更一般地说 XPU（各类定制机器学习加速器都算在内），扩展到机柜级甚至跨机柜，才能处理更大的数据集、训练更深的网络、同时跑更多任务，并缩短执行时间、提高系统效率。</p>
+    <p>用来做这种互连，以太网有现成优势：业界领先的高速链路和大容量交换机、成熟的生态，以及大家都熟悉的运维方法。已有多个行业组织在做面向人工智能的网络，有的扩展以太网，有的拿以太网的某些部件当积木。SUE 要提供的是基于以太网的 XPU 纵向扩展框架，意图是用传输层和以太网数据链路，把内存事务从一颗 XPU 搬到另一颗 XPU。</p>
+
+    <h3>6.1.1 部署模型</h3>
+    <p>SUE 负责多 XPU 系统里 XPU 之间的通信。每个 SUE 实例的网络侧可以配成 1 个、2 个或 4 个端口。例如一个 800G 实例可以是 1×800G、2×400G 或 4×200G。端口怎么切，取决于交换机基数（radix）、SerDes 数量，以及冗余和故障切换。</p>
+    <p>预期的主要组网是单跳交换：两颗 XPU 之间只经过一台交换机。一颗 XPU 上可以放多个 SUE 实例，例如 8 个或 16 个。图 1 的例子是 64 颗 XPU，每颗 12 个 800G SUE 实例，下面接 12 台 64 端口以太网交换机。在这种全交换连接下，任意两颗 XPU 之间最多有 9.6 Tbps（12×800G）带宽。</p>
+    <p>另一种用法是网状直连，一对 XPU 之间不经过交换机，见图 2。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig01-switched.png" alt="图 1 单跳交换部署示例" />
+      <p class="figcap">图 1　单跳交换部署示例（原文 Figure 1）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 1 说明</h4>
+      <p>上排是 XPU 0、XPU 1、XPU 2，省略号之后到 XPU 63，一共 64 颗。每颗 XPU 下面挂着一排绿色的 SUE 0 到 SUE 11，共 12 个实例。下排是 Switch 0 到 Switch 11，共 12 台交换机。连线是按“平面”对齐的：所有 XPU 的 SUE <em>k</em> 都接到 Switch <em>k</em>。所以这不是一台交换机把 64 颗 XPU 全连上，而是 12 个互相独立的平面，每个平面是一台 64 端口交换机。</p>
+      <ul>
+        <li>任意两颗 XPU 在每个平面上有一条 800G 路径，12 个平面加起来就是正文说的 9.6 Tbps。</li>
+        <li>路径只有一跳。报文从源 XPU 的某个 SUE 进对应交换机，再进目的 XPU 上编号相同的 SUE，中间不再级联。</li>
+        <li>单层拓扑里，同一个平面内部不会出现多路径碰撞。这是后文放弃逐包喷洒、改用“每平面一条路径”的拓扑理由。</li>
+        <li>图中交叉线只是把 12 个平面画在同一张图里产生的，不表示一台交换机同时终结所有 SUE。</li>
+      </ul>
+    </div>
+
+    <div class="fig">
+      <img src="sue-fig/fig02-mesh.png" alt="图 2 网状部署示例" />
+      <p class="figcap">图 2　网状部署示例（原文 Figure 2）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 2 说明</h4>
+      <p>八颗 XPU 围成一圈，每颗下面有 SUE 0 到 SUE 6 共七个实例。每条线都是两颗 XPU 的 SUE 端口直接对接，图中没有交换机。8 个节点的全互连需要每节点 7 条链路，和每颗 XPU 上的 7 个 SUE 一一对应。</p>
+      <ul>
+        <li>这种接法适合规模小、希望去掉交换时延的机柜或板内互连。</li>
+        <li>带宽和故障域都按“一对 XPU、一条直连”来算，不再有图 1 那种“任意两点共享全部平面”的性质。</li>
+        <li>SUE 本身不关心对端是交换机还是另一颗 XPU，以太网口两侧仍然是 MAC、链路和 PHY。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" id="stack">
+    <h2>6.1.2 SUE 总览</h2>
+    <p>SUE 搬运的是通用的命令/响应事务。操作集合和命令结构由 XPU 自己定义，对 SUE 透明。这条命令通道可以用来实现 put、get 和原子操作。缓存一致性之类的服务可以另行定义，完整实现不在 SUE 范围内。</p>
+    <p>SUE 把所有事务都看成命令。XPU 若要做命令/响应，就自己定义操作码（例如读和读响应），并把它们映射到不同的流量类别。</p>
+    <p>XPU 的片上网络（NOC）把命令交给 SUE。SUE 向上提供两种数据接口：一种是类似 AMBA AXI 的信号双工接口，另一种是 AMBA AXI4。接口上既有控制也有数据。控制内容大体不透明，其中包含命令、远端 XPU 标识，以及“有没有数据、数据有多长”。</p>
+    <p>映射与打包层按目的地组织命令，并伺机把多条命令打进同一个 SUE 协议数据单元（PDU）。每个 PDU 只去往一颗 XPU、只属于一个流量类别。控制信息里的虚拟通道（VC）用来把包映射到对应的流量类别。</p>
+    <p>排序有两种。严格排序时，同一条 VC 上、从同一源到同一目的地的事务，按原顺序交给目的 XPU。配置成多端口时，可以打开无序模式：事务在端口之间做负载均衡，不再保持顺序。</p>
+    <p>每个 SUE PDU 对应一个以太网帧。可靠性、数据完整性和加密都按包来做。网络层根据目的 XPU 构造包头，可以是标准以太网头，也可以是 6.3.5.1 节的压缩格式。链路层重传（LLR）加上优先级流控（PFC）或基于信用的流控（CBFC），用来提供无损服务。若仍然发生不可恢复的错误，上面的 SUE 传输层再做端到端重传。到达目的地后，PDU 被拆开，每条命令交回 XPU。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig03-stack.png" alt="图 3 SUE 协议栈" />
+      <p class="figcap">图 3　SUE 协议栈（原文 Figure 3）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 3 说明</h4>
+      <p>左右对称，各是一颗 XPU。最上是橙色的“XPU 事务”，中间虚线写着 XPU 之间的数据搬移，表示事务的语义在两端 XPU 上，不在网络里解释。往下进入绿色的 SUE，再往下是蓝色的以太网，中间可以有一台交换机。</p>
+      <ul>
+        <li><strong>XPU 数据接口。</strong>事务通过接口进 SUE。这一层以上的命令格式 SUE 不解释。</li>
+        <li><strong>打包 / 映射。</strong>按目的地和 VC 把多条命令收成一个 PDU。</li>
+        <li><strong>传输。</strong>完整 SUE 才有这一层。它负责顺序、可靠性和加密，对应可靠性头、分组序号和端到端重传。图中这条虚线只画在绿色传输层之间。</li>
+        <li><strong>网络头。</strong>根据目的 XPU 生成标准以太网/IP 头，或 AFH。</li>
+        <li><strong>蓝色横线以下是以太网。</strong>两侧是以太网 MAC、链路、PHY。交换机中间画了两套 MAC/链路/PHY，表示它是两个方向的以太网端点。MAC 之间的虚线标着 AFH、LLR、PFC、CBFC：AFH 是交换机要识别的转发头，LLR 在相邻设备之间重传损坏的帧，PFC/CBFC 把链路做成无损。</li>
+        <li>左侧大括号标明绿色三层加上与 XPU 的接口属于 SUE；右侧大括号标明 MAC 以下属于以太网。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" id="req">
+    <h2>6.2 需求</h2>
+    <p>SUE 的设计哲学是：在低时延、高带宽的同时，让实现足够省面积、省功耗，从而能在一颗 XPU 里例化很多份。下面这些需求用来指导设计，并不是不可更改的硬性条款，具体产品可以按场景裁剪。</p>
+    <table>
+      <thead>
+        <tr><th>需求</th><th>指标</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>XPU 数量</td><td>最多 1024</td><td>单跳、低时延</td></tr>
+        <tr><td>事务类型</td><td>单边操作；内存加载、存储、原子；偏小的传输</td><td>单边是指目的端进程不感知这次操作。操作仍会被确认，使源端知道它已经到达目的端</td></tr>
+        <tr><td>内存架构</td><td>共享内存</td><td>例如 PGAS。内存注册不在 SUE 范围内</td></tr>
+        <tr><td>端到端时延</td><td>往返小于 2 μs</td><td>RTT</td></tr>
+        <tr><td>线缆长度</td><td>SUE 到交换机最长约 10 m</td><td>为时延服务</td></tr>
+        <tr><td>每实例带宽</td><td>800 Gbps</td><td>可扩展到 1.6 Tbps</td></tr>
+        <tr><td>SerDes</td><td>200 Gbps</td><td>同时支持 100G 和 50G</td></tr>
+        <tr><td>端口配置</td><td>1、2 或 4 个口</td><td>用来提高交换机基数，并支持冗余和故障切换</td></tr>
+        <tr><td>虚拟通道</td><td>最多 4 条</td><td>用 QoS 字段选择独立流量类别，避免死锁</td></tr>
+        <tr><td>以太网符合性</td><td>支持标准以太网</td><td>可选压缩包头、LLR、CBFC</td></tr>
+      </tbody>
+      <caption>表 1　SUE 需求（原文 Table 1）。原文脚注说明“单边”的含义，已写入事务类型一行。</caption>
+    </table>
+    <p>SUE 不是一块带全套现代网卡服务的通用网络接口，也不定义让不同 XPU 互相操作的 XPU 级协议。</p>
+
+    <h3>6.2.1 协议需求的背景</h3>
+    <p>XPU 内部并行度很高，纵向扩展传输必须能让 XPU 在很多个平面上同时连通。拓扑又比较受约束，所以为了面积和功耗，传输本身要相对简单。它需要做的是：经过单跳交换机，把上层数据从源 XPU 可靠地交到目的 XPU。</p>
+    <p>纵向扩展拓扑可以和横向扩展一样，既是多平面也是多轨。要把这种网络的传输做高效，关键是把数据分到各个平面上，并且处理好多打一（incast），不要在网络里造成队头阻塞。</p>
+    <p>横向扩展今天的做法，是让传输层显式支持多路径。集合通信库（例如 NCCL 跑 RoCEv2）靠成倍增加队列对（QP）来做；Ultra Ethernet Transport 这类协议则原生支持逐包喷洒。面对 incast，RoCEv2 使用 PFC，但下一代传输正在弃用它，因为 PFC 会带来队头阻塞。替代办法是报文裁剪：网络不要静默丢包，而是把被丢包的包头优先送到目的端。</p>
+    <p>这套办法搬到纵向扩展上不划算，因为两边的约束不一样：纵向扩展要的带宽高得多、往返时延低得多、规模也小得多。</p>
+    <ul>
+      <li>逐包喷洒必须容忍乱序，发送端和接收端都要按分组序号、按路径做跟踪。横向扩展用这种复杂度来避开碰撞；单层纵向扩展里，同一个平面内不会出现碰撞，这套状态机是多余的。</li>
+      <li>裁剪加选择性重传对大网络有用，但需要包跟踪位图和选择性确认，面积和成本都会上去。</li>
+      <li>纵向扩展的速率预计比横向扩展高一个数量级。横向扩展网卡目前是 800 Gbps 这一档，若纵向扩展沿用同样的网卡，一颗 XPU 上得堆很多块，面积和功耗都吃不消。</li>
+      <li>纵向扩展的端点事先都知道，就是当前在线的那些 XPU。连接可以在启动时静态建立，只要平面和目标 XPU 都活着就一直保持。建连和扩展因此简单很多。</li>
+    </ul>
+    <p>更简单的做法是：每个平面一条路径，并依赖无损转发。丢包很少，恢复用回退 N（Go-Back-N）就够，传输状态小，收发处理也简单。为了进一步减少误码造成的丢包，有 LLR 就打开它。LLR 是交换机功能：接收端 FCS 校验失败时，由相邻设备重传这一帧，而不是立刻推给端点。</p>
+    <p>要让 Go-Back-N 效率高，XPU 之间必须配成无损，用 PFC 或较新的 CBFC。同时端点上要用当前这一代的拥塞控制，尽量不要触发流控，否则仍会队头阻塞。</p>
+    <p>一颗 XPU 有多块网络接口时，跨接口的负载均衡由 SUE 外面的模块做，例如 XPU 自己。单个 SUE 实例如果有多个端口，只有在无序模式下，才能在自己的端口/平面之间做均衡。也就是说，把流量铺到所有纵向扩展接口的所有平面上，是 SUE 之上的负载均衡层的事。</p>
+    <p>因为性能要接近最优，每个平面上的传输必须能从线速启动。单层网络里唯一还会出现的性能问题是 incast：多个发送方同时朝同一个接收方打满。</p>
+  </section>
+
+  <section class="card" id="lite">
+    <h2>6.2.2 SUE Lite：把 IP 缩小约一半</h2>
+    <p>SUE Lite 用来把 SUE IP 的规模最多缩小约 50%。它去掉 SUE 可靠传输层，改由 LLR 提供节点之间的可靠性。可靠传输层去掉之后，拥塞控制也一并去掉。打包长度限制为 1 KB，对 XPU 只保留信号接口。以太网端口（MAC / 链路 / PHY）的规模不变。协议栈见图 4，与完整 SUE 的差别见表 2。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig04-lite-stack.png" alt="图 4 SUE Lite 协议栈" />
+      <p class="figcap">图 4　SUE Lite 协议栈（原文 Figure 4）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 4 说明</h4>
+      <p>布局与图 3 相同，差别很具体：绿色区域里没有“传输”层，只剩下“打包 / 映射”和“网络头”。左右 XPU 事务之间的虚线还在，表示数据搬移的语义不变；但图 3 里那条标着“顺序、可靠性、加密”的传输层虚线没有了。</p>
+      <ul>
+        <li>可靠性下沉到蓝色以太网段的 LLR。链路仍然可以用 AFH、LLR、PFC、CBFC，这些标在 MAC 之间的虚线上。</li>
+        <li>没有端到端分组序号，也就没有 Go-Back-N，也没有固定窗口拥塞控制。</li>
+        <li>左侧括号标的是 SUE Lite，不是完整 SUE。MAC、链路、PHY 和交换机仍是标准以太网。</li>
+      </ul>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>属性</th><th>SUE</th><th>SUE Lite</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>事务类型</td><td colspan="2">写（完整/部分、带应答/不带应答）、读、消息、屏障。两档相同</td></tr>
+        <tr><td>事务大小</td><td colspan="2">256 B。两档相同。这是单条事务的大小，不是 PDU 打包上限</td></tr>
+        <tr><td>DMA 就绪接口</td><td colspan="2">有（块写）。两档相同</td></tr>
+        <tr><td>事务打包</td><td colspan="2">有。两档相同。Lite 的打包上限另定为 1 KB，完整 SUE 可达 4 KB</td></tr>
+        <tr><td>LLR、CBFC、AFH 头</td><td colspan="2">有。两档相同</td></tr>
+        <tr><td>核侧接口</td><td>AXI4，以及基于信号的接口</td><td>只有基于信号的接口</td></tr>
+        <tr><td>端到端可靠性</td><td>有（可靠传输层）</td><td>无，只有逐跳 LLR</td></tr>
+        <tr><td>拥塞控制</td><td>有（固定窗口）</td><td>无</td></tr>
+        <tr><td>分区</td><td>有</td><td>无，改用地址隔离</td></tr>
+      </tbody>
+      <caption>表 2　SUE 与 SUE Lite 对照（原文 Table 2）。前五行在原表中跨两列，表示两档相同。</caption>
+    </table>
+  </section>
+
+  <section class="card" id="iface">
+    <h2>6.3 SUE 的接口</h2>
+    <p>每个 SUE 实例有三类接口，见图 5：XPU 命令接口、XPU 管理接口、以太网接口。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig05-interfaces.png" alt="图 5 SUE 接口" />
+      <p class="figcap">图 5　SUE 接口（原文 Figure 5）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 5 说明</h4>
+      <p>图上是同一套 IP 的两种规模。左边是 800G，右边是 1.6T。每边都分成上绿下蓝：绿色是 SUE 处理逻辑，蓝色是以太网 MAC / 链路 / PHY。图例有三种线：红色实线是数据，黑色实线是命令输入，黑色虚线是控制与信用。</p>
+      <ul>
+        <li><strong>左侧 800G。</strong>面向 XPU NOC 只有一个命令接口。红色数据箭头成对出现，表示命令带着数据进出。侧边虚线是管理接口。底部 4 条红色箭头标成 4×200G SerDes，合计 800G。这 4 条 SerDes 可以收成 1 个 800G 口、2 个 400G 口或 4 个 200G 口，见后面的端口表。</li>
+        <li><strong>右侧 1.6T。</strong>面向 XPU 有 4 个独立命令接口，对应正文说的 4×400G XPU–SUE 接口。底部是 8×200G SerDes，合计 1.6T。管理接口同样在侧面，用虚线表示，不占数据带宽。</li>
+        <li>XPU NOC 到 SUE 的具体位宽由实现者决定。图只给出两种参考切分，不是唯一合法配置。</li>
+      </ul>
+    </div>
+
+    <h3>6.3.1 XPU 管理接口</h3>
+    <p>控制面使用 AXI 目标接口，可以访问寄存器。除了配置和状态，这个接口也能收发包：由 XPU 组好完整的包，SUE 只补以太网 FCS。这条通路不可靠，速率最高约每秒 1 万包。</p>
+  </section>
+
+  <section class="card" id="fifo">
+    <h2>6.3.2 XPU 命令接口</h2>
+    <p>命令接口可以是下面两种之一：使用信用的连线/FIFO 接口，或者 AXI4。选哪一种由 XPU 决定。有的消息映射不进 AXI4，XPU 的 NOC 和 SUE 之间就需要更开放的自定义接口。</p>
+
+    <h3>6.3.2.1 XPU 与 SUE 之间的 FIFO 接口</h3>
+    <p>这个接口本质上是带信用的 FIFO。XPU 把命令以及可能附带的数据写给 SUE。SUE 按 {目的地, VC} 以及总速率，用信用做流控。发起传输时，XPU 在命令接口上送出表 3 的信号。Input 表示从 XPU 到 SUE。</p>
+    <table>
+      <thead>
+        <tr><th>信号</th><th>方向</th><th>位宽</th><th>含义</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>tx_cycle</code></td><td>输入</td><td>4</td><td>数据节拍编号。一次最多搬 256 B，需要几个节拍取决于数据总线宽度</td></tr>
+        <tr><td><code>tx_valid</code></td><td>输入</td><td>2</td><td>操作类型：无、仅命令、命令加数据</td></tr>
+        <tr><td><code>tx_vc</code></td><td>输入</td><td>2</td><td>虚拟通道。2 位对应最多 4 条 VC</td></tr>
+        <tr><td><code>xpuid</code></td><td>输入</td><td>10</td><td>远端 XPU 标识。10 位足以覆盖表 1 的 1024 个端点</td></tr>
+        <tr><td><code>tx_control</code></td><td>输入</td><td>144</td><td>控制字段，会被打包进发往远端的事务。前几个字节是命令和长度</td></tr>
+        <tr><td><code>tx_data</code></td><td>输入</td><td>N</td><td>数据，按总线宽度分拍送出。例如 N = 256 位（32 B）时，8 拍搬完 256 B</td></tr>
+        <tr><td><code>tx_err</code></td><td>输入</td><td>1</td><td>接口上发生不可纠正 ECC 错误。用于裸片到裸片之间要做 ECC 生成和检查的情况</td></tr>
+        <tr><td><code>tx_credit</code></td><td>输出</td><td>6</td><td>按 VC 给“仅命令”和“命令加数据”返回信用及有效位</td></tr>
+        <tr><td><code>tx_reset_in</code></td><td>输入</td><td>1</td><td>复位</td></tr>
+        <tr><td><code>tx_reset_out</code></td><td>输出</td><td>1</td><td>表示 SUE 正处于复位</td></tr>
+      </tbody>
+      <caption>表 3　XPU 到 SUE 的信号接口（原文 Table 3）。</caption>
+    </table>
+    <p>报文到达后，SUE 检查网络头和 SUE PDU，拆包，再经命令接口把事务送回 XPU。反方向信号见表 4，方向相对表 3 反过来：原来的输入变成 SUE 的输出。</p>
+    <table>
+      <thead>
+        <tr><th>信号</th><th>方向</th><th>位宽</th><th>含义</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>rx_cycle</code></td><td>输出</td><td>4</td><td>数据节拍编号，一次最多 256 B</td></tr>
+        <tr><td><code>rx_valid</code></td><td>输出</td><td>2</td><td>无、仅命令，或命令加数据</td></tr>
+        <tr><td><code>rx_vc</code></td><td>输出</td><td>2</td><td>虚拟通道</td></tr>
+        <tr><td><code>xpuid</code></td><td>输出</td><td>10</td><td>远端（此处为源）XPU 标识</td></tr>
+        <tr><td><code>rx_control</code></td><td>输出</td><td>144</td><td>控制字段，前几个字节是命令和长度</td></tr>
+        <tr><td><code>rx_data</code></td><td>输出</td><td>N</td><td>数据，分拍送出，规则与 <code>tx_data</code> 相同</td></tr>
+        <tr><td><code>rx_credit</code></td><td>输入</td><td>6</td><td>XPU 向 SUE 返回信用，覆盖仅命令和命令加数据</td></tr>
+        <tr><td><code>rx_reset_in</code></td><td>输入</td><td>1</td><td>复位</td></tr>
+        <tr><td><code>rx_reset_out</code></td><td>输出</td><td>1</td><td>表示 SUE 正处于复位</td></tr>
+      </tbody>
+      <caption>表 4　SUE 到 XPU 的信号接口（原文 Table 4）。</caption>
+    </table>
+  </section>
+
+  <section class="card" id="axi">
+    <h2>6.3.2.2 XPU 到 SUE 的 AXI4 接口</h2>
+    <p>SUE 也可以按每个 400G 以太网接口，暴露一组 AXI4 从接口（subordinate）和一组 AXI4 主接口（manager）。每个 AXI 接口有规范定义的 5 条独立通道：AW、W、B、AR、R。每条主通道和从通道都另带一条信用接口，由接收方向发送方还信用，避免把下游缓冲写爆。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig06-axi.png" alt="图 6 SUE 数据通路 AXI 接口" />
+      <p class="figcap">图 6　SUE 数据通路 AXI 接口（原文 Figure 6）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 6 说明</h4>
+      <p>整块 IP 底部是以太网 MAC / 链路 / PHY。上面一排是 AXI 角色，左右方向相反，因为同一块 IP 既要替 SoC 发请求，也要替网络把请求送进 SoC。</p>
+      <ul>
+        <li><strong>左侧粉色 AXI Manager。</strong>SUE 作为主设备面向 SoC。向上送出的是写地址（AW）、写数据（W）和读地址（AR），也就是从网络收到、要交给本地 SoC 的请求。向下收回的是写响应（B）和读数据（R）。</li>
+        <li><strong>右侧蓝色 AXI Subordinate。</strong>SUE 作为从设备接收 SoC 发出的请求：SoC 向下送 AW、W、AR，SUE 向上回 B 和 R。</li>
+        <li>中间两块是信用接口，颜色和它们所服务的 AXI 角色一致。AW、W、AR、B、R 每条通道各有信用，信用只在“接收方有空间”时返回。</li>
+        <li>图中 Manager 在左、Subordinate 在右，是同一颗 XPU 上 SUE IP 的两个面孔，不是两颗芯片。</li>
+      </ul>
+    </div>
+
+    <p>图 7 把 SoC 逻辑和 SUE 之间的 AXI 连接、缓冲以及 VC 映射放在一起。AXI 事务分成请求（AR、AW、W）和响应（B、R）。请求映射到 VC0，响应映射到 VC1。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig07-axi-connect.png" alt="图 7 数据通路 AXI 连接" />
+      <p class="figcap">图 7　数据通路 AXI 接口的连接关系（原文 Figure 7）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 7 说明</h4>
+      <p>上半是 SoC，下半是 SUE IP。顶部图例：绿色 VC0 是请求，粉色 VC1 是响应。SoC 最上是源和目的，也就是处理单元、DMA 和 HBM，中间经过片内控制环、QoS 和互连。</p>
+      <ul>
+        <li><strong>SoC 侧缓冲紧贴 SUE。</strong>正文要求 SoC 在靠近 SUE 的地方按通道放缓冲，缓冲做浅，这样深度不依赖 SoC 自己的架构。每个小方块是一条通道的队列，颜色表示它属于请求还是响应。</li>
+        <li><strong>左侧“SoC 到 SUE”：</strong>SoC 的 AXI Subordinate 对着 SUE 的 AXI Manager。向下的是读地址、写响应、写地址、写数据、读数据。这些是 SUE 收到网络报文之后，拆开送进 SoC 的事务。</li>
+        <li><strong>右侧“SUE 到 SoC”：</strong>SoC 的 AXI Manager 对着 SUE 的 AXI Subordinate。SoC 把写响应、读地址、读数据、写地址、写数据送进 SUE，由 SUE 打包发到网上。</li>
+        <li><strong>两侧回绕的黑箭头是信用。</strong>左边是 SoC 把信用还给 SUE，右边是 SUE 把信用还给 SoC。从 SUE 收事务的缓冲（Manager 的 AR/AW/W，Subordinate 的 B/R）每腾出空间就还信用。往 IP 里送事务的一侧则自己记着剩余信用：每发一笔就减，每收到一次信用就加。</li>
+        <li><strong>IP 内部。</strong>接口缓冲按 VC0/VC1 着色，里面放的是还没打包的 AXI 事务，缓冲比较小。它们和发送/接收数据通路里更大的“已打包”缓冲不是同一块。下面灰色的 RX、TX 才进入以太网。</li>
+        <li>写请求和写数据走不同通道，但按 AXI4 必须配对、并且同序到达。SUE 会在两块接口缓冲的队头把它们对齐，然后当作一个单元推进发送通路。</li>
+        <li>AXI 的 USER 位（AWUSER、BUSER、ARUSER、RUSER）用来携带 <code>xpu_id</code>、类型和长度。除此之外，控制位和数据位对 SUE 基本不透明，打包后原样送到对端。</li>
+      </ul>
+    </div>
+
+    <p>图 8 画的是请求和响应如何在两颗 XPU 之间走。图中是写请求/写响应；读相同，只是改走 AR 和 R。读请求映射到 VC0，读数据映射到 VC1。写响应是 ACK 或 NACK，放在反方向报文的头里。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig08-axi-write.png" alt="图 8 写请求与写响应的 AXI 连接" />
+      <p class="figcap">图 8　数据通路 AXI 连接：写与写响应（原文 Figure 8）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 8 说明</h4>
+      <p>中间白色竖条是交换机。左边源 XPU，右边目的 XPU。上排绿色是 VC0 请求，下排粉色是 VC1 响应。箭头都是从左到右再在响应路径上从右回到左。</p>
+      <ul>
+        <li><strong>请求，上排，VC0。</strong>源 SoC 的 AXI 主接口发出写请求（AW+W），进入源 SUE 的 AXI 从接口，再进源 SUE 发送通路，穿过交换机，进入目的 SUE 接收通路和目的 SUE 的 AXI 主接口，最后到达目的 SoC 的 AXI 从接口。整条路径保持 VC0。</li>
+        <li><strong>响应，下排，VC1。</strong>目的 SoC 的从接口产生写响应（B），经目的 SUE 的发送通路回到网上，再经源 SUE 的接收通路和 AXI 从接口，回到源 SoC 的主接口响应通道。</li>
+        <li>读的时候把上排换成 AR、下排换成 R，VC 分配不变：请求 VC0，带数据的响应 VC1。请求和响应分在不同 VC，是为了避免响应被请求堵住而死锁，这与后文 PFC 至少要两个无损优先级的原因相同。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" id="encap">
+    <h2>6.3.3 SUE 封装</h2>
+    <p>SUE 把去往同一个 {目的地, VC} 的事务伺机打包，一个 SUE PDU 最大 4096 字节。真正调度发送时，在打包后的 PDU 前面加上可靠性头（RH，图 9），在尾部加上 32 位 CRC（R-CRC）做完整性保护。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig09-rh.png" alt="图 9 SUE 可靠性头" />
+      <p class="figcap">图 9　SUE 可靠性头（原文 Figure 9）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 9 说明</h4>
+      <p>上一行是线上帧的骨架，下一行是把 RH 展开后的两个 32 位字。帧从左到右是：AFH、EtherType、RH、绿色的 SUE 载荷、R-CRC、填充、FCS。蓝线把 RH 拉到下面的字段图。两行字段各 32 位，RH 一共 8 字节。</p>
+      <ul>
+        <li><strong>第一字：</strong><code>ver</code> 2 位版本；<code>op</code> 2 位操作码，表示 <code>apsn</code> 是 ACK、NACK 还是无效；<code>rsv</code> 2 位保留；<code>xpuid</code> 10 位；<code>npsn</code> 16 位，这一包自己的分组序号。</li>
+        <li><strong>第二字：</strong><code>vc</code> 2 位，映射到流量类别；<code>rsvd</code> 4 位保留；<code>partition</code> 10 位，做多租户隔离；<code>apsn</code> 16 位，被确认或被否定的分组序号。</li>
+        <li>R-CRC 覆盖 RH 和打包后的操作，FCS 仍是以太网自己的帧校验。填充用来把帧补到合法长度。</li>
+        <li>分组序号按 {输出端口, 目的 XPU} 分配，每发一包加 1。若同时有 ACK 或 NACK 要回，就填进同一个 RH，不必单独占一个包。</li>
+      </ul>
+    </div>
+    <table>
+      <thead>
+        <tr><th>字段</th><th>位宽</th><th>含义</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>ver</code></td><td>2</td><td>版本</td></tr>
+        <tr><td><code>op</code></td><td>2</td><td>操作码：<code>apsn</code> 是 ACK、NACK，或无效</td></tr>
+        <tr><td><code>rsv</code></td><td>2</td><td>保留</td></tr>
+        <tr><td><code>xpuid</code></td><td>10</td><td>XPU 标识</td></tr>
+        <tr><td><code>npsn</code></td><td>16</td><td>本包分组序号</td></tr>
+        <tr><td><code>vc</code></td><td>2</td><td>虚拟通道，映射到流量类别</td></tr>
+        <tr><td><code>rsvd</code></td><td>4</td><td>保留</td></tr>
+        <tr><td><code>partition</code></td><td>10</td><td>多租户隔离</td></tr>
+        <tr><td><code>apsn</code></td><td>16</td><td>ACK 或 NACK 所指向的分组序号</td></tr>
+      </tbody>
+      <caption>表 5　SUE 可靠性头字段（原文 Table 5）。</caption>
+    </table>
+
+    <h3>6.3.4 SUE Lite 封装</h3>
+    <p>SUE Lite 去掉传输层之后，真正要用的只有目的地、源 XPU 地址和 VC，这三项放得进 AFH Gen 2 的 6 字节头。保护载荷的 R-CRC 也去掉，以进一步减少开销。打包仍然按 {目的地, VC} 进行，但 PDU 上限是 1 KB。封装见图 10。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig10-lite-encap.png" alt="图 10 SUE Lite 封装" />
+      <p class="figcap">图 10　SUE Lite 封装（原文 Figure 10）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 10 说明</h4>
+      <p>图分三截，表达的是 Lite 不再带 RH 和 R-CRC，转发信息挤进很短的二层头，载荷直接占满其余字节。</p>
+      <ul>
+        <li><strong>最上一条。</strong>AFH Gen 2 只有 6 字节，后面立刻是 SUE 载荷和 FCS。与图 9 相比，没有 EtherType、RH、R-CRC 和填充。这是正文所说 Lite 的工作格式。</li>
+        <li><strong>中间的 MAC DA / MAC SA 展开。</strong>目的地址第一字节放标志 V、W、Z、Y、X、M，其余位置和源地址里，蓝色块是目的 XPU、流量类别、源 XPU，绿色块标成不透明的 SUE 载荷。也就是说，标准 6+6 字节的目的/源 MAC 不再整段用来做地址，空出来的字节直接开始装载荷。标志位的定义见 AFH Gen 2 一节。</li>
+        <li><strong>下面两条是 AFH Gen 1 的 12 字节对照。</strong>一条是 12 字节头加 EtherType 再接载荷和 FCS；另一条在中间插入 802.1Q。它们比 6 字节 Gen 2 长，图中用来对照，不是 Lite 为了缩小 IP 而选择的那条路径。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" id="eth">
+    <h2>6.3.5 以太网接口</h2>
+    <p>SUE 提供标准以太网口，SerDes 速率用 200G 或 100G。表 6 是带一个 800G XPU–SUE 接口的 800G 实例，表 7 是带 4×400G XPU–SUE 接口的 1.6T 实例。</p>
+    <table>
+      <thead>
+        <tr><th>以太网口速率</th><th>每实例端口数</th><th>SerDes 速率</th><th>每口 SerDes 条数</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>800G</td><td>1</td><td>200G</td><td>4</td></tr>
+        <tr><td>400G</td><td>2</td><td>200G</td><td>2</td></tr>
+        <tr><td>200G</td><td>4</td><td>200G</td><td>1</td></tr>
+        <tr><td>400G</td><td>1</td><td>100G</td><td>4</td></tr>
+        <tr><td>200G</td><td>2</td><td>100G</td><td>2</td></tr>
+        <tr><td>100G</td><td>4</td><td>100G</td><td>1</td></tr>
+      </tbody>
+      <caption>表 6　800G SUE 实例的以太网端口示例（原文 Table 6）。前三行用 200G SerDes，端口速率之和为 800G；后三行用 100G SerDes，端口速率之和为 400G。</caption>
+    </table>
+    <table>
+      <thead>
+        <tr><th>以太网口速率</th><th>每实例端口数</th><th>SerDes 速率</th><th>每口 SerDes 条数</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>400G</td><td>4</td><td>200G</td><td>2</td></tr>
+        <tr><td>200G</td><td>8</td><td>200G</td><td>1</td></tr>
+        <tr><td>400G</td><td>2</td><td>100G</td><td>4</td></tr>
+        <tr><td>200G</td><td>4</td><td>100G</td><td>2</td></tr>
+        <tr><td>100G</td><td>8</td><td>100G</td><td>1</td></tr>
+      </tbody>
+      <caption>表 7　1.6T SUE、且 XPU 侧为 4×400G 时的以太网端口示例（原文 Table 7）。前两行用 200G SerDes，端口速率之和为 1.6T；后三行用 100G SerDes，端口速率之和为 800G。</caption>
+    </table>
+
+    <h3>6.3.5.1 网络封装</h3>
+    <p>SUE 用目的 XPU 标识 <code>xpuid</code> 和 VC 来构造网络头。转发内存事务有三种办法：</p>
+    <ul>
+      <li><strong>标准以太网格式：</strong>以太网头，加 IPv4/IPv6，加 UDP。</li>
+      <li><strong>AI 转发头第 1 代（AFH Gen 1）：</strong>仍是二层格式，保留以太网目的/源 MAC 的编排方式，但交换机转发查找可以只用地址里的 16 到 32 位。EtherType 标明这是 AFH Gen 1。若需要区分多种传输头，可以再加第二个 EtherType。</li>
+      <li><strong>AI 转发头第 2 代（AFH Gen 2）：</strong>更短的二层格式，转发信息压到 6 或 12 字节。目的地址和源地址里剩下的字节可以给用户自定义。EtherType 用来区分多种传输头。</li>
+    </ul>
+    <p>使用标准以太网和 IP 头时，用 UDP 端口号识别 SUE 包（图 11）。使用 AFH Gen 1 时，用 EtherType 识别（图 12）。AFH Gen 2 基于 IEEE 802c-2017 的结构化本地地址规划（SLAP），有 12 字节和 6 字节两种。AFH 的目的是减少线上开销。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig11-eth-ip.png" alt="图 11 标准以太网 IP 格式" />
+      <p class="figcap">图 11　标准 IEEE 802.3 以太网 / IP 格式（原文 Figure 11）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 11 说明</h4>
+      <p>两条都是“看起来像普通 UDP/IP 包”的 SUE 帧。SUE 自己的内容从绿色的 RH 才开始。</p>
+      <ul>
+        <li><strong>上条，不带 VLAN：</strong>以太网目的/源地址、EtherType、IP、UDP、RH、SUE 载荷、R-CRC、填充、FCS。</li>
+        <li><strong>下条，带 VLAN：</strong>在地址和 EtherType 之间插入 802.1Q。优先级可以放在 802.1Q 里，供 PFC 使用。</li>
+        <li>IP 和 UDP 对 SUE 的作用主要是让现有以太网交换机能按普通三层/四层转发，并用 UDP 端口把包认出来。可靠性和打包仍由 RH 与 SUE 载荷负责，不靠 TCP。</li>
+      </ul>
+    </div>
+
+    <div class="fig">
+      <img src="sue-fig/fig12-afh.png" alt="图 12 AFH Gen 1 与 Gen 2" />
+      <p class="figcap">图 12　AFH Gen 1 与 Gen 2（原文 Figure 12）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 12 说明</h4>
+      <p>七条帧都保留 RH、SUE 载荷、R-CRC、填充和 FCS。变化只在 RH 之前的网络头，用来展示“头可以一层层省掉”。</p>
+      <ul>
+        <li><strong>前四条是 AFH Gen 1。</strong>分别是：只有 AFH EtherType；加上 802.1Q；再加上一个 L4 EtherType；以及 802.1Q 和两个 EtherType 都在。第二个 EtherType 就是正文说的，用来区分多种传输头。</li>
+        <li><strong>后三条是 AFH Gen 2。</strong>第一条 Gen 2 后面直接接 RH，没有 EtherType；第二条插入一个 EtherType；第三条是 802.1Q 再加 EtherType。Gen 2 本身更短，所以即使加上 802.1Q，头仍然比“以太网地址 + IP + UDP”小。</li>
+        <li>绿色区域从 RH 开始，表示可靠传输对三种网络头一视同仁。网络头只解决“帧怎么被交换机认出来并转发”。</li>
+      </ul>
+    </div>
+
+    <h3>6.3.5.2 AI 转发头第 2 代</h3>
+    <p>AFH Gen 2 尽量少改现有以太网标准，同时把网络头做得很小。依据 IEEE 802c-2017 的 SLAP，定义 12 字节和 6 字节两种。使用符合 IEEE 编码的管理分配标识（AAI）时，XPU 标识被映射成 32 位或 16 位，填进目的地址和源地址区域。标志位约定如下：</p>
+    <ul>
+      <li>M = 0 或 1，表示是否组播。</li>
+      <li>V = 0 表示当前版本。此时 W = 0 是正常格式，带跳数和熵；W = 1 是压缩格式，不带跳数和熵。</li>
+      <li>V = 1 留给将来。</li>
+      <li>X = 1，表示本地分配。</li>
+      <li>Y = Z = 0，表示按 SLAP 的 AAI 编码。</li>
+    </ul>
+
+    <div class="fig">
+      <img src="sue-fig/fig13-afh2-compress.jpg" alt="图 13 AFH Gen 2 头压缩" />
+      <p class="figcap">图 13　AFH Gen 2 头压缩（原文 Figure 13）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 13 说明</h4>
+      <p>上条是未压缩的标准头：目的地址 DA、源地址 SA、EtherType、VLAN、又一个 EtherType、IPv4/IPv6，以及标成“熵”的 UDP。下条是压缩结果，一大段收成绿色的 AFH Gen 2，右边只留出很窄的一截。</p>
+      <ul>
+        <li>左边向下的箭头表示 DA/SA 里真正用于转发的信息被收进 AFH Gen 2，不再占用完整的 12 字节 MAC 加 IP 加 UDP。</li>
+        <li>从 UDP 指向 AFH Gen 2 尾部的斜箭头标明：喷洒或负载均衡用的熵，若还需要，就塞进压缩头剩余的那一点空间，而不是再保留整个 UDP 头。对应上文 W = 0 时“带熵”、W = 1 时“不带熵”。</li>
+      </ul>
+    </div>
+
+    <div class="fig">
+      <img src="sue-fig/fig14-afh2-map.png" alt="图 14 AFH Gen 2 字段映射" />
+      <p class="figcap">图 14　AFH Gen 2 字段映射（原文 Figure 14）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 14 说明</h4>
+      <p>这是一张按字节展开的 MAC 地址图。图注写明：字节按便于阅读的顺序画出，不是线上的比特序。横轴从字节 5 到字节 0，每字节 8 位，从位 7 到位 0。</p>
+      <ul>
+        <li><strong>MAC DA 第 5 字节被红圈标出，是标志字节。</strong>其中可见 V、W、R，以及 Z、Y、X、M。旁边还有 U/L、I/G 这类以太网地址里原有的单播/本地、单播/组播标记，说明新标志是嵌进标准地址的最高字节，而不是另起一个头。</li>
+        <li>DA 其余字节是绿色或蓝色小格。图中文字把其中 32 位保留给 DIP 或其他目的地址。压缩格式只用其中 16 位，正常格式用满 32 位，见下一图。</li>
+        <li><strong>MAC SA</strong> 同样是 6 字节，图中文字把它保留 32 位给 SIP 或其他源地址。源 XPU 标识和流量类别就放在这里。</li>
+      </ul>
+    </div>
+
+    <div class="fig">
+      <img src="sue-fig/fig15-afh2-formats.png" alt="图 15 AFH Gen 2 正常格式与压缩格式" />
+      <p class="figcap">图 15　AFH Gen 2 的正常格式与压缩格式（原文 Figure 15）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 15 说明</h4>
+      <p>上半标注为压缩的 16 位地址，下半标注为正常的 32 位地址。两半都分成 MAC DA 和 MAC SA，各两行，因为 6 字节地址画成两行。</p>
+      <ul>
+        <li><strong>压缩格式，W = 1。</strong>DA 开头仍是 V、W 和 Z、Y、X、M。没有跳数限制，也没有熵。目的 XPU 只占 16 位，地址里其余部分标成不透明，可以被载荷或实现自定义占用。SA 里同样用 16 位量级的流量类别和源 XPU，其余为不透明。</li>
+        <li><strong>正常格式，W = 0。</strong>DA 在标志位之后增加绿色的 Hop Limit（跳数限制）和 Entropy Spare（熵，以及空余位），目的 XPU 扩展到 32 位，并占用 DA 的下一整行。SA 中流量类别之外也有熵/空余位，源 XPU 占 32 位并占用下一整行。</li>
+        <li>纵向扩展通常只有一跳，压缩格式省掉跳数和熵是合理的；若交换机或上层仍要做熵哈希，就用正常格式把熵放回地址里。</li>
+      </ul>
+    </div>
+
+    <h3>6.3.5.3 AFH 第 1 代</h3>
+    <p>AFH Gen 1 使用标准的以太网目的和源 MAC，但交换机硬件可以只看地址中的 16 到 32 位做转发。XPU 标识映射进目的地址的 16 位供查找。不带 Shim 时，如果要做优先级映射，需要加上 IEEE 802.1Q VLAN 头。无 Shim 的格式见图 16。Gen 1 也可以带一个 Shim，里面有不少和 IP 头类似的字段，见图 17。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig16-afh1-noshim.png" alt="图 16 不带 Shim 的 AFH Gen 1" />
+      <p class="figcap">图 16　不带 Shim 头的 AFH Gen 1（原文 Figure 16）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 16 说明</h4>
+      <p>两张都是按 32 位一行画出的二层帧，列号 0 到 31。上面一张带 VLAN，下面一张不带。都没有 Shim，载荷和 CRC 之前只有地址和类型。</p>
+      <ul>
+        <li><strong>带 VLAN 的上图。</strong>第一行前 6 字节是 DA，接着 SA 的开头；SA 在下一行续完。然后是橙色的 802.1Q：TPID = 0x8100，后面是 PCP（优先级，图中记为 OPCP 一类的优先级字段）、CFI/DEI，以及 VLAN 标识 VID。再下面绿色的是 EtherType，原文写成待填的 yyyy，用来标识 AFH。帧尾是黄色的 CRC，也就是 FCS。</li>
+        <li><strong>不带 VLAN 的下图。</strong>DA、SA 之后直接是 EtherType 和 CRC。这种帧没有 802.1Q 优先级。正文指出，若没有 802.1Q，又想给无 Shim 格式做优先级映射，就应该加上 VLAN 头；很多 PFC 实现也可以在没有 802.1Q 时，改用 IP 头里的 DSCP 去映射 802.1p。</li>
+        <li>中间大片空白是载荷位置，图只把头部和 CRC 对齐画出来。</li>
+      </ul>
+    </div>
+
+    <div class="fig">
+      <img src="sue-fig/fig17-afh1-shim.png" alt="图 17 带 Shim 的 AFH Gen 1" />
+      <p class="figcap">图 17　带 Shim 头的 AFH Gen 1（原文 Figure 17）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 17 说明</h4>
+      <p>这一张在图 16 的地址和 EtherType 之后插入 Shim。原文没有逐字段给出完整语义，下面按图上可见的名字说明。DSCP、ECN、TTL、Flow Label 与 IP 差分服务、显式拥塞通知、生存时间和流标签同名。</p>
+      <ul>
+        <li><strong>第一帧：2 字节 Shim，无 VLAN。</strong>DA、SA、EtherType 之后是 AR、F=0、C、CMN、TTL、DSCP、ECN，然后是 CRC。</li>
+        <li><strong>第二帧：2 字节 Shim，再加 VLAN。</strong>EtherType 之前插入 TPID=0x8100 和 PCP、CFI、VID，Shim 字段与第一帧相同。</li>
+        <li><strong>底部两行是 Shim 自己的位图。</strong>F=0 时 Shim 到 ECN 结束，图题为 2 字节格式。F=1 时在 ECN 之后增加 Flow Label，图题为 3 字节格式。因此 F 是“是否携带流标签”的开关。</li>
+        <li>AR、C、CMN 只在图中出现，正文没有单独定义。实现时应以原图的位偏移为准，不要把它们当成标准 IP 字段。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" id="link">
+    <h2>6.3.5.4 前向纠错（FEC）</h2>
+    <p>FEC 码块越小，时延越低。可以选择 RS-272，而不是标准 IEEE RS-544。RS-272 能纠正的错误更少，换来的是更低的时延。</p>
+    <p>在 400G 和 800G，IEEE 要求对 FEC 码块做交织。若支持不交织或少交织、让码块跨车道的方式不那么重，时延还可以再降。</p>
+
+    <h3>6.3.5.5 链路层重传（LLR）</h3>
+    <p>LLR 用来在 FEC 之上再提高可靠性。单个包损坏时，由相邻的两台设备重传，而不必等到事务两端去判断这个包是丢了还是坏了。即使开了 FEC，只要 FEC 没能纠正、帧在两台交换机之间因链路错误被丢掉，LLR 仍然可以重传它。</p>
+
+    <h3>6.3.5.6 优先级流控（PFC）</h3>
+    <p>PFC 用来在拥塞时提供无损链路，定义在 IEEE 802.1Qbb。它使用 802.1Q 头里的 802.1p 优先级位，只暂停某一个优先级，而不是像 802.3x Pause 那样暂停整条链路。SUE 至少要使用两个无损 PFC 类别：一个给请求，一个给确认。否则请求会堵住确认，形成死锁。很多 PFC 实现在帧里没有 802.1Q 时，可以用 IP 头的 DSCP 映射到 802.1p。</p>
+
+    <h3>6.3.5.7 基于信用的流控（CBFC）</h3>
+    <p>CBFC 由超级以太网联盟（UEC）标准化，同样用来在拥塞时保持链路无损。相对 PFC，它有三点好处：</p>
+    <ul>
+      <li>同样大小的缓冲，CBFC 能支持更多无损类别。PFC 是 8 类，CBFC 是 32 类。</li>
+      <li>发送方知道每条 VC 的信用占用，SUE 可以用这个信息做调度和负载均衡。</li>
+      <li>在相同链路长度和时延下，CBFC 需要的缓冲比 PFC 少。</li>
+    </ul>
+    <p>不同的 CBFC 类别用来避免 XPU 和交换机之间死锁。VC 映射到 CBFC 类别。</p>
+
+    <h3>6.3.5.8 链路失败</h3>
+    <p>SUE 为挂在它上面的所有以太网口提供链路状态。在两端口或四端口、并且处于无序模式时，若发现某颗远端 XPU 从某一个端口/平面不可达，SUE 把相关工作挪到另一个端口。</p>
+  </section>
+
+  <section class="card" id="mem">
+    <h2>6.4 SUE 的运行</h2>
+    <h3>6.4.1 内存模型与语义</h3>
+    <p>SUE 使用共享内存模型。需要地址翻译时，由 SUE 实例之外的 XPU 完成。</p>
+    <p>SUE 支持加载/存储类服务，也就是 put、get 和原子操作。源 XPU 发出命令，SUE 把命令连同数据交到目的 XPU，并向源 XPU 给出完成指示。</p>
+    <p>语义是单边的。每条命令由源端单方面发出，不向目的端上的进程发指示。内存注册和保护域一类的管理都在 SUE 之外。SUE 提供的分区字段可以用于访问控制。类似的技术包括 PCIe 和 UALink。单边内存事务的确认表示“接收方已经收到”，不是“数据已经写入内存”。</p>
+    <p>这和 RoCE、InfiniBand、TCP/IP 的网络语义不同。那些协议要求先和对端 XPU 建立连接。</p>
+
+    <h3>6.4.2 处理流程</h3>
+    <p>完整 SUE 的处理流程见图 18，步骤如下。</p>
+    <ol>
+      <li>XPU 内核经命令接口向 SUE 发命令。</li>
+      <li>SUE 接受操作，把控制以及可能存在的数据打包进按目的地分开的发送缓冲。缓冲逻辑根据打包情况和流控状态（例如 CBFC 的输入）决定队列何时可以被服务，并通知调度器该队列已经有资格发送。
+        <ul>
+          <li>控制字段的前几个字节是命令类型和长度。命令类型规定要带到目的地的控制信息长度（以 2 字节为单位），以及是否带数据。若带数据，数据长度也在这里给出。</li>
+          <li>打包就按这两个长度，把控制和分析出来的数据收在一起。</li>
+        </ul>
+      </li>
+      <li>调度器在 VC 之间做加权轮询，在同一条 VC 内按到达顺序调度。经控制接口发出的包会并入数据通路。</li>
+      <li>每一组打包后的命令加上可靠性头。分组序号按 {输出端口, 目的 XPU} 分配，单调加 1。若有 ACK 或 NACK，写入 RH。再对 RH 和打包后的操作计算 R-CRC，形成 SUE PDU。
+        <ul>
+          <li>XPU 之间按物理端口建立连接。连接状态很紧凑，主要是下一个期望序号，以及管理 ACK/NACK 的少量控制字段。</li>
+          <li>每个平面内按序交付。无损流量类别加上 LLR，使丢包变得很少，但仍然可能发生。一旦判定丢包，用 Go-Back-N 恢复。</li>
+        </ul>
+      </li>
+      <li>给 PDU 加上网络头。用目的 XPU 和 VC 查找需要填写的地址字段。</li>
+      <li>以太网帧发出并到达目的地。</li>
+      <li>做以太网有效性检查。目的地是控制接口的包在这里被分出去。</li>
+      <li>校验以太网头，再检查 RH。若收到的序号正好是该（源 XPU，VC）的期望序号，PDU 进入接收缓冲，并被调度送往 XPU NOC。
+        <ul>
+          <li>若序号不符合期望，向源端发 NACK，并丢掉这个源后续到来的包，直到期望序号出现。</li>
+          <li>收到期望序号后，对这个包做确认。</li>
+        </ul>
+      </li>
+      <li>接收缓冲中的命令被调度、拆包，送往 XPU NOC。</li>
+    </ol>
+
+    <div class="fig">
+      <img src="sue-fig/fig18-flow.png" alt="图 18 SUE 处理流程" />
+      <p class="figcap">图 18　SUE 处理流程（原文 Figure 18）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 18 说明</h4>
+      <p>上半是发送路径，下半是接收路径，右边两条粗蓝箭头是以太网把帧从源 MAC 送到目的 MAC。红色箭头是管理包和完成指示，黑色实线是数据面，黑色虚线是完成或重传一类的反馈。</p>
+      <ul>
+        <li><strong>发送，从左到右。</strong>内核线程进入源 XPU NOC，经接口到 Pack。Pack 写入“按（目的 XPU，VC）分队列”的 TX buffer。队列画成一排小格，有的格子是空的，有的已填色，表示不同队列里堆积的事务多少不一样。调度器取出有资格的队列，交给可靠性块分配 PSN，并在需要时重传。然后是网络封装（图中写 L4/L3/L2），最后进入带 LLR、CBFC、PFC 的以太网 MAC/PHY。</li>
+        <li><strong>管理发送。</strong>上方绿色的 Mgmt TX buffer 经 AXI 进出，黑箭头斜着并入调度器之前的数据通路。这就是“控制接口发出的包并入数据通路”。它和内存事务共用后面的封装和 MAC，但速率只有管理接口那一档。</li>
+        <li><strong>完成。</strong>从调度器附近有一条虚线回到源 XPU 接口，标着 complete。源 XPU 据此知道命令已经被 SUE 接受或已经完成发送侧处理，而不是等到数据写入对端内存。</li>
+        <li><strong>接收，从右到左。</strong>MAC/PHY 之后先做网络有效性检查，再经 DEMUX。目的地是管理面的帧被拨到下方的 Mgmt RX buffer，经 AXI 离开。其余帧做网络解封装，进入可靠性块。这里会检查 PSN，不对就 NACK。通过的 PDU 按（源 XPU，VC）进 RX buffer，再 Unpack、Schedule，经接口进入目的 XPU，向下到达 LLC/HBM。</li>
+        <li><strong>红色回绕。</strong>从接收侧可靠性块和 MAC 有红线回到发送侧，表示 NACK/ACK 和链路事件要影响发送侧重传，而不是在接收侧本地消化。</li>
+        <li>和下一张 Lite 流程图对比时，本图多出来的就是发送侧和接收侧各一块“可靠性 / PSN”方块。</li>
+      </ul>
+    </div>
+
+    <h3>6.4.3 SUE Lite 的处理流程</h3>
+    <p>见图 19。前三步与完整 SUE 相同：内核发命令，按目的地打包，调度器加权轮询。XPU 还可以指示某一笔操作不要等后续操作、立刻发送。之后的差别是：</p>
+    <ol start="4">
+      <li>打包后的命令直接封装。Lite 期望交换元件（如果有）在每个平面内按序交付。无损流量类别和 LLR 把丢包概率压得很低。这里没有 PSN，也没有 Go-Back-N。</li>
+      <li>给 Lite PDU 加网络头，用目的 XPU 和 VC 查地址。</li>
+      <li>以太网帧发出并到达目的地。</li>
+      <li>做以太网有效性检查，把前往控制接口的包分出去。</li>
+      <li>校验以太网头。没有 RH 可查。</li>
+      <li>接收缓冲收下命令，调度、拆包，送往 XPU NOC。</li>
+    </ol>
+
+    <div class="fig">
+      <img src="sue-fig/fig19-lite-flow.png" alt="图 19 SUE Lite 处理流程" />
+      <p class="figcap">图 19　SUE Lite 处理流程（原文 Figure 19）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 19 说明</h4>
+      <p>方块布局与图 18 几乎一样，便于对照。发送路径在调度器之后直接进入网络封装，接收路径在 DEMUX 之后直接进入网络解封装。两处都没有“可靠性 / PSN / NACK”方块。</p>
+      <ul>
+        <li>TX buffer 仍然按（目的 XPU，VC）分队列，RX buffer 仍然按（源 XPU，VC）分队列。打包和拆包都还在，Lite 省掉的是端到端可靠传输，不是打包。</li>
+        <li>MAC/PHY 上仍标注 LLR、CBFC、PFC。丢包恢复若还需要，发生在这一跳的链路上，不到 XPU 事务层。</li>
+        <li>管理口的 TX/RX buffer 和 AXI 仍在。完成虚线仍回到源 XPU，但这条完成不再携带传输层 ACK 的含义。</li>
+        <li>右边的蓝色箭头还在，表示帧仍然穿过以太网到达对端，路径本身没有变短，变短的是端点上的状态机。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" id="lb">
+    <h2>6.4.4 负载均衡</h2>
+    <p>默认一颗 XPU 会连接多个 SUE 实例。跨实例的负载均衡可以由软件做，也可以在 XPU 里放一个硬件块，把操作分到各个 SUE 模块。每个 SUE 实例会向外提供拥塞状态，供这个硬件块使用，见图 20。</p>
+    <p>在一个 SUE 实例内部，只要端口不少于两个，就可以打开负载均衡。这时 SUE 按可用带宽，把每一组打包后的操作动态分到某个端口。这种跨端口均衡只在无序模式下进行，顺序不再保持。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig20-lb.png" alt="图 20 XPU 负载均衡示例" />
+      <p class="figcap">图 20　XPU 负载均衡示例（原文 Figure 20）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 20 说明</h4>
+      <p>从左到右是一颗 XPU、一块可选的负载均衡器，以及上下排开的多个 SUE 实例。图中画了 6 个，表示“多个”，不是规定必须为 6。每个实例右边再接自己的以太网 MAC/PHY，并用红色双向箭头接到片外。</p>
+      <ul>
+        <li>XPU 与负载均衡器之间有多组红黑箭头，对应命令和数据可以从多个内部端口涌入。均衡器再把它们散到各个 SUE。</li>
+        <li>每个 SUE 有箭头回到均衡器。这就是正文说的“每个实例提供拥塞状态”：均衡器不是盲目轮询，可以避开已经拥塞的实例。</li>
+        <li>这一层在 SUE 之上。它负责把流量铺到所有 SUE 实例。某一个 SUE 自己的多端口均衡，只覆盖它自己的 2 个或 4 个以太网口，覆盖不了图中其他实例。</li>
+        <li>标成 Optional，是因为均衡也可以完全由软件完成，不一定要有这块硬件。</li>
+      </ul>
+    </div>
+
+    <h3>6.4.5 打包</h3>
+    <p>XPU 到 SUE 的接口比 SUE 到以太网的接口更快，而且多条 VC 上都有流控，避免写爆 SUE 里的缓冲。这个速率差会让事务在按目的地分开的队列里积起来。面向以太网的调度器依次查看这些队列，找下一批要发的事务。一个队列里若有多条事务，就打进同一个外出以太网帧；若只有一条，就单独发送。SUE 不会为了凑包而故意推迟事务。它最多打到预先配置的上限，例如 2 KB，然后就发出，再转到下一个有资格的队列。</p>
+    <p>图 21 里，XPU 把事务 A 到 E 交给 SUE，SUE 按目的地入队。调度器是工作守恒的，总是发送下一个有数据的队列。这个例子里，下一个队列里是 A，发出 A；然后是 B，发出 B；然后选中放着 C 的队列，而 E 也排到了同一目的地，于是 C 和 E 打进同一帧发出；最后选中 D 的队列并发出。SUE 不等队列堆到某个长度，只是在已经堆在一起时顺便打包，既提高线上效率，也不增加事务时延。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig21-packing.png" alt="图 21 SUE 打包示例" />
+      <p class="figcap">图 21　SUE 打包示例（原文 Figure 21）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 21 说明</h4>
+      <p>自上而下是入队，再经过调度器，从以太网口出去。出口处的帧沿向下的箭头排列，靠近箭头、位于最下方的是最先发出的帧。</p>
+      <ul>
+        <li>XPU 事务进入标成 “SUE to XPU” 的接口后，按目的地放进一排竖队列。大多数队列是空的。A、B、D 各自独占一条队列；C 和 E 在同一条队列里，E 叠在 C 上面，表示后到、同一目的地。</li>
+        <li>调度器不扫描“最满的队列”，而是按可服务顺序取下一条非空队列，所以单条的 A、B、D 不会为了等同伴而停留。</li>
+        <li>出口四帧的发送顺序是：只含 A 的帧，只含 B 的帧，把 C 和 E 打在一起的帧，只含 D 的帧。图中自下而上就是这个顺序。</li>
+        <li>以太网头画成粉色，事务画成绿色，用来强调打包发生在载荷里，多个事务共享一个帧头。这也是 PDU 能到 4 KB（Lite 为 1 KB）而单条事务仍是 256 B 的原因。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" id="lat">
+    <h2>6.5 端到端单向时延预算</h2>
+    <p>多 XPU 共享内存系统的吞吐取决于 XPU 通信的时延，所以把互连时延做低非常重要。线缆的长度和种类、交换机时延都是关键项。各部件的时延见图 22。</p>
+
+    <div class="fig">
+      <img src="sue-fig/fig22-latency.png" alt="图 22 端到端单向时延预算" />
+      <p class="figcap">图 22　SUE 端到端单向时延预算（原文 Figure 22，裁自原页以便保留图中的数字）</p>
+    </div>
+    <div class="figexplain">
+      <h4>图 22 说明</h4>
+      <p>左边两块叠放的 SUE 代表路径的两端，右边是一台交换机。红色箭头从上面那颗 XPU 的 SUE 出发，进交换机，再进下面那颗 XPU 的 SUE。这是单向，不是往返。每块 SUE 内部有两个方框，各自标着发送加接收时延小于 100 ns：</p>
+      <ul>
+        <li><strong>靠近 XPU 的桥。</strong>上侧是 “Bridge NOC to Ethernet”，把片上网络上的事务送进以太网侧。下侧是 “Bridge Ethernet to NOC Memory Management Unit”，从以太网回到片上网络和内存管理。两边预算都按小于 100 ns 计，所以桥接合计 200 ns。</li>
+        <li><strong>以太网链路和 PHY。</strong>每一端各小于 100 ns。图上的箭头把这一段和到交换机的线缆画在一起。交换机本身的发送加接收小于 250 ns。</li>
+        <li><strong>线缆按长度和介质分开。</strong>单位长度：单模光纤 4.96 ns/m，空芯光纤 3.5 ns/m，Twinax 铜缆 4.6 ns/m。因为是进交换机再出来，预算里有两段线缆。</li>
+      </ul>
+      <p>图中给出的单向合计是：两端桥接 100+100 ns，两段线缆，再加交换机 250 ns。</p>
+      <table>
+        <thead>
+          <tr><th>介质与长度</th><th>单段线缆</th><th>单向合计</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>30 m 单模光纤</td><td>148.8 ns</td><td>100+100+148.8+148.8+250 = 747.6 ns</td></tr>
+          <tr><td>30 m 空芯光纤</td><td>105 ns</td><td>660 ns</td></tr>
+          <tr><td>10 m 单模光纤</td><td>49.6 ns</td><td>549.2 ns</td></tr>
+          <tr><td>10 m 空芯光纤</td><td>35.0 ns</td><td>520 ns</td></tr>
+          <tr><td>5 m 单模光纤</td><td>24.8 ns</td><td>499.6 ns</td></tr>
+          <tr><td>5 m 空芯光纤</td><td>17.5 ns</td><td>496 ns</td></tr>
+          <tr><td>3 m Twinax 铜缆</td><td>13.8 ns</td><td>477.6 ns</td></tr>
+        </tbody>
+        <caption>图 22 中的单向时延预算。原图还列出 20 m 单模 99.2 ns、20 m 空芯 70 ns，但没有给出对应的端到端合计。</caption>
+      </table>
+      <p>表 1 的目标是往返小于 2 μs。按图中最大的 30 m 单模估算，单向约 0.75 μs，往返约 1.5 μs，仍留在 2 μs 以内。3 m 铜缆单向不到 0.5 μs。预算没有把 XPU 内核对命令的处理、打包等待和重传算进去，只覆盖桥、PHY、线缆和交换机。</p>
+    </div>
+  </section>
+
+  <section class="card" id="app">
+    <h2>附录 A　指导委员会批准核对表</h2>
+    <p>原文说明：附录没有规范约束力，只供参考。核对表要求贡献者逐项填写，并链到本规范或外部文档中的详细说明。1.0.0 文本里实际填写的内容如下。</p>
+    <table>
+      <thead>
+        <tr><th>项目</th><th>状态或细节</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>是否已录入 OCP 贡献门户</td><td>原文为“是或否”的模板，未填具体答案</td></tr>
+        <tr><td>是否已在 OCP 贡献门户获得批准</td><td>同上，未填具体答案</td></tr>
+        <tr><td>是否有供应商正在基于本规范做产品（供应商须为 OCP 解决方案提供商）</td><td>是。Broadcom 向第三方 ASIC 设计方提供 IP</td></tr>
+        <tr><td>供应商能否在 120 天内达到一般可获得（GA）</td><td>否。开发一颗 ASIC 的时间长于 120 天</td></tr>
+      </tbody>
+      <caption>附录 A 的已填内容。模板中“链到详细说明”一列在发布文本里是空的。</caption>
+    </table>
+  </section>
+
+  <footer>
+    译文依据 Broadcom / OCP《Scale Up Ethernet》Version 1.0.0（2025-09-05 批准）。插图取自原文。图下说明是对原图的解读，不属于规范正文。
+  </footer>
+</div>
+</body>
+</html>
