@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>低延迟光互联产品方案 · 技术问题分析</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    td.num { font-family: "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .formula {
+      font-family: "Segoe UI", "Cascadia Code", Consolas, sans-serif;
+      background: #1c1917; color: #e7e5e4; padding: 12px 16px; margin: 12px 0 16px;
+      font-size: 14px; line-height: 1.65; overflow-x: auto;
+    }
+    .small { font-size: 14px; color: var(--muted); }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="badge-row">
+    <span class="badge hot">会议分析</span>
+    <span class="badge">低延迟光互联</span>
+    <span class="badge">集合通信</span>
+    <span class="badge warn">录音转写，术语已还原</span>
+  </div>
+  <h1>低延迟光互联产品方案：技术问题与展开</h1>
+  <p class="subtitle">2026 年 11 月 4 日讨论的需求、产品定义和未闭合点。下面按问题展开，并把会上的数量级放到可核对的物理和系统预算里。</p>
+  <p class="meta">
+    <strong>来源</strong>　文字记录：低延迟光互联产品方案讨论，10:33–11:47（GMT+8）<br />
+    <strong>双方关注点</strong>　供应方给出三代光 IO；需求方要单用户约 1000 token/s、小包集合通信、64–128 卡规模<br />
+    <strong>文档性质</strong>　技术归纳与推演，会上没有实测曲线，文中算例均标明假设
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#s1">讨论在对齐什么</a></li>
+    <li><a href="#s2">产品定义：三代光 IO</a></li>
+    <li><a href="#s3">纳秒预算和光纤长度</a></li>
+    <li><a href="#s4">小包集合通信为何把延迟放在前面</a></li>
+    <li><a href="#s5">Repeater、Retimer 与 DSP</a></li>
+    <li><a href="#s6">光链路还要不要 FEC</a></li>
+    <li><a href="#s7">PCIe / UCIe 上光之后协议要改哪里</a></li>
+    <li><a href="#s8">组网：点对点、交换机和协议无关 PHY</a></li>
+    <li><a href="#s9">距离、插损，以及光和电怎么分工</a></li>
+    <li><a href="#s10">封装边界、模块形态和标准化</a></li>
+    <li><a href="#s11">带宽口径、管脚和 112G 临界点</a></li>
+    <li><a href="#s12">路线图、通用产品与仍要对齐的清单</a></li>
+  </ol>
+</nav>
+
+<section class="card" id="s1">
+  <h2>1. 讨论在对齐什么</h2>
+  <p class="lead">这次会把一条低延迟光互连产品和一套延迟优先的推理系统放到同一张桌上。供应方上次听到的需求几乎只有两句：单用户大约 1000 token/s，以及端到端时延要压到 10 ns 这一档。带宽、功耗、组网和物理摆放都还没有数，所以这次给出的是一套偏通用的光 IO 规格，再用需求方的追问把它收窄。</p>
+  <p>需求方把一次推理步的开销拆成三块：计算、把数据从存储搬进计算单元、集合通信。前两块他们认为已有办法；集合通信是先碰到的瓶颈。大模型可以按一个激活维度往外送，单用户一个 token 的集合通信负载只有几 KB 到几十 KB。并发（几十到上百）排在单用户延迟之后，因为低延迟输出已经有人按很高的百万 token 价格买单。</p>
+  <div class="kpi">
+    <div><div class="n">~10 ns</div><div class="k">上次提出的端到端时延量级</div></div>
+    <div><div class="n">1000 tok/s</div><div class="k">单用户解码速率目标，约 1 ms/token</div></div>
+    <div><div class="n">数 KB</div><div class="k">单次集合通信的典型包长</div></div>
+    <div><div class="n">64–128 卡</div><div class="k">认为“延迟做到这一档就够用”的规模</div></div>
+  </div>
+  <div class="callout">
+    <strong>会上已经形成的判断：</strong>带完整 DSP 的电 IO，信号从芯片出来之前时延就已经偏大，和这条延迟预算在原理上对不上。能靠近预算的，是结构很瘦的光 repeater：器件本身几个纳秒，其余时间几乎全是光在光纤里走的时间。10 ns 量级的单程，光纤只能留到大约 2 米。
+  </div>
+  <p>和本目录里已有材料的关系可以直接对上。<a href="EveryMicrosecondMatters_论文分析.html">Every μs Matters</a> 讨论的是：线本身一旦只有几十纳秒，剩下的微秒级开销来自软件屏障和集合通信算法。<a href="SUE_Scale-Up-Ethernet_规范译文.html">SUE</a> 则是骑在以太网上的纵向扩展，往返目标小于 2 μs，大约比这次的 10 ns 松两个数量级，对应“用现成以太网交换机”那条更通用、也更慢的路。</p>
+</section>
+
+<section class="card" id="s2">
+  <h2>2. 产品定义：三代光 IO</h2>
+  <p>供应方把产品收成一个简单的光 IO，服务对象是 NPU / LPU 这一类计算芯片之间的互连。前两代只有 repeater，第三代才在驱动和光电接收侧加上协议功能与 retimer。前两代架构相近，差别主要在波长、光源位置、电接口和封装；第三代的工作量明显更大。</p>
+
+  <table>
+    <thead>
+      <tr><th></th><th>R1（当前主推，自验证首款）</th><th>R2</th><th>R3</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>数据通路</td>
+        <td>repeater，无 retimer</td>
+        <td>repeater，无 retimer</td>
+        <td>repeater，另加 retimer 与协议功能</td>
+      </tr>
+      <tr>
+        <td>波长</td>
+        <td>850 nm</td>
+        <td>1060 nm</td>
+        <td>1060 nm</td>
+      </tr>
+      <tr>
+        <td>电接口</td>
+        <td>PCIe，覆盖仍要 PCIe 的客户</td>
+        <td>完整 UCIe</td>
+        <td>完整 UCIe</td>
+      </tr>
+      <tr>
+        <td>封装</td>
+        <td>标准封装；客户要求时可考虑先进封装</td>
+        <td>Flip Chip</td>
+        <td>会上未单列，复杂度随 retimer 上升</td>
+      </tr>
+      <tr>
+        <td>定位</td>
+        <td>延迟和功耗更低，距离更短</td>
+        <td>若客户直接要 UCIe 加先进封装，可以从这一代做起；R1 与 R2 的难度差不大</td>
+        <td>眼图不够时用来把距离做开，延迟和功耗都要再留预算</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>第一代被讲清楚的参数</h3>
+  <ul>
+    <li><strong>带宽。</strong>单方向 1 TB/s，双向 2 TB/s。符号率按录音应还原为 32 GBaud（原文写成“32GB”）。</li>
+    <li><strong>光。</strong>850 nm，VCSEL 一类面发射方案（后文明确说到 VCSEL）。光配置约 125 μm，记录没有区分这是光纤包层直径还是阵列节距。集成电阻约 70 Ω，符合 VCSEL 驱动端的终端电阻量级。复杂度被描述为低。</li>
+    <li><strong>通路。</strong>一端 host 到光纤，再到另一端 host，反向同样支持。R1/R2 除波长和光源放置外，架构没有大的差别。R3 在 driver 与 PD/TIA 侧分别加入协议和 retimer。</li>
+    <li><strong>管脚。</strong>大约 64 个高速输入和 64 个高速输出。其余管脚（控制、电源、管理）要和客户一起定。</li>
+    <li><strong>功耗。</strong>理论值大约 1–1.5 pJ/bit，实现时还要留余量。按 1 TB/s = 8 Tb/s 计，1 pJ/bit 对应单方向约 8 W，1.5 pJ/bit 约 12 W。</li>
+    <li><strong>交付边界。</strong>他们做光电封在一起的 IO 芯片；光纤尾纤、耦合和光模块量产交给模组厂。计算芯片一侧继续用第三方 PCIe / UCIe IP，对接到这块 chiplet。</li>
+  </ul>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 168" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三代产品从 repeater 到 retimer 的演进">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+        <rect x="16" y="28" width="300" height="118" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="166" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">R1 · 850 nm · PCIe</text>
+        <text x="166" y="78" text-anchor="middle" font-size="13" fill="#44403c">标准封装 · 只做 repeater</text>
+        <text x="166" y="100" text-anchor="middle" font-size="13" fill="#44403c">1 TB/s 单向 · 32 GBaud</text>
+        <text x="166" y="122" text-anchor="middle" font-size="12" fill="#57534e">第一代自验证</text>
+        <rect x="340" y="28" width="300" height="118" fill="#f0fdfa" stroke="#5eead4"/>
+        <text x="490" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#0f766e">R2 · 1060 nm · UCIe</text>
+        <text x="490" y="78" text-anchor="middle" font-size="13" fill="#44403c">Flip Chip · 仍无 retimer</text>
+        <text x="490" y="100" text-anchor="middle" font-size="13" fill="#44403c">架构与 R1 相近</text>
+        <text x="490" y="122" text-anchor="middle" font-size="12" fill="#57534e">客户若直接要 UCIe 可从此代开始</text>
+        <rect x="664" y="28" width="300" height="118" fill="#f0f4f8" stroke="#93c5fd"/>
+        <text x="814" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a5f">R3 · 1060 nm · UCIe</text>
+        <text x="814" y="78" text-anchor="middle" font-size="13" fill="#44403c">driver 与 PD/TIA 加协议</text>
+        <text x="814" y="100" text-anchor="middle" font-size="13" fill="#44403c">retimer 重定时，眼图更好</text>
+        <text x="814" y="122" text-anchor="middle" font-size="12" fill="#57534e">距离换延迟和功耗</text>
+        <polygon points="316,87 336,87 336,80 348,93 336,106 336,99 316,99" fill="#a8a29e"/>
+        <polygon points="640,87 660,87 660,80 672,93 660,106 660,99 640,99" fill="#a8a29e"/>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 1 · 会上的三代划分。延迟敏感的第一落点在 R1/R2；R3 是距离或眼图不够时的退路。</p>
+
+  <h3>850 nm 与 1060 nm</h3>
+  <p>850 nm VCSEL 加多模光纤是短距光互连里供应量最大的组合，MPO、OM4 一类器件都现成，适合作为第一代可落地的自验证产品。1060 nm VCSEL 是后两代的波长：更高速率、可靠性和色散往往是换波长的原因，但它没有 850 nm 那么完整的以太网短距生态。会上把波长演化和接口演化绑在一起——第一代留 PCIe，后两代改完整 UCIe——说明 R1 优先解决“能连上、延迟低”，R2 才把电接口换成片间互连那一套。</p>
+  <p>另一条已经存在的产品是电 IO，上次材料讲的是它。那条路径带完整 DSP，用于把闭合的眼图打开。需求方如果只追通信效率，电 DSP 方案在原理上偏慢；会上也留了口，若仍想看带 DSP 的方案，可以再单开一次。</p>
+</section>
+
+<section class="card" id="s3">
+  <h2>3. 纳秒预算和光纤长度</h2>
+  <p>这条链路的时延几乎不在电路里。石英光纤的群折射率大约 1.47，真空光速 2.998×10<sup>8</sup> m/s，群速度约 2.04×10<sup>8</sup> m/s，合 <strong>每米约 4.9 ns</strong>。会上用的“1 米不到 5 ns”就是这个数。器件从电到光、再从光回到电，被估在几个纳秒；留预量之后，器件侧可以放到大约 10 ns。Retimer 会在起点再打一拍，交换机再绕一圈，长距时总时延会被明显放大。</p>
+  <div class="formula">
+    t<sub>fiber</sub> = n<sub>g</sub> · L / c ≈ 4.9 ns/m × L<br />
+    t<sub>one-way</sub> ≈ t<sub>EO</sub> + t<sub>fiber</sub> + t<sub>OE</sub>　　（无 retimer、无 FEC、无交换机）
+  </div>
+  <p>把“单程十来纳秒”代回去：器件若只占 2 ns 左右，光纤只剩约 10 ns，也就是 <strong>1.7–2 米</strong>。这和会上的口算一致。2 米在一块大基板或一个机柜里往往不够把 64 张卡都连上，所以 10 ns 已经贴着光传播的物理边界。光相对于铜的优势，是同样长度下传播更快、插损不按分贝每米那样积累；它快不过真空里的光速。</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>光纤长度</th>
+        <th>光纤本身</th>
+        <th>单程（器件按 4 ns 计）</th>
+        <th>单程（器件按 10 ns 计）</th>
+        <th>对应的物理摆放</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">1 m</td><td class="num">4.9 ns</td><td class="num">~9 ns</td><td class="num">~15 ns</td>
+        <td>同一块板、极短跳线</td>
+      </tr>
+      <tr>
+        <td class="num">2 m</td><td class="num">9.8 ns</td><td class="num">~14 ns</td><td class="num">~20 ns</td>
+        <td>会上认为 10 ns 档的长度上限附近</td>
+      </tr>
+      <tr>
+        <td class="num">5 m</td><td class="num">24.5 ns</td><td class="num">~29 ns</td><td class="num">~35 ns</td>
+        <td>会上用来代表“到另一个机柜”</td>
+      </tr>
+      <tr>
+        <td class="num">2 m 往返</td><td class="num">19.6 ns</td><td class="num">~28 ns</td><td class="num">~40 ns</td>
+        <td>一次请求加一次返回，尚未计入算法多步</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="small">器件 4 ns / 10 ns 是把会上“几个纳秒”和“留预量约 10 ns”收成两档假设，不是实测。</p>
+
+  <p>会上另给过一个 <strong>40–50 ns</strong> 的数，问需求方够不够。按上表，它更像“数米光纤 + 两端转换”的整链路预算，或者一条较短链路的往返，而不是把 10 ns 原样保留。5 米光纤单独就是 25 ns，10 ns 的单程目标在这个距离上无法成立。若机柜背靠背、或用更宽的机柜把 64 卡收进一个柜子，5 米有机会收到 2 米附近，预算才重新变得可谈。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="不同长度下单程时延的构成">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">
+        <text x="20" y="22" fill="#57534e" font-weight="700">单程时延构成（器件固定画成 6 ns，光纤按 4.9 ns/m，无交换机、无 FEC）</text>
+        <text x="118" y="58" text-anchor="end" fill="#44403c">1 m</text>
+        <rect x="128" y="42" width="36" height="26" fill="#0f766e"/><text x="146" y="59" text-anchor="middle" fill="#fff" font-size="11">6</text>
+        <rect x="164" y="42" width="29" height="26" fill="#c2410c"/><text x="178" y="59" text-anchor="middle" fill="#fff" font-size="11">5</text>
+        <text x="204" y="59" fill="#57534e">≈ 11 ns</text>
+        <text x="118" y="100" text-anchor="end" fill="#44403c">2 m</text>
+        <rect x="128" y="84" width="36" height="26" fill="#0f766e"/>
+        <rect x="164" y="84" width="59" height="26" fill="#c2410c"/><text x="193" y="101" text-anchor="middle" fill="#fff" font-size="11">10</text>
+        <text x="234" y="101" fill="#57534e">≈ 16 ns</text>
+        <text x="118" y="142" text-anchor="end" fill="#44403c">5 m</text>
+        <rect x="128" y="126" width="36" height="26" fill="#0f766e"/>
+        <rect x="164" y="126" width="147" height="26" fill="#c2410c"/><text x="237" y="143" text-anchor="middle" fill="#fff" font-size="11">25 ns 光纤</text>
+        <text x="322" y="143" fill="#57534e">≈ 31 ns</text>
+        <text x="118" y="184" text-anchor="end" fill="#44403c">5 m + 交换机折返</text>
+        <rect x="128" y="168" width="36" height="26" fill="#0f766e"/>
+        <rect x="164" y="168" width="294" height="26" fill="#9a3412"/><text x="311" y="185" text-anchor="middle" fill="#fff" font-size="11">光纤往返约 49 ns，再加交换机停留</text>
+        <text x="20" y="230" fill="#0f766e">■ 器件（示意 6 ns）</text>
+        <text x="220" y="230" fill="#c2410c">■ 光纤</text>
+        <text x="320" y="230" fill="#57534e">比例：6 ns = 36 px，之后每 5 ns = 30 px</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 2 · 长度一旦从板级走到柜间，光纤项超过器件项。10 ns 单程只覆盖最上面那一档的一小段。</p>
+
+  <div class="callout warn">
+    <strong>10 ns 度量的是空载传播，不是一个几 KB 包的完成时间。</strong>把 4 KB 送上一条 32 Gb/s 的串行车道，光序列化就要约 1 μs。同一个 4 KB 若能铺满 1 TB/s 的模块，序列化约 4 ns，才和 1 米光纤同量级。10 ns 因此是“链路附加税”的目标；消息真正花多少时间，还取决于条带宽度和集合通信要走几步。
+  </div>
+</section>
+
+<section class="card" id="s4">
+  <h2>4. 小包集合通信为何把延迟放在前面</h2>
+  <p>需求方描述的是极低时延推理。一次解码要反复做集合通信：张量并行时，注意力输出和前馈输出各做一次 AllReduce 是常见拆法。算法上一次 reduce 往往是“先散出去、累加、再捞回来”，会上按两次或三次点到点来估，也就是大约一到两个往返，再乘以层数。</p>
+  <p>单用户消息有多小，可以用隐藏维度直接算。隐藏维 8192、BF16、张量并行 8、批大小 1 时，每个 rank 上的分片大约是</p>
+  <div class="formula">
+    8192 × 2 byte / 8 = 2048 byte ≈ 2 KB
+  </div>
+  <p>这和“一个用户的一个 token 只有几 KB”对得上。批大小抬到 32，分片约 64 KB，仍然落在延迟敏感区，带宽项开始露面。</p>
+
+  <h3>它在 1 ms 的 token 预算里占多少</h3>
+  <p>1000 token/s 等于每个 token 约 1 ms。假设 80 层、每层 2 次集合通信，一个 token 有 160 次集合通信。每次的延迟项用 α 表示（一次点到点的启动与传播）。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>每次集合通信的延迟模型</th>
+        <th>8 卡时每次耗时</th>
+        <th>160 次合计（α = 100 ns）</th>
+        <th>160 次合计（α = 15 ns，约 2 m 单程）</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>近于 one-shot / 硬件多播，约 2α</td>
+        <td class="num">2α</td>
+        <td class="num">32 μs</td>
+        <td class="num">4.8 μs</td>
+      </tr>
+      <tr>
+        <td>递归加倍，2 · log<sub>2</sub>(p) · α</td>
+        <td class="num">6α</td>
+        <td class="num">96 μs</td>
+        <td class="num">14 μs</td>
+      </tr>
+      <tr>
+        <td>Ring，2 · (p − 1) · α</td>
+        <td class="num">14α</td>
+        <td class="num">224 μs</td>
+        <td class="num">34 μs</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>即便 α 用会上电方案的 100 ns、算法用 ring，160 次合计约 0.22 ms，占 1 ms 的两成多。把 α 收到十几纳秒，这一项会缩到几十微秒，计算和访存会重新变成更大的头。反向也成立：如果软件栈把一次小消息做成 1–5 μs（本目录里那篇集合通信分析里，未去掉屏障的小消息 AllReduce 就是这个量级），160 次会吃掉大部分 token 预算，光把光纤从 5 米改成 2 米也拉不回来。</p>
+  <div class="callout teal">
+    延迟优先在这套负载上是站得住的：单用户、批大小 1、1000 step/s、每步 160 次、每次约 2 KB，单卡注入大约 0.3 GB/s。一条 PCIe x16 都宽得过剩。带宽会在并发上来、隐藏维变大、或者同一次通信必须铺满很多车道以压低序列化时间时重新变紧。会上“并发其次，但聚合带宽未必低”这句，指的就是后一种情况。
+  </div>
+  <p>供应方同时提醒：数据不可能全贴在计算单元边上，cache、内存、存储里总有一段延迟要妥协。需求方的回答是，他们现在先卡在集合通信上。两次判断可以同时为真——集合通信是当前第一约束，内存层级仍是下一道地板。Wafer 级把几十个计算单元放在同一张晶圆上（Cerebras 那种做法）能把传播时延再砍一截，会上认为国内暂时做不到，所以预算仍要按机柜和机柜之间来写。</p>
+
+  <h3>和“电方案大约 100 ns”怎么比</h3>
+  <p>需求方要的是 8 卡或 16 卡全互连、不经过交换机时，电 IO 做两到三次点到点的开销。供应方给的数量级是点到点大约 <strong>100 ns</strong>，里面包含队列和 FEC 一类开销；更轻的 FEC 有可能做到三四十纳秒。这个 100 ns 来自博通在前一年 OCP 上给出的 GPU → 交换机 → 另一颗 GPU 的粗估，会上明确说自己还没有实现这套协议，也还没有芯片实测。多一跳交换机之后延迟会不会翻倍，他们会后再核对，并可以把出处发出来。</p>
+  <p>所以 100 ns 是“带协议和交换的电互连，行业公开演示的量级”，15–40 ns 是“短光纤、无 retimer、尽力去掉 FEC 的光 repeater 预算”。两者差的那几十纳秒，主要是 DSP、FEC 和交换机停留，其次才是铜和光纤的传播差。</p>
+</section>
+
+<section class="card" id="s5">
+  <h2>5. Repeater、Retimer 与 DSP</h2>
+  <p>三代产品的核心分叉不是波长，而是信号在中间被处理到哪一层。处理得越深，眼图和距离越好，纳秒和功耗越差。</p>
+  <div class="grid-3">
+    <div class="tile">
+      <h4>Repeater</h4>
+      <p>接近一个带均衡的缓冲器，把幅度放大、必要时做连续时间均衡，不恢复时钟。延迟可以落在纳秒以内到数纳秒，抖动会跟着走。R1/R2 停在这里。</p>
+    </div>
+    <div class="tile">
+      <h4>Retimer</h4>
+      <p>时钟恢复之后按本地时钟重发，眼图被重新打开，距离因此做长。弹性缓冲至少“打一拍”，延迟和功耗都要另列预算。R3 把这项加进 driver 和 PD/TIA。</p>
+    </div>
+    <div class="tile">
+      <h4>DSP SerDes</h4>
+      <p>前馈/判决反馈均衡、时钟恢复、加重 FEC，用来在很差的电信道上把误码压到可用。延迟往往比 repeater 高一个数量级。这是他们另一款电 IO 的路径，也是被认为和 10 ns 预算不匹配的原因。</p>
+    </div>
+  </div>
+  <p>速率是分叉点。会上把 112 Gb/s（录音里也出现 128）看成边界：再往上，信道内存性变差，repeater 保不住眼图，就要 DSP，功耗和延迟一起变复杂。博通有相近的做法。R1 若对准 PCIe Gen6 的 64 GT/s，还停在 repeater 舒服的一侧；是否跨过 112，留给客户的距离和误码要求决定。</p>
+  <p>因此“眼图不够”时有两条退路，会上都说了：把线缩短、改摆放；或者加上 retimer。第一条保延迟，第二条保距离。64–128 卡若能收进一个低功耗机柜，就还有机会走第一条。</p>
+</section>
+
+<section class="card" id="s6">
+  <h2>6. 光链路还要不要 FEC</h2>
+  <p>FEC 是这条预算里最值得单独拿出来的一项。它用冗余位换误码率，代价是编解码等待。等待和码字长度、并行度有关，会上认为简单一些的实现可以到三四十纳秒。</p>
+  <p>电的高速链路常常把裸误码留在 10<sup>−4</sup> 到 10<sup>−3</sup> 这一档，再用 RS 或其他码收到大约 10<sup>−15</sup>，残差靠重传。以太网常用的 RS(544,514) 就是这条路，延迟通常比“三四十纳秒”更保守。PCIe 为了压延迟，历史上更依赖 FLIT 里横向、纵向的 CRC，而不是一颗很重的 FEC；Gen6 进入 PAM4 之后有轻量 FEC，仍然比以太网 KP4 短。会上强调的就是这件事：PCIe 把校验做轻，是故意的。</p>
+  <p>光 repeater 的论点是：信道本身足够“睁开”，插损可以维持在原来电接口所期望的水平，从而裸误码直接达到 UCIe 那一档——32G 约 10<sup>−15</sup>，64G 约 10<sup>−12</sup>。做到这一点，FEC 的开销就可以剪掉。录音里还出现过“10<sup>−27</sup>”，这和公开的 UCIe / PCIe 目标不是同一个常见口径，更像是转写误差；可以采信的是 10<sup>−15</sup> / 10<sup>−12</sup> 这两档。</p>
+  <div class="callout">
+    省掉 FEC 的资格来自裸误码，不来自“光”这个字本身。VCSEL 加短多模光纤在 32 GBaud 附近有机会做到；速率升到 64G/112G、光纤拉到数米、或者中间再经过连接器，眼图一旦闭上，FEC 或 retimer 会一起回来。R1 把复杂度说成“低”，和“先不带重 FEC”是同一句话。
+  </div>
+  <p>即便裸误码到了 10<sup>−15</sup>，一个很长的推理服务仍可能在运行中碰到残差。电方案用 retry 兜底。光方案若剪掉 FEC，链路层仍要决定：误码是丢掉重来，还是交给上层集合通信重做。对几 KB 的小包，重做一次的代价约等于再付一个 α，比重 FEC 的固定等待更可控；这件事务会上没有展开，但是和“协议层大部分不用改”放在一起看，重传策略会是协议适配时的具体工作。</p>
+</section>
+
+<section class="card" id="s7">
+  <h2>7. PCIe / UCIe 上光之后协议要改哪里</h2>
+  <p>会上对协议的判断分两层。大部分事务层、甚至数据链路层的语义不用改，因为制定 PCIe 和 UCIe 时就没有把“电”写进包格式里。要改的是那些<strong>用电气现象完成的链路管理</strong>。</p>
+  <ul>
+    <li><strong>接收端检测。</strong>PCIe 的 Rx Detect 靠看对端阻抗是开路还是约 50 Ω。光纤上没有这个阻抗。检测端口在不在、是不是坏了，得换一种方法，于是会偏离标准。</li>
+    <li><strong>反向通道 / 链路训练。</strong>均衡预设、校准、速率协商原来走电侧的 back channel。光模块侧要有一套替代，合作方声称已有演示。</li>
+    <li><strong>上电握手。</strong>速率协商、校准、电源管理事件、端口是否存在、bifurcation（×2/×4/×8/×16）、数据率。供应方认为在封闭系统里这些可以预先定义，一部分甚至用硬件写死，从而不必走完标准 PCIe 训练。</li>
+  </ul>
+  <p>需求方立刻问到了责任边界：第三方 SerDes IP 改不了，这些偏离必须由光互连方案自己兜住。供应方的回答是肯定的——在自己这一层解决；标准组织也知道 PCIe 往后要上光（讨论里提到第七代必须往光走），但光相关的问题还没有完全落进规范。在规范写明之前，谁先做谁就要接受一段非标准实现。</p>
+
+  <h3>UCIe 比 PCIe 更“没为光设计过”</h3>
+  <p>UCIe 的信道模型是相邻芯片：先进封装或标准封装上的极短距离，裸误码和延迟都按毫米到厘米来写。它没有考虑一颗 GPU 穿过光纤到达另一颗芯片或一台交换机。供应方有标准委员会的上下文，认为协议层怎么跨这截光纤仍是要解决的障碍，也是现在还没有真正 UCIe-over-optics 产品、展会上的演示还不能算数的原因。</p>
+  <p>两条出路都在会上说了。一条是做成专有方案，先占住场景，以后再决定要不要开放成标准。另一条是发起一个光学工作组，把光作为 UCIe 的一种正式信道。R1 走 PCIe 是为了绕开这条尚未打通的路，同时保住仍要求 PCIe 的客户；R2 直接上 UCIe，等于把这个障碍当成产品工作的一部分。PCIe 侧他们并不自己做 PHY——供应方做过 Gen3 到 Gen6 的产品，但这次不做 PCIe PHY 文件，国内已有多家在做。理想分工是：他们出芯片，模组伙伴做集成；Rx Detect 和 back channel 已有演示的那家，就是 R1 打算合作的对象。</p>
+  <div class="callout navy">
+    对计算芯片的具体承诺是：继续用标准 PCIe 或 UCIe IP，不在计算 die 上为光再做一套。额外的握手差异由光 IO 侧吸收。这个承诺成立的条件是封闭组网——这些卡只和自己的卡相连，不跟第三方网卡做互操作。第三方 IP 若在内部强制走完 Rx Detect 和训练、又没有跳过开关，集成时仍会碰到缝。这是下次对 IP 配置要核对的一点。
+  </div>
+  <p>需求方最终确认的交付物是：PCI 与光都在那块 chiplet 里，计算侧只和 chiplet 互连，不必自己管模组内部。模组对外的接口尺寸、以及由插损决定的走线长度，仍要一起定义。</p>
+</section>
+
+<section class="card" id="s8">
+  <h2>8. 组网：点对点、交换机和协议无关 PHY</h2>
+  <p>8 卡、16 卡可以做成全互连，不经过交换机，和现有 8 卡基板的做法同类。卡数上到一百张，点对点的端口数会爆，必须经过交换机。PCIe 当时按点到点加 PCIe switch 来写，没有按这种纵向扩展来写，组网效率被会上评价为偏低。多路 CPU 的 2/4/8 路系统用的是 UPI 一类专用协议，实际产品里也少见用 PCIe 把很多路 CPU 编成一张网。</p>
+  <p>PCIe 的端口形态在会上也定了一下：通常一个 port 是 ×16，可以 bifurcation。一个 ×16 的带宽对“不是单用户、还要并发”的系统往往不够，所以上百卡时大概率是多组端口。光侧的对应关系是：电进来是差分对，光出去一根光纤承载一个方向，一个模块转一条 link。64 卡要几条 link，由需求方自己的拓扑来数。</p>
+
+  <table>
+    <thead>
+      <tr><th>做法</th><th>会上怎么定位</th><th>和延迟目标的关系</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PCIe 点对点，可加光层把距离拉长</td>
+        <td>8/16 卡全互连能用；跨很多板子要看插损，并接受 PCIe 不是为大规模组网设计的</td>
+        <td>跳数最少，最接近 10–40 ns 预算</td>
+      </tr>
+      <tr>
+        <td>PCIe switch</td>
+        <td>能组网，效率是问题；供应方表示可以再去问真正做 PCIe 组网的人</td>
+        <td>每一跳都把 α 再加一次</td>
+      </tr>
+      <tr>
+        <td>UALink 一类 scale-up</td>
+        <td>可以组网；现有交换多半还是电的，英伟达、博通方向已经在把 scale-up 往光上推</td>
+        <td>拓扑清晰，交换芯片的停留时间要单列</td>
+      </tr>
+      <tr>
+        <td>112G 以太网 + 合作方交换机</td>
+        <td>供应方自己的通用焦点。客户不必自研交换机</td>
+        <td>和 SUE 同族：通用、可交换，往返按亚微秒到微秒计，比 10 ns 松</td>
+      </tr>
+      <tr>
+        <td>协议无关的光 PHY</td>
+        <td>他们希望自己只负责把数据从 A 点送到 B 点，PCIe、UCIe、UALink、以太网都放在外面</td>
+        <td>PHY 预算可以保持几个纳秒；协议预算由外面那一层决定</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>规模参照系会上给了三个。英伟达一个机柜放到 72 颗 GPU。华为用光把大约 384 张卡放在大约 12 个机柜里。需求方的目标夹在中间：64 或 128 卡、点到点延迟保持在“现在说的这么低”。64 卡能否进一个机柜，取决于整机功耗和供电，不取决于光口本身；光 IO 若只有每方向数瓦到十瓦，它是在给供电腾地方，而不是自己成为机柜功耗的大头。GPU 和内存仍然是功耗主体。</p>
+  <p>“只用光、还是光和电混用”被留成联合研究题：瓶颈到底在哪一段 IO，用 PCIe 加光层、用他们的 112G IO，还是短距继续用电，系统划分由需求方主导，IO 选型他们可以帮忙算。</p>
+</section>
+
+<section class="card" id="s9">
+  <h2>9. 距离、插损，以及光和电怎么分工</h2>
+  <p>距离在这次讨论里有两套语言。一套是纳秒，光纤每米 5 ns，缩短线长是降延迟最有效的旋钮，器件侧已经接近能砍的极限。另一套是插损分贝，决定电信号在不得不走 PCB 或铜缆时还能不能闭合。</p>
+  <p>PCIe 的信道预算被回忆为从早期约 20 dB，到 28 dB、35 dB，更新一代大约 35–40 dB。公开规格的量级与此相符：Gen4 约 28 dB，Gen5 约 36 dB，Gen6 在相近插损下改用 PAM4，对信噪比更苛刻。用得起更好的 PCB 材料时，板级仍可能满足 Gen5；再远可以用铜缆，价格更高、性能更好，会上认为 128 张卡在铜缆条件下仍有讨论空间。再往上扩，才必须用光做 scale。</p>
+  <div class="grid-2">
+    <div class="tile">
+      <h4>短距更适合电</h4>
+      <p>同一块板上的链路，电的稳定性和成本都更好。供应方在讲完光产品之后补了这一点：距离若被压得很短，应允许光和电分段共存，有的区间放电、有的区间放光。这和“全体改光”不是同一个方案。</p>
+    </div>
+    <div class="tile">
+      <h4>跨板、跨柜用光</h4>
+      <p>上百张卡一定跨板。PCIe 点到点的舒适区在一块板内。光的作用是在插损预算耗尽之后继续把 α 保持在“传播时间 + 几个纳秒”，而不是在 1 米以内替换一根更便宜的铜走线。</p>
+    </div>
+  </div>
+  <p>因此一个 64 卡系统里很可能同时存在三种线段：封装内或板上的电（UCIe / 短 PCIe）、柜内短光纤（R1/R2 repeater，争取不加重定时）、以及少数必须绕远的链路（R3 retimer，或一跳光交换机）。延迟预算应按最远的那一条写，不能按 1 米样例写。</p>
+</section>
+
+<section class="card" id="s10">
+  <h2>10. 封装边界、模块形态和标准化</h2>
+  <p>产品形态在会上一度听不清楚，后半段被问实了。它不是把光引擎共封装进计算 ASIC 的 CPO，也不是他们自己出货的可插拔光模块产线。结构是：</p>
+  <ol>
+    <li>一块 IO 芯片，和光电器件封在一起；</li>
+    <li>外面接光纤尾纤，芯片与尾纤的耦合由模组厂完成；</li>
+    <li>连接器倾向 MPO 这一类已有器件，计算板的另一侧或模块侧出光；</li>
+    <li>计算芯片用自己的基板走一段短距电，再接到这块 chiplet。</li>
+  </ol>
+  <p>他们不做模组量产，理由是那需要旭创这一档的制造能力。分工被说成：IO 芯片是自己的专业，模组国内已经很强。客户看到的是 chiplet 的电接口；PCI 和光都在模块内部。</p>
+  <p>形态上还没有图。今年有过封装探索，还没放进图纸。需要一起定的包括：模块是 1T 还是 2T，客户若要 4T 还放不放得下；接口的几何尺寸；长度由插损而不是由一个固定外形决定；散热；可插拔和维护做到哪一档。这些被明确说成“还没有完整定义”，会随客户的空间和维护要求再定。CPX、MSA 一类外形主要针对现有硅光微环，没有覆盖这次的 VCSEL 场景，所以要去适配已有连接器。他们的态度是避免私有连接器体系，因为这套东西若能留下来，最终应走向标准化；工业界目前还没到那一步。</p>
+  <div class="callout warn">
+    物理形态是会上自己点名的风险：带宽和延迟可以先写在纸上，模块若放不进机柜或基板，定义就无效。下次若要继续，图纸、1T/2T/4T 的占地、以及 64 对高速管脚之外还要多少控制脚，比再讲一遍架构更有用。
+  </div>
+</section>
+
+<section class="card" id="s11">
+  <h2>11. 带宽口径、管脚和 112G 临界点</h2>
+  <p>第一代同时给出了三个带宽相关的数：单向 1 TB/s、32 GBaud、约 64 个高速输入脚和 64 个高速输出脚。这三个数不能无假设地同时成立，值得在对齐规格时拆开。</p>
+  <div class="formula">
+    单向 1 TB/s = 8 Tb/s<br />
+    8 Tb/s / 32 GBaud = 250　　（NRZ，每符号 1 bit）<br />
+    8 Tb/s / 64 Gb/s = 125　　（32 GBaud PAM4）<br />
+    64 路 × 32 Gb/s = 2.0 Tb/s ≈ 0.25 TB/s<br />
+    64 路 × 128 Gb/s = 8.2 Tb/s ≈ 1.0 TB/s
+  </div>
+  <p>也就是说，1 TB/s 若真是单个引擎的单向带宽，32 GBaud NRZ 需要大约 250 路光，PAM4 需要大约 125 路。64 对高速电管脚更像是一颗 IO die 的出逃规模：在 32 Gb/s 下大约四分之一 TB/s，要到接近 128 Gb/s 才顶满 1 TB/s。另一种读法是 1 TB/s 为模块族目标，由多颗 die 拼出来。记录本身没有裁决。后续规格至少要写成：每颗 die 的电车道数、每车道速率、NRZ 还是 PAM4、光车道数、模块内拼几颗 die。</p>
+  <p>这和需求侧的带宽判断要分开看。按第 4 节的单用户负载，注入速率远低于 1 TB/s，甚至远低于一个 PCIe ×16。1 TB/s 是供应方通用光引擎的宽度，不是这条推理负载已经证明需要的宽度。它真正的用处是把几 KB 的消息铺开，让序列化时间掉到和光纤同一量级——前提是集合通信能对这么宽的端口做条带，而不是只占用其中一个 PCIe port。</p>
+
+  <table>
+    <thead>
+      <tr><th>承载 4 KB 的方式</th><th>等效速率</th><th>序列化时间</th><th>和 2 m 光纤（约 10 ns）的关系</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>单车道 32 Gb/s</td><td class="num">32 Gb/s</td><td class="num">1.0 μs</td><td>序列化主导，光纤可以忽略</td></tr>
+      <tr><td>PCIe Gen6 ×16 的有效载荷量级</td><td class="num">~100 GB/s</td><td class="num">~40 ns</td><td>和数米光纤同量级</td></tr>
+      <tr><td>单向 1 TB/s 铺满</td><td class="num">8 Tb/s</td><td class="num">4.1 ns</td><td>和 1 米光纤同量级</td></tr>
+    </tbody>
+  </table>
+  <p class="small">4 KB = 32768 bit。PCIe Gen6 ×16 的有效带宽取大约 100 GB/s 这一公开量级，用于数量级对比。</p>
+
+  <p>功耗口径相对自洽。1–1.5 pJ/bit 乘上 8 Tb/s 是每方向 8–12 W。相对一颗要 DSP 的 112G 电 SerDes（常见在数 pJ/bit 到十几 pJ/bit），也相对一个带 DSP 的可插拔光模块，这个数确实是“瘦 PHY”的功耗。实现余量会把它抬高一截，会上已经预先说了。</p>
+  <p>112G 临界点把产品策略收成一句：停在 64G 附近，R1 可以用 repeater 加 PCIe 保持低延迟；客户若要求更高车道速率或更长的眼图，方案会滑向 DSP 或 R3 的 retimer，10 ns 器件预算就不再是默认值。</p>
+</section>
+
+<section class="card" id="s12">
+  <h2>12. 路线图、通用产品与仍要对齐的清单</h2>
+  <p>商业模式会上说得很直。主线是一个通用结构。客户的特别要求，只有在能变成后续大家都用的特性时才会做进通用产品。整颗芯片按单一客户定制，在量不大时成本下不来，对客户也不划算。之前发给需求方的材料是电 IO 和光 IO 两套；这次因为 10 ns 被当成最关心的点，才把光 repeater 这条单独收成一份可对目标的方案。112G 以太网被当作通用锚点：客户自己没有交换机时，可以用有交换机的合作方，避免再做一颗专用交换芯片。</p>
+  <p>需求方处于早期，只有自上而下的框架：单用户吞吐、集合通信是难点、带宽功耗延迟的最差值还没有。他们希望沿供应方的主线产品看能否对上，并希望下一步拿到更有把握的方案，把集成风险降下来。供应方也表示，在承诺之前会先判断自己能否做下来。双方已签 NDA，会上的材料可以会后分享；电方案 100 ns 的出处一并去找。</p>
+
+  <h3>技术问题对照</h3>
+  <table>
+    <thead>
+      <tr><th>问题</th><th>会上已经说清的</th><th>展开之后仍要拍板的</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>端到端是 10 ns 还是 40–50 ns</td>
+        <td>10 ns 单程只能配大约 2 米；器件只有几个纳秒；5 米是柜间假设</td>
+        <td>写清是单程还是往返、包不包含序列化、64/128 卡的最远光纤是几米</td>
+      </tr>
+      <tr>
+        <td>小包集合通信</td>
+        <td>几 KB 到几十 KB，延迟优先于并发；8/16 卡可全互连</td>
+        <td>层数、每层通信次数、隐藏维、张量并行度，用来把 α 预算换成 token 预算</td>
+      </tr>
+      <tr>
+        <td>Repeater 还是 Retimer</td>
+        <td>R1/R2 不加；眼图不够再加，或改短距离</td>
+        <td>目标长度上的裸眼图和裸误码，决定 R3 是不是必选项</td>
+      </tr>
+      <tr>
+        <td>FEC</td>
+        <td>光信道若能到 10<sup>−15</sup>（32G）或 10<sup>−12</sup>（64G），可以剪掉</td>
+        <td>该误码是仿真还是合作方演示；残差重传放在哪一层</td>
+      </tr>
+      <tr>
+        <td>协议</td>
+        <td>事务层基本不动；Rx Detect、训练、握手要在光侧吸收；封闭系统可写死</td>
+        <td>第三方 PCIe/UCIe IP 能否跳过这些步骤；R1 合作方的演示覆盖哪些状态</td>
+      </tr>
+      <tr>
+        <td>组网</td>
+        <td>点到点优先；上百卡要交换机；PHY 希望协议无关；通用路是 112G 以太网</td>
+        <td>64/128 卡是全互连、单跳交换，还是 PCIe 加光层</td>
+      </tr>
+      <tr>
+        <td>光还是电</td>
+        <td>短距电更稳、更便宜；跨距用光；允许分段共存</td>
+        <td>每一种线段的长度和插损预算</td>
+      </tr>
+      <tr>
+        <td>形态</td>
+        <td>光电共封的 IO chiplet，尾纤和模组外协，MPO，不是计算芯片上的 CPO</td>
+        <td>1T/2T/4T 占地、热、可插拔、控制管脚</td>
+      </tr>
+      <tr>
+        <td>1 TB/s 与 64 管脚</td>
+        <td>三个数都出现了，彼此需要车道假设才能同时成立</td>
+        <td>每 die 车道数、调制、模块内 die 数</td>
+      </tr>
+      <tr>
+        <td>实测</td>
+        <td>尚在流片，没有几 KB 包的端到端实测；100 ns 是外部参考值</td>
+        <td>要引用的 OCP 材料，以及流片后第一笔可测的是器件延迟还是整链路</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>听写还原</h3>
+  <p class="small">原文是录音转写，专名误差很大。本文采用的对应关系如下，方便回到原文核对：PCE / P3E / P3 视为 PCIe；UCIE / UCE / U3E 视为 UCIe；service 视为 SerDes；Vixel 视为 VCSEL；32GB 符号率视为 32 GBaud；“每个 bit 1 到 1.5”视为 1–1.5 pJ/bit；PDTRN 视为 PD/TIA；retain / trimmer 视为 retimer；巴卡视为 8 卡；Excel reduce 视为 AllReduce；inductor loss 视为 insertion loss；fiber reunite 视为光纤尾纤；SkyUP / Skew 视为 scale-up；临驰与“384 张卡、12 个机柜”按会上原话保留为规模参照。WPS per user 与 1000 token/s 同时出现，按每用户 tokens/s 理解。ESC/PSE、CRE 接口、DIL 几处听不清，只按上下文写成“计算芯片与光引擎的封装”“所用电接口”“10 ns 之外的其余指标”，没有补成某个具体标准的名字。</p>
+</section>
+
+<footer>
+  根据 2026-11-04《低延迟光互联产品方案讨论》整理。数量级用于对齐讨论，不代替后续测量。
+</footer>
+
+</div>
+</body>
+</html>
