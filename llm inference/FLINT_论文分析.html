@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FLINT 论文分析 | 用高带宽闪存扩大 LLM 推理容量</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.AR · 2026-08-25</span>
+      <span class="badge">arXiv:2608.25062v1</span>
+      <span class="badge">LLM 推理 · 容量层</span>
+      <span class="badge ok">华为苏黎世 × ETH Zürich</span>
+      <span class="badge warn">仿真，不是硅片实测</span>
+    </div>
+    <h1>FLINT：把高带宽闪存做成推理权重层</h1>
+    <p class="subtitle">Efficiently Leveraging High Bandwidth Flash for Capacity-Scalable LLM Inference Acceleration</p>
+    <p class="meta">
+      <strong>作者：</strong>Geraldo F. Oliveira、Arash Tavakkol（共同一作）等；华为苏黎世、华为、ETH Zürich（Onur Mutlu）、华中科技大学<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2608.25062" target="_blank" rel="noopener">arXiv:2608.25062</a>
+      · <a href="https://arxiv.org/pdf/2608.25062" target="_blank" rel="noopener">PDF</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：卡不够放权重</a></li>
+      <li><a href="#s3">HBF 是什么</a></li>
+      <li><a href="#s4">现有方案的三个缺口</a></li>
+      <li><a href="#s5">三个机制</a></li>
+      <li><a href="#s6">实验怎么做的</a></li>
+      <li><a href="#s7">结果怎么读</a></li>
+      <li><a href="#s8">寿命、面积、掉电</a></li>
+      <li><a href="#s9">局限</a></li>
+      <li><a href="#s10">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">前沿模型的权重已经大于单颗 GPU 的 HBM。FLINT 把只读权重放到封装内的高带宽闪存（HBF）里，让 HBM 留给 KV cache；并用硬件把细碎的读请求拼成闪存擅长的大批量读取，把刷新挪出推理关键路径。仿真里，单卡因此能撑住原本要 4 到 8 张卡才放得下的 MoE 模型。</p>
+    <div class="kpi">
+      <div><div class="n">2.2×</div><div class="k">相对多卡纯 HBM 的单卡解码吞吐（六模型平均）</div></div>
+      <div><div class="n">6.2×</div><div class="k">相对前作 H³ 的有效 HBF 带宽 / 解码吞吐</div></div>
+      <div><div class="n">1 张 vs 4–8 张</div><div class="k">bsz=1 时五个 MoE 达到 50 ms TPOT 所需 GPU 数</div></div>
+      <div><div class="n">3.1% / 3.9 mm²</div><div class="k">每颗闪存 die 多一块 plane；基座 die 在 7 nm 的控制面积</div></div>
+    </div>
+    <div class="callout warn">摘要里的能量“降低 1.1×”是相对多卡纯 HBM 的总账，主要来自 MoE 省掉了多卡空等。稠密的 Llama-3.1-405B 每 token 能量反而升到纯 HBM 的 1.64 倍，因为每个权重都要从更贵的闪存读出。读摘要时要把稠密模型和 MoE 分开。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：缺的是容量，不是算力</h2>
+    <p>推理时权重必须放在加速器附近。BF16 下一个参数 2 字节，DeepSeek-V3 仅权重就要约 1.3 TB，Llama-3.1-405B 约 810 GB。换成 FP8 之后，Kimi K2 仍要 1.0 TB，DeepSeek-V4-Pro 仍要 795 GB，这还没算 KV cache。高端 GPU 封装内的 HBM 只有 80–192 GB。于是部署只能把模型切到很多张卡上。</p>
+    <p>大切分在大批量数据中心服务里说得通：多出来的卡同时提供算力和带宽。在边缘服务器、工作站、小批量这种场景里，多买卡只是为了把权重放下，并不划算。论文用 B200、128K 上下文的最小切分部署说明了代价：</p>
+    <ul>
+      <li>batch 为 1 到 4 时，卡间通信和同步占每个 token 时间的 52%–85%。其中大部分是层屏障上空等，真正把链路堵住的通信只有卡间通信的 0.4%–9.7%。</li>
+      <li>空等来自专家路由不均。一个 token 最多命中 128–384 个专家里的 8 个，最忙的卡读到的专家权重是平均卡的 1.4–4 倍。先算完的卡在屏障处等最忙的那张。</li>
+      <li>同样条件下，算力本身只占每 token 时间的 0.1%–1.9%。batch 到 64 才升到约 5.9%。</li>
+    </ul>
+    <p>如果假装容量无限、权重和 KV 都能塞进一张卡，batch=1 时每个 MoE 都能在 50 ms/token 的服务目标内用 1 张卡完成。最小切分却要用 4–8 张，平均多备 4.6 倍的卡。batch 变大后这个倍数缩小到约 1.9 倍，但不会消失。稠密的 Llama-3.1-405B 是例外：每个 token 都要把全部权重读一遍，限制它的是总带宽。batch=1 只省 2 倍卡，batch=64 时两边都要 128 张卡。</p>
+    <table>
+      <thead><tr><th>模型</th><th>类型</th><th>最小切分所用 B200 数</th></tr></thead>
+      <tbody>
+        <tr><td>Llama-4 Maverick</td><td>MoE</td><td>4</td></tr>
+        <tr><td>Qwen3-235B-A22B</td><td>MoE</td><td>4</td></tr>
+        <tr><td>DeepSeek-V4-Pro</td><td>MoE</td><td>6</td></tr>
+        <tr><td>Kimi K2</td><td>MoE</td><td>6</td></tr>
+        <tr><td>Llama-3.1-405B</td><td>稠密</td><td>8</td></tr>
+        <tr><td>DeepSeek-V3</td><td>MoE</td><td>8</td></tr>
+      </tbody>
+    </table>
+    <p>这张表只保证权重放得下，不保证 KV cache 也放得下。128K 上下文下，Qwen3、Llama-3.1、Kimi K2、DeepSeek-V3 的最小切分已经同时放不下权重和 KV。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. HBF 是什么</h2>
+    <p>高带宽闪存（HBF）把 3D NAND 叠成和 HBM 相近的外形：多层存储 die 通过硅通孔坐在一块逻辑基座 die 上。论文采用的量级是每叠 16 颗闪存 die、512–1024 GB、聚合读带宽 1.6–2 TB/s。对照之下，一叠 HBM 大约是 12–16 颗 DRAM、24–36 GB、1.2–2 TB/s。HBF 用容量换延迟：SLC 读一页要 1–2 μs，比 HBM 慢一到两个数量级。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 168" role="img" aria-label="xPU、HBM、HBF 串联">
+        <rect x="16" y="36" width="150" height="72" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+        <text x="91" y="68" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700">xPU</text>
+        <text x="91" y="88" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#57534e">GPU / 加速器</text>
+        <rect x="250" y="28" width="180" height="88" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="340" y="58" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700">HBM 基座</text>
+        <text x="340" y="78" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#57534e">KV、激活、地址分流</text>
+        <text x="340" y="96" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#57534e">192 GB · 低延迟</text>
+        <rect x="520" y="28" width="220" height="88" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="630" y="58" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700">HBF 基座 + NAND</text>
+        <text x="630" y="78" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#57534e">只读权重</text>
+        <text x="630" y="96" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#57534e">每叠 512 GB · 读 1–2 μs</text>
+        <path d="M166 72 H250" stroke="#1c1917" stroke-width="1.6" marker-end="url(#a)"/>
+        <path d="M430 72 H520" stroke="#1c1917" stroke-width="1.6" marker-end="url(#a)"/>
+        <text x="208" y="64" text-anchor="middle" font-size="11" fill="#57534e">D2D</text>
+        <text x="475" y="64" text-anchor="middle" font-size="11" fill="#57534e">D2D</text>
+        <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#1c1917"/></marker></defs>
+      </svg>
+      <p class="figcap">封装内串联：加速器只面对 HBM 这一侧的引脚预算，HBF 接在 HBM 基座后面。权重预装进 HBF，HBM 留给出生后还会改写的 KV 和激活。</p>
+    </div>
+    <p>一颗闪存 die 里有几十个 plane（论文按 32 个算）。每个 plane 有自己的页缓冲和缓存缓冲：页缓冲接着正在读出的那一页，缓存缓冲留着上一页。一次读的最小单位是页，论文按 4 KB、SLC、读延迟 2 μs 计算。要喂饱 1 TB/s 的通道，延迟带宽积是 1 TB/s × 2 μs = 2 MB。所以一次协调读必须同时点亮一叠里全部 512 个 plane（16 die × 32 plane），各拿出 4 KB，凑成一个 2 MB 的 burst。这是后文所有调度的粒度。</p>
+    <p>NAND 不能原地改写。编程一页约 50 μs，擦除一块约 3 ms。反复读还会造成读干扰：没被选中的字线也加了高压，阈值电压慢慢漂。SLC 大约每 10⁵–10⁶ 次读就要把一整块读出、纠错、写到新位置再擦掉旧块。刷新一块约 54–55 ms，比一次页读长四个数量级以上。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 现有 HBF 方案的三个缺口</h2>
+    <p>前作（论文主要对照 H³）的做法是：编译器按层提前发出预取，把下一层权重大块拉进 HBM 基座上专门做的 SRAM 暂存（latency-hiding buffer）。GPU 的缓存缺失打到这块 SRAM，从而看不见闪存的微秒级延迟。FLINT 认为这有三处不合适。</p>
+    <div class="grid-3">
+      <div class="tile"><h4>静态预取对不准</h4><p>MoE 路由和缓存交错要到运行时才知道。H³ 在 MoE 上浪费 86%–96% 的 HBF 流量。就算给它一个全知预取器，吞吐最多也只动约 3%，有的模型还会变差，因为预取把还要用的块挤出暂存。</p></div>
+      <div class="tile"><h4>刷新占着读通道</h4><p>对齐的读计数会让成千上万块同时到期，通道一次停 26 秒到 22 分钟。把到期时间错开后，每个解码步平均仍要插入 0.7 秒刷新（0.09–1.8 秒）。</p></div>
+      <div class="tile"><h4>SSD 的写路径是多余的</h4><p>垃圾回收、磨损均衡、异地更新、写日志都是为任意写入准备的。推理权重部署时写一次，之后只读。页级地址表在 512 GB 上要到 GB 级 DRAM。</p></div>
+    </div>
+    <p>论文还做了一个反证：重取并不只是“预取太早或太晚”这么简单。batch=1 时，块被赶出暂存后，下一次真正用到它的时间中位数只有一层执行时间的 0.12–0.45 倍，而“提前一层”的提示最早也只能提前一整层，所以静态提示在结构上就来不及。batch=64 时时间够了，但一层里同时活跃的块超过暂存容量，预取自己把活数据挤掉。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. FLINT 的三个机制</h2>
+    <p>核心想法：不要在编译期猜下一层会读什么，而从加速器已经发出的细粒度读流里，现场拼出闪存需要的粗粒度 burst。权重访问又大块、又只读，这三件事都建立在这个规律上。</p>
+
+    <h3>5.1 突发缓冲控制器</h3>
+    <p>控制器放在 HBF 基座上，由三块组成。缓存请求队列收下被地址解码器转到 HBF 的 cache line。cache-line 到页的映射表按 (page, block) 把这些请求归堆，因为一次 NAND 页读能同时满足同一页里的多条 cache line。突发调度器再挑下一组坐标，向所有 plane 发同一次并行读。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 150" role="img" aria-label="页缓冲与缓存缓冲流水">
+        <rect x="20" y="28" width="200" height="96" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="120" y="52" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">正在服务</text>
+        <text x="120" y="76" text-anchor="middle" font-size="12">cache buffer</text>
+        <text x="120" y="96" text-anchor="middle" font-size="12" fill="#57534e">burst 0 往 HBM 排空</text>
+        <rect x="280" y="28" width="200" height="96" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="380" y="52" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">正在感知</text>
+        <text x="380" y="76" text-anchor="middle" font-size="12">page buffer</text>
+        <text x="380" y="96" text-anchor="middle" font-size="12" fill="#57534e">burst 1 付出 1 次 tR</text>
+        <rect x="540" y="28" width="200" height="96" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="640" y="52" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">请求侧</text>
+        <text x="640" y="76" text-anchor="middle" font-size="12">已归堆的 cache line</text>
+        <text x="640" y="96" text-anchor="middle" font-size="12" fill="#57534e">决定再下一个 burst</text>
+        <path d="M220 76 H280" stroke="#1c1917" marker-end="url(#b)"/>
+        <path d="M480 76 H540" stroke="#1c1917" marker-end="url(#b)"/>
+        <defs><marker id="b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#1c1917"/></marker></defs>
+      </svg>
+      <p class="figcap">每个 plane 本来就有两级锁存。当前 burst 从缓存缓冲往外送时，下一 burst 已在页缓冲里完成感知。稳态下，通道每个排空间隔都能交出一个完整 burst，不必再等一次 tR。专用 SRAM 暂存因此可以去掉，编译器也不用插入预取。</p>
+    </div>
+    <p>论文给的例子：六条 cache line 收成两组，(page 0, block 0) 和 (page 0, block 1)。调度器先发第一组，512 个 plane 同时感知；这一组开始外送时再发第二组。流水线靠“当前 burst 从页缓冲挪到缓存缓冲”这个硬件事件往前推，不靠程序里写死的层边界。</p>
+
+    <h3>5.2 幻影 plane 刷新</h3>
+    <p>每颗 die 为 N 个逻辑 plane 多准备 1 个物理 plane。任意时刻恰好有一个 plane 下线，专门吸收刷新；其余 N 个继续满带宽读。读计数错开，使块零星到期，而不是一起到期。</p>
+    <p>前景读到源 plane 的一页时，纠错后的数据分叉：一份照常返回加速器，另一份查看迁移位图。这一轮还没拷过，就放进编程队列，由幻影 plane 自己的编程电路慢慢写入；已经拷过就丢掉。冷页若一直没被推理读到，后台清扫器按位图补读。一块拷完就改写块级重定位表、擦掉旧块。整面 plane 迁完后，空出来的 plane 变成下一轮的幻影 plane，角色轮转。</p>
+    <p>编程比读慢得多：一页读大约 4 KB / 2 μs ≈ 2 GB/s，编程只有 4 KB / 50 μs ≈ 80 MB/s。位图的作用就是避免热页每次被读都去编程一次，否则刷新路径会反压前景读。一轮的下限是一整个 plane 的容量除以编程带宽，T<sub>rot</sub> ≥ 12.5 s。33 个物理 plane 转完大约 7 分钟，远在 SLC 保持时间（年量级）之内。论文测到的热块刷新需求最高 0.86 GB/s/叠，而 16 个幻影 plane 的编程带宽是 1.28 GB/s，装得下。</p>
+
+    <h3>5.3 只读 FTL</h3>
+    <p>地址翻译按 burst 而不是按页。512 GB、2 MB burst 只有 2¹⁸ = 256 K 项，大约 1 MB SRAM，比页级映射少 512 倍，因为一项代替了 512 个 plane 同时取出的那些页。加上块级重定位表和每块一个读计数，一叠总共约 1.8 MB，放在基座 die 里，查找是单周期。</p>
+    <p>装载时用固定条带：burst 序号 b 的公共坐标是 <code>block = ⌊b / 1024⌋</code>、<code>page = b mod 1024</code>，512 个切片按 die 和 plane 平铺到同一坐标。这样一次并行感知就能取回整个 burst。磨损均衡不再单做，由幻影 plane 的轮转顺带完成。垃圾回收和异地更新不做，因为推理期间权重不变。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验怎么做的</h2>
+    <p>这是自研的 trace 驱动仿真，不是 HBF 芯片实测。模拟器跟踪权重读经过的五级：SM、片上 L2、HBM、暂存、HBF。负载轨迹来自华为的 WSE 生成器。多卡时，跨卡传输要计时，并且每层设屏障，直到所有卡到齐。HBM 用 Ramulator 2.0 校准：持续带宽是峰值的 67.8%–69.9%，不随模型、batch、上下文变化。算术按张量形状和峰值吞吐乘机器利用率解析计算，精度主要花在存储系统上。</p>
+    <table>
+      <thead><tr><th>部件</th><th>仿真设定</th></tr></thead>
+      <tbody>
+        <tr><td>GPU</td><td>B200 级别：148 个 SM、2.5 GHz、每 SM 每周期 11000 个 FP16 MAC、MFU 0.5、L2 126 MB / 21 TB/s</td></tr>
+        <tr><td>HBM3e</td><td>192 GB，8 叠 × 1 TB/s；持续/峰值取 0.70；行命中/缺失 70/105 ns；预留 20 GB 给 KV</td></tr>
+        <tr><td>HBF</td><td>Gen-1 SLC，共 4 TB：8 叠 ×（512 GB，1 TB/s）。16 die/叠，32 plane/die，256 block/plane，1024 × 4 KB 页。tR / 编程 / 擦除 = 2 μs / 50 μs / 3 ms</td></tr>
+        <tr><td>可靠性</td><td>读干扰阈值 10⁶ 次/块；10⁵ 次编程擦除；保持 &gt; 1 年；原地刷新一块 54.2 ms</td></tr>
+        <tr><td>暂存与互连</td><td>H³ 的 LHB 每槽 2 MB；burst 2 MB；每叠 D2D 1 TB/s。NVLink 每方向 18 × 450 GB/s，每跳 800 ns</td></tr>
+        <tr><td>SSD</td><td>PCIe Gen5 ×4，14 GB/s，读延迟 40 μs</td></tr>
+        <tr><td>能量</td><td>GPU 1000 W 热设计、同步空转 400 W、空闲 100 W。每 bit：HBM 4 pJ，HBF 读 20 pJ（扫描 10–25），HBF 编程 100 pJ，D2D 1 pJ，NVLink 1.3 pJ，SSD 100 pJ</td></tr>
+      </tbody>
+    </table>
+    <p>六个模型都用原生精度。batch 取 1、4、16、64，上下文取 2K、8K、32K、128K，正文主要报 128K。五个 MoE 的专家分布来自真实 GPU 上跑 MMLU 的测量，不是均匀假设。</p>
+    <p>三个基线：<strong>HBM+SSD</strong> 只有一张 GPU，放不下的权重溢到片外 NVMe；<strong>HBM-only</strong> 用刚好放得下权重的最少卡数做切分，KV 再放不下就标成容量不可行，不再继续加切分；<strong>H³</strong> 一张卡，两个 LHB 槽、FIFO 替换，预取提示只在编译器于门控层之前就能知道地址的地方发出。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 结果怎么读</h2>
+    <h3>有效带宽</h3>
+    <p>128K 上下文下，FLINT 取回的流量里 90%–97% 被 GPU 用掉。MoE 上有用带宽 1.9–3.6 TB/s，是 H³ 有用带宽的 4.0–14.3 倍，六模型平均 6.2 倍。H³ 的原始读出量反而比 FLINT 多 1.2–1.5 倍，但 MoE 上 80%–95% 是重取：专家块还没被每张需要它的卡读完，就已经离开 LHB。</p>
+    <p>稠密 Llama-3.1-405B 是边界。每个 token 按层顺序把每个权重读恰好一次，H³ 的重取降到 27%，两边有用带宽都是 2.6 TB/s。FLINT 的带宽优势主要来自“访问不按编译期顺序、还会重复碰到同一块”的 MoE，不是来自把 NAND 本身变得更快。</p>
+
+    <h3>单卡解码吞吐</h3>
+    <p>相对多卡纯 HBM，FLINT 的单卡解码吞吐是 1.5–3.1 倍，六模型平均 2.2 倍，batch=1 最高到 3.7 倍。这个倍数里有很大一块不是“闪存比 HBM 快”，而是单卡不再付层屏障。论文观察到 batch=1 时纯 HBM 有 74%–85% 的解码时间耗在屏障上；batch=64 时同步降到 22%，差距随之变窄。</p>
+    <p>相对 H³，MoE 上是 4.0–14.3 倍，和有用带宽的倍数对齐，六模型平均 6.2 倍。打开幻影 plane 刷新后，每个（模型，batch）格子的吞吐与不刷新相同。片外 SSD 比任何封装内方案慢两到三个数量级，平均比纯 HBM 低 396–885 倍；再乘上 FLINT 相对纯 HBM 的 2.2 倍，就接近摘要里的 1205 倍。</p>
+
+    <h3>能量</h3>
+    <p>五个 MoE 上，FLINT 每 token 能量是纯 HBM 的 0.72–0.90 倍。纯 HBM 有 17%–64% 的能量花在多卡屏障空转（模型把空转功率记成 400 W）。batch=1 时最明显，DeepSeek-V4-Pro 上大约省到 1/2.2。稠密 Llama 相反，能量升到 1.64 倍，因为全部权重都从 20 pJ/bit 的 HBF 重读，而不是 4 pJ/bit 的 HBM。刷新编程最多再加 0.31%。相对 H³，MoE 省 4.2–15.7 倍能量，稠密模型只省 1.2 倍，原因是 H³ 的重取既多读了 NAND，也让 GPU 干等更久。SSD 的每 token 能量是纯 HBM 的 215–692 倍。</p>
+
+    <h3>要几张卡才能达到 50 ms/token</h3>
+    <p>batch=1 时，一张 FLINT 卡就能让五个 MoE 达标，纯 HBM 最小切分要 4–8 张只为放下权重。batch=4 时，四个 MoE 仍是一张，Qwen3 要两张。稠密 Llama 在 batch=1 要四张 FLINT 卡，batch=4 要八张。batch=64 时稠密模型两边都是 128 张，因为瓶颈已经是吞吐不是容量。</p>
+    <p>FLINT 在若干点上还超过“容量无限的纯 HBM 先知”：先知的权重和 KV 抢同一条 HBM 通道，FLINT 的权重走本来空闲的 HBF 通道，只在 D2D 上串行。这是结构上的并行，不是仿真误差的一句话解释。</p>
+    <div class="callout warn">有一个点 FLINT 用的卡更多。DeepSeek-V4-Pro、batch=64 时，FLINT 最好的切分是 50.7 ms，比 50 ms 的硬门槛高 0.7 ms，于是被算成要 16 张复制卡，而最小切分只要 6 张。摘要里的“少用 3.1 倍 GPU”是达标配置上的汇总，盖不住这个台阶。</div>
+    <p>batch=64 时 FLINT 仍在四个模型上更省卡：Maverick 2 对 4，Qwen3 32 对 64，Kimi K2 16 对 96，DeepSeek-V3 16 对 128。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 寿命、面积和掉电</h2>
+    <p>原地刷新平均把解码吞吐打到原来的 1/20（各模型 13–24 倍损失），因为一个 plane 是串行资源，54 ms 的刷新占掉大约 5000 个读时隙。若计数对齐、成千上万块同一 token 到期，那个 token 平均慢 3700 倍。幻影 plane 把擦和编程放到不在读路径上的 plane，吞吐与不刷新相同。</p>
+    <p>厂商还没有公布 HBF 的耐久数字，论文从消费级 SLC 的 10⁵ 次编程/擦除扫到设想中的 10⁷。不刷新时，常读块大约 25 秒就坏。有刷新之后，按 50 token/s 连续解码：10⁵ 次预算平均活 29 天（MoE 7–33 天，稠密 Llama 约 1 年）；10⁶ 次平均 0.8 年；10⁷ 次平均 8 年。最热的块比平均块多刷新 1.1–7.9 倍。FLINT 的合并把最热块限制到大约每个 token 读一次，否则重复的页请求会把热点磨得更快。</p>
+    <p>面积分两处。每颗闪存 die 多一个 plane，容量和面积加 3.1%（32 个里加 1 个，约 1/33）。基座上的新 SRAM 用 CACTI 在 22 nm 估算再按文献缩放到 7 nm，合计 3.9 mm²。大头是 16 个编程队列，22 nm 下就占 10.5 mm² 里的大部分。作为对照，页级 FTL 表要 512 MB，投影到 7 nm 约 180 mm²。摘要里有一处写成 7 mm，正文和表 3 都是 7 nm。</p>
+    <p>掉电不恢复现场。保持时间、读计数和恢复元数据若要跨断电持久化，就得把 FLINT 刻意拿掉的写路径加回来。每次上电当成全新安装：擦除加重新装载约 6.7 分钟。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 局限：这些倍数依赖什么假设</h2>
+    <ul>
+      <li><strong>没有硅片。</strong> HBF 的 tR、plane 并行、D2D 和基座面积都是模型和 CACTI 投影。通道能否真的按延迟带宽积跑满，要等 Gen-1 器件。</li>
+      <li><strong>2.2 倍吞吐里混着“少用卡”。</strong> 单卡数字把多卡屏障的损失算进了纯 HBM 基线。比系统能力时，应看第 7 节的卡数，而不是只记单卡倍数。</li>
+      <li><strong>能量结论被 MoE 平均掉了。</strong> 稠密模型每个 token 都重读全部权重，HBF 的 20 pJ/bit 贵于 HBM 的 4 pJ/bit，能量变差。权重读能量若扫到论文区间的上沿 25 pJ/bit，这个差距还会更大。</li>
+      <li><strong>50 ms 是硬台阶。</strong> 差 0.7 ms 会让 DeepSeek-V4-Pro 的卡数从少于基线变成多于基线。服务目标若是 60 ms 或 P99 而不是平均 50 ms，排序可能变。</li>
+      <li><strong>权重必须不变。</strong> 微调、LoRA 合并、推理中换专家副本，都会碰到“不能原地写”。论文的回答是重新装载，而不是在线更新。</li>
+      <li><strong>10⁵ 次耐久下，热 MoE 块只有几天到一个月。</strong> 这是连续解码、最常读的块。若 HBF 只有消费级 SLC 的耐久，在线服务得把刷新和备件算进运维，不能只看 3.1% 的面积。</li>
+      <li><strong>突发合并依赖请求扎堆。</strong> 若未来模型的权重访问变成细而散，cache line 无法收成同一个 (page, block)，2 MB 的并行读会重新变回浪费。稠密顺序扫描已经显示，这种情况下 FLINT 和 H³ 的有用带宽持平。</li>
+      <li><strong>KV 仍在 HBM。</strong> 128K 上下文会在若干模型上把最小 HBM 切分撑破。FLINT 去掉的是权重容量墙，没有去掉长上下文的 KV 容量墙。论文给 HBM 留了 20 GB 的 KV 预留，更长上下文仍要加卡或另做 KV 分层。</li>
+      <li><strong>上电要 6.7 分钟。</strong> 这和 SSD 式“掉电后权重还在”不同。故障恢复时间被故意换成了更简单的控制面。</li>
+    </ul>
+    <div class="callout teal">和片外 SSD 方案（LLM in a Flash、FlexGen、PowerInfer）比，FLINT 的闪存是封装内、经 HBM 侧 D2D 到达的，计算仍在 GPU 上，地址翻译也不经过操作系统缺页。它要争的是“少买几颗 GPU 封装”，不是手机或单卡把模型从磁盘换入换出。</div>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照对象</th></tr></thead>
+      <tbody>
+        <tr><td>解码吞吐</td><td>1205× / 2.2× / 6.2×</td><td>单卡+SSD / 多卡纯 HBM / H³。前两个里，SSD 与 HBM 的差距是数量级，HBM 的差距里含多卡同步</td></tr>
+        <tr><td>能量</td><td>约 408× / 1.1× / 6.8× 更低</td><td>同上。1.1× 对应 MoE 上 0.72–0.90 倍能量；稠密模型是 1.64 倍，方向相反</td></tr>
+        <tr><td>有用 HBF 带宽</td><td>MoE 1.9–3.6 TB/s；稠密两边都是 2.6 TB/s</td><td>H³ 在 MoE 上 80%–95% 流量是重取</td></tr>
+        <tr><td>50 ms TPOT</td><td>bsz=1 时五个 MoE 各 1 张卡</td><td>纯 HBM 最小切分 4–8 张。摘要写少 3.1 倍封装</td></tr>
+        <tr><td>刷新</td><td>幻影 plane 吞吐损失为 0；原地平均慢 20 倍</td><td>一块刷新 54.2 ms</td></tr>
+        <tr><td>寿命</td><td>10⁵ P/E：平均 29 天；MoE 热块 7–33 天</td><td>50 token/s 连续解码。不刷新则约 25 秒</td></tr>
+        <tr><td>面积</td><td>die +3.1%；基座 3.9 mm² @ 7 nm</td><td>页级 FTL 对照约 180 mm²</td></tr>
+        <tr><td>装载 / 掉电</td><td>约 6.7 分钟重新安装</td><td>不保留刷新状态</td></tr>
+        <tr><td>burst</td><td>2 MB = 512 × 4 KB，一次 tR</td><td>1 TB/s × 2 μs 的延迟带宽积</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2608.25062v1（2026-08-25）。倍数均来自论文摘要与第 6 节，能量和卡数的例外在第 7、9 节单独写出。
+  </footer>
+</div>
+</body>
+</html>
