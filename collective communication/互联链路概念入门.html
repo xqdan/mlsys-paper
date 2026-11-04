@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>互联链路概念入门 | 从一根线到方案选择</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    td.num { font-family: "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .small { font-size: 14px; color: var(--muted); }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3 { columns: 1; grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="badge-row">
+    <span class="badge hot">概念入门</span>
+    <span class="badge">给非通信专业</span>
+    <span class="badge ok">链路 · IP · 拓扑</span>
+  </div>
+  <h1>先看懂底层链路，再选互联方案</h1>
+  <p class="subtitle">把 <a href="SUE_Scale-Up-Ethernet_规范译文.html">Scale-Up Ethernet 译文</a> 和 <a href="低延迟光互联_技术问题分析.html">低时延光互联讨论</a> 收成一张地图：数据出了计算芯片之后，经过哪些电路、哪根线、哪一种接法，时间都花在哪里。</p>
+  <p class="meta">
+    <strong>用途</strong>　建立选择 IP 和拓扑时需要的基本概念。数字是两篇材料里的数量级，用来比较，不代替实测。<br />
+    <strong>读法</strong>　先看每一节的图，再读图下面的几段话。术语表在最后。
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#s1">你真正在选的三个旋钮</a></li>
+    <li><a href="#s2">带宽和时延</a></li>
+    <li><a href="#s3">一层层往下：从一次通信到一根线</a></li>
+    <li><a href="#s4">物理层：比特怎么变成电和光</a></li>
+    <li><a href="#s5">把变脏的信号收拾干净</a></li>
+    <li><a href="#s6">IP 是一块可以买来嵌进去的电路</a></li>
+    <li><a href="#s7">几类 IP 各自守在哪一段距离</a></li>
+    <li><a href="#s8">拓扑：芯片怎么连成一张网</a></li>
+    <li><a href="#s9">同一条消息，走三条不同的路</a></li>
+    <li><a href="#s10">按目标做选择</a></li>
+  </ol>
+</nav>
+
+<section class="card" id="s1">
+  <h2>1. 你真正在选的三个旋钮</h2>
+  <p class="lead">两篇材料说的是同一件工程事：很多颗计算芯片要互相送数据。SUE 把这件事做成“机柜里的以太网”，往返大约 2 微秒以内。低时延光互联把这件事做成“几乎只剩光在光纤里跑的时间”，单程可以落到十几纳秒，但线必须很短，中间最好没有交换机。1 微秒 = 1000 纳秒，所以这两条路相差大约一百倍。</p>
+  <p>选方案时，不要先记产品名字。先把链路拆成三个可以分开拧的旋钮。三个旋钮的时间是<strong>加在一起</strong>的：光纤再快，上面若还堆着交换机和一厚层协议，总时间仍是厚的那一层说了算。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="介质、协议 IP、拓扑三个旋钮叠成总时延">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+        <rect x="40" y="36" width="250" height="150" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="165" y="68" text-anchor="middle" font-size="16" font-weight="700" fill="#9a3412">旋钮 1 · 介质和 PHY</text>
+        <text x="165" y="98" text-anchor="middle" font-size="13" fill="#44403c">铜线，还是光纤</text>
+        <text x="165" y="120" text-anchor="middle" font-size="13" fill="#44403c">信号要不要重定时、纠错</text>
+        <text x="165" y="150" text-anchor="middle" font-size="12" fill="#57534e">决定：传播时间 + 收拾信号的时间</text>
+        <text x="310" y="118" text-anchor="middle" font-size="22" fill="#a8a29e">+</text>
+        <rect x="340" y="36" width="270" height="150" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+        <text x="475" y="68" text-anchor="middle" font-size="16" font-weight="700" fill="#0f766e">旋钮 2 · 协议 IP</text>
+        <text x="475" y="98" text-anchor="middle" font-size="13" fill="#44403c">UCIe、PCIe、以太网 + SUE</text>
+        <text x="475" y="120" text-anchor="middle" font-size="13" fill="#44403c">包头、握手、丢了怎么补</text>
+        <text x="475" y="150" text-anchor="middle" font-size="12" fill="#57534e">决定：协议自己要站多久</text>
+        <text x="630" y="118" text-anchor="middle" font-size="22" fill="#a8a29e">+</text>
+        <rect x="660" y="36" width="280" height="150" rx="6" fill="#f0f4f8" stroke="#93c5fd"/>
+        <text x="800" y="68" text-anchor="middle" font-size="16" font-weight="700" fill="#1e3a5f">旋钮 3 · 拓扑</text>
+        <text x="800" y="98" text-anchor="middle" font-size="13" fill="#44403c">点对点直连，还是经过交换机</text>
+        <text x="800" y="120" text-anchor="middle" font-size="13" fill="#44403c">一条路，还是很多个平面</text>
+        <text x="800" y="150" text-anchor="middle" font-size="12" fill="#57534e">决定：要跳几次，每跳加一次</text>
+        <text x="490" y="222" text-anchor="middle" font-size="14" fill="#44403c">一次通信花的时间 ≈ 介质 + 协议 + 跳数 × 每一跳</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 1 · 三个旋钮分开选，时间加在一起。低时延光互联主要在拧旋钮 1，并且尽量让旋钮 3 的跳数为 0。SUE 三个都拧，换来的是现成交换机和更远的距离。</p>
+
+  <div class="grid-3">
+    <div class="tile">
+      <h4>低时延光互联在说</h4>
+      <p>用很瘦的光 repeater，把器件时间压到几个纳秒。光纤每米大约 5 纳秒。单程若要接近 10 纳秒，线只能到大约 2 米，中间不能再加 retimer、重 FEC 和交换机。</p>
+    </div>
+    <div class="tile">
+      <h4>SUE 在说</h4>
+      <p>骑在标准以太网上，一颗芯片上放很多个 800 Gbps 的搬运口，经过一台交换机把最多约一千颗芯片连在一个机柜尺度里。往返目标小于 2 微秒，线可以到大约 10 米。</p>
+    </div>
+    <div class="tile">
+      <h4>两者可以叠在一起</h4>
+      <p>光可以只是以太网下面的那根线。这时你得到的是 SUE 的时延，不是 10 纳秒。只有协议和拓扑也一起变瘦，光的物理优势才会出现在总时间里。</p>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="s2">
+  <h2>2. 带宽和时延</h2>
+  <p>带宽是路有多宽，时延是一趟要多久。小包裹怕的是时延，大货车怕的是路窄。</p>
+  <p>推理里一次集合通信常常只有几 KB。把 4 KB 送上不同宽度的口，光是“把比特依次推上路”就要这么久：</p>
+  <table>
+    <thead>
+      <tr><th>这条口有多宽</th><th>它大概是什么</th><th>4 KB 推上路要多久</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="num">32 Gb/s</td><td>一根较慢的串行车道，接近光互联第一代的符号率量级</td><td class="num">约 1 微秒</td></tr>
+      <tr><td class="num">800 Gb/s</td><td>SUE 的一个实例，大约每秒 100 GB</td><td class="num">约 40 纳秒</td></tr>
+      <tr><td class="num">8 Tb/s（1 TB/s）</td><td>光互联材料里的单向模块带宽</td><td class="num">约 4 纳秒</td></tr>
+    </tbody>
+  </table>
+  <p class="small">4 KB = 32768 bit。时间 = 比特数 ÷ 速率。这里只算推上路，不算光纤、协议和交换机。</p>
+  <div class="callout">
+    所以“我们带宽需求不大”和“口必须很宽”可以同时成立。单用户注入的平均流量也许不大，但每一个几 KB 的小包若只走一根窄车道，光排队出场就要 1 微秒，比 2 米光纤的 10 纳秒长一百倍。宽口在这里的作用，是让小包的出场时间短到能和光纤相比。
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="从 1 纳秒到 1 毫秒的时间尺子">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">
+        <text x="20" y="24" fill="#57534e" font-weight="700">同一把尺子。下面每格大约是上面的十倍，位置按对数拉开，方便放标签。</text>
+        <line x1="70" y1="150" x2="930" y2="150" stroke="#a8a29e" stroke-width="3"/>
+        <g fill="#1c1917">
+          <line x1="90" y1="142" x2="90" y2="158" stroke="#1c1917"/>
+          <text x="90" y="176" text-anchor="middle">1 ns</text>
+          <text x="90" y="132" text-anchor="middle" fill="#57534e">芯片内部一拍的量级</text>
+          <line x1="230" y1="142" x2="230" y2="158" stroke="#9a3412" stroke-width="2"/>
+          <text x="230" y="176" text-anchor="middle" fill="#9a3412">~5 ns</text>
+          <text x="230" y="118" text-anchor="middle" fill="#9a3412">1 米光纤</text>
+          <line x1="370" y1="142" x2="370" y2="158" stroke="#9a3412" stroke-width="2"/>
+          <text x="370" y="176" text-anchor="middle" fill="#9a3412">~10–20 ns</text>
+          <text x="370" y="104" text-anchor="middle" fill="#9a3412">2 米光链路单程</text>
+          <text x="370" y="120" text-anchor="middle" fill="#9a3412">（器件 + 光纤）</text>
+          <line x1="520" y1="142" x2="520" y2="158" stroke="#0f766e" stroke-width="2"/>
+          <text x="520" y="176" text-anchor="middle" fill="#0f766e">~100 ns</text>
+          <text x="520" y="118" text-anchor="middle" fill="#0f766e">电 DSP 点到点的粗估</text>
+          <text x="520" y="134" text-anchor="middle" fill="#0f766e">SUE 一端桥接的预算</text>
+          <line x1="680" y1="142" x2="680" y2="158" stroke="#1e3a5f" stroke-width="2"/>
+          <text x="680" y="176" text-anchor="middle" fill="#1e3a5f">~0.5–0.75 μs</text>
+          <text x="680" y="104" text-anchor="middle" fill="#1e3a5f">SUE 单向</text>
+          <text x="680" y="120" text-anchor="middle" fill="#1e3a5f">含一台交换机</text>
+          <line x1="860" y1="142" x2="860" y2="158" stroke="#1c1917"/>
+          <text x="860" y="176" text-anchor="middle">1 ms</text>
+          <text x="860" y="132" text-anchor="middle" fill="#57534e">1000 token/s 时</text>
+          <text x="860" y="116" text-anchor="middle" fill="#57534e">一个 token 的全部预算</text>
+        </g>
+        <text x="20" y="230" fill="#44403c">1 毫秒 = 1000 微秒 = 1 000 000 纳秒。一个 token 的 1 毫秒里，可以装下很多段 10 纳秒的光链路，</text>
+        <text x="20" y="250" fill="#44403c">也可以被几十次、每次几微秒的集合通信吃掉一大块。所以要先数“一个 token 里通信发生几次”。</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 2 · 时延要先放到这把尺子上，再谈谁“更快”。10 纳秒和 2 微秒都叫低时延，它们差着大约两百倍。</p>
+</section>
+
+<section class="card" id="s3">
+  <h2>3. 一层层往下：从一次通信到一根线</h2>
+  <p>计算芯片内部把一次“把这块数据交给对面”交给出口。出口下面有人打包、编号、写地址，再下面才是把 0 和 1 变成电或光。每一层只对下一层负责。选方案，就是决定哪些层要留下、哪些层可以拿掉。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="从集合通信到物理信号的分层">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+        <rect x="80" y="16" width="520" height="58" fill="#f5f5f4" stroke="#d6d3d1"/>
+        <text x="100" y="40" font-size="15" font-weight="700" fill="#44403c">集合通信</text>
+        <text x="100" y="60" font-size="13" fill="#57534e">例如一次 AllReduce：散出去、累加、再捞回来。一个 token 里可能有上百次。</text>
+        <rect x="80" y="86" width="520" height="58" fill="#ffedd5" stroke="#fdba74"/>
+        <text x="100" y="110" font-size="15" font-weight="700" fill="#9a3412">芯片事务</text>
+        <text x="100" y="130" font-size="13" fill="#57534e">读对方内存、写对方内存、原子改一个数。SUE 称这层为 XPU 事务，自己不解释命令的含义。</text>
+        <rect x="80" y="156" width="520" height="58" fill="#ccfbf1" stroke="#5eead4"/>
+        <text x="100" y="180" font-size="15" font-weight="700" fill="#0f766e">协议 IP</text>
+        <text x="100" y="200" font-size="13" fill="#57534e">打包、地址、序号、确认、流控。完整 SUE 有这一层；SUE Lite 把可靠性下放到链路。</text>
+        <rect x="80" y="226" width="520" height="58" fill="#dbeafe" stroke="#93c5fd"/>
+        <text x="100" y="250" font-size="15" font-weight="700" fill="#1e3a5f">MAC 和链路</text>
+        <text x="100" y="270" font-size="13" fill="#57534e">这一小段线缆上的帧、纠错 FEC、立刻重传 LLR、暂停或信用。以太网交换机看的就是这一层的地址。</text>
+        <rect x="80" y="296" width="520" height="58" fill="#fef3c7" stroke="#fcd34d"/>
+        <text x="100" y="320" font-size="15" font-weight="700" fill="#92400e">PHY / SerDes</text>
+        <text x="100" y="340" font-size="13" fill="#57534e">把芯片内部并排的比特，变成一根线上前后飞出的电信号。光引擎再把电变成光。</text>
+        <rect x="80" y="366" width="520" height="48" fill="#1c1917"/>
+        <text x="100" y="396" font-size="15" font-weight="700" fill="#fafaf9">铜缆或光纤</text>
+        <text x="250" y="396" font-size="13" fill="#d6d3d1">传播时间从这里开始，几乎只跟长度有关。</text>
+        <g font-size="13" fill="#44403c">
+          <text x="640" y="50">软件和算法</text>
+          <text x="640" y="120">计算芯片自己的事</text>
+          <text x="640" y="190">SUE / PCIe / UCIe 控制器</text>
+          <text x="640" y="260">以太网 MAC，或协议自带的链路层</text>
+          <text x="640" y="330">光互联产品主要做这一层</text>
+          <text x="640" y="396">每米光纤约 5 纳秒</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 3 · 越往下越接近物理。光互联产品站在 PHY 这一层；SUE 站在事务和以太网之间。两篇材料叠在一起时，就是“下面用光，上面还跑不跑 SUE”。</p>
+
+  <h3>一个包裹里有什么</h3>
+  <p>线上不连续倒比特，而是一包一包。包头是快递单，载荷是真正的命令和数据，校验是防拆封条。交换机通常只看快递单。包越小，快递单所占的比例越高，所以 SUE 允许把去往同一目的地的几条小命令放进同一个包裹，同时规定：队列里只有一条时立刻发，不许为了装满而干等。对几 KB 的推理通信，这条“不许干等”比“包要多大”更重要。</p>
+</section>
+
+<section class="card" id="s4">
+  <h2>4. 物理层：比特怎么变成电和光</h2>
+  <p>芯片内部的数据是很多位并排走的，像一座很宽、时钟不太快的桥。芯片边缘的 <strong>SerDes</strong> 把它们收成一根高速串行线：发送端变成一串前后相继的电脉冲，接收端再拆回并排的位。这样的一根线叫一条<strong>车道</strong>。几条车道捆在一起，成为一个<strong>端口</strong>。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="并排比特经过 SerDes 变成多条车道，再捆成一个端口">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">
+        <rect x="24" y="40" width="150" height="150" fill="#f0f4f8" stroke="#93c5fd"/>
+        <text x="99" y="64" text-anchor="middle" font-weight="700" fill="#1e3a5f">芯片内部</text>
+        <text x="99" y="86" text-anchor="middle" fill="#44403c">32 位并排</text>
+        <g fill="#1e3a5f">
+          <rect x="46" y="110" width="106" height="8"/><rect x="46" y="124" width="106" height="8"/>
+          <rect x="46" y="138" width="106" height="8"/><rect x="46" y="152" width="106" height="8"/>
+        </g>
+        <text x="99" y="178" text-anchor="middle" fill="#57534e">慢时钟，很宽</text>
+        <polygon points="186,110 214,110 214,100 236,125 214,150 214,140 186,140" fill="#a8a29e"/>
+        <rect x="248" y="70" width="130" height="90" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="313" y="108" text-anchor="middle" font-weight="700" fill="#9a3412">SerDes</text>
+        <text x="313" y="130" text-anchor="middle" fill="#44403c">并 → 串</text>
+        <text x="313" y="148" text-anchor="middle" fill="#57534e">串 → 并</text>
+        <g stroke="#0f766e" stroke-width="3">
+          <line x1="400" y1="78" x2="620" y2="78"/>
+          <line x1="400" y1="102" x2="620" y2="102"/>
+          <line x1="400" y1="126" x2="620" y2="126"/>
+          <line x1="400" y1="150" x2="620" y2="150"/>
+        </g>
+        <text x="510" y="64" text-anchor="middle" fill="#0f766e">4 条车道，例如各 200 Gb/s</text>
+        <rect x="640" y="58" width="150" height="116" fill="#f0fdfa" stroke="#5eead4"/>
+        <text x="715" y="100" text-anchor="middle" font-weight="700" fill="#0f766e">一个端口</text>
+        <text x="715" y="124" text-anchor="middle" fill="#44403c">4 × 200G</text>
+        <text x="715" y="146" text-anchor="middle" fill="#44403c">= 800G</text>
+        <rect x="820" y="58" width="136" height="116" fill="#1c1917"/>
+        <text x="888" y="108" text-anchor="middle" fill="#fafaf9" font-weight="700">线缆</text>
+        <text x="888" y="132" text-anchor="middle" fill="#d6d3d1">铜，或</text>
+        <text x="888" y="150" text-anchor="middle" fill="#d6d3d1">光纤</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 4 · SUE 的典型切法：4 根 200G SerDes 合成一个 800G 口。同一个 800G 实例也可以切成 2 个 400G 或 4 个 200G。口切得更小，一台交换机就能接更多芯片，这叫提高基数。</p>
+
+  <div class="grid-2">
+    <div class="tile">
+      <h4>铜</h4>
+      <p>板上走线或铜缆。距离短时稳定、便宜。信号沿途按分贝衰减，越快的速率越吃不消。PCIe 用插损预算限制这块板还能做多长；预算从早期大约 20 dB，到第五代大约 36 dB 这一档。超出之后就要中继器，或者改光。</p>
+    </div>
+    <div class="tile">
+      <h4>光</h4>
+      <p>电信号驱动一颗激光器（短距常用 VCSEL），光在光纤里走，对面的光电二极管变回电。光纤每米大约 5 纳秒，而且不按铜那种“每米再赔一截分贝”积累。光互联第一代用 850 nm，后两代用 1060 nm。电进来通常是差分两根线，光出去一个方向一根光纤。</p>
+    </div>
+  </div>
+  <p>差分是电的习惯：用两根线的电压差表示 0 和 1，抗干扰。光没有“负光”，所以一个方向只要一根光纤。模块对外若是 PCIe，计算芯片看到的仍是熟悉的差分电口；光被封在 chiplet 里面。</p>
+</section>
+
+<section class="card" id="s5">
+  <h2>5. 把变脏的信号收拾干净</h2>
+  <p>高速信号走到远处，脉冲会叠在一起，示波器上像一只眼睛。眼睛睁得开，0 和 1 还分得清；眼睛闭上，就要靠更重的电路去猜。收拾的办法越重，距离越远，等待和功耗越高。低时延光互联的三代产品，就是在这三档里选。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="睁开的眼、半闭的眼，以及三种收拾办法">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">
+        <text x="120" y="28" text-anchor="middle" fill="#57534e">眼睛睁开 · 短距、较低速率</text>
+        <rect x="36" y="40" width="168" height="110" fill="#f0fdfa" stroke="#5eead4"/>
+        <path d="M44 95 L70 50 L96 140 L122 50 L148 140 L174 95" fill="none" stroke="#0f766e" stroke-width="3"/>
+        <path d="M44 95 L70 140 L96 50 L122 140 L148 50 L174 95" fill="none" stroke="#0f766e" stroke-width="3"/>
+        <text x="300" y="28" text-anchor="middle" fill="#57534e">眼睛半闭 · 更远或更快</text>
+        <rect x="216" y="40" width="168" height="110" fill="#fff7ed" stroke="#fdba74"/>
+        <path d="M224 95 C250 70, 270 70, 300 95 C330 120, 350 120, 376 95" fill="none" stroke="#c2410c" stroke-width="3"/>
+        <path d="M224 95 C250 120, 270 120, 300 95 C330 70, 350 70, 376 95" fill="none" stroke="#c2410c" stroke-width="3"/>
+        <text x="480" y="28" text-anchor="middle" fill="#57534e">眼睛闭上 · 112G 一带的电通道</text>
+        <rect x="396" y="40" width="168" height="110" fill="#f5f5f4" stroke="#d6d3d1"/>
+        <path d="M404 95 C430 88, 450 88, 480 95 C510 102, 530 102, 556 95" fill="none" stroke="#78716c" stroke-width="3"/>
+        <text x="750" y="28" text-anchor="middle" fill="#57534e">收拾之后重新睁开</text>
+        <rect x="640" y="40" width="200" height="110" fill="#f0f4f8" stroke="#93c5fd"/>
+        <path d="M656 95 L682 52 L708 138 L734 52 L760 138 L786 95 L812 52 L828 95" fill="none" stroke="#1e3a5f" stroke-width="3"/>
+        <g>
+          <rect x="36" y="176" width="250" height="82" fill="#fff" stroke="#e7e0d4"/>
+          <text x="52" y="200" font-weight="700" fill="#0f766e">Repeater</text>
+          <text x="52" y="222" fill="#44403c">放大，必要时做一点均衡。</text>
+          <text x="52" y="242" fill="#44403c">不重新产生时钟。R1、R2 停在这里。</text>
+          <rect x="310" y="176" width="250" height="82" fill="#fff" stroke="#e7e0d4"/>
+          <text x="326" y="200" font-weight="700" fill="#9a3412">Retimer</text>
+          <text x="326" y="222" fill="#44403c">恢复时钟后再发出去，眼图被重画。</text>
+          <text x="326" y="242" fill="#44403c">至少“打一拍”。R3 才加。</text>
+          <rect x="584" y="176" width="360" height="82" fill="#fff" stroke="#e7e0d4"/>
+          <text x="600" y="200" font-weight="700" fill="#1e3a5f">DSP + FEC</text>
+          <text x="600" y="222" fill="#44403c">用数字滤波把闭上的眼猜开，再用冗余位改错。</text>
+          <text x="600" y="242" fill="#44403c">电 IO 走这条路。等待往往到几十至一百纳秒。</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 5 · 眼图是教学示意图，不是实测波形。速率跨过大约 112 Gb/s 时，会上把 repeater 看成临界点：再往上，DSP 和功耗、时延会一起变复杂。</p>
+
+  <h3>纠错和重传是两道先后动手的手续</h3>
+  <p><strong>FEC</strong> 在数据旁边多带几位，接收端直接把少量错误改对，不用问发送端。冗余越强，能改的错越多，等齐一个码字的时间越长。以太网常用较强的 RS-544；SUE 允许改用较弱的 RS-272，换更短的等待。PCIe 为了低时延，把校验做得更轻。</p>
+  <p><strong>重传</strong> 是改不对时再发一次。SUE 希望这一步先发生在同一根线的两端（叫 LLR），不必惊动两头的计算芯片。完整 SUE 仍保留端到端的序号和“从丢失的那一号起整段重发”（Go-Back-N），因为机柜里丢包少，不值得上大网那种复杂记账。SUE Lite 连这一层也拿掉，可靠性只留在 LLR，IP 面积大约能小一半。</p>
+  <div class="callout teal">
+    光 repeater 的论点是：短光纤上裸误码已经够好（会上说 32G 约 10<sup>−15</sup>，64G 约 10<sup>−12</sup>），FEC 这道等待可以不付。这个资格来自误码，不来自“用了光”这三个字。距离拉长或速率升高、眼睛闭上之后，FEC 或 retimer 会回来。
+  </div>
+</section>
+
+<section class="card" id="s6">
+  <h2>6. IP 是一块可以买来嵌进去的电路</h2>
+  <p>在芯片对话里，<strong>IP</strong> 指 Intellectual Property，一块已经设计好、可以授权嵌进芯片的电路，带规定好的信号接口。它和“IP 地址”不是一个词。你买 PCIe IP，就是买“别人已经按 PCIe 标准做好的发送接收和协议控制器”，自己的计算逻辑接到它公布的那组引脚上。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="计算逻辑、协议 IP、PHY IP 和光引擎如何拼在一起">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">
+        <rect x="20" y="40" width="200" height="140" fill="#f5f5f4" stroke="#d6d3d1"/>
+        <text x="120" y="90" text-anchor="middle" font-weight="700">计算芯片</text>
+        <text x="120" y="114" text-anchor="middle" fill="#57534e">你的 NOC / 内存</text>
+        <text x="120" y="136" text-anchor="middle" fill="#57534e">从这里发出事务</text>
+        <rect x="250" y="40" width="210" height="140" fill="#ccfbf1" stroke="#5eead4"/>
+        <text x="355" y="84" text-anchor="middle" font-weight="700" fill="#0f766e">协议控制器 IP</text>
+        <text x="355" y="110" text-anchor="middle" fill="#44403c">PCIe 或 UCIe 或 SUE</text>
+        <text x="355" y="132" text-anchor="middle" fill="#57534e">第三方标准块</text>
+        <text x="355" y="154" text-anchor="middle" fill="#57534e">计算 die 上常见</text>
+        <rect x="490" y="40" width="200" height="140" fill="#ffedd5" stroke="#fdba74"/>
+        <text x="590" y="84" text-anchor="middle" font-weight="700" fill="#9a3412">PHY / SerDes IP</text>
+        <text x="590" y="110" text-anchor="middle" fill="#44403c">电脉冲的收发</text>
+        <text x="590" y="132" text-anchor="middle" fill="#57534e">可以在计算 die 上</text>
+        <text x="590" y="154" text-anchor="middle" fill="#57534e">也可以在 IO chiplet 上</text>
+        <rect x="720" y="40" width="230" height="140" fill="#1c1917"/>
+        <text x="835" y="90" text-anchor="middle" font-weight="700" fill="#fafaf9">光引擎</text>
+        <text x="835" y="114" text-anchor="middle" fill="#d6d3d1">驱动激光、接收光电流</text>
+        <text x="835" y="136" text-anchor="middle" fill="#d6d3d1">尾纤由模组厂接上</text>
+        <text x="835" y="158" text-anchor="middle" fill="#a8a29e">低时延光互联交付这一块</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 6 · 一次对接通常是左边两三块来自计算芯片厂商和 IP 供应商，最右边一块来自光 IO 厂商。会上的承诺是：计算侧继续用标准 PCIe 或 UCIe IP，光侧吸收“电检测换成光检测”这类差异。</p>
+
+  <p>因此“选 IP”要分清你买的是哪一层：</p>
+  <ul>
+    <li><strong>控制器 IP</strong> 懂协议：怎么训练链路、怎么分包、丢了怎么办。PCIe 控制器、UCIe 控制器、SUE 控制器都是这种。</li>
+    <li><strong>PHY IP</strong> 懂电：多快的 SerDes、能忍受多少插损。它常常和控制器绑在同一个 IP 产品里，也可以分开。</li>
+    <li><strong>光芯片</strong> 懂光电转换。低时延那次讨论里，厂商做光电封在一起的 IO 芯片，模组厂做光纤耦合。他们希望这块 PHY 尽量不绑定某一种协议，只负责把比特从 A 送到 B。</li>
+    <li><strong>交换机芯片</strong> 是另一颗独立的芯片。PCIe switch、以太网交换机、UALink 一类纵向扩展交换机，基数和时延都不一样。</li>
+  </ul>
+  <div class="callout warn">
+    标准 IP 内部可能强制走完电气握手，例如 PCIe 靠检测对端阻抗来判断口在不在。光纤上没有这个阻抗。封闭系统里（这些卡只和自己的卡相连）可以把速率、分叉和校准写成固定值，让光侧用别的办法检测。选 IP 时要问一句：这块 IP 允不允许跳过这些只对电有意义的步骤。
+  </div>
+</section>
+
+<section class="card" id="s7">
+  <h2>7. 几类 IP 各自守在哪一段距离</h2>
+  <p>协议在被写出来的时候，都假设了一段距离和一种信道。把一种 IP 拉到它没假设过的距离上，电气参数和握手都会露馅。这是 UCIe 上光至今还没有真正产品的原因：UCIe 的世界是相邻两颗裸片，不是穿过光纤到达另一台交换机。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="从封装内到机柜的距离，以及对应的 IP">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">
+        <line x1="40" y1="70" x2="940" y2="70" stroke="#a8a29e" stroke-width="4"/>
+        <text x="40" y="28" fill="#57534e">近</text>
+        <text x="900" y="28" fill="#57534e">远</text>
+        <rect x="40" y="88" width="180" height="180" fill="#f0fdfa" stroke="#5eead4"/>
+        <text x="130" y="114" text-anchor="middle" font-weight="700" fill="#0f766e">UCIe</text>
+        <text x="130" y="140" text-anchor="middle" fill="#44403c">毫米到厘米</text>
+        <text x="130" y="162" text-anchor="middle" fill="#44403c">裸片靠着裸片</text>
+        <text x="130" y="190" text-anchor="middle" fill="#57534e">先进封装或</text>
+        <text x="130" y="208" text-anchor="middle" fill="#57534e">标准封装基板</text>
+        <text x="130" y="236" text-anchor="middle" fill="#57534e">时延和误码都按</text>
+        <text x="130" y="254" text-anchor="middle" fill="#57534e">极短信道来写</text>
+        <rect x="240" y="88" width="200" height="180" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="340" y="114" text-anchor="middle" font-weight="700" fill="#9a3412">PCIe</text>
+        <text x="340" y="140" text-anchor="middle" fill="#44403c">一块板，或加铜缆</text>
+        <text x="340" y="162" text-anchor="middle" fill="#44403c">再远就要 retimer</text>
+        <text x="340" y="190" text-anchor="middle" fill="#57534e">Gen5 约 32 GT/s</text>
+        <text x="340" y="208" text-anchor="middle" fill="#57534e">Gen6 约 64 GT/s</text>
+        <text x="340" y="236" text-anchor="middle" fill="#57534e">一个 x16 口的带宽</text>
+        <text x="340" y="254" text-anchor="middle" fill="#57534e">大约 100 GB/s 量级</text>
+        <rect x="460" y="88" width="230" height="180" fill="#fef3c7" stroke="#fcd34d"/>
+        <text x="575" y="114" text-anchor="middle" font-weight="700" fill="#92400e">光 repeater chiplet</text>
+        <text x="575" y="140" text-anchor="middle" fill="#44403c">大约 2 米内才有 10 ns 级</text>
+        <text x="575" y="162" text-anchor="middle" fill="#44403c">数米则是几十纳秒</text>
+        <text x="575" y="190" text-anchor="middle" fill="#57534e">上面仍可接 PCIe 或 UCIe</text>
+        <text x="575" y="208" text-anchor="middle" fill="#57534e">R1 对 PCIe，R2 对 UCIe</text>
+        <text x="575" y="236" text-anchor="middle" fill="#57534e">单向 1 TB/s 是模块目标</text>
+        <text x="575" y="254" text-anchor="middle" fill="#57534e">约等于 10 个 800G 口</text>
+        <rect x="710" y="88" width="230" height="180" fill="#f0f4f8" stroke="#93c5fd"/>
+        <text x="825" y="114" text-anchor="middle" font-weight="700" fill="#1e3a5f">以太网 + SUE</text>
+        <text x="825" y="140" text-anchor="middle" fill="#44403c">到交换机约 10 米</text>
+        <text x="825" y="162" text-anchor="middle" fill="#44403c">单向约 0.5–0.75 微秒</text>
+        <text x="825" y="190" text-anchor="middle" fill="#57534e">200G SerDes，800G 口</text>
+        <text x="825" y="208" text-anchor="middle" fill="#57534e">可切成更小的口</text>
+        <text x="825" y="236" text-anchor="middle" fill="#57534e">现成交换机和线缆</text>
+        <text x="825" y="254" text-anchor="middle" fill="#57534e">往返目标 &lt; 2 微秒</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 7 · 从左到右，距离和协议厚度一起增加。UALink 一类纵向扩展协议落在最右一档附近：可以组网、要交换机，产业也在把交换机从电口推向光口。</p>
+
+  <table>
+    <thead>
+      <tr><th>你已经有的，或准备买的</th><th>它替你解决的问题</th><th>拉出它的舒适区时会碰到什么</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>UCIe 2.0 一类 die-to-die IP</td>
+        <td>封装内把两颗裸片连得又宽又省</td>
+        <td>信道模型、训练超时、封装假设都不包含“数米光纤”。可以做专有扩展，或等标准工作组</td>
+      </tr>
+      <tr>
+        <td>PCIe 5 / 6 PHY 加控制器</td>
+        <td>计算芯片用大家都会的电口连出去。光互联 R1 对的就是这个口</td>
+        <td>大规模组网不是它的设计目标。要交换机时效率偏低；检测和训练按电来写</td>
+      </tr>
+      <tr>
+        <td>以太网 SerDes + MAC，再加 SUE 或 SUE Lite</td>
+        <td>用现成交换机把很多芯片连成共享内存式的搬运网。Lite 更小，可靠性交给 LLR</td>
+        <td>时延地板里含着交换机和以太网 PHY。它解决的是亚微秒到 2 微秒，不是 10 纳秒</td>
+      </tr>
+      <tr>
+        <td>协议无关的光 PHY</td>
+        <td>只搬比特。上面放 PCIe、UCIe 或以太网都可以，只要握手能适配</td>
+        <td>模块面积、1T/2T/4T 放不放得下、尾纤和散热，要单独做物理设计</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>SUE 自己也分两档 IP。完整档有端到端序号、确认和拥塞控制，核侧可以用 AXI 或一组带信用的信号。Lite 档去掉传输层和拥塞控制，核侧只留信号接口，打包上限从最多约 4 KB 收到 1 KB。以太网口那一部分（MAC、链路、PHY）两档一样大。若你的丢包已经由光链路和 LLR 兜住，Lite 是更小的一块电路；若你仍担心偶发丢包要在两端芯片之间补上，就留完整档。</p>
+</section>
+
+<section class="card" id="s8">
+  <h2>8. 拓扑：芯片怎么连成一张网</h2>
+  <p>拓扑回答两件事：任意两颗芯片之间要跳几次，以及每颗芯片要准备几个口。跳数决定时延要乘几次。口的数量决定芯片边缘和模块放不放得下。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="全互连、单台交换机、多平面三种拓扑">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">
+        <text x="150" y="24" text-anchor="middle" font-weight="700" fill="#9a3412">全互连 · 没有交换机</text>
+        <g fill="#ffedd5" stroke="#c2410c">
+          <circle cx="70" cy="80" r="16"/><circle cx="150" cy="60" r="16"/><circle cx="230" cy="80" r="16"/>
+          <circle cx="60" cy="160" r="16"/><circle cx="150" cy="180" r="16"/><circle cx="240" cy="160" r="16"/>
+        </g>
+        <g stroke="#fdba74" fill="none">
+          <path d="M84 72 L136 64"/><path d="M164 64 L216 72"/><path d="M84 88 L74 146"/>
+          <path d="M216 88 L226 146"/><path d="M76 160 L134 176"/><path d="M166 176 L224 160"/>
+          <path d="M150 76 L150 164"/><path d="M86 86 L224 150"/><path d="M214 86 L76 150"/>
+        </g>
+        <text x="150" y="220" text-anchor="middle" fill="#44403c">8 颗时，每颗 7 个口</text>
+        <text x="150" y="240" text-anchor="middle" fill="#57534e">64 颗时，每颗要 63 个口</text>
+        <text x="150" y="260" text-anchor="middle" fill="#57534e">跳数是 0，时延最短</text>
+        <text x="150" y="280" text-anchor="middle" fill="#57534e">适合 8 卡、16 卡</text>
+
+        <text x="490" y="24" text-anchor="middle" font-weight="700" fill="#0f766e">一台交换机 · 单跳</text>
+        <g fill="#ccfbf1" stroke="#0f766e">
+          <circle cx="400" cy="70" r="16"/><circle cx="470" cy="70" r="16"/><circle cx="540" cy="70" r="16"/><circle cx="610" cy="70" r="16"/>
+        </g>
+        <rect x="450" y="130" width="110" height="36" rx="4" fill="#0f766e"/>
+        <text x="505" y="152" text-anchor="middle" fill="#fff">交换机</text>
+        <g stroke="#5eead4">
+          <line x1="400" y1="86" x2="470" y2="130"/><line x1="470" y1="86" x2="490" y2="130"/>
+          <line x1="540" y1="86" x2="530" y2="130"/><line x1="610" y1="86" x2="540" y2="130"/>
+        </g>
+        <text x="490" y="200" text-anchor="middle" fill="#44403c">每颗芯片每个平面 1 个口</text>
+        <text x="490" y="220" text-anchor="middle" fill="#57534e">64 口交换机接 64 颗芯片</text>
+        <text x="490" y="240" text-anchor="middle" fill="#57534e">任意两点只经过这一台</text>
+        <text x="490" y="260" text-anchor="middle" fill="#57534e">SUE 的主要接法</text>
+        <text x="490" y="280" text-anchor="middle" fill="#57534e">交换机自己大约 250 纳秒</text>
+
+        <text x="820" y="24" text-anchor="middle" font-weight="700" fill="#1e3a5f">多平面 · 多套独立的路</text>
+        <g fill="#dbeafe" stroke="#1e3a5f">
+          <rect x="760" y="48" width="120" height="28"/><rect x="760" y="84" width="120" height="28"/>
+        </g>
+        <text x="820" y="67" text-anchor="middle" fill="#1e3a5f">芯片 A 的口 0、口 1</text>
+        <text x="820" y="103" text-anchor="middle" fill="#1e3a5f">芯片 B 的口 0、口 1</text>
+        <rect x="740" y="132" width="70" height="26" fill="#1e3a5f"/><text x="775" y="149" text-anchor="middle" fill="#fff">平面 0</text>
+        <rect x="830" y="132" width="70" height="26" fill="#334155"/><text x="865" y="149" text-anchor="middle" fill="#fff">平面 1</text>
+        <path d="M790 76 L775 132" stroke="#93c5fd" fill="none"/>
+        <path d="M850 76 L865 132" stroke="#94a3b8" fill="none"/>
+        <path d="M790 84 L775 132" stroke="#93c5fd" fill="none"/>
+        <path d="M850 112 L865 158" stroke="#94a3b8" fill="none"/>
+        <text x="820" y="190" text-anchor="middle" fill="#44403c">SUE 的例子：12 个平面</text>
+        <text x="820" y="210" text-anchor="middle" fill="#57534e">每平面一台 64 口交换机</text>
+        <text x="820" y="230" text-anchor="middle" fill="#57534e">两点之间 12 × 800G</text>
+        <text x="820" y="250" text-anchor="middle" fill="#57534e">= 9.6 Tb/s</text>
+        <text x="820" y="270" text-anchor="middle" fill="#57534e">一条平面断了，其余还在</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 8 · 左图为了能看清，只画了 6 个点的一部分连线，规则是“每个点连到其余每个点”。中图和右图是 SUE 译文里的部署：单跳，以及按平面复制。</p>
+
+  <h3>怎么从卡的数量推到拓扑</h3>
+  <ul>
+    <li><strong>8 卡或 16 卡</strong>，而且都在一块板或一个很紧的柜子里：全互连还画得出来。每卡 7 或 15 条链路。这是低时延讨论里“不用交换机”的那一档，时延最接近光纤本身。</li>
+    <li><strong>64 卡或 128 卡</strong>：全互连的口数会爆。每卡一个口进一台交换机，或者每卡几个口进几台交换机（多平面）。任意两点的时延里要加上交换机停留。</li>
+    <li><strong>上百卡而且跨机柜</strong>：PCIe 点对点的舒适区已经过去。要么铜缆硬扛插损，要么用光把每一跳的介质换掉。换介质不自动取消交换机。</li>
+  </ul>
+  <p>多平面还有一个和带宽直接相关的用法。一个口不够宽时，不要把交换机级联成两跳（那样时延再加一次），而是并排再放一套独立的交换机。SUE 明确推荐这种单跳、多平面，并且因此省掉了“在一个平面内把包拆到很多条路径上”的复杂记账。单层网络里，同一个平面内部没有第二条路，包不会在平面内互相追撞；真正会堵的是多打一：很多芯片同时给同一颗芯片送数据。</p>
+  <div class="callout navy">
+    短的那几条链路可以继续用电，长的那几条再用光。低时延讨论里把这叫分段共存：板上的电更稳、更便宜；跨板、跨柜的光用来保住传播时间。一个 64 卡系统里，封装内 UCIe、柜内短光纤、少数必须绕远的 retimer 链路，可以同时存在。预算按最远的那一条写。
+  </div>
+</section>
+
+<section class="card" id="s9">
+  <h2>9. 同一条消息，走三条不同的路</h2>
+  <p>把一次 4 KB、点到点、不重传的发送，按两篇材料里的数量级拆开。这是示意账，不是测量。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三条路径上 4KB 消息的时间构成">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12">
+        <text x="200" y="36" text-anchor="end" fill="#44403c">2 米光 repeater</text>
+        <text x="200" y="54" text-anchor="end" fill="#57534e">口宽 1 TB/s</text>
+        <rect x="210" y="24" width="24" height="36" fill="#1e3a5f"/><text x="222" y="46" text-anchor="middle" fill="#fff" font-size="10">4</text>
+        <rect x="234" y="24" width="70" height="36" fill="#c2410c"/><text x="269" y="46" text-anchor="middle" fill="#fff">~10 光纤</text>
+        <rect x="304" y="24" width="36" height="36" fill="#0f766e"/><text x="322" y="46" text-anchor="middle" fill="#fff">6</text>
+        <text x="350" y="46" fill="#57534e">合计约 20 ns</text>
+
+        <text x="200" y="110" text-anchor="end" fill="#44403c">5 米光 + 电 DSP 粗估</text>
+        <text x="200" y="128" text-anchor="end" fill="#57534e">会上约 100 ns 点到点</text>
+        <rect x="210" y="98" width="120" height="36" fill="#1e3a5f"/>
+        <text x="270" y="120" text-anchor="middle" fill="#fff">协议 / DSP / 队列 ~100 ns</text>
+        <rect x="330" y="98" width="90" height="36" fill="#c2410c"/>
+        <text x="375" y="120" text-anchor="middle" fill="#fff">光纤 ~25</text>
+        <text x="430" y="120" fill="#57534e">合计约 0.1 μs 量级</text>
+
+        <text x="200" y="190" text-anchor="end" fill="#44403c">SUE，5 米单模，经交换机</text>
+        <text x="200" y="208" text-anchor="end" fill="#57534e">单向预算</text>
+        <rect x="210" y="176" width="80" height="36" fill="#0f766e"/><text x="250" y="198" text-anchor="middle" fill="#fff">桥 200</text>
+        <rect x="290" y="176" width="100" height="36" fill="#1e3a5f"/><text x="340" y="198" text-anchor="middle" fill="#fff">交换 250</text>
+        <rect x="390" y="176" width="80" height="36" fill="#c2410c"/><text x="430" y="198" text-anchor="middle" fill="#fff">两段线 ~50</text>
+        <text x="480" y="198" fill="#57534e">合计约 0.5 μs</text>
+
+        <text x="210" y="250" fill="#1e3a5f">■ 推上路、协议或 DSP</text>
+        <text x="420" y="250" fill="#c2410c">■ 线缆传播</text>
+        <text x="560" y="250" fill="#0f766e">■ 芯片上的桥或光器件</text>
+        <text x="210" y="270" fill="#57534e">比例只在每一行内部大致对应纳秒，三行之间没有用同一把像素比例，否则第一行会看不见。</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 9 · 第一行假设 4 KB 铺满 1 TB/s，出场约 4 纳秒，器件按约 6 纳秒、光纤按 2 米。若这 4 KB 只走一根 32 Gb/s 的车道，出场一项就会变成约 1 微秒，第一行整个被它主导。第三行的数字来自 SUE 译文图 22 的 5 米单模算法：桥 100+100、两段线各约 25、交换机 250。</p>
+
+  <p>从这张账能直接读出选择：</p>
+  <ul>
+    <li>你若真的要十几纳秒，三个条件要同时成立：线在 2 米上下、没有交换机、没有 DSP/重 FEC，并且这个小包能铺到很宽的口上。</li>
+    <li>你若能接受大约 1 微秒的单向、并且要 64 颗以上任意互联，SUE 这种“以太网 + 一台交换机 + 多平面”已经把预算写在 2 微秒往返之内。光在这里负责把 5 到 10 米的线缆做通，不负责把 250 纳秒的交换机消掉。</li>
+    <li>电 DSP 方案落在中间偏慢的一档。会上用大约 100 纳秒作为点到点的粗估，并说明那是外部参考值，不是他们自己的芯片实测。它和 10 纳秒预算对不上，所以那次讨论才改推瘦光 repeater。</li>
+  </ul>
+  <p>一个 token 若有 160 次这样的通信（80 层、每层两次，这是分析稿里的假设），每次 20 纳秒合计约 3 微秒，每次 0.5 微秒合计约 80 微秒，每次若被软件做成几微秒则要占掉 1 毫秒预算里的很大一块。链路选完之后，集合通信算法还会在上面再乘一个步数。那是<a href="EveryMicrosecondMatters_论文分析.html">另一篇关于软件屏障的材料</a>要管的事，但这篇要记住：链路的 α 会被步数乘上去。</p>
+</section>
+
+<section class="card" id="s10">
+  <h2>10. 按目标做选择</h2>
+  <p>下面每行是一个可以拍板的问题。先填你自己的约束，再看更靠近哪一列。一行的答案经常和其他行打架，例如“64 卡”和“10 纳秒”放在一起时，先检查最远的那根线有没有短到 2 米。</p>
+
+  <table>
+    <thead>
+      <tr><th>先回答</th><th>更靠近瘦光、点对点</th><th>更靠近以太网 + SUE、单跳交换</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>最远两颗芯片的线</td>
+        <td>大约 2 米以内，可以背靠背摆进一个柜子</td>
+        <td>几米到 10 米，要穿过机柜走到交换机再回来</td>
+      </tr>
+      <tr>
+        <td>能接受的单向时间</td>
+        <td>几十纳秒，最好接近光纤本身</td>
+        <td>大约 0.5 到 1 微秒，往返 2 微秒以内</td>
+      </tr>
+      <tr>
+        <td>规模</td>
+        <td>8 或 16 卡全互连还画得下</td>
+        <td>64、128 直到约 1024，靠交换机基数和多平面</td>
+      </tr>
+      <tr>
+        <td>一次消息</td>
+        <td>几 KB，而且一个 token 里要发生很多次</td>
+        <td>既有小事务，也要铺很宽的持续带宽（每平面 800G，多平面再乘）</td>
+      </tr>
+      <tr>
+        <td>计算芯片上已有的 IP</td>
+        <td>标准 PCIe（对接 R1）或 UCIe（对接 R2）。封闭系统，握手可以写死</td>
+        <td>以太网 MAC，再加上 SUE 或 SUE Lite。核侧用 AXI 或信用信号口</td>
+      </tr>
+      <tr>
+        <td>交换机</td>
+        <td>这一层先不放。距离不够时，退路是加 retimer（R3），不是先加交换机</td>
+        <td>用现成以太网交换机。不必自研一颗交换芯片</td>
+      </tr>
+      <tr>
+        <td>误码和纠错</td>
+        <td>裸信道若到 10<sup>−15</sup> / 10<sup>−12</sup>，可以先不付 FEC</td>
+        <td>用较轻的 RS-272，再加 LLR。完整 SUE 还有端到端 Go-Back-N</td>
+      </tr>
+      <tr>
+        <td>物理形态</td>
+        <td>光电 chiplet + 尾纤，MPO 一类现有连接器。先问 1T/2T/4T 放不放得下</td>
+        <td>标准交换机、光模块或铜缆、可网管。部署和认证沿用以太网</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>一个可以带去下次讨论的顺序</h3>
+  <ol>
+    <li>写出最远线长，用每米 5 纳秒算出光纤下限。这一项砍不掉。</li>
+    <li>写出卡数。由此决定全互连还是单跳。单跳就在预算里加上大约 250 纳秒的交换机，再加两端协议。</li>
+    <li>写出一次消息的字节数和口的宽度，算出推上路的时间。若它比光纤还长，先加宽口或增加平面，而不是先换激光器。</li>
+    <li>对照计算芯片上已经买定的控制器 IP。光或以太网 PHY 去配它，而不是让计算 die 再学一套握手。</li>
+    <li>最后才选 repeater、retimer 还是 DSP：看目标距离上眼睛还睁不睁得开。</li>
+  </ol>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="选择顺序：线长、卡数、消息宽度、已有 IP、信号收拾">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">
+        <rect x="16" y="70" width="150" height="64" rx="4" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="91" y="98" text-anchor="middle" font-weight="700" fill="#9a3412">1 线有多长</text>
+        <text x="91" y="118" text-anchor="middle" fill="#57534e">光纤下限</text>
+        <rect x="206" y="70" width="150" height="64" rx="4" fill="#f0fdfa" stroke="#5eead4"/>
+        <text x="281" y="98" text-anchor="middle" font-weight="700" fill="#0f766e">2 多少颗芯片</text>
+        <text x="281" y="118" text-anchor="middle" fill="#57534e">要不要交换机</text>
+        <rect x="396" y="70" width="150" height="64" rx="4" fill="#f0f4f8" stroke="#93c5fd"/>
+        <text x="471" y="98" text-anchor="middle" font-weight="700" fill="#1e3a5f">3 包有多大</text>
+        <text x="471" y="118" text-anchor="middle" fill="#57534e">口要多宽</text>
+        <rect x="586" y="70" width="170" height="64" rx="4" fill="#fef3c7" stroke="#fcd34d"/>
+        <text x="671" y="98" text-anchor="middle" font-weight="700" fill="#92400e">4 已有哪块 IP</text>
+        <text x="671" y="118" text-anchor="middle" fill="#57534e">PCIe / UCIe / 以太网</text>
+        <rect x="796" y="70" width="164" height="64" rx="4" fill="#1c1917"/>
+        <text x="878" y="98" text-anchor="middle" font-weight="700" fill="#fafaf9">5 眼图还开吗</text>
+        <text x="878" y="118" text-anchor="middle" fill="#d6d3d1">repeater 或更重</text>
+        <g fill="#a8a29e">
+          <polygon points="166,102 196,102 196,94 206,110 196,126 196,118 166,118"/>
+          <polygon points="356,102 386,102 386,94 396,110 386,126 386,118 356,118"/>
+          <polygon points="546,102 576,102 576,94 586,110 576,126 576,118 546,118"/>
+          <polygon points="756,102 786,102 786,94 796,110 786,126 786,118 756,118"/>
+        </g>
+        <text x="490" y="180" text-anchor="middle" fill="#57534e">从左到右，后一步改变不了前一步已经付掉的时间。</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 10 · 选择顺序。产品名字（R1、SUE Lite、某家交换机）放到第 4 步和第 5 步再对，前面三步用的是物理和规模。</p>
+
+  <h3>术语对照</h3>
+  <table>
+    <thead><tr><th>词</th><th>先理解成</th></tr></thead>
+    <tbody>
+      <tr><td>带宽 / 时延</td><td>路有多宽 / 一趟要多久</td></tr>
+      <tr><td>SerDes、车道、端口</td><td>把并排比特变成一根高速线；几根线捆成一个口</td></tr>
+      <tr><td>PHY</td><td>真正收发电或光的物理层</td></tr>
+      <tr><td>MAC</td><td>这一小段链路上帧的地址和收发规则</td></tr>
+      <tr><td>IP</td><td>可授权嵌进芯片的现成电路，不是 IP 地址</td></tr>
+      <tr><td>UCIe / PCIe</td><td>裸片之间的电接口 / 板级和外围的电接口</td></tr>
+      <tr><td>SUE / SUE Lite</td><td>跑在以太网上的芯片间内存搬运；Lite 去掉端到端重传，面积大约小一半</td></tr>
+      <tr><td>Repeater / Retimer / DSP</td><td>放大 / 重定时再发出 / 用数字处理把眼图猜开</td></tr>
+      <tr><td>FEC / LLR</td><td>靠冗余位直接改错 / 这一段线的两端立刻重发</td></tr>
+      <tr><td>平面</td><td>并排的一套独立网络。加平面是加带宽和冗余，不增加跳数</td></tr>
+      <tr><td>基数 radix</td><td>一台交换机能接多少个口。口切小，同样的交换芯片能接更多颗计算芯片</td></tr>
+      <tr><td>单跳</td><td>两颗芯片之间只经过一台交换机</td></tr>
+      <tr><td>多打一 incast</td><td>很多人同时给同一个人送，目的地的入口会堆满</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  概念说明，依据同目录的 SUE 1.0 译文和《低延迟光互联产品方案》技术分析。时延数字用于建立数量级。
+</footer>
+
+</div>
+</body>
+</html>
