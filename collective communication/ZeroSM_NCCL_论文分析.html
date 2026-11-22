@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zero-SM NCCL 论文分析 | 不占用 SM 的 GPU 集合通信</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.DC · 2026-11-13</span>
+      <span class="badge">arXiv:2611.18075v1</span>
+      <span class="badge">集合通信 · NCCL</span>
+      <span class="badge ok">NVIDIA × ETH Zürich</span>
+      <span class="badge ok">真机：GB200 NVL72 / B200 NVL8</span>
+      <span class="badge warn">不支持 AllReduce 等规约类集合</span>
+    </div>
+    <h1>Zero-SM NCCL：把数据搬运从 SM 上彻底拿掉</h1>
+    <p class="subtitle">A Systematic Guide to Designing and Deploying SM-Free GPU Communication</p>
+    <p class="meta">
+      <strong>作者：</strong>Zhenhao He、Siyuan Shen（共同一作）等；NVIDIA、ETH Zürich（Torsten Hoefler）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.18075" target="_blank" rel="noopener">arXiv:2611.18075</a>
+      · <a href="https://arxiv.org/pdf/2611.18075" target="_blank" rel="noopener">PDF</a>
+      · 产物：<a href="https://github.com/spcl/zero-sm-artifact" target="_blank" rel="noopener">spcl/zero-sm-artifact</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。仓库里已有同一组作者的 <em>Every Microsecond Matters</em>，那篇做的是低延迟 SM 内核；这篇做的是彻底不用 SM。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：带宽越快，通信越占算力</a></li>
+      <li><a href="#s3">设计范围和两条硬约束</a></li>
+      <li><a href="#s4">三个机制</a></li>
+      <li><a href="#s5">实验怎么做的</a></li>
+      <li><a href="#s6">结果怎么读</a></li>
+      <li><a href="#s7">什么时候该开，什么时候不该开</a></li>
+      <li><a href="#s8">落地可能性</a></li>
+      <li><a href="#s9">局限</a></li>
+      <li><a href="#s10">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">NCCL 一直靠 SM 做搬运和同步，互连越快，被通信占走的 SM 就越多。Zero-SM NCCL 用 CUDA stream 内存操作做同步、用 Copy Engine 走 NVLink、用保序的 CPU proxy 推 RDMA，在 scale-up 和 scale-out 上都不再启动任何 SM kernel。它在 GB200 NVL72 和 B200 NVL8 上测过：大宗 AllGather 带宽可以高于传统 SM 内核，重叠 GEMM 的中位拖慢从约 33% 降到约 4%；接到 Megatron-LM 后，FSDP 最多快 3.5%，流水线并行最多快 14.9%。但这不是开关一开就更快——小消息和 host-bound 工作负载会变慢。</p>
+    <div class="kpi">
+      <div><div class="n">1.36×</div><div class="k">AllGather 带宽相对 NCCL 传统 SM 内核的上限</div></div>
+      <div><div class="n">33% → 4%</div><div class="k">重叠 GEMM 的中位拖慢（Qwen 144 MiB AllGather）</div></div>
+      <div><div class="n">3.5% / 14.9%</div><div class="k">Megatron-LM 中 FSDP / 深度 PP 的步进加速上限</div></div>
+      <div><div class="n">0 SM</div><div class="k">数据搬运类集合与 ncclPutSignal / WaitSignal 均不启动 SM kernel</div></div>
+    </div>
+    <div class="callout warn">摘要里的“最多快 15%”主要来自深流水线、用单边 put 去掉 Send/Recv 的会合等待，不是单纯把 SM 腾给计算。FSDP 那条路上，腾出 SM 带来的增益只有几个百分点。读数字时要把两条路径分开。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：带宽越快，通信越占算力</h2>
+    <p>训练和推理都把集合通信放在关键路径上。NCCL、NVSHMEM 这类库为了打满 NVLink / IB，把搬运和同步做成跑在 SM 上的 kernel。SM 却是 GEMM 最缺的资源：matmul 启动的 thread block 远多于 GPU 上的 SM，通信多占一个 SM，计算就晚结束一轮。</p>
+    <p>这个代价还在随互连变贵。论文 Fig. 1 给出，为打满 NVLink，NCCL 需要的 SM 从 Pascal 的 8 个（约 14%）涨到 Blackwell 的 32 个（约 22%）。想少占 SM，就得放弃带宽：在一块 B200 节点上，144 MiB 的 AllGather 把与它重叠的 GEMM 拖慢大约 33%（传统 ring）或 6%（对称内存的 multicast 内核），而改用 Copy Engine 搬运时是 3.9%。</p>
+    <p>已有工作减少了 SM，但没有两边一起拿掉：</p>
+    <ul>
+      <li>NCCL 的对称内存内核把多级流水换成单次 load/store，默认只用少量 CTA，但搬运、规约和轮询仍在 SM 上。</li>
+      <li>NCCLX 把大宗数据交给专用硬件，仍要为保序启动一个小 kernel。</li>
+      <li>MSCCL++、多数 DMA 方案，要么同步还在 kernel 里，要么只覆盖单节点。</li>
+    </ul>
+    <p>论文要补的缺口是：在今天就能买到的机器上，提供既覆盖 scale-up 又覆盖 scale-out、既有集合又有单边、并且完全不启动 SM kernel 的、仍遵守 CUDA stream 语义的通信路径。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 设计范围和两条硬约束</h2>
+    <p>所有操作围着两条要求转：</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>R1 不沾 SM</h4>
+        <p>不能启动 GPU kernel，也不能占用 SM 资源。TMA 这类仍要由 SM 内核发起和同步的通路被排除。</p>
+      </div>
+      <div class="tile">
+        <h4>R2 保住 CUDA stream 语义</h4>
+        <p>操作必须 stream-ordered：同一条 stream 上，先入队的做完才开始，做完后边的才能开始。直接在 CPU 上调 IB verbs / MPI 会打破这条。</p>
+      </div>
+    </div>
+    <p>分工很清楚：NVLink / PCIe 上的数据走 Copy Engine；跨节点走 CPU proxy 向 NIC 提交 RDMA；两边的同步都用 CUDA stream 内存操作（<code>cuStreamWriteValue64</code> / <code>cuStreamWaitValue64</code>）。缓冲区和信号位置都做对称注册，发送端直接写入对端用户缓冲区，不再中转、也不再运行时交换地址。</p>
+    <p>覆盖的集合只包括纯数据搬运：AllGather、AlltoAll、Gather、Scatter。AllReduce、ReduceScatter 这类需要算术的集合<strong>目前还不支持</strong>零 SM 模式。作者提到，将来可以借助 NVLink SHARP（NVLS）把规约放到互连里做。API 形态是 host-initiated，不走 NVSHMEM / NCCL GIN 那种从 kernel 里发起的路径——那些路径本身就要用 SM。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 三个机制</h2>
+
+    <h3>4.1 无 SM 同步</h3>
+    <p>传统 NCCL 用 SM kernel 空转标志位。这里改成 stream 内存操作。普通执行用单调递增的序号，每次 wait 等到当前操作的序号，避免上一轮的旧值把后一次提前放行。CUDA graph 捕获时不能每次改 wait 的期望值，于是改成“图私有、一次 replay 内置位再复位”的旗标协议，代价是每个带信号的传输多几次 stream 内存操作。</p>
+
+    <h3>4.2 单边 API：ncclPutSignal / ncclWaitSignal</h3>
+    <p>这是用户拼自定义模式的底层原语，集合通信也建立在同一套机制上。</p>
+    <p><strong>Scale-up。</strong> 发送端在自己的 stream 上依次入队：CE 把数据拷到对端对称缓冲区；用 stream 写把序号写到本卡暂存字；再用一次 CE 把这个序号拷到对端信号地址。分两步，是因为 stream 内存操作不能直接写远程 GPU 内存，而 CUDA 暴露的 CE 拷贝又没有原子自增，源值必须已经在设备内存里。</p>
+    <p><strong>Scale-out。</strong> 主线程只入队描述符和两个 stream 操作：写 <code>ready</code>（保证源缓冲区已就绪）、等 <code>done</code>（保证传输完成）。Proxy 线程看到 ready 后，通过 NCCL 网络插件的 <code>iput</code> / <code>iput_signal</code> 发起 RDMA，完成后再写 done。信号如何实现由插件决定：IB 可以是 payload 之后的 RDMA atomic，EFA 等非 IB 后端用各自的有序机制。接收端的 <code>ncclWaitSignal</code> 只是在信号上做 <code>cuStreamWaitValue64</code>。</p>
+
+    <h3>4.3 零 SM 集合，以 AllGather 为例</h3>
+    <p>单域 AllGather 分三阶段：用 CE 拷贝加 stream wait 做缓冲区就绪屏障；各卡把本地 chunk 广播到对端槽位；再做一次完成屏障，防止后续计算提前消费结果。工程上有几处关键优化：</p>
+    <ul>
+      <li><code>cudaMemcpyBatchAsync</code> 和 <code>cuStreamBatchMemOp</code> 批量提交，压低 host 侧调用开销；大批次中途插入同步，限制未完成的飞行数据。</li>
+      <li>域内有 NVLS multicast 时，同步一律走组播；数据只在小于阈值时走组播（超过阈值改回单播，更好藏尾延迟）。组播会把发送端自己那份也送一遍，有效峰值带宽会下降。</li>
+      <li>out-of-place 集合里，本卡拷自己那份默认会走 SM（SM 打满 HBM 更快）。这里强制 <code>cudaMemcpyFlagPreferOverlapWithCompute</code>，用 CE 换“零 SM”保证。自己那份只占输出的 1/N，通常和peer拷贝并行，损失往往看不出来。</li>
+    </ul>
+    <p>跨域用分层算法：同一 local rank 组成一条 rail。Rail 之间用 RMA proxy 交换，域内再用 CE 分发。接收按 chunk 流水：远端 chunk 一到，立刻向本域其他 GPU 散射，而不是等整个网络交换结束。管道化 rail 调度和选择器按节点数、每卡消息大小在三种调度之间切换；论文写明，管道化调度和 tuner <strong>还不在已发布的 NCCL 版本里</strong>，会在后续版本提供。评测基于 NCCL 2.32.3，并打入了这些未发布改动。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 实验怎么做的</h2>
+    <p>两台机器正好落在 scale-up 设计空间的两端：</p>
+    <table>
+      <thead><tr><th></th><th>GB200 NVL72</th><th>B200 NVL8</th></tr></thead>
+      <tbody>
+        <tr><td>每节点 GPU（SM 数）</td><td>4 × GB200（148 SM）</td><td>8 × B200（148 SM）</td></tr>
+        <tr><td>NVLink 域</td><td>18 节点、72 GPU，整机柜一个域</td><td>单节点 8 GPU 一个域</td></tr>
+        <tr><td>NVLink</td><td>NVLink5，单向 900 GB/s</td><td>同左</td></tr>
+        <tr><td>Scale-out</td><td>每节点 4×400 Gb/s</td><td>每节点 8×400 Gb/s</td></tr>
+        <tr><td>CPU / 驱动</td><td>Grace（aarch64）/ 580.178.04</td><td>2× Xeon Platinum 8570 / 580.167.08</td></tr>
+        <tr><td>通信路径</td><td>72 卡以内都走 CE</td><td>多节点走分层算法</td></tr>
+      </tbody>
+    </table>
+    <p>对照包括：NCCL 传统 ring、对称内存内核（ST / STMC）、Zero-SM（<code>NCCL_CTA_POLICY=ZERO</code>，图中标为 CE）；以及 VCCL（含 SM-free 点对点模式）、NCCLX 的持久 AllGatherP、MSCCL++。微基准用 nccl-tests，每点 10 次，消息从 8 B 或 1 KiB 扫到 4 GiB。</p>
+    <p>重叠基准在一块 B200 节点上重放生产训练轨迹里的 GEMM 链：Qwen3-30B-A3B 的 100 个 MXFP8 MoE GEMM，重叠 144 MiB/rank AllGather；Llama-3-8B 的 96 个 FP8 GEMM，重叠 26 MiB/rank AllGather。这些 GEMM 各启动数百个 thread block（640 / 512），远多于 148 个 SM。用 CUPTI 成对比较干净行程和重叠行程，报 8 rank × 30 trial × 4 run 的中位拖慢。</p>
+    <p>端到端接入 Megatron-LM 的 FSDP 参数 AllGather 和 PP 的阶段间传输（用 PyTorch symmetric memory 的 <code>put_signal</code> / <code>wait_signal</code> 映射到新 API）。12 个 FSDP + 7 个 PP，模型从 15B 到 405B，32 或 64 卡，按是否 GPU-bound / host-bound 分类。FSDP 和 PP 分开跑，避免两种效应混在一起。对比在同一批节点、轮换顺序的成对 block 里做，每个配方 3 个 block，报均值和标准差。评测里还用预加载分配器 shim 绕开 GB200 上 host 解映射等待 GPU AT 失效的平台问题；shim 对所有臂生效，作者声明不偏向任何一方，并写明这是临时绕过。</p>
+    <p>美元数字用 CoreWeave 按需价（每 GB200 GPU-hour $10.50，每 B200 GPU-hour $8.60），按 Llama 3 的 15T token 预算外推。论文自己说这<strong>不是完整部署成本模型</strong>：生产布局、卡数和计价都可能不同。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 结果怎么读</h2>
+
+    <h3>点对点和 AllGather</h3>
+    <p>NVLink 上，零 SM put 的延迟底高于 Send/Recv kernel（8 B 时 16.7 µs 对 9.7 µs），从 64 KiB 起反超，4 GiB 时 773 GB/s 对 658 GB/s。跨节点时，proxy 驱动的 put 反而把 8 B 延迟砍半（15.9 µs 对 31.4 µs），三者都能打满 50 GB/s 的单 rail。</p>
+    <p>单 NVLink 域内，CE 在大宗传输上是 NCCL 里最快的：4 GiB 达到 714–746 GB/s，对称内核 537–678 GB/s，传统内核 613–698 GB/s。作者把原因写在 Blackwell 上：CE 发出的 NVLink 事务比 SM 发起的拷贝更宽。代价是延迟底更高：单节点 1 KiB AllGather 要 25–29 µs，SM 内核是 12–18 µs。中等消息仍是对称内核更快，CE 要到 128–512 MiB 才反超。72 卡时 CE 的延迟底升到 52 µs，仍不到传统 ring 118 µs 的一半。</p>
+    <p>跨域（B200 的 4 / 8 节点）由网络封顶。管道化 rail 调度下，CE 在 4 GiB 达到 503 和 436 GB/s，接近 NIC 界限（517 和 450 GB/s）；对称 GIN 内核是 482 和 430 GB/s，传统内核停在 372 GB/s。NCCLX 的 AllGatherP 在单域大宗上和 CE 接近，但每次调用 60–239 µs，跨节点只有 387 和 339 GB/s。MSCCL++ 小消息延迟最低，但要花最多 35 个 1024 线程的 CTA；72 卡、超过 16 MiB 时没有有效结果。</p>
+
+    <h3>重叠计算</h3>
+    <p>SM 内核按占用的 SM 数量拖慢重叠 GEMM。Qwen 那组 144 MiB AllGather：传统 32 CTA 的中位拖慢 32.9%，对称内核默认 4 CTA 为 6.2%，强行 32 CTA 升到 24.0%——CTA 多了 AllGather 结束得早，但每一段重叠的 GEMM 被打得更重。CE 只有 3.9%，作者归因于内存争用的残余。较小的 Llama 26 MiB AllGather 上，CE 没有超过 0.2% 的拖慢，传统内核中位 9.9%。论文同时提醒：单 GEMM 的拖慢预测不了端到端，因为对齐关系在真实训练里会滑动，而且会同时重叠多种集合和 kernel。</p>
+
+    <h3>FSDP 与 PP</h3>
+    <p>相对传统 ring，CE 加速了两台上几乎所有 GPU-bound 稠密配方，GB200 上最多 3.5%（Llama-70B-G），B200 上最多 1.9%。和只占几个 CTA 的对称内核比，画面是杂的：CE 只在少数配方上明显更好，host-bound 配方和部分 MoE 会输。Qwen3-235B-G 在 B200 上的失败，作者归咎于 plan fusion 还没覆盖更快的 rail 调度。</p>
+    <p>PP 上，单边 put 加速了两台上每一条深流水线，GB200 上 Qwen3-Next 达到 14.9%。浅或高度交错的流水线没有收益，甚至变慢（Llama-70B 的气泡份额约 2%；两段的 Qwen3-32B 在 B200 上慢 3.9%）。这里腾出的 SM 最多只让计算快 1–2%，真正的来源是去掉 Send/Recv 的会合：快的阶段不必在每个边界等慢的邻居，只有接收端在真正需要数据时才等。增益随气泡份额 <code>b = (PP − 1) / (GA · VPP + PP − 1)</code> 增大；<code>b = 30%</code> 时，GB200 上是 8–15%。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 什么时候该开，什么时候不该开</h2>
+    <p>这是这篇最有用的部分。作者用大约 2800 GPU-hour 的端到端训练，把“该不该开”收成可执行的条件。每一条都以前一条成立为前提。</p>
+    <h3>零 SM 集合（FSDP / AllGather）</h3>
+    <ol>
+      <li><strong>步进必须是 GPU-bound。</strong> 通信内核占用 SM，端到端 profile 里大约拖慢重叠计算 3–4%。CE 去掉这笔，但每个集合都多了 host 活：GB200 上发一次 CE AllGather 要 26–41 µs，大约是对称内核 11–17 µs 的 2–3 倍；B200 上是 77–86 µs 对 5–7 µs。只有 host 跑得足够靠前、GPU 不等发射时，这笔开销才不在关键路径上。</li>
+      <li><strong>消息要够大。</strong> 微基准里 CE 要到 128–512 MiB 才在带宽上反超对称内核。训练里同一条线：GB200 上到大约 240 MiB 的 FSDP gather 持平或更慢，820 MiB 才赢。</li>
+      <li><strong>路径要和并发流量匹配。</strong> 组播是单条流，注入一次拷贝，但速度取决于最堵的目的端。链路空闲或更均匀（例如 MoE 的 expert all-to-all）时组播更好；负载集中在少数对端（例如 GB200 上并发的 TP 流量）时，一条链路堵死整个 AllGather，独立单播反而能继续走。通信路径的选择，既要看对计算的影响，也要看对其他集合的影响。</li>
+    </ol>
+    <h3>单边 put（PP）</h3>
+    <ol>
+      <li><strong>流水线要深，而且真有的等。</strong> <code>PP ≥ 4</code> 且 <code>b ≳ 10%</code>。两段流水线边界少、阶段间方差小，单边的固定成本会原价付出去。</li>
+      <li><strong>传输次数少、单次大。</strong> 每次 put 仍有 host 发射和 stream 同步的固定成本；Megatron-LM 的激活还在普通 PyTorch 内存里，发送端要先拷进已注册的暂存缓冲。Llama-70B 这种深度交错、每轮约 322 次传输、<code>b ≈ 2%</code> 的配方，固定成本会把收益对冲掉。</li>
+    </ol>
+    <div class="callout teal">讨论里还点了其他合适场景：异步 RL 的权重同步、训练到推理引擎的权重重切分（NCCL-M2N / veRL）、专家权重预取、分离式服务的 KV 传输、ring attention。这些都是大宗传输、最好不要和 SM 上的生成或解码抢资源。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 落地可能性</h2>
+    <p>这是目前集合通信方向里落地条件比较齐的一篇：真机是 GB200 / B200，软件栈是 NCCL 2.32.3 加补丁，训练框架是已经在用的 Megatron-LM，产物仓库公开。NVIDIA 作者阵容，再加上 NCCL 2.28 已经开始把 copy engine collectives 和 device API 往主线里放，说明“把搬运从 SM 拿开”不是实验室想法，而是产品方向上已经在走的路。</p>
+    <p>要在生产里变成默认策略，还得满足几件事：</p>
+    <ul>
+      <li><strong>Tuner 必须按条件开关，而不能做成全局默认。</strong> 论文自己的结论就是“不是银弹”。host-bound、小消息、浅流水线都会变慢。如果框架或 NCCL 默认全开，部分配方会倒退。</li>
+      <li><strong>规约类集合仍要另做。</strong> 没有零 SM 的 AllReduce / ReduceScatter，数据并行里的梯度同步还得回 SM 或等 NVLS 路径做成熟。FSDP 的参数 AllGather 只是通信的一部分。</li>
+      <li><strong>对称内存和注册缓冲区是前提。</strong> FSDP 能几乎无改动接上，是因为 Megatron-FSDP 已经从 <code>ncclMemAlloc</code> 池子分配；PP 仍然要额外的暂存拷贝。别的框架如果还在用普通 PyTorch 内存，接入成本会明显高于这篇实验。</li>
+      <li><strong>未发布的管道化 rail 调度要进正式 NCCL。</strong> 跨节点大宗带宽数字依赖它；Qwen3-235B 在 B200 上的回退也和 fusion 尚未覆盖这些调度有关。</li>
+      <li><strong>CUDA graph 和 host 资源要单独评估。</strong> 图捕获要用更贵的旗标协议；scale-out 同步依赖 CPU proxy 线程；高扇出时 CE 数量可能成为上限。</li>
+    </ul>
+    <p>跨厂商方面，作者认为设计只需要 stream 有序的内存等待/写入、无 SM 的拷贝引擎、以及 NIC 访问已注册 GPU 内存；并指出 AMD HIP 已提供类似接口。这是可行性论述，不是 RCCL 上的对照实验。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 局限</h2>
+    <ul>
+      <li><strong>这是 2026-11-13 的 arXiv 预印本，不是会议上的相机就绪稿。</strong> 数字以 v1 为准；正式发表时协议和数字可能还会改。</li>
+      <li><strong>不支持需要算术的集合。</strong> 训练里的 AllReduce 不在范围内。</li>
+      <li><strong>小消息和 graph 捕获更慢。</strong> 域内延迟底是 host 发射加 stream 同步换来的。作者希望未来 CUDA 提供基于 CE 的原子信号，把这两项成本打下来。</li>
+      <li><strong>端到端配方是子集。</strong> 19 条配方用来划清边界是够的，但不能外推成“所有模型、所有并行组合”。FSDP 与 PP 还是分开测的，叠在一起的交互没有直接数字。</li>
+      <li><strong>15T token 的美元节省是按需云价外推，不是账单。</strong> 论文自己把这句话写在了结果前面。</li>
+      <li><strong>没有把 NCCLX / MSCCL++ 接到 Megatron-LM 做端到端对照，</strong> 因为它们的低 SM 路径不是 AllGather 的即插替换。步进差异因此不能直接拿去和这些库比。</li>
+      <li><strong>GB200 的分配器 shim 是临时补丁。</strong> 平台效应对所有臂都在，比较仍然成立，但不等于这个问题在生产软件栈里已经消失。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照与条件</th></tr></thead>
+      <tbody>
+        <tr><td>AllGather 带宽上限</td><td>最多 1.36×</td><td>相对 NCCL 传统 SM 内核；大宗消息</td></tr>
+        <tr><td>单域 4 GiB AllGather</td><td>CE 714–746 GB/s</td><td>对称 537–678；传统 613–698 GB/s</td></tr>
+        <tr><td>1 KiB AllGather 延迟</td><td>CE 25–29 µs</td><td>SM 内核 12–18 µs（单节点）</td></tr>
+        <tr><td>72 卡延迟底</td><td>CE 52 µs</td><td>传统 ring 118 µs</td></tr>
+        <tr><td>跨域 4 GiB</td><td>CE 503 / 436 GB/s</td><td>4 / 8 节点；NIC 界限 517 / 450；对称 GIN 482 / 430；传统 372 GB/s</td></tr>
+        <tr><td>NVLink put @ 8 B / 4 GiB</td><td>16.7 µs；773 GB/s</td><td>Send/Recv：9.7 µs；658 GB/s</td></tr>
+        <tr><td>IB put @ 8 B</td><td>15.9 µs</td><td>Send/Recv 31.4 µs；打满 50 GB/s rail</td></tr>
+        <tr><td>重叠 GEMM（Qwen 144 MiB）</td><td>CE 中位 3.9%</td><td>传统 32.9%；对称 4 CTA 6.2%；对称 32 CTA 24.0%</td></tr>
+        <tr><td>重叠 GEMM（Llama 26 MiB）</td><td>CE ≤ 0.2%</td><td>传统中位 9.9%</td></tr>
+        <tr><td>FSDP 步进</td><td>最多 +3.5% / +1.9%</td><td>GB200 / B200，相对传统 ring，GPU-bound</td></tr>
+        <tr><td>PP 步进</td><td>最多 +14.9%</td><td>Qwen3-Next，GB200；深流水线</td></tr>
+        <tr><td>CE AllGather 发射</td><td>26–41 µs / 77–86 µs</td><td>GB200 / B200；对称内核 11–17 / 5–7 µs</td></tr>
+        <tr><td>端到端评测量</td><td>约 2800 GPU-hour</td><td>仅所报告的 FSDP 与 PP</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.18075v1（2026-11-13）。倍数和微秒均来自论文摘要与第 IV、V 节；美元外推和“不是完整成本模型”的声明以第 IV-D 节为准。
+  </footer>
+</div>
+</body>
+</html>
