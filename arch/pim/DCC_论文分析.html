@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DCC 论文分析 | 面向 PIM 的数据中心编译</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">ISCA 2026</span>
+      <span class="badge">arXiv:2511.15503v5</span>
+      <span class="badge">存算一体 · AI 编译器</span>
+      <span class="badge ok">Toronto × ETH Zürich × MPI-SWS × Nvidia 等</span>
+      <span class="badge warn">仿真（改造 AttAcc + Ramulator 2.0），不是硅片实测</span>
+    </div>
+    <h1>DCC：把数据重排放进 PIM 编译的主循环</h1>
+    <p class="subtitle">Data-Centric Compilation of Machine Learning Kernels for Processing-In-Memory Architectures</p>
+    <p class="meta">
+      <strong>作者：</strong>Peiming Yang、Sankeerth Durvasula、Ivan Fernandez、Mohammad Sadrosadati、Onur Mutlu、Gennady Pekhimenko、Christina Giannoula；多伦多大学 &amp; Vector Institute、Barcelona Supercomputing Center、ETH Zürich、Nvidia、Max Planck Institute for Software Systems<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2511.15503" target="_blank" rel="noopener">arXiv:2511.15503</a>
+      · <a href="https://arxiv.org/pdf/2511.15503" target="_blank" rel="noopener">PDF</a>（笔记依据 v5，2026-08-28）
+      · 会议：ISCA 2026（DOI 10.1109/ISCA66397.2026.00180）
+      · 开源：<a href="https://github.com/SPIN-Research-Group/DCC" target="_blank" rel="noopener">SPIN-Research-Group/DCC</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：Host 和 PIM 要的数据布局是反的</a></li>
+      <li><a href="#s3">为什么不能先调计算再补重排</a></li>
+      <li><a href="#s4">DCC 的四块设计</a></li>
+      <li><a href="#s5">实验怎么做的</a></li>
+      <li><a href="#s6">结果怎么读</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">近存储 PIM 能给 GEMV、注意力这类访存密集核很高的聚合带宽，但 Host（GPU）要把连续元素打散到各个 bank，PIM 核却只能看自己的本地 bank，必须把数据重新排过。现有编译器往往先按计算时间挑循环划分，再补数据重排，两边是耦合的，分开调会得到次优解。DCC 是面向多种 PIM 后端的数据中心编译器：先枚举张量在 PIM 组和核上的划分，再映射到循环划分，用学习到的代价模型一起估计重排和计算时间。在改造过的 AttAcc 模拟器上，它让 AttAcc 相对纯 GPU 平均快 3.92 倍（最多 13.17 倍），端到端 LLM 平均快 4.52 倍。这些数字全部来自仿真，不是 HBM-PIM 硅片上的墙钟时间。</p>
+    <div class="kpi">
+      <div><div class="n">13.17× / 3.92×</div><div class="k">AttAcc+DCC 相对纯 GPU 的内核加速：峰值 / 平均</div></div>
+      <div><div class="n">7.68× / 2.21×</div><div class="k">HBM-PIM+DCC 相对纯 GPU 的内核加速：峰值 / 平均</div></div>
+      <div><div class="n">4.52× / 7.71×</div><div class="k">AttAcc 上端到端 LLM 相对 GPU 的平均 / LLaMA-2 峰值</div></div>
+      <div><div class="n">1.75× / 2.74×</div><div class="k">相对 AttAcc 原实现的平均 / 峰值（摘要）</div></div>
+    </div>
+    <div class="callout warn">AttAcc 本身已经比 GPU 快很多（注意力平均 10.35×，GEMV 7.61×）。DCC 在这之上再提供大约 1.2–1.5 倍的内核改进，以及把 QKV / projection 从 GPU 搬回 PIM 的能力。读“13.17× 相对 GPU”时，要把“PIM 硬件已经很快”和“编译器又快了一截”分开，并且记住对照 GPU 也是同一套模拟器里的模型。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：Host 和 PIM 要的数据布局是反的</h2>
+    <p>近 bank PIM 把低功耗计算单元紧挨着一两个 DRAM bank，聚合带宽来自大量核并行访问本地 bank。Samsung HBM-PIM、SK Hynix GDDR6-AiM 已经有原型，可以和 GPU 集成，并且带乘法器和浮点，适合做 GPU 跑计算密集核、PIM 跑访存密集核的异构执行。UPMEM 是面向 CPU 的 DDR4 PIM，乘法器不完整、没有浮点，论文明确把它排除在目标之外：CPU-PIM 协同通常打不赢纯 GPU。</p>
+    <p>布局冲突是软件的核心痛点。Host 为了 cache line 级的 bank 并行，把连续元素打散到多个 bank；PIM 核只能访问本地 bank，要把连续元素放在同一 bank 里才能一次取一块、打满本地带宽。于是一个 PIM 核的执行固定是三步：（1）输入重排，把数据收到本地 bank；（2）核上计算；（3）输出重排，合并部分和，或再把连续元素打散，好让 Host 按自己的布局来读。重排通常走 Host 内存总线，在设备之外完成，成本经常能主导端到端时间。</p>
+    <p>编程之所以难，是因为重排策略必须同时看 PIM 拓扑和每个核的访问模式，而且不同后端的接口不一样。编译器如果不能自动生成“数据怎么切”和“循环怎么切”，PIM 就很难从原型变成可用的 ML 后端。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 为什么不能先调计算再补重排</h2>
+    <p>已有 PIM 编译工作多半只覆盖单一内核或单一后端，并且经常忽略重排成本。ATiM 是面向 UPMEM 的搜索式张量编译器，仍然是计算中心：先用 TVM 固定一批计算调度模板，再为每个模板生成 UPMEM 上的重排，最后在这批固定模板里搜索。看起来“也考虑了重排”，但搜索空间在重排生成之前就已经被计算模板收窄了。</p>
+    <p>论文用 Reduction 和 GEMV 在 AttAcc 上拆时间（Fig. 2）说明这件事：</p>
+    <ul>
+      <li>按 TVM 成本模型选出来的模板，端到端平均比手工最好实现慢 1.28 倍；其中数据重排占到总时间的 64.68%。</li>
+      <li>手工最好实现的计算时间反而比 TVM 方案慢 1.16 倍，但重排成本低了 1.55 倍，总账更好。</li>
+      <li>DCC 联合优化后，相对计算中心的 TVM 方案快 1.27 倍，和手工最好实现非常接近。</li>
+    </ul>
+    <p>结论很直接：看起来计算更快的调度，可能对应更贵的重排；略慢的计算调度，反而可能让重排更便宜。只优化其中一边，会丢掉另一边更好的组合。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. DCC 的四块设计</h2>
+    <p>用户用带 <code>@DCC_kernel</code> 注解的 Python / PyTorch 写仿射循环核，用 <code>DCC.Layer</code> 替换模型里的层。编译期分析内核并训练耦合预测器；运行时在输入维度（例如 LLM 的 token 数）已知后，用预测器为所有 PIM 核选出配置，并编排数据装入、核上计算和输出布局。</p>
+
+    <h3>4.1 多层抽象：把存储层次映射成计算层次</h3>
+    <p>抽象有三层，用来把编译器和后端语义解开：</p>
+    <ul>
+      <li><strong>系统层：</strong>Host xPU、Host 地址空间、若干 PIM 设备。Host 负责全局控制、重排和调度。</li>
+      <li><strong>PIM 组层：</strong>同一通道或 rank 上的一组核，可以带组级专用单元（AttAcc 的 softmax / 累加器，HBM-PIM 的 Thread Group）。组级指令可以广播到组内所有核，或由组级单元合并部分和。每个组有独立的到 Host 的内存总线，重排可以跨组并行。</li>
+      <li><strong>PIM 核层：</strong>处理单元加本地 bank。HBM-PIM 上是一个 FPU 和寄存器文件挨着两个相邻 bank；AttAcc 上是一个 GEMV 单元挨着一个 bank。</li>
+    </ul>
+    <p>论文的立场是：只要未来的近 bank（甚至近 rank）设计能装进这三层，就可以被 DCC 接住。这是接口承诺，不是已经在所有后端上跑过的实验结果。</p>
+
+    <h3>4.2 数据优先的调度生成</h3>
+    <p>传统编译器先做循环变换再谈数据局部性。DCC 反过来：先穷举张量在组和核上的数据划分，再映射到循环范围，形成 tiling draft。过程分四步。</p>
+    <ol>
+      <li><strong>构造维度集合。</strong>用循环变量做中介，给每个张量维度建立映射函数（例如 <code>A[b+1][i*2]</code> 对应 <code>F(b)=b+1</code>、<code>F(i)=i*2</code>）。共享同一循环变量的维度被收进同一个“复杂维度集合”，因为它们必须用同一套索引取值。</li>
+      <li><strong>构造数据 tile。</strong>对每个维度集合，在可用组和每组核数上做带记忆化的深度优先搜索，并枚举代表映射，得到全部 draft。</li>
+      <li><strong>三条剪枝。</strong>去掉数据划分和代表映射等价的重复稿；在支持 d 路 SIMD 的后端上，丢掉每核维度大小不是 d 的倍数的稿（无法打满本地带宽和数据通路；若全部稿都不满足则跳过这条）；组内性能由最慢的核决定，若各部分的最差每核划分相同，只保留一份。</li>
+      <li><strong>数据 tile 映到计算 tile。</strong>按 <code>dimension_size / (groups × cores)</code> 得到每核数据范围，再反推循环变量取值，最后生成各张量需要访问的下标。下标不连续时，DCC 同时尝试“补成连续区间”和“只保留必要下标”两种策略，交给预测器选。</li>
+    </ol>
+
+    <h3>4.3 PIM 专用优化</h3>
+    <p><strong>重排。</strong>从 Host 连续读可以走多通道，但写入单个 PIM bank 只用一条 PIM 通道；反过来，要并行写多个 PIM 通道，Host 侧读的又是非连续地址，容易通道冲突。DCC 利用 GPU 共享内存之类可控片上存储做中转：对 N 个通道，块大小 <code>B = 片上容量 / N</code>，先串行从 Host 读 N 块到片上，再并行写到 N 条 PIM 通道。没有可控片上存储时（例如 CPU），退回后端默认的拷贝或 DMA。特殊对齐或交错再加后端相关 pass。</p>
+    <p><strong>计算。</strong>所有核并行计算时，Host 内存控制器要发的命令远多于普通 DRAM，命令总线会成为瓶颈。后端因此提供组级广播命令。DCC 优先生成组级命令，并把各核张量垫成相同大小，以满足“组内使用相同地址偏移”的命令格式约束；否则再退到并行的 bank 级命令。优化器是模块化的，可以为某个后端加专用 pass（例如 <code>DCC+HBM</code>）。</p>
+
+    <h3>4.4 耦合预测器与 IR</h3>
+    <p>剪枝之后仍然可能剩下数千个 draft，不能全部上机 profile。DCC 用 XGBoost 估计端到端时间（重排 + 计算）。静态形状离线训练，把最好稿记进查找表；LLM 这类动态形状在推理时现生成 draft 再预测，并把结果缓存。离线训练对文中全部内核、形状、模型和两个后端一共大约 67 秒。预测器用 15% 的已剪枝 draft 做训练、85% 做测试。若运行时遇到未见过的形状，可以先 profile 一小批再更新模型——这是可选路径。</p>
+    <p>IR 记录最好配置里的数据划分和循环划分，再降到后端指令。后端不支持的算子会编译报错。和 GPU 侧编译器的分工是：PIM 层被标成不可融合，避免被 GPU pass 拆掉。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 实验怎么做的</h2>
+    <p>方法是仿真。作者改造开源 AttAcc 模拟器，并接上 Ramulator 2.0，用 DRAM 命令（LD/ST）模拟进出 PIM 的数据移动。平台按先前工作配置：一颗 A100 加 5 个 HBM 型 PIM 设备，对应 80 GB。HBM3，每 pin 5.2 Gbps，333 MHz；每个 HBM 16 个伪通道，每伪通道 2 rank、每 rank 2 个 bank group、每 group 4 个 bank（每伪通道 64 个 bank）。时序参数沿用 AttAcc：<code>tCK=0.79</code>，<code>tRCD=tRP=tCL=19</code>，<code>tCCD=4</code>，<code>BL=2</code>。AttAcc 后端：每个 bank 一个 GEMV 单元，每个通道一个 softmax 单元。HBM-PIM 后端：每两个 bank 共享一个 16 路 FP16 FPU 和两份 16×256-bit GRF（每 bank 一份）。</p>
+    <p>内核：AttAcc 上测 GEMV、Reduction、Attention（注意力需要 softmax 单元，只有 AttAcc 有）；HBM-PIM 上测 GEMV、Reduction、向量加、ReLU（AttAcc 的近 bank 单元跑不了后两个）。GEMV 和注意力的输入维度取 LLM 里常见的每头 128。端到端是 GPT-3 13B 和 LLaMA-2 33B，另外还有 MT-NLG 310B 的大规模实验。数据类型主要是 FP16；大规模实验包含 FP8。对照五点：模拟器里的纯 A100；AttAcc 原实现（按 batch 或头切到 16 个伪通道，再沿两个张量维切 bank group 和 bank）；AttAcc+DCC；把 AttAcc 的数据分布套到 HBM-PIM 上；HBM-PIM+DCC。</p>
+    <p>编译时间在 32 核 EPYC 7513、128 GB DDR4、A100 上统计，全部评测负载合计约 67 秒。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 结果怎么读</h2>
+
+    <h3>单核</h3>
+    <p>AttAcc 相对 GPU 已经很快：注意力平均 10.35×，GEMV 7.61×，Reduction 1.58×；Reduction 在张量大小 1024 时 GPU 反而更好。DCC 再给出平均 1.23× / 1.26× / 1.48×，峰值 1.57× / 1.73× / 1.66×。Reduction、batch 1、张量 4096 时，DCC 达到 3.94×——这一核的时间由重排主导，形状变大后搜索空间也变大，重排更有优化余地。合在一起，AttAcc+DCC 相对 GPU 最多 13.17×，平均 3.92×。</p>
+    <p>HBM-PIM 上，DCC 相对该后端默认分布平均提升 GEMV 1.53×、Reduction 2.09×、VA 1.64×、ReLU 1.54×，从而使它们相对 GPU 分别达到 5.59×、1.35×、2.07×、2.66×。在相同的 GEMV / Reduction 配置下，DCC 给 HBM-PIM 的平均提升（1.53× / 2.09×）大于给 AttAcc 的（1.26× / 1.48×）。作者的解释是：HBM-PIM 用通用 SIMD，AttAcc 有专用 GEMV 单元，硬件已经更“对症”，编译器能挖的空间更小。一个反例很有说明性：Reduction 在 1024 和 2048 上，HBM-PIM 默认切法平均只有 GPU 的 0.48 倍，因为每核划分对不齐 16 路 SIMD；DCC 平均再快 2.26 倍，并在 2048 上让 HBM-PIM 反超 GPU。</p>
+    <p>随 batch 增大，GEMV 上 DCC 相对基线的收益从 HBM-PIM 的 1.33× 升到 1.58×，AttAcc 的 1.14× 升到 1.31×（batch 1 到 8）。大输出维、大 batch 时 AttAcc 手写分布已经接近上限，DCC 仍能自动持平并略好，这一点对“不用手写后端”更有意义，而不是再给出一个很大的倍数。</p>
+    <p>时间拆解（§5.4）：VA、Reduction、ReLU 这类重排占比高的核，DCC 平均快 1.67×；计算更重的 GEMV 和注意力平均只快 1.18×。编译器的主要贡献，确实落在它声称的数据重排上。</p>
+
+    <h3>端到端 LLM</h3>
+    <p>Fig. 11 比较两种 AttAcc 变体：<code>AttAccBase</code> 只把注意力放在 PIM 上；<code>AttAccFull</code> 还把一部分 Feed-forward 放在 PIM，其余仍在 GPU。两种变体的 QKV 生成、projection 和 Other 原本都在 GPU 上——因为 AttAcc 的固定切法在这些层上比 GPU 慢 1.25 倍。DCC 让 QKV 和 projection 也能在 PIM 上跑，并相对 GPU 达到 2.58× 和 2.91×。动态形状下，现场生成 draft 的时间已经计入总时间。</p>
+    <p>相对 GPU：Base+DCC 平均 1.44×，Full+DCC 平均 4.52×，LLaMA-2 上最多 7.71×。相对 AttAcc 原实现：Base+DCC 平均 1.23×，Full+DCC 平均 1.75×。注意力层本身只再快 1.12×（GPT-3 13B）和 1.16×（LLaMA-2 33B）——这里 AttAcc 的固定切法已经不弱，DCC 的价值更多是按 token 数和 batch 做适配，以及把原先留在 GPU 上的层搬过来。</p>
+    <p>MT-NLG 310B、8×A100（每卡 5 个 PIM 设备）、128 输入 / 2048 输出、FP16 与 FP8、batch 到 64：DCC 相对 AttAccBase / AttAccFull 再快 1.59× / 1.67×；大 batch 下对 QKV / projection 的 GEMV 分布还能再改进 2.21×。</p>
+    <p>能效沿用 AttAcc 论文的方法（7 nm ASAP7 综合算术单元、FinCACTI 建模 SRAM、再缩放到 DRAM 工艺，并用 HBM 芯片显微照片估计模内数据通路）。DCC 相对 AttAccFull 平均再省 1.24× 的能量，本质上是性能收益平移过来的，不是另一套独立的电路优化。</p>
+
+    <h3>编译与预测器</h3>
+    <p>剪枝把搜索空间平均缩小 9.01 倍，编译时间缩小 5.97 倍，且不影响内核执行性能。单形状 ATTN 编译 2.96 秒，272 个形状 4.74 秒——形状变多主要提高 GPU 利用率，墙钟时间增加有限。相对穷举执行全部 draft 得到的真最优，预测器在多数形状上能选中最优；即使选次优，内核性能仍有最优的约 94–99%，端到端在 GPT-3 / LLaMA-2 / MT-NLG 上分别是最优的 99.89%、99.57%、99.80%。动态场景下，用未见过的随机 token 长度跑 2000 个 batch（batch 64）的 MT-NLG 310B，大约前 160 个请求有额外编译惩罚，之后查找表覆盖已见形状，性能与离线 DCC 收敛。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>DCC 想解决的问题是真的：如果 HBM-PIM 或同类近 bank 设备进入 GPU 内存体系，最大的软件障碍之一就是 Host / PIM 布局冲突，以及由此而来的重排成本。把重排放进调优主循环、并用一层抽象接多种后端，这个方向是对的。开源仓库和 Python API 也降低了“只有后端专家能写 kernel”的门槛。</p>
+    <p>但当前证据停在模拟器里，落地之前有几道硬坎：</p>
+    <ul>
+      <li><strong>没有硅片墙钟时间。</strong> HBM-PIM、GDDR6-AiM 虽有原型，这篇评测跑的是改造 AttAcc + Ramulator 2.0。GPU 基线同样是模拟出来的。命令时序、内存控制器、重排走 Host 总线的争用，都可能在真系统上和模型有差距。任何“快 13 倍”的转述都必须带上“仿真”两个字。</li>
+      <li><strong>AttAcc 不是可采购产品。</strong> 端到端最大的倍数出现在带专用 GEMV / softmax / 累加器的 AttAcc 上。商用 HBM-PIM 更接近通用 SIMD FPU，论文自己也显示，同样的编译器在 HBM-PIM 上相对 GPU 的平均加速（2.21×）明显低于 AttAcc（3.92×）。把 AttAcc 上的 LLM 倍数直接说成“HBM-PIM 能达到的服务加速”会高估。</li>
+      <li><strong>重排仍然要走出 PIM、经过 Host 总线。</strong> DCC 能选更便宜的划分、用共享内存做通道对齐，但不能取消这次搬运。如果未来互连或片上重排硬件把这条路径变了，编译器的收益结构也会变。</li>
+      <li><strong>能放上 PIM 的核，取决于后端指令集。</strong> 注意力的完整执行依赖 AttAcc 的组级 softmax；没有它，注意力就回不到这篇 AttAcc 实验的形态。API 要求仿射循环和后端已支持的算子，动态控制流、稀疏、非仿射索引不在范围内。</li>
+      <li><strong>预测器要按后端重新训练，</strong> 并且动态形状在预热期有额外开销。服务系统若形状分布很长尾，查找表会膨胀；论文的 160 次预热是在合成的 [128, 2048] 范围内。</li>
+      <li><strong>和现有 GPU 编译栈的集成只写到“PIM 层不可融合”。</strong> 与 Megatron、vLLM、Triton、CUDA Graph 的联合调度、失败回退、多租户下的 PIM 设备分配，都还不是这篇的实验内容。PIMCARE、UniNDP 等系统工作仍然是互补的。</li>
+    </ul>
+    <div class="callout teal">更务实的落地点，不是“用 DCC 替换 GPU 推理”，而是：一旦某代 GPU 内存带近 bank 计算，用这类编译器自动决定 GEMV / 注意力 / 逐元素核要不要下到 PIM、以及数据怎么切。在那之前，它更适合作为 PIM 体系结构研究的软件基础设施，而不是生产推理栈里的一个开关。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li><strong>仿真，而且 GPU 基线也在同一模拟器里。</strong> 缺少与真实 A100 墙钟、或真实 HBM-PIM 原型板的交叉验证。</li>
+      <li><strong>核集合有限。</strong> 没有把完整训练、投机解码、MoE 专家路由、或更大范围的算子（卷积、归一化的完整变体等）放进主评测。端到端模型停在 GPT-3 13B、LLaMA-2 33B 和仿真中的 MT-NLG 310B，没有 2025–2026 年的 MoE 服务模型。</li>
+      <li><strong>核间通信仍经 Host。</strong> 抽象承认 PIM 核往往不能直接互访。这对需要频繁部分和交换的划分是结构性限制，不是调参能消掉的。</li>
+      <li><strong>和 ATiM 的比较是“公平模仿 TVM 方案”，不是在同一 UPMEM 硬件上直接对打。</strong> 作者有意不把 UPMEM 当作目标后端，因此无法回答“DCC 在真 UPMEM 上是否也优于 ATiM”。</li>
+      <li><strong>能量数字沿用 AttAcc 的综合与缩放方法，</strong> 同样不是芯片量测。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照与条件</th></tr></thead>
+      <tbody>
+        <tr><td>AttAcc+DCC vs GPU（内核）</td><td>最多 13.17×，平均 3.92×</td><td>仿真；含 ATTN / GEMV / RED</td></tr>
+        <tr><td>HBM-PIM+DCC vs GPU（内核）</td><td>最多 7.68×，平均 2.21×</td><td>仿真</td></tr>
+        <tr><td>AttAcc 原实现 vs GPU</td><td>ATTN 10.35×；GEMV 7.61×；RED 1.58×</td><td>平均；RED@1024 时 GPU 更好</td></tr>
+        <tr><td>DCC vs AttAcc（内核）</td><td>平均 1.23 / 1.26 / 1.48×</td><td>ATTN / GEMV / RED；峰值 1.57 / 1.73 / 1.66×</td></tr>
+        <tr><td>DCC vs HBM-PIM（内核）</td><td>平均 1.53 / 2.09 / 1.64 / 1.54×</td><td>GEMV / RED / VA / ReLU</td></tr>
+        <tr><td>端到端 vs GPU</td><td>Full+DCC 平均 4.52×，最多 7.71×</td><td>LLaMA-2 峰值；Base+DCC 平均 1.44×</td></tr>
+        <tr><td>端到端 vs AttAcc</td><td>Full+DCC 平均 1.75×；摘要峰值 2.74×</td><td>Base+DCC 平均 1.23×</td></tr>
+        <tr><td>QKV / projection 上 PIM</td><td>相对 GPU 2.58× / 2.91×</td><td>AttAcc 固定切法在这些层比 GPU 慢 1.25×</td></tr>
+        <tr><td>MT-NLG 310B</td><td>vs Base / Full：1.59× / 1.67×</td><td>8×A100，每卡 5 个 PIM；大 batch GEMV 再 +2.21×</td></tr>
+        <tr><td>能效</td><td>相对 AttAccFull 平均 1.24×</td><td>综合 + 缩放，非芯片量测</td></tr>
+        <tr><td>相对 TVM 式计算中心调优</td><td>DCC 1.27×；手工最好比 TVM 快 1.28×</td><td>Fig. 2，RED / GEMV；TVM 方案重排占 64.68%</td></tr>
+        <tr><td>剪枝</td><td>搜索空间 9.01×，编译时间 5.97×</td><td>不影响内核性能</td></tr>
+        <tr><td>离线编译</td><td>全部负载约 67 s；单核 数秒</td><td>ATTN 1 个形状 2.96 s，272 个形状 4.74 s</td></tr>
+        <tr><td>预测器次优时的保留性能</td><td>内核约 94–99%；端到端 99.57–99.89%</td><td>相对穷举真最优</td></tr>
+        <tr><td>在线预热</td><td>约前 160 个请求</td><td>MT-NLG 310B，随机 128–2048 token</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2511.15503v5（2026-08-28），对应 ISCA 2026。所有性能与能量数字均来自改造 AttAcc + Ramulator 2.0 的仿真，来源为论文摘要与第 5 节。
+  </footer>
+</div>
+</body>
+</html>

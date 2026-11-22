@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BitDecoding 论文分析 | 用 Tensor Core 做低比特 KV 解码</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">HPCA 2026</span>
+      <span class="badge">arXiv:2503.18773v3</span>
+      <span class="badge">LLM 推理 · 低比特 KV</span>
+      <span class="badge ok">University of Edinburgh × Microsoft Research × 清华 AIR</span>
+      <span class="badge ok">真机：Ampere / Ada / Hopper / Blackwell</span>
+    </div>
+    <h1>BitDecoding：让低比特 KV cache 跑上 Tensor Core</h1>
+    <p class="subtitle">Unlocking Tensor Cores for Long-Context LLMs with Low-Bit KV Cache</p>
+    <p class="meta">
+      <strong>作者：</strong>Dayou Du、Shijie Cao（通讯）、Jianyi Cheng、Luo Mai、Ting Cao、Mao Yang；University of Edinburgh、Microsoft Research、清华大学智能产业研究院（AIR）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2503.18773" target="_blank" rel="noopener">arXiv:2503.18773</a>
+      · <a href="https://arxiv.org/pdf/2503.18773" target="_blank" rel="noopener">PDF</a>（笔记依据 v3，2026-01-05）
+      · 会议：<a href="https://www.computer.org/csdl/proceedings-article/hpca/2026/11408481/2eA8ctgbKOA" target="_blank" rel="noopener">HPCA 2026</a>
+      · 开源：<a href="https://github.com/OpenBitSys/BitDecoding" target="_blank" rel="noopener">OpenBitSys/BitDecoding</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：KV 量化省了容量，速度却没跟上</a></li>
+      <li><a href="#s3">三个挑战</a></li>
+      <li><a href="#s4">思路：布局诱导、warp 改划、软件流水</a></li>
+      <li><a href="#s5">系统怎么接进现有模型</a></li>
+      <li><a href="#s6">实验与结果</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">长上下文解码的瓶颈是不断变长的 KV cache。4-bit、2-bit 量化能保住准确率，但现有系统几乎只在 CUDA core 上做反量化和注意力，把 GPU 上真正的算力——Tensor Core——空着。BitDecoding 用硬件指令在量化打包时“顺手”诱导出 Tensor Core 能直接用的布局，再把反量化交给 CUDA core、矩阵乘交给 Tensor Core，并用软件流水让两者重叠。它在从 A100 到 RTX 5090 的真机上测过，内核相对 FP16 FlashDecoding-v2 平均快 7.5 倍；LLaMA-3.1-8B、128K 上下文的单 batch 解码延迟降到约 1/3。4-bit 在 LongBench 上只掉 0.2 个点。</p>
+    <div class="kpi">
+      <div><div class="n">7.5× / 8.6×</div><div class="k">相对 FP16 FlashDecoding-v2 的平均 / Blackwell MXFP4 峰值内核加速</div></div>
+      <div><div class="n">3×</div><div class="k">LLaMA-3.1-8B、128K、单 batch 解码延迟下降</div></div>
+      <div><div class="n">2.98× / −0.2%</div><div class="k">32K、INT4 的吞吐与 LongBench 准确率变化</div></div>
+      <div><div class="n">最多 4.3×</div><div class="k">相对 CUDA core 融合方案 QServe 的内核加速上限</div></div>
+    </div>
+    <div class="callout warn">摘要里的 7.5× 是跨 GPU 代际的<strong>内核</strong>平均加速，不是端到端生成。端到端单 batch、128K 是 3×（文中另一处写到最多 3.3×）。2-bit 吞吐更高（表 I 里 +4.25×），但 LongBench 掉 2.7 个点。不要把内核倍数直接写成服务倍数。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：KV 量化省了容量，速度却没跟上</h2>
+    <p>自回归解码每生成一个 token 都要读一遍不断变长的 KV。论文用一个具体例子说明容量墙：7B 模型权重大约 14 GB，但 32K 上下文、batch 8 时，KV cache 单独就要 128 GB。量化是直接的出路。QServe 表明 4-bit KV 可以和 W4A8 一起用并保住准确率；KIVI 的 2-bit KV 在 LLaMA-2-7B-Chat 的 LongBench 上只掉 0.6%。算法侧已经证明“能压”，系统侧却没有把速度吃出来。</p>
+    <p>原因是混合精度。Query 和注意力分数仍是高精度，KV 是低比特，硬件并没有原生的 mpGEMM。于是必须先反量化再做乘加。Ladder、Marlin 这类内核是为<strong>离线、静态</strong>的权重量化准备的：可以提前做布局变换和打包。KV 却是在线生成的，每个新 token 都要量化、打包、反量化，不能把变换kernel 摊到离线。</p>
+    <p>现有系统走了两条路，都有缺口：</p>
+    <ul>
+      <li><strong>分离式</strong>（KIVI）：多个独立 kernel 拼出混合精度注意力，灵活，但反复进出全局内存，启动开销大，片上复用差。</li>
+      <li><strong>只在 CUDA core 上融合</strong>（Atom、QServe）：比分离式快，但反量化、缩放和矩阵乘都挤在 FMA 上，占指令槽、寄存器和 L1/L2，tile 做不大。GQA 这种算术强度更高的变体上，缺 Tensor Core 会更明显。</li>
+    </ul>
+    <p>作者的判断是：现代模型普遍用 GQA / MQA，一组 Key 被多个 Query 复用，算术强度已经对得上 Tensor Core；Hopper 的异步和 warp 特化、Blackwell 的 MXFP4 / NVFP4，都让“Tensor Core 做乘、CUDA core 做转换”变得更值得做。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 三个挑战</h2>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>布局对不齐</h4>
+        <p>Tensor Core 的 fragment 是指令规定的交错映射，而且不同代、不同 <code>mma</code> / <code>wgmma</code> 不一样。按线程连续打包 INT4，解包后会对不上交错布局，算出来是错的。</p>
+      </div>
+      <div class="tile">
+        <h4>反量化把 Tensor Core 饿死</h4>
+        <p>FlashAttention 沿 N 维用单个 warp 做寄存器级 softmax 和 <code>P V</code>。插入反量化后，小 tile 只能串行走过 N，warp 经常停住。Blackwell 上若用低精度 Tensor Core 做第二段乘，softmax 之后还要动态再量化 <code>P</code>，同样会卡住。</p>
+      </div>
+      <div class="tile">
+        <h4>算法不统一</h4>
+        <p>Key 的缩放既有 tensor-wise 也有 channel-wise；scale / zero-point 会多一笔流量。为静态权重设计的变换过不去在线、逐步增长的 KV。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 思路：布局诱导、warp 改划、软件流水</h2>
+
+    <h3>4.1 用硬件指令诱导布局，而不是再写一个变换核</h3>
+    <p>关键观察：<code>ldmatrix</code> 把数据按 Tensor Core 的交错 fragment 装进寄存器。如果每个线程在寄存器里就地量化并打包，低比特布局会把 FP16 的交错关系保留下来；解包之后不用做全局 reshape，就能直接喂给 Tensor Core。</p>
+    <p>系统因此拆成两个互相镜像的融合核：</p>
+    <ul>
+      <li><strong>Residual Kernel</strong>：用 <code>ldmatrix</code> 装入高精度 KV，做完当前注意力后，线程在寄存器里量化打包，按交错布局写回低比特 KV cache。</li>
+      <li><strong>Packing Kernel</strong>：使用<strong>同一套</strong> <code>ldmatrix</code> 变体、<code>mma</code> 变体和 warp tiling。这样装入打包数据后，解包结果天然对齐 Tensor Core 寄存器。</li>
+    </ul>
+    <p>为了让 tile 总是填满，论文引入一块半精度残差 KV，块大小</p>
+    <p><code>N<sub>r</sub> = P<sub>n</sub> × W<sub>n</sub> × R</code>，其中 <code>R = ω / β</code> 是打包比（例如 16 位字长、4-bit 就是 4），<code>W<sub>n</sub></code> 是沿 N 的 warp 数，<code>P<sub>n</sub></code> 是每个 warp tile 处理的元素数。Prefill 时把 <code>L − (L mod N<sub>r</sub>)</code> 的部分打进低比特 cache，余数留在半精度残差里；解码时新 KV 先追加到残差，积满 <code>N<sub>r</sub></code> 再量化打包。论文写明 <code>N<sub>r</sub></code> 通常小于 256，长序列下残差占比很小。</p>
+    <p>直接 <code>static_cast</code> 到 FP16 很慢。解包后先转到 INT32，再按 75316420 模式重排到交错布局，用 <code>lop3</code> 做按位转换。这套重排是为 Ampere / Ada / Hopper 的反量化准备的；到了 Blackwell 原生 MXFP4 / NVFP4，这条路径会被跳过，改为直接走低精度 <code>mma</code>。作者强调布局诱导本身是布局无关的，也能对上微缩放格式对值和 scale 的硬性约束。</p>
+
+    <h3>4.2 把 warp 改划到 N 维，并用共享内存做跨 warp softmax</h3>
+    <p>低比特把瓶颈从访存推向计算。解码时 query 长度通常小于 16，沿 M 维堆很多 warp 不划算。BitDecoding 把 <code>W<sub>m</sub> = 1</code>，把资源改分到 N 维：多个 warp 并行做打包块的反量化，再交给 SM 的 warp 调度去掩盖停顿。同一策略也用来缓解原生低精度路径上“softmax 后再量化 P”的停顿。</p>
+    <p>代价是注意力分数不再躺在单个 warp 的寄存器里，原来的寄存器级 softmax 做不成，<code>P V</code> 的 MMA 布局也对不上。算法 1 用两块共享内存补上：<code>sTMP</code> 做跨 warp 的行最大值归约（先 warp 内，再经共享内存），<code>sAcc</code> 暂存 Tensor Core 算出的 <code>P</code>，再经 <code>ldmatrix</code> 重新装入，对齐后续 <code>mma</code>。Hopper 上 WGMMA 可以直接从共享内存取数，少一次搬到寄存器。Table III 显示：把 <code>W<sub>n</sub></code> 从 1 加到 4，延迟从 3.746 ms 降到约 0.61 ms，Tensor Core 利用率从 10.91% 升到约 19.7%；不加协同 softmax 结果是错的，加上之后只多 0.5% 的开销（0.610 ms 对 0.613 ms）。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 系统怎么接进现有模型</h2>
+    <h3>Query 变换</h3>
+    <p>解码时 <code>Q_len = 1</code>，直接做 <code>Q K<sup>⊤</sup></code> 填不满 Tensor Core。对 GQA / MQA，BitDecoding 把 query 从 <code>[1, (g<sub>q</sub>, h<sub>kv</sub>)]</code> 改排成 <code>[g<sub>q</sub>, h<sub>kv</sub>]</code>，在不改变 KV 共享语义的前提下，把同组 query head 拼成更大的 GEMM 块。MHA 对应 <code>g<sub>q</sub> = 1</code>，MQA 对应 <code>h<sub>kv</sub> = 1</code>。</p>
+    <h3>Residual Kernel 如何同时支持两种缩放</h3>
+    <p>按残差块切分之后，channel-wise 可以沿序列维、tensor-wise 可以沿 hidden 维，都在残差块内完成。量化参数用线程局部 min/max，再经 <code>__shfl_xor_sync</code> 做 warp 归约，必要时用很小的共享内存做跨 warp 归约。scale 和 zero-point 存成紧凑的 <code>half2</code>，方便解码时一次装入并做融合乘加。打包结果写成 INT16。</p>
+    <h3>Packing Kernel 的异步流水</h3>
+    <p>沿用 FlashAttention 的分块：<code>Q, K, V</code> 以 <code>T<sub>m</sub> × d</code>、<code>T<sub>n</sub> × d</code> 进共享内存。量化参数另开 <code>K<sub>p</sub></code> / <code>V<sub>p</sub></code> 缓冲，channel-wise 形状是 <code>(T<sub>n</sub>/group_size, d)</code>，tensor-wise 是 <code>(T<sub>n</sub>, d/group_size)</code>。全局到共享用 <code>cp.async</code>（Hopper 上跟随 FA3 用 <code>tma.copy</code>）：对 Q 和打包 KV 用 <code>cp.async.cg</code>，对较小的参数用 <code>cp.async.ca</code>。共享到寄存器仍走 <code>ldmatrix</code>，并用异或 swizzle 以及重排后的参数布局减少 bank conflict。</p>
+    <p>寄存器级流水的目标是：第 <code>i</code> 片在 Tensor Core 上做 <code>mma</code> 时，第 <code>i+1</code> 片同时 <code>ldmatrix</code> 并反量化。CUDA core 和 Tensor Core 由此重叠。</p>
+    <h3>Hopper 与 Blackwell</h3>
+    <p>Hopper 的 <code>wgmma</code> 要求 <code>C = AB</code> 中 B 必须在共享内存，而反量化后的 FP16 通常在寄存器里。BitDecoding 用 <code>STSM</code> 把反量化结果高效写回共享内存，再走 <code>wgmma_SS</code>；WGMMA 的异步可以把这次存储和计算重叠。Blackwell 则直接走 <code>mxfp4</code> / <code>nvfp4</code> 的 <code>mma</code>，不再做 <code>lop3</code> 重排。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验与结果</h2>
+    <p>评测分内核和端到端，覆盖 Blackwell（RTX 5090、RTX PRO 6000）、Hopper（H100）、Ada（RTX 4090）和 Ampere（A100）。内核场景分成单请求长上下文（batch=1）、简单 padding 的大 batch，以及 PagedAttention 式的 page 管理。对照：FP16 用 FlashDecoding（Hopper 上还有 FA3 / FlashDecoding-v3）；低比特用 KIVI（非融合，4/2-bit）、Atom 和 QServe（仅 CUDA core 的融合 4-bit，Atom 不支持 GQA）。量化配置包括 4-bit / 2-bit Key，以及 channel-wise（KC）与 tensor-wise（KT）。</p>
+
+    <h3>内核</h3>
+    <ul>
+      <li><strong>Blackwell，MXFP4：</strong>RTX 5090 上批量场景最多 8.6×，单 batch、128K 超过 4.3×；RTX PRO 6000 大 batch 峰值 6.5×。相对的是非融合基线。</li>
+      <li><strong>H100：</strong>BitDecoding-v2 最多 4.1×，用上 <code>wgmma</code> 和异步访存的 v3 进一步到 8.0×。FlashDecoding-v3 本身已经明显快于 v2，这里的倍数仍相对 FP16 基线家族。</li>
+      <li><strong>RTX 4090（带宽更紧）：</strong>相对 FlashDecoding-v2，4-bit 大约 4×，2-bit 超过 7×。Page 场景下，MHA 上 BitDecoding 超过 6×，QServe 约 3.5×；计算更重的 GQA 上 BitDecoding 仍有 3×，QServe 降到 1.4×。</li>
+      <li><strong>A100（带宽高、更易变成计算受限）：</strong>KIVI 和 QServe 都不好，文中甚至写到它们有时慢于 FP16 基线。BitDecoding 最多约 3×。4-bit 与 2-bit 的差距在这里变窄，因为带宽不再是第一限制。</li>
+    </ul>
+    <p>对 QServe 的“最多 4.3×”出现在评测开篇的归纳里，和 4090 / 跨场景的内核对比写在一起。</p>
+
+    <h3>端到端</h3>
+    <p>模型包括 LLaMA-2-7B（MHA）、LLaMA-3.1-8B / 70B、Qwen3-8B / 14B（GQA）。除 70B 用 8×A100 外，都在单卡 A100 上。端到端采用与 KIVI 对齐的 channel-wise 量化。</p>
+    <p>相对 KIVI：128K 单 batch 最多 3.3×；KIVI 因缺少分块融合，在 128K 会 OOM。Batch 场景下，文中给出 BitDecoding-KC-4 / KC-2 吞吐可到约 900 和 1200 token/s，KIVI 的峰值低于 700 token/s。</p>
+    <p>相对 QServe（page 场景、在显存允许的最大 batch 下比最大吞吐）：QServe 只在 LLaMA-2-7B 上高于 FlashDecoding-v2，在其他 GQA 模型上反而下降。BitDecoding 在 LLaMA 和 Qwen、单卡和多卡上都更高。同一小节的归纳写“超过 4 倍”，随后正文写“最大吞吐高于 QServe 两倍以上”。笔记同时记下这两处表述，不以插图估算新的倍数。</p>
+
+    <h3>准确率与开销</h3>
+    <p>Table I，LLaMA-3.1-8B-Instruct、序列 32K、LongBench 平均准确率：</p>
+    <table>
+      <thead><tr><th>KV</th><th>吞吐（token/s）</th><th>LongBench</th></tr></thead>
+      <tbody>
+        <tr><td>FP16</td><td>49.25</td><td>48.25</td></tr>
+        <tr><td>INT4</td><td>147.21（+2.98×）</td><td>48.16（−0.2%）</td></tr>
+        <tr><td>INT2</td><td>209.48（+4.25×）</td><td>47.38（−2.7%）</td></tr>
+      </tbody>
+    </table>
+    <p>量化打包开销（序列 128K）被压得很低：prefill 0.0599 ms，对 Marlin 的 58.02 ms、Ladder 的 4.79 ms；decode 0.008 ms，对 0.41 / 0.65 ms。反量化占内核时间：Atom / QServe 接近一半，BitDecoding 的 4-bit 降到 15% 以下、2-bit 约 35%。残差 KV 的额外启动开销随序列变长变得更不明显。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>在“低比特 KV 怎样真正跑快”这件事上，这篇的落地条件比很多仿真工作齐：真机跨四代 GPU，开源仓库在 <a href="https://github.com/OpenBitSys/BitDecoding" target="_blank" rel="noopener">OpenBitSys/BitDecoding</a>，支持 paged 场景，也覆盖 MHA / GQA / MQA 和两种缩放粒度。4-bit 的准确率损失在所报的 LongBench 设置里可以忽略，这让它有资格进推理框架的备选内核，而不是只停在论文图表。</p>
+    <p>要变成生产默认路径，还差这些事：</p>
+    <ul>
+      <li><strong>接入 vLLM / SGLang / TensorRT-LLM 的调度和内存管理。</strong> 论文在 page 场景下证明内核能工作，但服务系统还要处理连续批处理、抢占、prefix cache、多 LoRA。残差块 <code>N<sub>r</sub></code> 和分页块大小如何对齐，是工程问题，文中没有展开。</li>
+      <li><strong>量化算法不是这篇发明的。</strong> 速度建立在“4-bit / 2-bit KV 已经足够准”的前提上。换模型、换长上下文基准、换 1-bit 或旋转类算法（KVQuant、RotateKV 等），要重新测准确率，不能默认 Table I 的 −0.2% / −2.7% 仍然成立。</li>
+      <li><strong>最大收益出现在长上下文、KV 读取占主导的解码。</strong> 短上下文、prefill 为主、或 batch 已经把 GPU 算满时，倍数会收缩。A100 上 4-bit 与 2-bit 差距变窄，已经说明带宽一旦不再是第一限制，低比特的红利会变小。</li>
+      <li><strong>Blackwell 原生 MXFP4 / NVFP4 是最顺的产品路径</strong>——少一次软件反量化。Hopper 要走 <code>STSM</code> + <code>wgmma</code> 的弯路，Ampere / Ada 继续依赖 <code>lop3</code> 反量化。同一套抽象能跨代，但每一代都是一份要维护的内核。</li>
+      <li><strong>和权重量化、投机解码、MLA 不是自动正交。</strong> 系统支持的注意力变体是 MHA / GQA / MQA。DeepSeek 一类 MLA、以及和 W4A8 叠在一起的端到端数字，这篇没有提供。</li>
+    </ul>
+    <div class="callout teal">和仓库里已有的 FLINT（用封装内闪存扩权重容量）、权重无损压缩笔记相比，BitDecoding 动的是解码期的 KV 容量和带宽，不解决权重放不下的问题。两者叠在一起在逻辑上说得通，但没有任何联合实验。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li><strong>准确率只详细报到 LLaMA-3.1-8B-Instruct、32K、LongBench 平均。</strong> 没有把 70B、Qwen、128K 或更多长上下文基准的质量数字写全。2-bit 的 2.7 个点已经不是“可忽略”。</li>
+      <li><strong>端到端主要在 A100（70B 为 8×A100）。</strong> 内核图有 5090 / H100 / 4090，但服务吞吐的模型级数字没有同等完整地搬到 Blackwell。</li>
+      <li><strong>“超过 4× QServe 吞吐”和正文“两倍以上”并列表述，</strong> 不宜在转述时再自行合成一个倍数。</li>
+      <li><strong>Query 变换针对解码 <code>Q_len = 1</code>。</strong> 推测解码、多 token 查询、或 chunked prefill 与解码混合时，M 维是否还该固定为 1，需要另做设计。</li>
+      <li><strong>残差路径是额外的半精度核。</strong> 开销在长序列上很小，但短序列或很小的 <code>N<sub>r</sub></code> 对齐下会相对更显眼。</li>
+      <li><strong>这是 2026 年 1 月的 arXiv v3，对应 HPCA 2026。</strong> 开源仓库后来还出现 FP4 相关更新，笔记以论文 v3 为准，不把仓库后续提交算进论文结果。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照与条件</th></tr></thead>
+      <tbody>
+        <tr><td>内核平均加速</td><td>7.5×</td><td>相对 FP16 FlashDecoding-v2，跨代际（摘要）</td></tr>
+        <tr><td>RTX 5090 / MXFP4</td><td>最多 8.6×；单 batch 128K &gt; 4.3×</td><td>相对非融合 FP16 / 低比特基线家族</td></tr>
+        <tr><td>H100</td><td>v2 最多 4.1×；v3 最多 8.0×</td><td>v3 用 wgmma 与异步访存</td></tr>
+        <tr><td>RTX 4090</td><td>4-bit 约 4×；2-bit &gt; 7×</td><td>Single / Batches，相对 FlashDecoding-v2</td></tr>
+        <tr><td>4090 Page，GQA</td><td>BitDecoding 3×；QServe 1.4×</td><td>相对 FlashDecoding-v2</td></tr>
+        <tr><td>A100 内核</td><td>最多约 3×</td><td>KIVI / QServe 在部分设置慢于 FP16</td></tr>
+        <tr><td>相对 QServe 内核</td><td>最多 4.3×</td><td>评测开篇归纳</td></tr>
+        <tr><td>8B、128K、单 batch</td><td>延迟约 1/3（最多 3.3×）</td><td>LLaMA-3.1-8B；KIVI 在 128K OOM</td></tr>
+        <tr><td>32K LongBench，INT4</td><td>吞吐 +2.98×；准确率 −0.2%</td><td>LLaMA-3.1-8B-Instruct</td></tr>
+        <tr><td>32K LongBench，INT2</td><td>吞吐 +4.25×；准确率 −2.7%</td><td>同上</td></tr>
+        <tr><td>打包开销，128K</td><td>prefill 0.0599 ms；decode 0.008 ms</td><td>Marlin 58.02 / 0.41；Ladder 4.79 / 0.65</td></tr>
+        <tr><td>反量化占比</td><td>4-bit &lt; 15%；2-bit ~35%</td><td>Atom / QServe 接近一半</td></tr>
+        <tr><td>协同 softmax</td><td>+0.5% 延迟；正确性恢复</td><td>W<sub>n</sub>=4；利用率约 19.7%</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2503.18773v3（2026-01-05），对应 HPCA 2026。倍数来自论文摘要与第 VI 节；QServe 吞吐的两处表述在第 6、8 节已分开写下。
+  </footer>
+</div>
+</body>
+</html>
