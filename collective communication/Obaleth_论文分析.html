@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Obaleth 论文分析 | 把 GPU 发起的网络通信编进内核 IR</title>
+  <style>
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge warn">arXiv 预印本 · 尚未标注会议</span>
+      <span class="badge">arXiv:2611.18145v1</span>
+      <span class="badge">通信编译器 · GPU-initiated RDMA · MoE EP</span>
+      <span class="badge ok">Koç University × fal</span>
+      <span class="badge ok">真机：H100 / B200 / 部分 MI355X</span>
+    </div>
+    <h1>Obaleth：让 GPU 发起的通信成为编译器能改的 IR</h1>
+    <p class="subtitle">Compiling Specialized GPU-Initiated Networking</p>
+    <p class="meta">
+      <strong>作者：</strong>Javid Baydamirli*、Ismayil Ismayilov*、Kaan Oktay、Didem Unat；Koç University、fal（*共同一作）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.18145" target="_blank" rel="noopener">arXiv:2611.18145</a>
+      · <a href="https://arxiv.org/pdf/2611.18145" target="_blank" rel="noopener">PDF</a>（笔记依据 v1，2026-11-13）
+      · 文中标注为 Preprint，尚未写会议<br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：计算有编译器，通信还是通用库</a></li>
+      <li><a href="#s3">库看不见的三类事实</a></li>
+      <li><a href="#s4">思路：语义 IR、Queue IR、两档接入</a></li>
+      <li><a href="#s5">后端与运行时</a></li>
+      <li><a href="#s6">实验与结果</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">计算已经按形状、类型和 GPU 资源即时编译，通信却仍停在 NVSHMEM、NCCL GIN 这类为“任意调用者”写的设备库里：每发一条就要原子预约、栅栏、门铃和完成队列，tile DSL 最多在最后一级链进 bitcode，编译器改不了提交、排序和完成。Obaleth 把 <code>put</code> / <code>signal</code> / <code>wait</code> 放进和计算同一个 IR，再降到与后端无关的 Queue IR，按缓冲区寿命规划完成、合并独立提交、去掉不必要的原子和系统域栅栏，最后生成 mlx5、EFA、主机代理和 NVLink 对等内存的专用代码。H100 上 8 字节消息速率最高是 NVSHMEM 的 3.3 倍、NCCL GIN 的 4.2 倍；256 GPU 的小消息 all-to-all 相对两者分别 1.25 倍和 2.3 倍，每 rank 设备内存只有 4–22 MiB。接到 vLLM 后，16 张 B200 上用 EP16 跑 Qwen3-235B，相对 DeepEP 的请求延迟最多 1.29 倍、每输出 token 时间低 10%–24%。</p>
+    <div class="kpi">
+      <div><div class="n">3.3× / 4.2×</div><div class="k">H100 上 8 字节消息速率，相对 NVSHMEM / NCCL GIN</div></div>
+      <div><div class="n">1.25× / 2.3×</div><div class="k">256 GPU、每 peer 256 B 的 all-to-all，相对上述两者</div></div>
+      <div><div class="n">1.15–1.29×</div><div class="k">vLLM、16×B200、Qwen3-235B EP16，相对 DeepEP 的请求完成速度</div></div>
+      <div><div class="n">4–22 MiB</div><div class="k">每 rank 设备内存；NCCL 266–426 MiB，NVSHMEM 584 MiB</div></div>
+    </div>
+    <div class="callout warn">这是 2026 年 11 月 13 日的预印本，还没有会议录用信息。小消息、解码步上的优势最大；Qwen3-235B 从每 rank 64 个 token 起，手写的 DeepEP 内核可快出最多 1.7 倍。首 token 延迟的 p95 反而差 1.4–2.0 倍。作者自己也写：EP16 并不是这些模型的最佳部署，两路 TP8 副本跑长文档时的吞吐可以是这条 EP16 路径的 2.4 倍。不要把 1.29 倍写成“替换 DeepEP 就全面更快”。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：计算有编译器，通信还是通用库</h2>
+    <p>Triton、TileLang、CuTe DSL、cuTile 已经把注意力、GEMM、归一化编进可特化的内核。通信仍是手写设备库。Triton-distributed 和 PyTorch Symmetric Memory 把 NVSHMEM / rocSHMEM 的 bitcode 链进 Triton；MPK、DaCe 则从生成的 CUDA 里调用库函数。无论哪种，通信都在最后一级才出现，DSL 的语义和优化通道都用不上。</p>
+    <p>库必须服务任意调用者、任意线程几何和多种传输，于是运行时分支、原子预约队列槽、保守的内存排序和完成跟踪一个都不能少。论文引用同一组作者的测量：一条最小的 GPU 路径发 8 字节 put 只要 0.7 µs，库能再叠上 4.6 µs 的 issue 时间。图 1 的对比很直接——库对每次调用付一次预约、释放、门铃和完成；Obaleth 把一条链上的多次 put / 内联 put / signal 收成各一次。</p>
+    <p>更麻烦的是，现代负载并不长得像通用集合。MoE 专家并行是稀疏、数据依赖的 dispatch / combine，已经逼出 DeepEP、pplx-kernels、UCCL-EP、NCCL EP、Hybrid-EP、MORI 等一串手调库；KV cache 搬移有 NIXL、Mooncake；强化学习还要同步权重。每家都在为一种模式、一类网卡和一种拓扑重写工作队列、信令和缓冲区复用。没有哪个库处处最优，手写的 GPU RDMA 还绑死在网卡系列和部署环境上：门铃寄存器能不能映射进 GPU 地址空间，常常取决于内核模块是否允许非 root 访问，不行就退回主机转发。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 库看不见的三类事实</h2>
+    <p>以融合的 MoE dispatch 为例：量化一块 token，发给持有对应专家的 rank，再把计数和 ready 标志发给每个 peer。在设备库里，每一次写都是完整的提交序列。编译器若能看见内核 IR，其实早就知道：</p>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>后面还要发什么</h4>
+        <p>发给同一 peer 的数据块、计数和标志是一条链，不同专家的链相互独立，可以共享一次预约、门铃、完成和 NIC 排序点，计数还能内联进 WQE。</p>
+      </div>
+      <div class="tile">
+        <h4>谁还在发</h4>
+        <p>若每个 peer 只有一个提交者，预约不必原子，宣布新条目也不必等待其他生产者。</p>
+      </div>
+      <div class="tile">
+        <h4>缓冲区活多久</h4>
+        <p>暂存槽若每 P 次 launch 才被覆盖，发送端不必每轮都等完成，按复用距离退休即可。</p>
+      </div>
+    </div>
+    <p>这些不是某个模型私有的技巧。库之所以做不到，是因为调用约定里没有这些事实。把它们写进 IR，优化就可以对 mlx5、EFA 和代理路径共用。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 思路：语义 IR、Queue IR、两档接入</h2>
+    <p>Obaleth 是 Triton 的第三方插件：MLIR 方言与通道、带 C++ 绑定的 Python 前端，再加上创建 endpoint / region 的运行时。通信在 TTIR 阶段进入，和计算一起往下走。</p>
+    <h3>语义操作</h3>
+    <p>操作作用在 endpoint（peer 到 peer 的流，背后是 RC 队列、EFA SRD、代理环或对等内存映射）和 region（带地址与密钥的缓冲区，不必是对称堆）上。<code>put</code> / <code>put_inline</code> 传数据，后者在支持的网卡上把小负载塞进 WQE，省一次 DMA，发送端也不必完成。<code>signal</code> 发布 epoch；<code>wait</code> 可以声明“每 P 次 launch 才复用”。传输带谓词，数据依赖的通信不必改操作序列。返回的 token 表示依赖：<code>after</code> 在同一 endpoint 上排序；<code>wait(token)</code> 只保证源缓冲区可覆盖，不向接收端做承诺；<code>wait_signal</code> 等到 flag 至少到某个 epoch，并保证该 signal 之前的传输可见。跟在传输后面的 signal 是强的，单独的确认是弱的。语义故意收得很窄，给合并与省略留空间。</p>
+    <h3>Queue IR</h3>
+    <p>这是与后端无关的提交时间表：<code>post_put</code> / <code>post_inline</code> / <code>post_signal</code> 构成有序命令，一次 <code>submit</code> 包含一次队列预约、一条或多条以 signal 结尾的链、一次门铃、最多一次完成。传输调度和具体描述符格式、排序规则、完成模型分开优化。编译期特化传输：一个 NVLink 域里的内核只保留这一种路径；NVLink 与 RDMA 混用时，按传输同质分段编译，Tier-2 操作没有运行时 dispatch。</p>
+    <h3>两档接入</h3>
+    <ul>
+      <li><strong>Tier-1 库。</strong> 编译器一次只看见一个操作和 peer 拓扑，生成按传输和 GPU 特化的 NVSHMEM 风格设备库，可链进已有 CUDA、CuTe DSL、Triton 内核。混用部署里按 peer 选传输，peer 静态可知时分支会折掉。交付形态是 LLVM bitcode、可重定位库和生成头文件。</li>
+      <li><strong>Tier-2 自定义内核。</strong> 用户在 Triton 里组合这些操作，编译器能看见常量尺寸、偏移、谓词和与计算的依赖。文中 Listing 1 是融合 FP8 MoE dispatch。生成物可以是内联进另一个 Triton 内核的片段、CUDA 可调用的设备函数，或带 launch 元数据的独立内核。</li>
+    </ul>
+    <p>框架侧再用 pattern adapter 描述应用已经知道的事实。vLLM 的专家并行适配器只有 384 行：token 上限、hidden size、top-k、专家放置、数据类型，以及专家内核如何读输入。队列、缓冲区形状和变体由 pattern pass 推导，不必为这个负载手写通信内核。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 后端与运行时</h2>
+    <p>描述符格式、操作码、排序范围和完成格式在编译期固定，运行时只从 endpoint 描述符读队列地址。mlx5 上 GPU 组好的队列可以 GPU 直接写门铃，也可以写到主机钉住的单元，由主机线程转发；运行时对每个 endpoint 探测一次，生成代码相同，只换门铃地址。强 signal 在负载可能以 relaxed ordering 注册时走远程 CAS，保证不被写超过；若接收端注册是严格有序的，则用带栅栏的写。EFA 的 SRD 可靠但无序、没有远程原子，强 signal 必须先退休负载再发 epoch，多一趟往返，也限制发送端完成能推迟多久。AMD 后端同样没有远程原子，用同一策略。</p>
+    <p>对等内存（NVLink、CUDA IPC）上，<code>put</code> 变成各 warp 的 8 字节拷贝，内联负载是寄存器存储，signal 是对端 flag 上的系统域 release exchange；若 signal 和拷贝在同一次提交里，release 同时发布该 tile，拷贝以 block barrier 结束，不必再下系统栅栏。</p>
+    <p>评测平台（附录表 6）值得先记住，因为门铃路径不一样：H100 是每节点 4 卡、节点内 NVLink、跨节点 200 Gb/s InfiniBand，<strong>不允许 GPU 响门铃</strong>，Obaleth 和各库都在 GPU 上建队列和 WQE，只把门铃交给主机线程；B200 是每节点 8 卡、400 Gb/s ConnectX-7，GPU 可以直接响门铃，用来做 vLLM 实验并核对带 GPU 门铃的库对比。H100 上 NVSHMEM 用 3.4.5，因为 3.8.0 在该平台每趟往返慢 2.1 µs。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验与结果</h2>
+    <p>基线是 NCCL 的主机 API 与设备 API（GIN，含 GDAKI 和代理），以及 NVSHMEM 的 IBGDA / IBRC，每个实验取库的最佳配置。Obaleth 以 Tier-1 的 CUDA 库和 Tier-2 的 Triton 内核出现。MoE 对比 DeepEP 2.5.0，同一份 vLLM，CUDA Graph 和 dual-batch 重叠都开。计时：内核用 <code>%globaltimer</code>，主机 API 用 CUDA event；默认是 200 次预热后至少 1000 次迭代、五次交错运行的中位数，并校验 flag 与负载。MoE 在计时前用模型输出做过正确性检查。</p>
+    <h3>微基准：消息率、延迟、all-to-all、内存和寄存器</h3>
+    <p>图 5b：16 个 CTA、每 CTA 一条队列时，Tier-2 的 8 字节消息速率是 NVSHMEM 的 2.8 倍；64 个 CTA 达到 243 M msg/s，分别是 NVSHMEM 的 3.3 倍、NCCL GIN 的 4.2 倍——因为它对一个窗口只响一次门铃，库对每次 put 响一次。4 KiB 时 4 个 CTA 就能打满线速，NCCL GIN 需要 16 个。库只在几乎没什么可批处理、也几乎不必完成的情况下领先：单 CTA，或纯流且 NVSHMEM 用每队列 128–256 线程提交、Tier-2 只用一个线程（附录 D）。</p>
+    <p>两节点各一卡的点对点：Tier-2 在各尺寸上都大约领先 3 µs，8 字节往返 9.98 µs，NCCL GIN 12.74、NVSHMEM 13.12。差距主要来自预约原子和系统域门铃栅栏。All-to-all 在节点内走三个 NVLink peer、其余走 RDMA。每 peer 256 B、8 GPU 时相对 NVSHMEM 封装集合 1.32 倍、相对 NCCL GIN 1.52 倍；256 GPU 上是 1.25 倍和 2.3 倍。16 KiB 每 peer 的总线带宽分别是它们的 1.2 倍和 1.6 倍。从 64 KiB 起变成网卡带宽受限，1 MiB 以上设备 API 彼此相差不超过 4%。B200 上带 GPU 门铃，16 和 32 GPU、256 B 时相对 NCCL GIN 1.11–1.16 倍、相对 NVSHMEM 1.24–1.52 倍；H100 上对 GIN 的更大领先，有一部分来自那边的主机转发门铃。</p>
+    <p>运行时在 8–256 GPU 上每 rank 只分配 4–22 MiB（队列和 endpoint 描述符），至少是两家库的 1/12：NCCL 通信域加 GIN 上下文 266–426 MiB，NVSHMEM 584 MiB（其中 512 MiB 是无论用不用都要映射的对称堆）。All-to-all 的 RDMA 内核每线程 60 个寄存器，库是 128；ping-pong 是 62 对 210–221。从 CuTe / Triton 调用时，带 GPU-scope 门铃的 Tier-1 往返 10.8 µs，比同一轮测量里 CUDA 路径上的 NCCL GIN（12.7）和 NVSHMEM（13.0）还低。Tier-2 相对 Triton-distributed 所用的更快 NVSHMEM 传输：往返 1.4 倍，all-to-all 2.3–3.3 倍，消息率 5.1–10 倍；每 rank 分配 4 MiB，那两个 DSL 自带栈是 2.1 GiB 和 1.6 GiB。</p>
+    <h3>优化通道消融与其他平台</h3>
+    <p>图 6：一条链的流上，默认通道相对全关是 8.4 倍，16 条链是 23.9 倍。单链时每轮等完成占主导，完成规划贡献 76% 的收益；16 链时 NIC 排序点占主导，合并加发布排序贡献 71%（去掉合并，连排序一起没了，会慢 5.8 倍）。通道会互相揭开瓶颈：epoch 省略在瀑布里只占 7%，但一旦 issuer 分析和 GPU-scope 门铃去掉 GPU 侧开销，再去掉省略就会慢 2.4 倍。All-to-all 每个 peer 每轮只有一次 put 和一次 signal，可开关通道只再加 1.13–1.22 倍；即便全关，256 B 仍是 11.5 µs，快过 NCCL GIN 的 14.7 和 Tier-1 的 15.9，靠的是每 peer 一条直写的批处理 put-and-signal。库看不见复用距离，要求完成就得退休；Tier-1 若每 4 或 32 轮才退休，可从 12.1 µs 降到 8.1–9.6 µs。</p>
+    <p>Queue IR 上的通道不改就能用到别的后端。MI355X + Pollara RoCE 上，GPU 直连后端打开通道后，流水线流快 3.8–5.7 倍；即使走主机代理，32 KiB 以内往返仍最低，8 和 16 GPU 的 all-to-all 相对 rocSHMEM 为 1.24–1.70 倍、相对 RCCL 为 2.2–2.5 倍。代理路径上能用的通道很少，作者也没有做 AMD 专用通道。EFA 后端已经实现。完整的 AMD 和 EFA 评测留到后续工作。</p>
+    <h3>vLLM 里的专家并行</h3>
+    <p>表 3：Qwen3-235B-A22B、BF16、EP16、16 张 B200，每个到达率 128 条 GSM8K 请求。相对 DeepEP，请求完成时间在 1、2、4 请求/秒时分别是 5.66 / 7.31、6.50 / 8.29、8.10 / 9.29 秒，即 1.29、1.28、1.15 倍；TPOT 为 21.9 / 28.7、25.9 / 33.2、33.4 / 37.3 ms，低 10%–24%。TTFT 中位数略好或接近，但 p95 是 376 / 192、312 / 218、311 / 201 ms，差 1.4–2.0 倍。GSM8K 正确条数接近（123 / 124、124 / 120、120 / 122）。同一节点 4 卡上的 FP8 Qwen3-30B-A3B，请求完成快 1.21–1.48 倍，TTFT 同样更高；偏预填充的长 GovReport 提示是 1.33 倍。</p>
+    <p>解码步上编译出的计划是每 peer 一条队列、每阶段四条命令、容量一个 token；DeepEP 保留 128 条 progress channel，空的也要更新。Ling-1T、EP16 的三步解码里，Obaleth 的网卡少发 5.6 倍包，send / await 内核 GPU 时间是 DeepEP dispatch / combine 的 1/4.3。因为 adapter 声明了专家内核怎么读输入，存储规划按实际触达范围分配缓冲区，每 GPU 收回 16 GiB，KV cache 容量比不加该通道多 45%，并在 DeepEP 的 5% 以内，且不牺牲回答时间。形状特化按实时 batch 而不是声明上界编译，只发有效行，发送字节减少 58%。其余 pattern 通道对服务时间影响不到 3%。</p>
+    <p>单层 FP8 dispatch / combine（图 7）：每 rank 1 个 token 时，编译内核相对 DeepEP 在 dispatch 上 1.7–2.2 倍、combine 上 2.2–3.1 倍；Qwen3-235B 从 64 个 token 起，DeepEP 可快出最多 1.7 倍，作者把差距归到编译出的内核而不是传输。包在 cuTile 的 pack / reduce 周围时，Tier-2 相对 NCCL <code>all_to_all</code> 在 dispatch 上最多 1.87 倍、combine 上 2.43 倍；从 32 个 token 起，这条 combine 比编译出的那条还快最多 1.5 倍。Listing 1 那种融合 pack 的形式，在 8 张 H100 上相对分离 pack 是 BF16 的 0.78–0.93 倍、FP8 的 0.44–0.82 倍，融合并不自动更快。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>方向很正，也已经在真机上接到 vLLM：384 行适配器、不改框架其余部分，解码步的小消息 EP 确实比手调 DeepEP 更合适。Tier-1 对已有 CUDA / CuTe 内核是掉包式替换，Tier-2 才需要写 Triton。内存和寄存器优势不是装饰——少映射对称堆、内核更瘦，对多租户和占用率都有意义。它和仓库里已有的 Zero-SM NCCL 互补：Zero-SM 用 Copy Engine 和 CPU proxy 做不占 SM 的大宗 AllGather / AlltoAll；Obaleth 做的是 GPU 发起、可融合进内核的专用 RDMA / NVLink 路径，尤其是 MoE dispatch 这种通用集合表达不好的模式。TokenWeave 则还是域内 NVSHARP AllReduce 与 RMSNorm 的融合，对象也不同。</p>
+    <p>落地不能跳过的限制同样具体。第一，这是预印本，公开 PDF 只写“Code is available on GitHub”，v1 正文没有仓库地址，检索时也未能定位到可克隆的实现，复现和接入都还不能按“已开源”来规划。第二，H100 集群若不能映射门铃，路径会退回主机转发，和 B200 上 GPU 门铃的数字不可混用。第三，收益集中在小消息和解码；预填充或较大 token 数时 DeepEP 仍可能更快，TTFT 尾延迟还会变差。第四，完整 AMD / EFA 评测尚未给出，融合 dispatch 在 FP8 上甚至明显慢于分离式 pack。第五，作者承认 EP16 不是 Qwen3-235B 的最佳切法——如果生产里本来就该走两路 TP8，这篇的端到端倍数不能直接当扩容依据。</p>
+    <div class="callout teal">更务实的用法是：把 Obaleth 当成“通信也可以按形状特化”的编译器，先在可 GPU 响门铃的 Blackwell 机器上，用它替换解码步的 DeepEP / NCCL all-to-all；预填充和大 batch 保留手调或库路径，并单独看 TTFT 尾延迟。Tier-1 可以先探路，Tier-2 值得为稳定的 decode 形状写专用内核。在仓库链接明确、AMD / EFA 评测补齐之前，不宜把它写成已经可默认上线的通信栈。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li><strong>预印本，仓库地址未在 PDF 中给出。</strong> 声称开源，但目前无法按链接审阅代码或评估与 vLLM 主线的维护成本。</li>
+      <li><strong>大消息和较大 MoE batch 会回到传输或手写内核的优势区。</strong> 64 KiB 以上 all-to-all 各设备 API 收敛；Qwen3-235B 从 64 token/rank 起 DeepEP 可快 1.7 倍。</li>
+      <li><strong>TTFT p95 变差 1.4–2.0 倍。</strong> 平均请求时间更好，不等于首 token 体验更好。</li>
+      <li><strong>融合并不总是赢。</strong> 文中融合 FP8 dispatch 在 8×H100 上是分离式的 0.44–0.82 倍。</li>
+      <li><strong>AMD 和 EFA 只是部分结果。</strong> 代理路径上几乎用不到那些通道，作者明确把完整评测留到后续。</li>
+      <li><strong>H100 实验是 CPU 协助门铃。</strong> 与 B200 的 GPU 门铃数字要分开读。部分对比还选用了较慢的 NVSHMEM 3.4.5。</li>
+      <li><strong>端到端只展示了一种并非最优的并行切法</strong>（EP16），没有覆盖训练、KV cache 搬移或权重同步，尽管引言把它们列为动机。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照与条件</th></tr></thead>
+      <tbody>
+        <tr><td>8 B 消息速率</td><td>243 M msg/s；3.3× / 4.2×</td><td>H100，64 CTA；相对 NVSHMEM / NCCL GIN</td></tr>
+        <tr><td>8 B 点对点往返</td><td>9.98 / 12.74 / 13.12 µs</td><td>Tier-2 / GIN / NVSHMEM，两节点各 1 卡</td></tr>
+        <tr><td>All-to-all，256 B/peer</td><td>8 GPU：1.32× / 1.52×；256 GPU：1.25× / 2.3×</td><td>相对 NVSHMEM 封装集合 / NCCL GIN</td></tr>
+        <tr><td>16 KiB/peer 总线带宽</td><td>1.2× / 1.6×</td><td>256 GPU，相对 NVSHMEM / GIN</td></tr>
+        <tr><td>B200，256 B all-to-all</td><td>相对 GIN 1.11–1.16×，相对 NVSHMEM 1.24–1.52×</td><td>16 与 32 GPU，GPU 门铃</td></tr>
+        <tr><td>每 rank 设备内存</td><td>4–22 MiB vs 266–426 / 584 MiB</td><td>8–256 GPU；NVSHMEM 含 512 MiB 对称堆</td></tr>
+        <tr><td>寄存器 / 线程</td><td>all-to-all 60 vs 128；ping-pong 62 vs 210–221</td><td>RDMA 内核</td></tr>
+        <tr><td>通道消融（流）</td><td>默认相对全关 8.4× / 23.9×</td><td>1 条 / 16 条链</td></tr>
+        <tr><td>vLLM 请求完成</td><td>1.29 / 1.28 / 1.15×</td><td>Qwen3-235B，16×B200 EP16，1 / 2 / 4 req/s</td></tr>
+        <tr><td>TPOT</td><td>低 10%–24%</td><td>同上，表 3</td></tr>
+        <tr><td>TTFT p95</td><td>差 1.4–2.0×</td><td>376/192、312/218、311/201 ms</td></tr>
+        <tr><td>解码 1 token/rank 内核</td><td>dispatch 1.7–2.2×，combine 2.2–3.1×</td><td>相对 DeepEP；≥64 token 时 DeepEP 最多反超 1.7×</td></tr>
+        <tr><td>收回的 KV 容量</td><td>每 GPU 16 GiB，+45%</td><td>相对不加存储规划；与 DeepEP 相差 &lt;5%</td></tr>
+        <tr><td>少发送的字节 / 包</td><td>字节 −58%；Ling-1T 三步解码包 1/5.6</td><td>形状特化与专用协议</td></tr>
+        <tr><td>MI355X all-to-all</td><td>相对 rocSHMEM 1.24–1.70×，相对 RCCL 2.2–2.5×</td><td>8 与 16 GPU，附录；完整评测未做</td></tr>
+        <tr><td>vLLM 适配器</td><td>384 行</td><td>只声明框架已有事实</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.18145v1（2026-11-13）预印本。倍数来自摘要与第 6 节及附录 C、E。H100 主实验为 CPU 协助门铃；vLLM 数字来自 16 张 B200、可 GPU 响门铃的平台。
+  </footer>
+
+</div>
+</body>
+</html>
