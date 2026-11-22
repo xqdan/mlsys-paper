@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPU 用户态驱动（UMD）知识分类总结</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre {
+      font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+      background: #faf7f2; border: 1px solid var(--line); padding: 14px 16px;
+      overflow-x: auto; line-height: 1.55; margin: 0 0 16px;
+    }
+    .src { font-size: 0.92em; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">分类调研</span>
+        <span class="badge">GPU 软件栈</span>
+        <span class="badge">UMD / KMD</span>
+        <span class="badge">MLSys</span>
+        <span class="badge ok">已核验来源</span>
+      </div>
+      <h1>GPU 用户态驱动（UMD）知识分类总结</h1>
+      <p class="subtitle">把 User Mode Driver 放回整个 GPU 软件栈，并说清它如何影响算子、编译器与 AI 框架性能。</p>
+      <p class="meta">
+        <strong>整理日期：</strong>2026 年 11 月 22 日（Asia/Shanghai）<br />
+        <strong>范围：</strong>公开的项目经验、官方文档、开源实现，以及 XDC / FOSDEM / LPC 等可核验讲座。<br />
+        <strong>方法：</strong>关键论断给出可点来源；404 舍弃或替换；403 / 超时若已交叉核验则保留并注明。不收录无法核验的注水转载，不粘贴外部版权文章原文。
+      </p>
+    </header>
+
+    <div class="kpi">
+      <div><div class="n">12</div><div class="k">分类章节（含索引与边界）</div></div>
+      <div><div class="n">30</div><div class="k">文章 / 文档索引（§10.1–10.5）</div></div>
+      <div><div class="n">10</div><div class="k">已核验视频 / 讲座录像</div></div>
+      <div><div class="n">52</div><div class="k">完整参考目录条数</div></div>
+    </div>
+    <p class="figcap" style="margin-top:4px;">文章索引 30 条；视频 10 条（8 条 YouTube，2 条 FOSDEM 官方录像页）。另有 LPC 2026 幻灯片已核验、未单列录像。参考目录 52 条含上述来源及补充官方页。</p>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">定位与总体图景</a></li>
+        <li><a href="#s2">UMD / KMD 的职责边界</a></li>
+        <li><a href="#s3">命令提交与 command buffer / queue</a></li>
+        <li><a href="#s4">内存管理：显存、VA、SVM / HMM</a></li>
+        <li><a href="#s5">同步：fence、semaphore 与 syncobj</a></li>
+        <li><a href="#s6">UMD 中的 shader / 编译器</a></li>
+        <li><a href="#s7">各厂商实现与开源项目经验</a></li>
+        <li><a href="#s8">调试、性能与 AI 推理 / 算子栈</a></li>
+        <li><a href="#s9">学习路径与可动手实践</a></li>
+        <li><a href="#s10">文章与视频索引</a></li>
+        <li><a href="#s11">完整参考目录</a></li>
+        <li><a href="#s12">资料边界与未完全核验项</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 定位与总体图景</h2>
+      <p class="lead">在现代 GPU 软件栈里，<strong>用户态驱动（UMD）是把高层 API（Vulkan、OpenGL、CUDA Driver API、Level Zero、HIP/HSA 等）翻译成硬件可执行命令的那一层</strong>。它运行在非特权的用户进程里，通常以共享库被加载：Linux 上常见如 <code>libvulkan_radeon.so</code>（RADV）、<code>libcuda.so</code>、Intel compute-runtime；Windows 上则是 WDDM 中由 Direct3D runtime 加载的 UMD DLL。</p>
+      <p>Collabora 的 Tyr 系列把分工说得很干脆：KMD 把一块大得多的 UMD 接到真正的 GPU 上；UMD 实现 Vulkan / OpenGL / OpenCL 等 API，构造 <code>VkCommandBuffer</code> 这类指令结构；KMD 负责提交到硬件队列、在异步乱序完成时维护依赖，以及设备上电。该文强调：<strong>复杂度的大头通常在 UMD</strong>。<span class="src">（<a href="https://www.collabora.com/news-and-blog/blog/2025/08/06/writing-a-rust-gpu-kernel-driver-a-brief-introduction-on-how-gpu-drivers-work/">Almeida, Collabora, 2025-08-06</a>）</span></p>
+      <p>Mesa RADV 文档给出同一图景的可操作版本：所有图形 API 都在用户态实现；RADV 经 winsys 与 <code>amdgpu</code> KMD 对话。KMD 负责 PCIe 与电源、显示、显存与 GTT、把已提交命令写入 GPU ring；UMD 负责以硬件二进制格式记录命令、编程寄存器、把 shader 编译到原生 ISA 并上传，再通过系统调用提交。<span class="src">（<a href="https://docs.mesa3d.org/drivers/radv.html">Mesa RADV 文档</a>）</span></p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GPU 软件栈中 UMD 的位置">
+          <g font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
+            <rect x="80" y="20" width="760" height="58" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="1.4"/>
+            <text x="460" y="44" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">框架 / 运行时</text>
+            <text x="460" y="64" text-anchor="middle" font-size="12" fill="#57534e">PyTorch · ggml · Triton · CUDA Runtime · HIP</text>
+
+            <rect x="80" y="108" width="760" height="70" rx="8" fill="#ffedd5" stroke="#9a3412" stroke-width="2"/>
+            <text x="460" y="134" text-anchor="middle" font-size="16" font-weight="700" fill="#9a3412">UMD（本综述的主体）</text>
+            <text x="460" y="156" text-anchor="middle" font-size="12" fill="#44403c">libcuda · RADV / ANV / NVK · compute-runtime · ROCr / libhsakmt</text>
+            <text x="460" y="172" text-anchor="middle" font-size="11" fill="#7c2d12">ISA 编译或模块加载 · 命令编码 · VA / 描述符 · 提交与同步</text>
+
+            <rect x="80" y="208" width="760" height="58" rx="8" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.4"/>
+            <text x="460" y="232" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a5f">KMD</text>
+            <text x="460" y="252" text-anchor="middle" font-size="12" fill="#57534e">nvidia.ko · amdgpu / KFD · Xe / i915 · Dxgkrnl + miniport</text>
+
+            <rect x="80" y="296" width="760" height="58" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.4"/>
+            <text x="460" y="320" text-anchor="middle" font-size="15" font-weight="700" fill="#0f766e">固件 + 硬件</text>
+            <text x="460" y="340" text-anchor="middle" font-size="12" fill="#57534e">GSP / GuC / CP / MEC · doorbell · PBDMA · 计算 / 拷贝引擎</text>
+
+            <path d="M460 78 L460 108" stroke="#78716c" stroke-width="1.6" marker-end="url(#arr)"/>
+            <path d="M460 178 L460 208" stroke="#78716c" stroke-width="1.6"/>
+            <path d="M460 266 L460 296" stroke="#78716c" stroke-width="1.6"/>
+            <text x="480" y="98" font-size="11" fill="#78716c">分配、流 / 队列、launch、图捕获</text>
+            <text x="480" y="198" font-size="11" fill="#78716c">ioctl 或用户态 doorbell</text>
+            <text x="480" y="286" font-size="11" fill="#78716c">地址落实、调度、驻留、中断</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">图 1. UMD 夹在框架与内核之间：它不是「多一个封装」，而是命令、地址和同步对象的作者。本图为解释图，不是某一官方插图的复制。</p>
+
+      <p>CUDA 官方指南把边界说得更 API 化：Runtime 写在更低层的 Driver API 之上；Driver API 实现于随设备驱动安装的 <code>cuda.dll</code> / <code>cuda.so</code>，入口以 <code>cu</code> 为前缀。多数应用不必直接碰 Driver API 也能跑满性能，但部分新接口会先出现在 Driver API，<strong>虚拟内存管理（VMM）等高级接口只在 Driver API 暴露</strong>。<span class="src">（<a href="https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/driver-api.html">CUDA Programming Guide §3.3，v13.5</a>）</span></p>
+      <p>因此，框架里的 <code>cudaMalloc</code>、<code>cudaLaunchKernel</code>、<code>cudaGraphLaunch</code>，以及 Vulkan 计算路径上的 <code>vkCmdDispatch</code> / <code>vkQueueSubmit</code>，最终都要经过 UMD 变成命令流、地址映射和同步对象。UMD 的实现质量会直接表现为：提交延迟、命令条数、显存碎片、shader 编译卡顿，以及图（Graph）能否少走主机往返。</p>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. UMD / KMD 的职责边界</h2>
+      <p>不同操作系统和厂商的用词不同（UMD/KMD、winsys、thunk、miniport），但反复出现的边界是稳定的。</p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>几乎总在 UMD 一侧</h4>
+          <p>实现用户可见 API 与状态跟踪；把 API 编码成硬件命令包；编译或加载 shader / kernel；决定 tiling / descriptor 布局；在传统模型里发起提交。</p>
+        </div>
+        <div class="tile">
+          <h4>几乎总在 KMD 一侧</h4>
+          <p>设备初始化、电源、显示、特权寄存器；物理显存与驻留；跨进程安全与命令校验、地址 patch；中断与完成通知，以及与 OS 调度器 / 内存管理器的接合。</p>
+        </div>
+      </div>
+      <p>RADV 把 Vulkan entry point 转到 <code>radv_*</code>；ANV 则把大量动态状态的打包策略写进驱动内部文档。<span class="src">（<a href="https://docs.mesa3d.org/drivers/radv.html">RADV</a>；<a href="https://docs.mesa3d.org/drivers/anv.html">ANV</a>）</span> Tyr 文把调度和设备 bring-up 明确归为 KMD。<span class="src">（<a href="https://www.collabora.com/news-and-blog/blog/2025/08/06/writing-a-rust-gpu-kernel-driver-a-brief-introduction-on-how-gpu-drivers-work/">Almeida, 2025</a>）</span></p>
+      <p>WDDM 操作流程是校验模型的完整标本：KMD 的 <code>DxgkDdiRender</code> 校验 command buffer、按硬件格式写入 DMA buffer 并生成 allocation list；随后 <code>Dxgkrnl</code> 做分页、patch 物理地址再提交。<span class="src">（<a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/windows-vista-and-later-display-driver-model-operation-flow">WDDM Operation Flow</a>）</span></p>
+
+      <h3>正在前移的那条线：用户态提交</h3>
+      <p>为了降低提交延迟，越来越多的栈允许 UMD（甚至 GPU 自己）直接往固件 ring / doorbell 写，内核只做队列创建、特权内存和生命周期管理：</p>
+      <ul>
+        <li><strong>Windows WDDM 3.2</strong>（Windows 11 24H2 语境，文档仍标注特性在发展中）引入 user-mode work submission：UMD 可从用户态经 doorbell 直接提交；传统内核提交必须同时保留。低延迟路径上「KMD 并不介入、也不感知每一次提交」；<code>D3DKMTNotifyWorkSubmission</code> 只用于少数必须通知 KMD 的场景。<span class="src">（<a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/user-mode-work-submission">User-mode work submission</a>）</span></li>
+        <li><strong>Linux amdgpu User Mode Queues</strong>：让用户进程直接管理提交，<strong>绕过用于提交的 ioctl</strong>，也允许 GPU 向自己提交。UMD 向 ring 写入 IP 特定包并更新 <code>wptr</code>，固件按 <code>rptr</code>/<code>wptr</code> 消费。<span class="src">（<a href="https://www.kernel.org/doc/html/latest/gpu/amdgpu/userq.html">Kernel doc: User Mode Queues</a>）</span></li>
+        <li><strong>NVIDIA 闭源 UMD</strong> 在开源内核模块与近年论文中被描述为：把 PCIe BAR 映射进用户地址空间，直接写命令与 doorbell，不必为每次提交陷入内核。<span class="src">（<a href="https://arxiv.org/abs/2604.26889">Yan, Karlin, Grant, arXiv:2604.26889, 2026-04-29</a>）</span></li>
+      </ul>
+      <div class="callout teal">一句话：KMD 仍掌握信任与资源，UMD 越来越接近「命令的作者和门铃的按下者」。对 LLM 推理这种短 kernel、高提交频率的负载，这条路径往往比「再快一点的 kernel 计算」更先成为瓶颈。</div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 命令提交与 command buffer / queue</h2>
+      <h3>3.1 记录：API 调用变成硬件包</h3>
+      <p>Vulkan 应用把命令记进 command buffer，再提交到队列。RADV 向称为 command stream（CS）的缓冲区发射 packet；提交时若干 CS 作为内核所称的 <strong>indirect buffer（IB）</strong> 交给内核——名称来自常用的 <code>INDIRECT_BUFFER</code> PM4 命令。包由该队列的 Command Processor（CP）执行。现代 AMD GPU 有多条队列，有时一次提交要同时打到多条硬件队列。<span class="src">（<a href="https://docs.mesa3d.org/drivers/radv.html">RADV：Command submission and PM4 packets</a>）</span></p>
+      <p>Intel ANV 为降低 3D pipeline 状态的重复打包，非动态状态在 <code>genX_pipeline.c</code> 预打包，动态状态在 <code>genX_gfx_state.c</code> 补丁；间接绘制还可以用 generation shader 在 side batch 里生成主 command buffer 中的指令。<span class="src">（<a href="https://docs.mesa3d.org/drivers/anv.html">ANV 文档</a>）</span></p>
+      <p>NVIDIA 没有同等的官方「如何写 pushbuffer」公开手册，但开源内核模块与独立研究给出了一致的机械图：高层 API（例如一次 <code>cudaMemcpy</code>）被译成 copy/DMA 描述符写入 <strong>pushbuffer</strong>（每条 4 字节）；经 <strong>GPFIFO</strong> 交给 PBDMA；用户态可写的 <strong>USERD</strong> 更新生产者指针 <code>GP_PUT</code>（RAMFC 位于特权区）；写 doorbell 后 PBDMA 从 USERD 载入并消费。<span class="src">（<a href="https://arxiv.org/abs/2604.26889">arXiv:2604.26889</a>；<a href="https://github.com/NVIDIA/open-gpu-kernel-modules">open-gpu-kernel-modules</a> 中 <code>DoorbellKickoff</code> 注释）</span></p>
+      <p>Maxime Peim 的 <code>libmc</code> 把同一条路径做成不链接 <code>libcuda</code> 的最小库。在 Hopper 及以上，甚至可以让一个 SM 线程写另一 channel 的 pushbuffer、发布 GPFIFO、推进 USERD <code>GP_PUT</code> 并敲 BAR1 doorbell，从而在没有 host 介入的情况下启动 copy engine。项目强调这不是 device-side <code>cudaMemcpyAsync</code>（后者仍交给驱动调度）。该能力依赖 <code>HOPPER_USERMODE_A</code> / <code>BLACKWELL_USERMODE_A</code> 这类可映射 usermode aperture；Ampere 的 <code>AMPERE_USERMODE_A</code> 没有这一概念。<span class="src">（<a href="https://github.com/maxime-peim/libmc">libmc README</a>）</span></p>
+
+      <h3>3.2 提交：ioctl 路径 vs doorbell 路径</h3>
+      <p><strong>传统 ioctl 路径</strong>仍是兼容与校验的基线：UMD 填满 command buffer → 经 DRM uAPI / KFD ioctl / WDDM callback 提交 → KMD 校验并 patch / 分页 → 硬件完成后以中断或 fence 通知。WDDM 从 Draw 到 <code>pfnRenderCb</code>、<code>DxgkDdiRender</code>、paging、带 fence identifier 的 <code>DxgkDdiSubmitCommand</code>，再到中断读回 fence，是这一模型的逐步合同。<span class="src">（<a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/windows-vista-and-later-display-driver-model-operation-flow">WDDM Operation Flow</a>）</span></p>
+      <p><strong>用户态队列 / doorbell 路径</strong>把「按铃」拉回用户态：</p>
+      <ul>
+        <li>Linux amdgpu：与 KFD 用户态队列思想类似。<span class="src">（<a href="https://www.kernel.org/doc/html/latest/gpu/amdgpu/userq.html">userq</a>）</span></li>
+        <li>Mesa 25.0 为 RadeonSI 合并了 AMDGPU user queue：在受支持内核上以 <code>AMD_USERQ=1</code> 启用，使作业提交不必经过 command submission ioctl。Phoronix 原站此次抓取返回 403，内容已由 Internet Archive 核验。<span class="src">（<a href="https://www.phoronix.com/news/Mesa-25.0-AMDGPU-User-Queue">Larabel, 2024-12-03</a>；<a href="https://web.archive.org/web/20241204000000/https://www.phoronix.com/news/Mesa-25.0-AMDGPU-User-Queue">存档</a>）</span></li>
+        <li>Intel compute-runtime（NEO）的 <code>direct_submission/</code> 是绕过「每次提交都进内核」的 ring-buffer 路径。<span class="src">（<a href="https://github.com/intel/compute-runtime/blob/master/ARCHITECTURE.md">ARCHITECTURE.md</a>）</span></li>
+        <li>NVIDIA：上述 USERD + doorbell。Yan 等人指出，用户态虽能直接写 doorbell，仍须由内核建立到 doorbell 物理 I/O 地址的映射。</li>
+      </ul>
+      <p>LPC 2026 上 Daniel Almeida（Collabora）与 Philipp Stanner（Red Hat）的幻灯片从内核角度补了一句现实：许多 GPU 已是任意数量的 <strong>firmware ring</strong>；内核「scheduler」往往只做依赖与生命周期跟踪，真正跑什么由固件决定。<span class="src">（<a href="https://lpc.events/event/20/contributions/2400/attachments/2138/4732/LPC2026%20Gaming%20on%20Linux%20JobQueue.pdf">《GPU Job Scheduling: Current Development》幻灯片</a>）</span></p>
+      <div class="callout navy">对算子栈的含义：优化「提交」不再只是少几次 ioctl，而是要问——这条 launch 有没有变成更短的命令足迹、有没有避开主机往返、有没有把依赖留给固件或 GPU 自己串起来（CUDA Graphs、Device-Generated Commands、GPU 自提交属于同一方向）。</div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 内存管理：显存、VA、SVM / HMM 与虚拟内存 API</h2>
+      <h3>4.1 物理显存在谁手里，虚拟地址在谁手里</h3>
+      <p>RADV 把 video memory 与 GTT 归给 KMD；UMD 决定需要什么样的 buffer，再通过 DRM uAPI 创建与映射。<span class="src">（<a href="https://docs.mesa3d.org/drivers/radv.html">RADV</a>）</span> Windows WDDM 更制度化：UMD 经 <code>pfnAllocateCb</code> 进入 KMD 的 <code>DxgkDdiCreateAllocation</code>，驻留与换入换出由 VidMm 和 paging DMA 处理。<span class="src">（<a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/windows-vista-and-later-display-driver-model-architecture">WDDM Architecture</a>）</span></p>
+      <p>Linux DRM 提供 GEM 与 TTM。TTM 面向带专用显存的加速器，管理 buffer object 的生命周期、迁移和 CPU mapping。<span class="src">（<a href="https://www.kernel.org/doc/html/latest/gpu/drm-mm.html">DRM memory management</a>）</span> Intel NEO 在用户态有 <code>MemoryManager</code>、<code>GraphicsAllocation</code>、地址空间划分，并经 <code>gmm_helper/</code> 对接 GmmLib。<span class="src">（<a href="https://github.com/intel/compute-runtime/blob/master/ARCHITECTURE.md">ARCHITECTURE.md</a>）</span></p>
+
+      <h3>4.2 CUDA 低级虚拟内存管理（VMM）</h3>
+      <p>CUDA 10.2 起，Driver API 把「物理句柄」和「虚拟地址」拆开。Cory Perry 与 Nikolay Sakharnykh 的博客（JSON-LD <code>datePublished</code> 为 2020-04-15）介绍四件套：<code>cuMemCreate</code>、<code>cuMemAddressReserve</code>、<code>cuMemMap</code>、<code>cuMemSetAccess</code>。应用可以做可扩展 GPU buffer，避免 <code>cudaMalloc</code> + <code>memcpy</code> 式再分配，并把可共享句柄交给其他用户态驱动。<span class="src">（<a href="https://developer.nvidia.com/blog/introducing-low-level-gpu-virtual-memory-management/">Introducing Low-Level GPU Virtual Memory Management</a>；<a href="https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/virtual-memory-management.html">官方 VMM 章</a>）</span></p>
+      <p>与此配套的是流序分配器 <code>cudaMallocAsync</code>（CUDA 11.4+）。Vivek Kini 等在 2021-07-27 的博客中讨论如何在流的生命周期内分配与释放。<span class="src">（<a href="https://developer.nvidia.com/blog/using-cuda-stream-ordered-memory-allocator-part-1/">Stream-Ordered Memory Allocator, Part 1</a>）</span> 这些接口是框架分配器「长在 UMD 之上」的钩子：不必改 KMD，只要调 Driver API，就能实现自己的 VA 策略。</p>
+
+      <h3>4.3 HMM / SVM：共享虚拟地址</h3>
+      <p>Linux <strong>HMM</strong> 官方文档：把非常规内存（如 GPU 板载显存）纳入常规内核路径，核心是设备内存也可以有 <code>struct page</code>，从而让 CPU 与设备共享 VA，并支持迁移。<span class="src">（<a href="https://www.kernel.org/doc/html/latest/mm/hmm.html">HMM</a>）</span></p>
+      <p>ROCm 的 thunk（<code>libhsakmt</code>）面向 KFD，导出包括 <code>hsaKmtAllocMemory</code>、<code>hsaKmtMapMemoryToGPU</code>、<code>hsaKmtSVMSetAttr</code> 以及 doorbell 初始化等接口。README 说明它是与 ROCk 内核驱动交互的用户态 API，仓库现已并入 <code>ROCR-Runtime</code>。<span class="src">（<a href="https://github.com/ROCm/ROCT-Thunk-Interface">ROCT-Thunk-Interface</a>；<a href="https://github.com/ROCm/ROCR-Runtime">ROCR-Runtime</a>）</span></p>
+      <div class="callout">需要避免的过度推断：HMM 是内核基础设施，HSA/SVM、CUDA Unified Memory、IOMMU ATS 等相关但不自动等同。公开邮件列表里长期有人提问它们的差别。本文只在资料直接支持的范围内使用这些词。</div>
+
+      <h3>4.4 和 AI 框架分配器的交接</h3>
+      <p>PyTorch 官方 CUDA 笔记（docs 2.15）说明：缓存分配器由 <code>PYTORCH_ALLOC_CONF</code>（别名 <code>PYTORCH_CUDA_ALLOC_CONF</code>）控制；<code>backend</code> 可选 <code>native</code> 或 <code>cudaMallocAsync</code>。<code>expandable_segments</code>（文档标注 experimental，默认 False）让分配器先创建一段、之后再扩展，以应对 batch size 轻微变化时「老段末尾留下无法回收的碎片、最终 <code>cudaMalloc</code> 失败」——它试图（按 stream）维护一段按需增长的大 segment。<span class="src">（<a href="https://docs.pytorch.org/docs/2.15/notes/cuda.html">PyTorch CUDA semantics</a>）</span></p>
+      <p>同一页还警告：对能装进 GPU 显存的深度学习负载，显式放置通常优于 CUDA Unified Virtual Memory；显存饱和时 UVM 会做昂贵的双向搬运。这是框架层对「自动共享 VA」的实践判断，而不是 HMM 实现细节。</p>
+      <p><strong>未在该选项的官方说明段落中写明的事：</strong>本文不把 <code>expandable_segments</code> 直接断言为「内部调用了 <code>cuMemMap</code>」。同页稍后出现的 <code>cuMemMap</code> 示例属于多 GPU 虚拟内存代码，不宜自动等同。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 同步：fence、semaphore 与 syncobj</h2>
+      <p>GPU 是大规模异步设备，命令完成可以乱序。Tyr 文把「编码 job 依赖、并由内核保证这些依赖被遵守」列为 KMD 的关键责任。<span class="src">（<a href="https://www.collabora.com/news-and-blog/blog/2025/08/06/writing-a-rust-gpu-kernel-driver-a-brief-introduction-on-how-gpu-drivers-work/">Almeida, 2025</a>）</span></p>
+      <p>在 Linux DRM 中，用户态显式同步的核心抽象是 <strong>syncobj</strong>。内核文档写明：<code>drm_syncobj</code> 为同步原语提供容器，供用户态显式同步 GPU 命令，可在进程之间、以及不同 DRM 驱动之间共享；<strong>其首要用例是实现 Vulkan 的 fence 与 semaphore</strong>。ioctl 支持创建/销毁、以 fd 导入导出、与 sync file 互换底层 fence、reset、signal 与等待；timeline syncobj 则建立在 <code>dma_fence_chain</code> 上。syncobj 本质上是对可能为空的 <code>dma_fence *</code> 的包装。<span class="src">（<a href="https://www.kernel.org/doc/html/latest/gpu/drm-mm.html#drm-sync-objects">DRM Sync Objects</a>）</span></p>
+      <p>这解释了 Vulkan UMD 的典型做法：<code>VkFence</code> / <code>VkSemaphore</code>（尤其是 timeline semaphore）在 Linux 上往往架在 syncobj 之上；跨进程、跨驱动也走同一套导入导出。</p>
+      <p>Windows 传统 WDDM 路径使用提交时写入 DMA buffer 的 <strong>fence identifier</strong>：GPU 完成后发中断，KMD 读回该编号并通知 <code>Dxgkrnl</code>。<span class="src">（<a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/windows-vista-and-later-display-driver-model-operation-flow">WDDM Operation Flow</a>）</span></p>
+      <p>用户态队列并不能随便写一个完成标志。amdgpu userq 文档描述一类由固件执行的包：向<strong>仅特权客户端可写</strong>的内存位置写入信号值，用户队列只有读权限；内核准备这块特权内存，包的提交本身在用户态完成。<span class="src">（<a href="https://www.kernel.org/doc/html/latest/gpu/amdgpu/userq.html">User Mode Queues</a>）</span></p>
+      <div class="callout teal">对框架的启示：<code>cudaEventSynchronize</code>、<code>torch.cuda.synchronize()</code>、Vulkan 的 queue 间依赖，以及 CUDA Graphs 内部的边，最终都会变成 UMD 写入的等待/信号包，或对 syncobj / 事件对象的等待。多余的主机侧同步会把异步流水线打成串行。</div>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. UMD 中的 shader / 编译器</h2>
+      <p>「用户态驱动」里往往藏着完整的编译器，而不是只做 ioctl 封装。</p>
+      <h3>6.1 Mesa：NIR + 后端，复杂度在「资源怎么接到 shader」</h3>
+      <p>Faith Ekstrand 在 2024-01-16 的文章中指出，今日写 Mesa 驱动的一个高阶难题是如何在 Vulkan 与 Gallium 之间共享代码。<span class="src">（<a href="https://www.collabora.com/news-and-blog/blog/2024/01/16/how-to-share-code-between-vulkan-and-gallium/">How to share code between Vulkan and Gallium</a>）</span></p>
+      <p>XDC 2022 演讲 <em>How to write a Vulkan driver in 2022</em>（当时署名 Jason Ekstrand，后续公开资料多用 Faith Ekstrand）把工作拆成 Mesa 运行时、NIR、winsys 与硬件后端等可复用层。原 Collabora 博文（LWN 于 2022-03-24 报道）目前原 URL 会重定向到博客首页，故以 <a href="https://indico.freedesktop.org/event/2/contributions/57/">XDC 演讲页与幻灯片</a>、<a href="https://www.youtube.com/watch?v=v0uUEePI1IA">YouTube 录像</a> 为准，并以 <a href="https://lwn.net/Articles/889176/">LWN 报道</a> 佐证博文曾于 2022 年 3 月发布。</p>
+      <p>XDC 2025 的 <em>Descriptors are Hard</em> 把编译器之外、却仍属 UMD 核心的问题单独拎出来：<strong>访问「住在 shader 之外的资源」</strong>。摘要写：shader 编译大体是已被理解的问题，但 shader 与 API 其余部分的接口仍困难；OpenGL、Vulkan、D3D12 的资源映射策略差异很大。<span class="src">（<a href="https://www.youtube.com/watch?v=TpwjJdkg2RE">YouTube，上传 2025-11-10</a>）</span> ANV 文档则具体描述 bindless / descriptor set 如何变成硬件 binding table。<span class="src">（<a href="https://docs.mesa3d.org/drivers/anv.html">ANV</a>）</span></p>
+
+      <h3>6.2 ACO：放在 Mesa 里的 AMD 后端</h3>
+      <p>ACO（AMD compiler）基于 NIR，把 shader 译成 GCN/RDNA 二进制。README 给出的动机有三条：优先编译速度（减少卡顿）、做好 divergence 分析、缺陷修复可以跟 Mesa 发版走。它维护逻辑 CFG 与线性 CFG（后者按 Whole-Function Vectorization 的思路表示硬件上的实际执行），指令选择以 divergence 分析为中心。本文使用的 README 来自 AOSP 镜像（gitlab.freedesktop.org 原文此次被反爬拦截）。<span class="src">（<a href="https://android.googlesource.com/platform/external/mesa3d/+/refs/heads/main/src/amd/compiler/README.md">ACO README（AOSP 镜像）</a>）</span></p>
+      <p>相关讲座：<a href="https://www.youtube.com/watch?v=TFYNUNt3WeE">XDC 2020 | A year of ACO</a>；<a href="https://www.youtube.com/watch?v=UqcbNyN4ix4">XDC 2021 | SSA-based Register Allocation</a>（Connor Abbott 与 Daniel Schürmann, Valve）。</p>
+      <div class="callout navy">对 AI 编译器读者：ACO 关注的「编译延迟 vs 代码质量」与 JIT 出 kernel（Triton、动态 shape、shader 特化）是同一类压力；descriptor / binding 则对应算子里的 tensor 参数、workspace 指针如何变成硬件可寻址的资源表。</div>
+
+      <h3>6.3 CUDA 与 Intel：模块加载 vs IGC</h3>
+      <p>CUDA Driver API 把加载计算模块、取入口、启动暴露为 <code>cuModuleLoad*</code> / <code>cuLaunchKernel</code> 等；也包括惰性加载等策略。<span class="src">（<a href="https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/driver-api.html">Driver API 章</a>；<a href="https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__MODULE.html">Module Management</a>）</span></p>
+      <p>Intel compute-runtime 经 <code>compiler_interface/</code> 对接 Intel Graphics Compiler（IGC），并有 builtin kernel 和用于调试的 System Routine（SIP）。<span class="src">（<a href="https://github.com/intel/compute-runtime/blob/master/ARCHITECTURE.md">ARCHITECTURE.md</a>）</span></p>
+      <p>摩尔线程公开的 MUSA Driver API 指南采取与 CUDA 类似的分层：Driver API 提供显式上下文、模块加载与更细的设备控制，并与 Runtime API 对照。<span class="src">（<a href="https://docs.mthreads.com/musa-sdk/version-5.1.0/programming_guide/api_guides/driver_api_guide">MUSA Driver API 开发者指南</a>）</span></p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 各厂商实现与开源项目经验</h2>
+      <h3>7.1 Mesa：可阅读的 UMD 主战场</h3>
+      <p>FOSDEM 2026 演讲 <em>Mesa3D: the heart of the linux graphics stack</em>（Juan A. Suarez，2026-02-01）面向「有图形基础、但没写过 GPU 驱动」的听众，讲 Mesa 如何把调用变成硬件指令，以及一次 draw 背后发生了什么。官方日程页提供录像与幻灯片。<span class="src">（<a href="https://fosdem.org/2026/schedule/event/HX9XAY-mesa3d_the_heart_of_the_linux_graphics_stack/">FOSDEM 2026 日程</a>）</span></p>
+      <table>
+        <thead><tr><th>UMD</th><th>API</th><th>典型 KMD / 备注</th></tr></thead>
+        <tbody>
+          <tr><td>RADV</td><td>Vulkan</td><td><code>amdgpu</code>；Steam Deck 默认 Vulkan 驱动之一</td></tr>
+          <tr><td>RadeonSI</td><td>OpenGL（及部分 OpenCL 路径）</td><td><code>amdgpu</code>；与 RADV 共享大量 AMD 公共代码</td></tr>
+          <tr><td>ANV</td><td>Vulkan</td><td>Intel 官方 Linux Vulkan 驱动；新硬件需 GuC firmware</td></tr>
+          <tr><td>Iris / Crocus</td><td>OpenGL</td><td>Iris 面向 Gen8+；Crocus 面向更老的 Gen</td></tr>
+          <tr><td>NVK</td><td>Vulkan</td><td>NVIDIA 开源 Vulkan；与 nouveau / 新内核驱动协同演进</td></tr>
+          <tr><td>panvk 等</td><td>Vulkan</td><td>Mali 等；Tyr 文以 panvk 为 UMD、Tyr 为 Rust KMD 的例子</td></tr>
+        </tbody>
+      </table>
+      <p><strong>RADV 工作流：</strong>合并请求需熟悉代码者审批、首审后通常等 24 小时（周末除外）；文档明确 LLM 辅助 MR 需要提交者真正理解代码，维护者可酌情关闭。<span class="src">（<a href="https://docs.mesa3d.org/drivers/radv.html">RADV 文档</a>）</span></p>
+      <p><strong>NVK：</strong>Faith Ekstrand 于 2023-08-04 宣布合入 Mesa 主线，作为 23.3 的实验驱动。<span class="src">（<a href="https://www.collabora.com/news-and-blog/news-and-events/nvk-has-landed.html">NVK Has landed!</a>）</span> 之后见 <a href="https://www.youtube.com/watch?v=SwBe7l9tqro">XDC 2023</a> 与 <a href="https://www.youtube.com/watch?v=JvtxlwedXzE">XDC 2024</a>。对想读「闭源 NVIDIA UMD 在做什么」的人，NVK 是目前最完整的开源对照物之一；<code>libmc</code> 也写明其 QMD 构造参考了 NVK。</p>
+      <p>可动手的调试开关：<code>RADV_DEBUG</code> 的 <code>dumpibs</code>（转储 IB）、<code>bo_history</code>，以及 RadeonSI 侧与 userqueue 相关的 <code>userqjoblog</code> 等。<span class="src">（<a href="https://docs.mesa3d.org/envvars.html">Mesa Environment Variables</a>）</span></p>
+
+      <h3>7.2 NVIDIA：闭源 UMD + 开源 KMD 的缝</h3>
+      <p>CUDA Driver API 的实现库随驱动安装（<code>libcuda</code>）。开源的是内核模块 <a href="https://github.com/NVIDIA/open-gpu-kernel-modules">open-gpu-kernel-modules</a>，它暴露通道、映射、doorbell 等「搭建」用 ABI，但<strong>真正把 <code>cudaMemcpy</code> / launch 变成 pushbuffer 并按铃的代码仍在闭源用户态</strong>。</p>
+      <p>Yan、Karlin、Grant（2026-04-29 提交，arXiv:2604.26889）利用开源内核模块，在映射路径上插桩，并在用户态映射的 doorbell 上设硬件 watchpoint，在提交瞬间抓住完整命令流。两个案例对算子/框架读者特别有用：<strong>数据搬运</strong>——识别 DMA 提交模式，并用绕过 CUDA 的受控下发把硬件带宽与驱动开销分开；<strong>CUDA Graphs</strong>——较新版本里 launch 开销下降，与更小的命令足迹和更高效的提交模式相关。<span class="src">（<a href="https://arxiv.org/abs/2604.26889">arXiv:2604.26889</a>）</span></p>
+      <p>Maxime Peim 的研究仓库沿着同一条缝往下做。实践细节之一：<code>libcuda</code> 可能用原始 syscall 打开并 mmap 设备文件，从而绕过 glibc 包装，普通 hook 会漏掉关键映射。Medium 原文此次抓取返回 <strong>403</strong>，标题与部分技术点已由检索摘要及项目 README 交叉核验。<span class="src">（<a href="https://github.com/maxime-peim/libcuda-research">libcuda-research</a>；<a href="https://medium.com/ai-infrastructure/part-3-watching-libcuda-without-its-source-245df57c9307">Part 3</a> / <a href="https://medium.com/ai-infrastructure/part-4-catching-the-doorbell-before-the-gpu-sees-it-aaa5060aadc8">Part 4</a> / <a href="https://medium.com/ai-infrastructure/part-7-the-sm-authors-the-submission-f2f642befabf">Part 7</a>）</span></p>
+
+      <h3>7.3 AMD ROCm：图形 UMD 与计算 thunk 是两条线</h3>
+      <p>计算栈上，ROCr 经 <strong>libhsakmt（thunk）</strong> 与内核 KFD/ROCk 通信：打开 KFD、查询拓扑、分配/映射内存、创建队列与事件、设置 SVM 属性、初始化 process doorbells。Thunk README 强调它不是独立产品，必须搭配正确的 ROCk 或兼容上游内核，并且从 1.7 起使用 DRM render 节点。<span class="src">（<a href="https://github.com/ROCm/ROCT-Thunk-Interface">ROCT README</a>；<a href="https://rocm.docs.amd.com/projects/ROCR-Runtime/en/latest/">ROCR 文档</a>）</span></p>
+      <p>图形栈上的 RADV/RadeonSI 走 <code>amdgpu</code> DRM uAPI，与 KFD 用户态队列在「用户态 ring + doorbell」思想上汇合，但代码路径和包格式并不自动相同。读 ROCm 时不要把 <code>libhsakmt</code> 误认为 Mesa 的 winsys，也不要把 RADV 误认为 HIP runtime。</p>
+
+      <h3>7.4 Intel：ANV 与 compute-runtime / Level Zero</h3>
+      <p>ANV 是 Intel 在 Mesa 里的官方 Linux Vulkan 驱动。从第 12 代 / Alder Lake-P 和 Arc Alchemist 起，3D 驱动栈需要 <strong>GuC firmware</strong>。<span class="src">（<a href="https://docs.mesa3d.org/drivers/anv.html">ANV</a>）</span></p>
+      <p>计算侧 <a href="https://github.com/intel/compute-runtime">intel/compute-runtime</a>（NEO）同时实现 Level Zero 与 OpenCL。<code>ARCHITECTURE.md</code> 给出进程级对象树：<code>ExecutionEnvironment</code> → 共享的 <code>MemoryManager</code>、<code>DirectSubmissionController</code>、按设备的 <code>RootDeviceEnvironment</code>（含 Linux DRM / Windows WDDM 的 <code>OSInterface</code>）。命令侧有 <code>CommandContainer</code> 与 <code>Encode*</code> 编码器。</p>
+      <p>Level Zero 规范把自己定位为更贴近金属的 offload 接口，覆盖设备抽象、内存、命令表、同步与内核提交。<span class="src">（<a href="https://oneapi-src.github.io/level-zero-spec/level-zero/latest/core/PROG.html">Core Programming Guide</a>）</span></p>
+
+      <h3>7.5 Windows WDDM：把 UMD 写成操作系统合同</h3>
+      <p>即便主要工作在 Linux 上，WDDM 仍值得读：UMD 由 D3D runtime 加载；<code>Dxgkrnl</code> 含显示端口、VidMm、VidSch；厂商必须同时提供 UMD 与 KMD。<span class="src">（<a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/windows-vista-and-later-display-driver-model-architecture">Architecture</a>，页标注更新 2025-11-07）</span> 用户态提交、以及 UMD 与 KMD 共享 allocation backing store（WDDM 3.1 起）等扩展，说明 Windows 同样在把热点路径推回用户态。<span class="src">（<a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/sharing-backing-store-with-kmd">Sharing the Backing Store with KMD</a>）</span></p>
+
+      <h3>7.6 国产 GPU：公开到「编程接口」，很少公开到「UMD 内部」</h3>
+      <p>在已核验的公开材料里，<strong>摩尔线程官方文档</strong>把 MUSA 明确分成 Runtime API 与 Driver API，Driver API 负责显式上下文与模块加载，定位接近 CUDA Driver API。<span class="src">（<a href="https://docs.mthreads.com/musa-sdk/version-5.1.0/programming_guide/api_guides/driver_api_guide">MUSA Driver API 指南</a>；<a href="https://docs.mthreads.com/musa-sdk/version-5.1.0/programming_guide/programming_model/host_device_model">Host/Device 编程模型</a>）</span></p>
+      <p>海光 DCU、沐曦 MXMACA、壁仞 SUPA 等在公开网络上有产品与框架适配报道，但<strong>缺少与本文其它章节同等级的、可核验的 UMD 内部实现文档或开源树</strong>。本文不根据二手商业评论推断其 UMD 架构。若后续有官方源码或驱动开发者文档公开，应再单列补遗。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 调试、性能与 AI 推理 / 算子栈的关联</h2>
+      <h3>8.1 调试与可观察性</h3>
+      <ul>
+        <li><strong>RADV / Mesa：</strong><code>RADV_DEBUG=dumpibs</code> 转储 command stream；<code>bo_history</code> 记录 BO 操作。这是「看 UMD 到底提交了什么」的第一工具。<span class="src">（<a href="https://docs.mesa3d.org/envvars.html">envvars</a>）</span></li>
+        <li><strong>UMR：</strong>AMD 开源的 Linux 工具，用于检查 AMDGPU 状态：寄存器读写、ring 解码、虚拟内存解码、寄存器活动跟踪。由 AMD all-open Linux 团队维护，只使用已公开的 IP 寄存器定义。<span class="src">（<a href="https://umr.readthedocs.io/en/main/intro.html">UMR 导言</a>；<a href="https://gitlab.freedesktop.org/tomstdenis/umr">代码仓库</a>）</span></li>
+        <li><strong>NVIDIA 闭源路径：</strong>研究侧用 doorbell watchpoint / 内核插桩捕获完整命令流。<span class="src">（<a href="https://arxiv.org/abs/2604.26889">arXiv:2604.26889</a>；libcuda-research）</span></li>
+      </ul>
+      <p>RenderDoc / 厂商 GPU profiler 更偏向图形帧调试与计数器，对「提交路径」的可见性通常不如 IB dump 或 doorbell 捕获来得直接。未在本文逐项核验其与 UMD 内部结构的对应关系，故不写成依据。</p>
+
+      <h3>8.2 对 AI 推理和算子性能真正重要的几点</h3>
+      <p>这些结论都锚定在上文已引用的资料，而不是经验口号：</p>
+      <ol>
+        <li><strong>提交开销是一等公民。</strong>用户态队列、WDDM UM submission、NVIDIA doorbell、NEO direct submission，全部在减少「每次 launch 进内核」的往返。短 kernel、动态 shape、频繁的小拷贝会放大这条路径。</li>
+        <li><strong>命令足迹可以被测量、也可以被优化。</strong>Yan 等人显示，CUDA Graphs 的 launch 加速与更小的命令足迹、更高效的提交模式相关；这把「图优化」从框架典故落实到了 UMD 发出的字节。</li>
+        <li><strong>分配器策略活在 UMD 的内存 API 上。</strong>CUDA VMM 与 <code>cudaMallocAsync</code> 是框架缓存分配器的底层；PyTorch 的 <code>expandable_segments</code> 明确针对动态 batch 造成的显存碎片。OOM 未必是「显存不够」，也可能是分配策略留下了无法回收的 sliver。</li>
+        <li><strong>自动统一内存不是训练/推理的默认最优。</strong>PyTorch 官方笔记对装得下的 DL 负载不推荐 UVM。共享 VA（HMM/SVM/UVM）有真实的系统价值，但缺页和双向迁移的代价要算进端到端。</li>
+        <li><strong>编译与描述符属于 UMD 热路径。</strong>ACO 把编译速度当作一等目标；Ekstrand 把 descriptor 映射称作现代驱动的主要挑战之一。对 Triton / 动态 kernel，「每个 shape 一份特化 kernel」会使 UMD 或用户态编译器的缓存与绑定模型变成可见延迟。</li>
+        <li><strong>Vulkan 计算正在成为「绕开专有 UMD API、仍复用成熟 UMD」的路径。</strong>FOSDEM 2025 上 Ruben Ortlam 指出：多数机器学习应用走 CUDA/ROCm；若改用游戏领域持续投入的 Vulkan 计算 shader，就可以借助更广泛的驱动支持。<span class="src">（<a href="https://archive.fosdem.org/2025/schedule/event/fosdem-2025-6772-expanding-ggml-hardware-support-using-the-vulkan-api/">FOSDEM 2025 日程</a>）</span> 这条路并不是「不用 UMD」，而是把依赖从闭源 CUDA UMD 转到 Mesa 等可调试的 Vulkan UMD。</li>
+        <li><strong>设备生成命令 / GPU 自提交</strong>把「谁写 command buffer」继续往下推。Igalia 短视频介绍 Vulkan Device-Generated Commands；amdgpu userq 也写明允许 GPU 向自己提交。<span class="src">（<a href="https://www.youtube.com/watch?v=IvwCF4TGwvs">Device-Generated Commands in Vulkan</a>）</span></li>
+      </ol>
+      <h3>8.3 虚拟化与多租户（简记）</h3>
+      <p>Rob Clark 在 XDC 2022 的 <em>moar fps in a vm</em> 讨论 VM 中的图形性能；WDDM 的 UM submission 文档明确提到：在 GPU 半虚拟化场景中，客户机 UMD 直接提交可避免每次向 host 发消息。<span class="src">（<a href="https://www.youtube.com/watch?v=9sFP_yddLLQ">YouTube</a>；<a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/user-mode-work-submission">UM work submission</a>）</span> 对云端推理多租户，提交路径上的 guest/host 往返同样是隐藏延迟。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 学习路径与可动手实践</h2>
+      <p>按「读得懂、看得到、改得动」排列，均指向上文已列出的公开树或工具。</p>
+      <h3>第一阶段：建立正确的分层图（约 1–2 天）</h3>
+      <ol class="steps">
+        <li>读 <a href="https://www.collabora.com/news-and-blog/blog/2025/08/06/writing-a-rust-gpu-kernel-driver-a-brief-introduction-on-how-gpu-drivers-work/">Tyr 文</a>，只抓住职责边界与「复杂度在 UMD」。</li>
+        <li>读 <a href="https://docs.mesa3d.org/drivers/radv.html">RADV 的 Responsibilities / PM4</a> 和 <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/windows-vista-and-later-display-driver-model-operation-flow">WDDM Operation Flow</a>，对照 Linux 与 Windows 的提交序列。</li>
+        <li>看 <a href="https://www.youtube.com/watch?v=v0uUEePI1IA">XDC 2022: How to write a Vulkan driver</a>（约 50 分钟）和/或 <a href="https://fosdem.org/2026/schedule/event/HX9XAY-mesa3d_the_heart_of_the_linux_graphics_stack/">FOSDEM 2026: Mesa3D 总览</a>。</li>
+      </ol>
+      <h3>第二阶段：跟着开源 UMD 走完一次提交（1–2 周）</h3>
+      <ol class="steps">
+        <li>在 Mesa 里选 RADV、ANV 或 NVK。先画「<code>vkCmdDispatch</code> → 发包 → <code>QueueSubmit</code> → ioctl/userq」的调用链。</li>
+        <li>用 <code>RADV_DEBUG=dumpibs</code> 跑一个最小 Vulkan compute 或 <code>vkcube</code>，对照 PM4/IB 概念。</li>
+        <li>若有 AMDGPU：装 <a href="https://umr.readthedocs.io/en/main/intro.html">UMR</a>，对 ring 做一次解码，把用户态写的包和硬件正在执行的包对上。</li>
+      </ol>
+      <h3>第三阶段：计算栈与框架交接（1–2 周）</h3>
+      <ol class="steps">
+        <li>读 <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/driver-api.html">CUDA Driver API</a> 与 <a href="https://developer.nvidia.com/blog/introducing-low-level-gpu-virtual-memory-management/">VMM 博客</a>，写一个「保留 VA + 映射物理句柄 + 扩展」的小例子。</li>
+        <li>读 PyTorch <a href="https://docs.pytorch.org/docs/2.15/notes/cuda.html">CUDA memory 笔记</a>，用 <code>PYTORCH_ALLOC_CONF</code> 比较 <code>native</code>、<code>cudaMallocAsync</code>、<code>expandable_segments</code> 在动态 batch 下的显存曲线（只记录实验）。</li>
+        <li>读 <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/cuda-graphs.html">CUDA Graphs 章</a>，对照 arXiv:2604.26889 的 Graphs 案例：关注捕获后提交形态变了什么。</li>
+      </ol>
+      <h3>第四阶段：深入一条厂商缝（按兴趣）</h3>
+      <ul>
+        <li>NVIDIA：浏览 <code>open-gpu-kernel-modules</code> 的通道/doorbell 代码；进阶再看 <code>libcuda-research</code> / <code>libmc</code>（注意其 pinned 的驱动版本，私有 RM/UVM 接口不稳定）。</li>
+        <li>AMD 计算：从 <code>libhsakmt</code> 的队列创建、内存映射、doorbell、SVM 属性往上读到 ROCr。</li>
+        <li>Intel：读 NEO <code>ARCHITECTURE.md</code>，对照 Level Zero 命令表与 <code>direct_submission</code>。</li>
+        <li>描述符与编译：看 <em>Descriptors are Hard</em>、ACO README，以及 XDC 2020/2021 讲座。</li>
+      </ul>
+      <div class="callout">实践纪律：在自己的机器或明确授权的实验室环境观察；不把闭源驱动的逆向结果包装成「官方 ABI」；记录驱动与内核版本组合；性能结论必须带测量语境（是否 userq、是否 Graphs、分配器后端）。</div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 文章与视频索引</h2>
+      <p>下列条目均已核验标题与 URL（视频用 YouTube oembed 或官方日程页）。简评只写与 UMD 学习相关的用途。</p>
+
+      <h3>10.1 架构与职责</h3>
+      <table>
+        <thead><tr><th>标题</th><th>出处 / 日期</th><th>简评</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://www.collabora.com/news-and-blog/blog/2025/08/06/writing-a-rust-gpu-kernel-driver-a-brief-introduction-on-how-gpu-drivers-work/">Building Tyr in Rust: UMD, KMD, and the path to hardware</a></td><td>Daniel Almeida，Collabora，2025-08-06</td><td>当前最清晰的 UMD/KMD 分工短文，以 panvk + Tyr 为例。</td></tr>
+          <tr><td><a href="https://docs.mesa3d.org/drivers/radv.html">RADV 官方文档</a></td><td>Mesa，滚动更新</td><td>把 UMD 职责、PM4、IB、winsys 写进可引用的官方段落。</td></tr>
+          <tr><td><a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/windows-vista-and-later-display-driver-model-architecture">WDDM Architecture</a></td><td>Microsoft Learn，页标注更新 2025-11-07</td><td>Windows 上 UMD/KMD/<code>Dxgkrnl</code>/VidMm/VidSch 合同。</td></tr>
+          <tr><td><a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/windows-vista-and-later-display-driver-model-operation-flow">WDDM Operation Flow</a></td><td>Microsoft Learn</td><td>从 CreateDevice 到 fence 中断的逐步调用序。</td></tr>
+          <tr><td><a href="https://github.com/intel/compute-runtime/blob/master/ARCHITECTURE.md">NEO Architecture Overview</a></td><td>intel/compute-runtime</td><td>计算 UMD 的对象树、编码器、direct submission、IGC。</td></tr>
+          <tr><td><a href="https://fosdem.org/2026/schedule/event/HX9XAY-mesa3d_the_heart_of_the_linux_graphics_stack/">Mesa3D: the heart of the linux graphics stack</a></td><td>Juan A. Suarez，FOSDEM 2026，2026-02-01</td><td>总览型讲座，官方页提供录像。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>10.2 命令提交与用户态队列</h3>
+      <table>
+        <thead><tr><th>标题</th><th>出处 / 日期</th><th>简评</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://www.kernel.org/doc/html/latest/gpu/amdgpu/userq.html">User Mode Queues</a></td><td>Linux 内核文档（此次为 7.4.0-rc3 文档树）</td><td>用户态 ring、<code>rptr</code>/<code>wptr</code>、绕过提交 ioctl、GPU 自提交。</td></tr>
+          <tr><td><a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/display/user-mode-work-submission">User-mode work submission</a></td><td>Microsoft Learn，WDDM 3.2 / Win11 24H2 语境</td><td>Windows 的 doorbell 低延迟提交，以及为何仍要保留 KM 路径。</td></tr>
+          <tr><td><a href="https://www.phoronix.com/news/Mesa-25.0-AMDGPU-User-Queue">AMD User Queue Mesa Support Merged…</a></td><td>Michael Larabel，Phoronix，2024-12-03</td><td>Mesa 25.0 RadeonSI 以 <code>AMD_USERQ=1</code> 启用；原站 403，见<a href="https://web.archive.org/web/20241204000000/https://www.phoronix.com/news/Mesa-25.0-AMDGPU-User-Queue">存档</a>。</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2604.26889">Revealing NVIDIA Closed-Source Driver Command Streams…</a></td><td>Yan, Karlin, Grant，提交 2026-04-29</td><td>完整捕获闭源 UMD 命令流；含 memcpy 模式与 CUDA Graphs 案例。</td></tr>
+          <tr><td><a href="https://github.com/maxime-peim/libmc">libmc</a></td><td>Maxime Peim；README 针对驱动 610.43.02</td><td>不经 libcuda 的最小提交栈；Hopper 上 SM 自撰写 copy 提交。</td></tr>
+          <tr><td><a href="https://lpc.events/event/20/contributions/2400/attachments/2138/4732/LPC2026%20Gaming%20on%20Linux%20JobQueue.pdf">GPU Job Scheduling: Current Development</a></td><td>Almeida &amp; Stanner，LPC 2026 幻灯片</td><td>固件 ring 普及后内核调度器角色的变化。已核验 PDF；未单列官方录像。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>10.3 内存与同步</h3>
+      <table>
+        <thead><tr><th>标题</th><th>出处 / 日期</th><th>简评</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://developer.nvidia.com/blog/introducing-low-level-gpu-virtual-memory-management/">Introducing Low-Level GPU Virtual Memory Management</a></td><td>Cory Perry, Nikolay Sakharnykh，2020-04-15</td><td><code>cuMemCreate/Map</code> 四件套与可扩展 buffer。</td></tr>
+          <tr><td><a href="https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/virtual-memory-management.html">CUDA Virtual Memory Management</a></td><td>CUDA Programming Guide</td><td>官方接口规范。</td></tr>
+          <tr><td><a href="https://developer.nvidia.com/blog/using-cuda-stream-ordered-memory-allocator-part-1/">Using the NVIDIA CUDA Stream-Ordered Memory Allocator, Part 1</a></td><td>Vivek Kini 等，2021-07-27</td><td><code>cudaMallocAsync</code> 与流序生命周期。</td></tr>
+          <tr><td><a href="https://www.kernel.org/doc/html/latest/mm/hmm.html">HMM</a></td><td>Linux 内核文档</td><td>设备内存进入内核页模型、共享 VA 的基础设施。</td></tr>
+          <tr><td><a href="https://www.kernel.org/doc/html/latest/gpu/drm-mm.html#drm-sync-objects">DRM Sync Objects</a></td><td>Linux 内核文档</td><td>Vulkan fence/semaphore 在 Linux 上的用户态容器。</td></tr>
+          <tr><td><a href="https://docs.pytorch.org/docs/2.15/notes/cuda.html">PyTorch CUDA semantics（Memory management）</a></td><td>PyTorch 2.15 文档</td><td>缓存分配器、<code>cudaMallocAsync</code>、<code>expandable_segments</code>、对 UVM 的态度。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>10.4 编译器、描述符与写驱动经验</h3>
+      <table>
+        <thead><tr><th>标题</th><th>出处 / 日期</th><th>简评</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://www.collabora.com/news-and-blog/blog/2024/01/16/how-to-share-code-between-vulkan-and-gallium/">How to share code between Vulkan and Gallium</a></td><td>Faith Ekstrand，2024-01-16</td><td>Mesa 里 Vulkan/Gallium 代码共享的高阶问题。</td></tr>
+          <tr><td><a href="https://www.collabora.com/news-and-blog/news-and-events/nvk-has-landed.html">NVK Has landed!</a></td><td>Faith Ekstrand，2023-08-04</td><td>NVK 合入 Mesa 主线的宣告与定位。</td></tr>
+          <tr><td><a href="https://docs.mesa3d.org/drivers/anv.html">ANV 官方文档</a></td><td>Mesa</td><td>Binding model、动态状态打包、generation shader。</td></tr>
+          <tr><td><a href="https://android.googlesource.com/platform/external/mesa3d/+/refs/heads/main/src/amd/compiler/README.md">ACO README</a></td><td>Mesa 源码（AOSP 镜像）</td><td>编译速度、divergence、双 CFG。gitlab 原文被反爬。</td></tr>
+          <tr><td><a href="https://lwn.net/Articles/889176/">Ekstrand: How to write a Vulkan driver in 2022</a></td><td>LWN，2022-03-24</td><td>佐证 Collabora 博文发布；正文请看 XDC 演讲。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>10.5 调试、ROCm、国产公开接口</h3>
+      <table>
+        <thead><tr><th>标题</th><th>出处 / 日期</th><th>简评</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://umr.readthedocs.io/en/main/intro.html">UMR Introduction</a></td><td>AMD all-open Linux 团队，页注 © 2025</td><td>ring / VM 解码的正统工具说明。</td></tr>
+          <tr><td><a href="https://docs.mesa3d.org/envvars.html">Mesa Environment Variables</a></td><td>Mesa</td><td><code>RADV_DEBUG</code>、<code>AMD_DEBUG</code>、userq 相关开关。</td></tr>
+          <tr><td><a href="https://github.com/ROCm/ROCT-Thunk-Interface">ROCT Thunk README</a></td><td>AMD / ROCm（已指向 ROCR-Runtime）</td><td>libhsakmt 的定位与 KFD/render 节点要求。</td></tr>
+          <tr><td><a href="https://docs.mthreads.com/musa-sdk/version-5.1.0/programming_guide/api_guides/driver_api_guide">MUSA Driver API 指南</a></td><td>摩尔线程文档中心，version-5.1.0</td><td>国产 GPU 中少见的、把 Driver API 单独写成指南的公开材料。</td></tr>
+          <tr><td><a href="https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/driver-api.html">CUDA Driver API 章</a></td><td>NVIDIA，CUDA 13.5（此次抓取）</td><td>Runtime vs Driver，以及 VMM 只在 Driver API 暴露。</td></tr>
+          <tr><td><a href="https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/cuda-graphs.html">CUDA Graphs</a></td><td>NVIDIA</td><td>与「减少提交足迹」对照阅读。</td></tr>
+          <tr><td><a href="https://oneapi-src.github.io/level-zero-spec/level-zero/latest/core/PROG.html">Level Zero Core Programming Guide</a></td><td>oneAPI / Level Zero 规范</td><td>设备、内存、命令、同步的规范层。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>10.6 视频与讲座（已核验）</h3>
+      <table>
+        <thead><tr><th>标题</th><th>讲者 / 来源</th><th>日期或形式</th><th>简评</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://www.youtube.com/watch?v=v0uUEePI1IA">XDC 2022 | How to write a Vulkan driver in 2022</a></td><td>Jason Ekstrand，X.Org Foundation</td><td>会议 2022-10-04；约 50 分钟。配<a href="https://indico.freedesktop.org/event/2/contributions/57/attachments/57/145/2022-10-04%20XDC%202022.pdf">幻灯片</a></td><td>写 Mesa Vulkan UMD 的主线讲座。</td></tr>
+          <tr><td><a href="https://www.youtube.com/watch?v=TpwjJdkg2RE">XDC 2025 | Descriptors are Hard</a></td><td>Faith Ekstrand</td><td>上传 2025-11-10；2979 秒</td><td>资源映射 / descriptor，UMD 里最容易被算子人忽略的部分。</td></tr>
+          <tr><td><a href="https://www.youtube.com/watch?v=TFYNUNt3WeE">XDC 2020 | A year of ACO</a></td><td>X.Org Foundation</td><td>oembed 已核验；检索时长约 43:30</td><td>ACO 从原型到默认后端的项目经验。</td></tr>
+          <tr><td><a href="https://www.youtube.com/watch?v=UqcbNyN4ix4">XDC 2021 | SSA-based Register Allocation</a></td><td>Connor Abbott, Daniel Schürmann（Valve）</td><td>上传 2021-09-22；检索约 2:02:41</td><td>UMD 编译器后端的寄存器分配工作坊。</td></tr>
+          <tr><td><a href="https://www.youtube.com/watch?v=SwBe7l9tqro">XDC 2023 | Nouveau/NVK update</a></td><td>Faith Ekstrand, Karol Herbst</td><td>上传 2023-12-12；检索 28:57</td><td>开源 NVIDIA 栈的年度进展。</td></tr>
+          <tr><td><a href="https://www.youtube.com/watch?v=JvtxlwedXzE">XDC 2024 | Nouveau/NVK Update</a></td><td>Faith Ekstrand</td><td>上传 2024-10-30；检索 20:07</td><td>续篇。</td></tr>
+          <tr><td><a href="https://www.youtube.com/watch?v=9sFP_yddLLQ">XDC 2022 | moar fps in a vm…</a></td><td>Rob Clark</td><td>上传 2022-10-12；检索 35:53</td><td>虚拟化下的提交/显示路径，补多租户视角。</td></tr>
+          <tr><td><a href="https://fosdem.org/2026/schedule/event/HX9XAY-mesa3d_the_heart_of_the_linux_graphics_stack/">FOSDEM 2026 | Mesa3D 总览</a></td><td>Juan A. Suarez</td><td>2026-02-01；官方 AV1/WebM 与 MP4</td><td>从零理解 Mesa 结构与一次 draw。</td></tr>
+          <tr><td><a href="https://archive.fosdem.org/2025/schedule/event/fosdem-2025-6772-expanding-ggml-hardware-support-using-the-vulkan-api/">FOSDEM 2025 | GGML + Vulkan API</a></td><td>Ruben Ortlam</td><td>FOSDEM 2025；以官方日程页为准</td><td>用 Vulkan UMD 生态支撑机器学习后端的实践。</td></tr>
+          <tr><td><a href="https://www.youtube.com/watch?v=IvwCF4TGwvs">Device-Generated Commands in Vulkan</a></td><td>Igalia</td><td>上传 2025-01-07；检索约 7:02</td><td>设备侧生成命令，与「谁来写 CB」直接相关。</td></tr>
+        </tbody>
+      </table>
+      <p>未把 GPU MODE 的通用 CUDA 编程讲座列入：此次检索未发现以「用户态驱动内部」为主题且已核验的 GPU MODE 场次。其 <a href="https://github.com/gpu-mode/lectures">lectures 仓库</a> 仍可作为 CUDA 编程补充，但不应当成 UMD 教材。Medium 上 Peim 的 libcuda 系列属于文章而非视频；原站 403，见 §7.2。</p>
+    </section>
+
+    <section class="card" id="s11">
+      <h2>11. 完整参考目录</h2>
+      <p>与正文引用对应。访问日期统一为 2026-11-22（Asia/Shanghai），除非条目自行标明发布或提交日期。完整 URL 列表与 Markdown 源文第 11 节一致，此处按主题列出以免页面过长重复排版；需要拷贝清单请直接打开同目录的 <code>UMD知识分类总结.md</code>。</p>
+      <h3>官方文档与规范（1–22）</h3>
+      <p>Mesa RADV / ANV / envvars / 主页；Microsoft WDDM Architecture、Operation Flow、User-mode work submission、Sharing the Backing Store；Linux User Mode Queues、HMM、DRM-MM（含 Sync Objects）、DRM UAPI；CUDA Programming Guide 的 Driver API、VMM、Graphs 章及 Module Management 手册；Level Zero Core Programming Guide；ROCR-Runtime 文档；摩尔线程 MUSA Driver API 与 Host/Device 模型；PyTorch 2.15 CUDA semantics；UMR 导言。</p>
+      <h3>开源项目（23–30）</h3>
+      <p>NVIDIA open-gpu-kernel-modules；Intel compute-runtime；ROCT-Thunk-Interface 与 ROCR-Runtime；libmc 与 libcuda-research；umr；ACO README（AOSP 镜像）。</p>
+      <h3>文章与论文（31–41）</h3>
+      <p>Almeida Tyr 文（2025）；Ekstrand 的 Gallium/Vulkan 共享文（2024）与 NVK 宣告（2023）；LWN 对 2022 Vulkan 驱动博文的报道；Perry / Sakharnykh VMM 博客（2020）；Kini 等流序分配器博客（2021）；Yan / Karlin / Grant arXiv:2604.26889（2026-04-29）；Larabel Phoronix user queue 报道（2024-12-03，403+存档）；Peim Medium Part 3/4/7（403）。</p>
+      <h3>演讲、幻灯片与录像页（42–52）</h3>
+      <p>XDC 2022/2025/2020/2021/2023/2024 及 Rob Clark 的 XDC 2022 虚拟化演讲；FOSDEM 2026 Mesa 总览与 FOSDEM 2025 GGML+Vulkan；Igalia Device-Generated Commands；LPC 2026 调度幻灯片。具体链接见第 10 节表格与 Markdown 源文。</p>
+    </section>
+
+    <section class="card" id="s12">
+      <h2>12. 资料边界与未完全核验项</h2>
+      <ul>
+        <li><strong>Collabora 博文 How to write a Vulkan driver in 2022：</strong>LWN 于 2022-03-24 报道其存在；2026-11-22 访问原推测 URL 会重定向到博客首页，Internet Archive 精确快照也未取到。不把该博文正文当作已阅读来源，改引 XDC 演讲、幻灯片与 LWN。</li>
+        <li><strong>Phoronix 原文 403，</strong>已用 2024-12-04 附近的 Wayback 存档核对标题、作者、日期与要点。</li>
+        <li><strong>Medium（Peim 系列）403：</strong>URL 与标题由检索与仓库交叉确认，正文细节以 GitHub README / 论文为准。</li>
+        <li><strong>ACO README：</strong>gitlab.freedesktop.org 返回反爬页；改用 AOSP <code>platform/external/mesa3d</code> 镜像。内容应与 Mesa 主线高度接近，但不保证与某一发版逐字相同。</li>
+        <li><strong>国产 GPU：</strong>仅收录摩尔线程官方编程指南中可核对的 Driver/Runtime 分层。海光 / 沐曦 / 壁仞等未找到同等级 UMD 内部公开材料，故不编造架构。</li>
+        <li><strong>未采用的中文博客：</strong>检索中出现若干 2026 年前后的 CSDN「UMD 实战」帖，行文高度模板化，无法核验独立经验，一律不引。</li>
+        <li><strong>GPU MODE：</strong>未列入未核验的「驱动内部」场次，避免把 CUDA 编程讲座误标成 UMD 资料。</li>
+        <li><strong>PyTorch expandable_segments：</strong>官方说明了「可扩展 segment 以减少碎片」，但该段落未写实现是否调用 <code>cuMemMap</code>；本文不强行挂钩。</li>
+        <li><strong>HMM 与 CUDA Unified Memory：</strong>二者都与共享 VA 有关，但不写成已被某一文档证明的等价物。</li>
+        <li><strong>LPC 2026：</strong>已核验 PDF 幻灯片与讲者；未单独确认官方录像链接，故不在视频表中冒充「已看录像」。</li>
+        <li>部分讲座时长以 YouTube 页面或公开检索元数据为准，表中标明「检索」的数字可能与播放器显示有数秒之差。</li>
+      </ul>
+    </section>
+
+    <footer>
+      整理于 2026 年 11 月 22 日（Asia/Shanghai）。本文是分类调研总结，不构成对任何闭源接口的再实现说明，也不替代各厂商当前驱动版本的官方文档。<br />
+      同目录源文：<a href="UMD知识分类总结.md">UMD知识分类总结.md</a>。图 1 为解释图，不是原文插图扫描。版式参考 mlsys-paper 仓库既有中文分析页。
+    </footer>
+  </div>
+</body>
+</html>
