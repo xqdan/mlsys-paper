@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tenstorrent NoC 架构分析 | 双 torus、矩形广播与把死锁部分交给软件</title>
+  <style>
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge ok">官方开源 ISA 文档</span>
+      <span class="badge">Wormhole B0 · Blackhole A0</span>
+      <span class="badge">2D torus · 双 NoC · 矩形广播</span>
+      <span class="badge warn">活文档，数字以当前仓库正文为准</span>
+      <span class="badge">笔记依据 2026-11-22 抓取的 README</span>
+    </div>
+    <h1>Tenstorrent NoC：把核间搬运写成可编程的 torus，而不是藏在缓存后面</h1>
+    <p class="subtitle">Reading the Blackhole / Wormhole Network-on-Chip from the official ISA documentation</p>
+    <p class="meta">
+      <strong>材料：</strong>Tenstorrent <code>tt-isa-documentation</code>，主要依据
+      <a href="https://raw.githubusercontent.com/tenstorrent/tt-isa-documentation/main/BlackholeA0/NoC/README.md" target="_blank" rel="noopener">BlackholeA0/NoC/README.md</a>
+      （2026-11-22 抓取）；对照合作方 Moreh 于 2025-11-18 公开的系统架构说明。<br />
+      <strong>原文：</strong><a href="https://github.com/tenstorrent/tt-isa-documentation" target="_blank" rel="noopener">github.com/tenstorrent/tt-isa-documentation</a>
+      · <a href="https://moreh.io/assets/moreh-tenstorrent-ai-data-center-solution-system-architecture-251118.pdf" target="_blank" rel="noopener">Moreh PDF</a><br />
+      本文是阅读笔记，不是译文。图是根据文档结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：AI 芯片上的通信本来就该是一等公民</a></li>
+      <li><a href="#s3">拓扑：两张方向相反的 2D torus</a></li>
+      <li><a href="#s4">事务、广播与虚通道</a></li>
+      <li><a href="#s5">性能数字</a></li>
+      <li><a href="#s6">软件责任：死锁、排序、harvest</a></li>
+      <li><a href="#s7">落地意义</a></li>
+      <li><a href="#s8">局限与文档没写清的地方</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">Tenstorrent 把整颗芯片——Tensix 计算 tile、GDDR、Ethernet、PCIe，在 Blackhole 上还有 L2CPU——都挂在同一套可编程的 2D torus NoC 上，核与核、核与存储、核与片外接口都走显式的读写/原子/广播事务，而不是先写进共享缓存再靠一致性协议扩散。每颗芯片有两张物理上独立、流向相反的 NoC；Blackhole 相对 Wormhole 把 flit 从 256 bit 加到 512 bit、时钟从 1 GHz 加到 1.35 GHz，地址从 36 bit 加到 64 bit。路由器到邻居每拍走 1 个 flit、延迟 9 拍。硬件保证常见单播和预约路径的广播无死锁，但链接虚通道、不预约的广播、提高仲裁优先级时，软件要自己保证不把网络卡死。这套设计的价值不在「又一个 mesh」，而在于它把 AI 负载里真正高频的权重/激活分发，做成了可以对准一个矩形、一次发出去的广播，并且把文档公开到了可以对照硅实现来写内核的程度。</p>
+    <div class="kpi">
+      <div><div class="n">2 × torus</div><div class="k">两张物理独立、流向相反的 NoC，覆盖同一组 tile</div></div>
+      <div><div class="n">512 b @ 1.35 GHz</div><div class="k">Blackhole 的 flit 与时钟；合 86.4 GB/s 每轴每 NoC（由文档数字推出）</div></div>
+      <div><div class="n">9 / ~5 拍</div><div class="k">路由器到邻居 / NIU 到路由器的标称延迟；吞吐均为每拍 1 flit</div></div>
+      <div><div class="n">16 KiB</div><div class="k">最长包：1 个 header flit + 256 个 data flit × 64 B</div></div>
+    </div>
+    <div class="callout warn">ISA 文档是随着芯片修订更新的活文档，本笔记依据 2026-11-22 抓取的 Blackhole A0 README，不保证与日后提交一致。86.4 GB/s 是 512 bit/cycle × 1.35 GHz 的推算，文档只给了「每拍 1 flit / 每轴 / 每 NoC」，没有直接写出 GB/s。Moreh 白皮书里的网格布局（Wormhole 10×12、80 个 Tensix）是合作方转述，用来理解「谁挂在 NoC 上」，带宽仍以官方 flit 与时钟为准。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：AI 芯片上的通信本来就该是一等公民</h2>
+    <p>GPU 上，一块激活要从一个 SM 走到另一个 SM，默认路径是 L1 → 片上互连 → L2（或再出 HBM）→ 再回来。编译器和内核作者能控制的是访问模式和缓存提示，改不了那一层互连的事务语义。Tenstorrent 走了另一条路：每个 Tensix tile 里的 baby RISC-V 通过 MMIO 发起 NoC 事务，数据从本 tile 的地址空间直接写到目标 tile 的 L1 或 GDDR。通信是指令流的一部分，不是缓存系统的副作用。</p>
+    <p>这对矩阵/张量数据流很重要。权重要广播给一整行或一整块计算 tile，激活要沿着另一维移动，规约或部分和要写回，MoE 的 dispatch 还要按专家矩形撒数据。如果每次都先变成单播再在软件里复制，链路上会留下大量重复 payload。文档里把「可选地广播到一个矩形」写成写事务和原子事务的一等选项，说明这件事在微结构里是先想好的，不是后来用软件树拼出来的。</p>
+    <p>同一张 NoC 还要服务完全不同的端点：计算 tile、GDDR tile、Ethernet、PCIe，以及空 tile（只有 router 和 NIU，地址空间里几乎只剩 CSR）。换句话说，片上网络不是「核与核的专网」，而是这颗芯片的系统总线。主机经 PCIe 进来的事务会被译成 AXI 再译成 NoC；软件应预期大于 128 字节的请求往往会拆成多笔 PCIe 事务——文档把这个限制写得很直白，避免有人以为 NoC 上的大消息会原样穿到主机。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 拓扑：两张方向相反的 2D torus</h2>
+    <p>每张 NoC 是由路由器和 NIU 构成的 2D torus：左右、上下边互相接上。包从 NIU 发出，在路由器之间移动，在 NIU 终止。NoC #0 与 NoC #1 连接同一组 tile，但物理上分开，并且流向相反——通常把 NoC #0 画成向右、向下，把 NoC #1 画成向左、向上。两张网不是互为备份的影子通道，而是两套可以同时打满的物理链路；流向相反也让一对 tile 之间的往返不必在同一张单向 torus 上绕远路。</p>
+    <div class="fig">
+      <svg viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="双 torus 示意">
+        <text x="360" y="22" text-anchor="middle" font-size="13" fill="#57534e" font-family="Segoe UI, sans-serif">示意：同一组 tile，两张流向相反的 torus（不是原文插图）</text>
+        <g font-family="Segoe UI, sans-serif" font-size="11">
+          <text x="180" y="48" text-anchor="middle" fill="#9a3412">NoC #0（右 / 下）</text>
+          <text x="540" y="48" text-anchor="middle" fill="#0f766e">NoC #1（左 / 上）</text>
+        </g>
+        <!-- left grid -->
+        <g stroke="#9a3412" stroke-width="1.6" fill="#ffedd5">
+          <rect x="70" y="70" width="44" height="36" rx="4"/><rect x="148" y="70" width="44" height="36" rx="4"/><rect x="226" y="70" width="44" height="36" rx="4"/>
+          <rect x="70" y="130" width="44" height="36" rx="4"/><rect x="148" y="130" width="44" height="36" rx="4"/><rect x="226" y="130" width="44" height="36" rx="4"/>
+          <rect x="70" y="190" width="44" height="36" rx="4"/><rect x="148" y="190" width="44" height="36" rx="4"/><rect x="226" y="190" width="44" height="36" rx="4"/>
+        </g>
+        <g stroke="#9a3412" stroke-width="1.4" fill="none" marker-end="url(#a0)">
+          <defs>
+            <marker id="a0" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#9a3412"/></marker>
+            <marker id="a1" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#0f766e"/></marker>
+          </defs>
+          <line x1="114" y1="88" x2="146" y2="88"/>
+          <line x1="192" y1="88" x2="224" y2="88"/>
+          <line x1="92" y1="106" x2="92" y2="128"/>
+          <line x1="170" y1="106" x2="170" y2="128"/>
+          <line x1="248" y1="106" x2="248" y2="128"/>
+          <line x1="114" y1="148" x2="146" y2="148"/>
+          <line x1="192" y1="148" x2="224" y2="148"/>
+          <line x1="92" y1="166" x2="92" y2="188"/>
+          <line x1="170" y1="166" x2="170" y2="188"/>
+          <line x1="248" y1="166" x2="248" y2="188"/>
+          <line x1="114" y1="208" x2="146" y2="208"/>
+          <line x1="192" y1="208" x2="224" y2="208"/>
+          <!-- wrap -->
+          <path d="M270,88 C300,88 300,40 92,40 L92,68" />
+          <path d="M92,226 C92,258 40,258 40,88 L68,88" />
+        </g>
+        <!-- right grid -->
+        <g stroke="#0f766e" stroke-width="1.6" fill="#ccfbf1">
+          <rect x="430" y="70" width="44" height="36" rx="4"/><rect x="508" y="70" width="44" height="36" rx="4"/><rect x="586" y="70" width="44" height="36" rx="4"/>
+          <rect x="430" y="130" width="44" height="36" rx="4"/><rect x="508" y="130" width="44" height="36" rx="4"/><rect x="586" y="130" width="44" height="36" rx="4"/>
+          <rect x="430" y="190" width="44" height="36" rx="4"/><rect x="508" y="190" width="44" height="36" rx="4"/><rect x="586" y="190" width="44" height="36" rx="4"/>
+        </g>
+        <g stroke="#0f766e" stroke-width="1.4" fill="none" marker-end="url(#a1)">
+          <line x1="586" y1="88" x2="554" y2="88"/>
+          <line x1="508" y1="88" x2="476" y2="88"/>
+          <line x1="452" y1="190" x2="452" y2="168"/>
+          <line x1="530" y1="190" x2="530" y2="168"/>
+          <line x1="608" y1="190" x2="608" y2="168"/>
+          <line x1="586" y1="148" x2="554" y2="148"/>
+          <line x1="508" y1="148" x2="476" y2="148"/>
+          <line x1="452" y1="130" x2="452" y2="108"/>
+          <line x1="530" y1="130" x2="530" y2="108"/>
+          <line x1="608" y1="130" x2="608" y2="108"/>
+          <line x1="586" y1="208" x2="554" y2="208"/>
+          <line x1="508" y1="208" x2="476" y2="208"/>
+          <path d="M430,88 C400,88 400,40 608,40 L608,68" />
+          <path d="M608,226 C608,258 660,258 660,88 L632,88" />
+        </g>
+      </svg>
+    </div>
+    <p class="figcap">图 1. 双 2D torus 的流向示意。环回边表示 torus 而不是 mesh。本图是示意，不是原文插图。</p>
+    <p>Moreh 的系统说明把这一点落到芯片地面：所有 tile 之间的数据搬运——Tensix 到 Tensix、Tensix 到 GDDR、Tensix 到 Ethernet、甚至 GDDR 到 Ethernet——都走这张统一 NoC。Wormhole 被写成 10×12 网格，其中 80 个 Tensix、18 个 GDDR、16 个 Ethernet、1 个 PCIe、1 个 ARC，另有空位。NoC Router 0 负责 +X/+Y，Router 1 负责 −X/−Y，与官方「流向相反」的说法一致。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 事务、广播与虚通道</h2>
+    <p>一笔 NoC 事务由一个或多个包组成；每个包恰好一个 header flit，后面最多 256 个 data flit。Blackhole 上每个 flit 固定 512 bit（64 字节）。事务类型并不复杂，但对 AI 数据流刚好够用：</p>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>Read / Write</h4>
+        <p>从接收方地址空间读回一块连续数据，或把发起方数据/32-bit 立即数写过去。写可以 posted（不回 ACK），可以按任意子集写满 64 字节以内的数据，也可以广播到一个矩形。</p>
+      </div>
+      <div class="tile">
+        <h4>Atomic</h4>
+        <p>对接收方 L1 里 128 bit 做原子操作，32-bit 结果通常写回发起方 L1。同样可以 posted，也可以向一个矩形广播。计算侧同步不必先绕到存储器控制器。</p>
+      </div>
+      <div class="tile">
+        <h4>矩形广播</h4>
+        <p>矩形可以跨过任何种类的 tile，但每个 router 用 <code>ROUTER_CFG_1/3</code> 的坐标掩码决定是否把包交给本 tile 的 NIU。固件默认只让 Tensix 接收，DRAM / L2CPU / Ethernet / PCIe / 被harvest 的列被掩掉，避免广播写穿到 GDDR 或卡在已关钟的 tile 上。</p>
+      </div>
+    </div>
+    <p>非 posted 广播完成的判据很工程：回来多少个 ACK，软件就要数多少个。打开 <code>NOC_CMD_PATH_RESERVE</code> 时还有更严的规则——预约树还在飞行中，同一 NoC 上经过这些路由器的广播必须是这一笔。代价是数据要等树上所有路由器声明就绪才能离开发起 tile；失败则指数退避重试，广播延迟会上去。</p>
+    <h3>虚通道</h3>
+    <p>相邻路由器（或路由器与 NIU）之间，每个包占用一个 4 bit 虚通道号，过完该跳就释放（链接多包事务除外，它们在该跳上独占同一 VC 直到全部请求包走完）。4 bit 拆成：1 bit dateline（在路径上预定位置翻转，用来破 torus 环）、2 bit class、1 bit buddy。class 由硬件强制：</p>
+    <table>
+      <thead><tr><th>Class</th><th>用途（文档原意）</th></tr></thead>
+      <tbody>
+        <tr><td><code>0b00</code> / <code>0b01</code></td><td>单播请求，两种 class 都可以用</td></tr>
+        <tr><td><code>0b10</code></td><td>广播请求</td></tr>
+        <tr><td><code>0b11</code></td><td>响应（即使在响应广播，响应本身也是单播）</td></tr>
+      </tbody>
+    </table>
+    <p>buddy 位默认可按拥塞在每一跳改变；请求包也可以由软件锁成静态，换更强的排序、可能更高的延迟。默认排序偏弱，要更强的保证去看 Ordering 专章。RISC-V 经 MMIO 发起的事务相对内核是异步的，完成靠计数器或中断。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 性能数字</h2>
+    <p>Blackhole README 给了一张很干净的性能表，单位是「每张 NoC」：</p>
+    <table>
+      <thead><tr><th>跳类型</th><th>吞吐（每 NoC）</th><th>延迟</th></tr></thead>
+      <tbody>
+        <tr><td>NIU → 直接相连的路由器</td><td>每拍 1 flit（512 bit）</td><td>约 5 拍</td></tr>
+        <tr><td>路由器 → 邻居路由器</td><td>每拍每轴 1 flit（512 bit）</td><td>9 拍</td></tr>
+        <tr><td>路由器 → 直接相连的 NIU</td><td>每拍 1 flit（512 bit）</td><td>约 5 拍</td></tr>
+      </tbody>
+    </table>
+    <p>拥塞会拉高延迟。若软件打开 <code>NOC_CMD_VC_LINKED</code> 或 <code>NOC_CMD_VC_STATIC</code> 来强制排序，即使链路上还有空带宽，包也可能被卡住等待。有效吞吐还取决于 header 与 data 的比：极短包可以用单个 header flit 带走 4 字节；极长包用 1 个 header + 256 个 data flit 带走 16384 字节。</p>
+    <p>相对 Wormhole，文档把 Blackhole 的升级总结为三点：时钟 1 GHz → 1.35 GHz，每拍带宽加倍（256 bit → 512 bit），地址 36 bit → 64 bit。同时写下一处回退：<code>NOC_CMD_WR_INLINE</code> 不再能安全地写 L1 地址。若按官方 flit 与时钟推算，单轴单向峰值是 32 B × 1 GHz = 32 GB/s（Wormhole，与 Moreh「32 bytes/cycle」一致）以及 64 B × 1.35 GHz = 86.4 GB/s（Blackhole）。芯片上有两张 NoC，且每个路由器有两个轴向，聚合算法因映射而异，文档没有给出「整芯片对剖带宽」这种单一广告数字，这里也不编一个。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 软件责任：死锁、排序、harvest</h2>
+    <p>多数常见事务由硬件保证无死锁。文档点名三种要把部分责任交给软件的高级特性：</p>
+    <ul>
+      <li>一笔事务包含多个请求包（<code>NOC_CMD_VC_LINKED</code>）；</li>
+      <li>广播但不做路径预约（不置 <code>NOC_CMD_PATH_RESERVE</code>）；</li>
+      <li>仲裁优先级不是 0（<code>NOC_CMD_ARB_PRIORITY</code>）。</li>
+    </ul>
+    <p>这是一种很务实的分工：默认路径给编译器和运行时一个「不容易卡死」的子集；要吞吐、要无预约的灵活广播、要插队，就自己证明安全。对做内核的人来说，这意味着不能把「硬件无死锁」理解成「任意组合的 flag 都安全」。</p>
+    <p>另一处几乎一定会被踩到的是收获（harvest）与关钟。固件会关掉熔断 Tensix 列的时钟；若某颗关钟的 tile 仍在广播矩形里且没有被掩码排除，广播会在那里停住：每个接收者只拿到部分数据，事务永远完不成——预约或不预约都一样。坐标翻译开启时，熔断列会被挪到翻译空间的末尾，但矩形仍是 NoC 坐标上的范围，跨过熔断列的矩形在硅上依旧覆盖那一列，真正让它安静的是掩码。软件如果改这些掩码，必须把 DRAM / L2CPU / Ethernet / PCIe / 熔断列继续挡住。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地意义</h2>
+    <p>对做 AI 芯片或 GPU 片上互连的人，这套 NoC 提供了三条可对照的经验。</p>
+    <p>第一，把计算、近存、片外接口放进同一张可编程网络，比「计算阵列一张网、存储另一张总线」更容易做权重流式搬入和激活就近交换。代价是 GDDR 和 Ethernet 也成为 NoC 端点，广播默认必须被掩码保护，否则一次组播就能写穿存储。</p>
+    <p>第二，双物理网、流向相反，是在 torus 上同时要带宽、要往返短路径、要用 dateline 破环的一种具体解，不是概念图里的「再加一条 VC」。class 位把单播请求、广播请求和响应从硬件上分开，直接对应「不要让响应被请求堵住、不要让广播和单播抢同一类缓冲」这种老问题。</p>
+    <p>第三，矩形广播加路径预约，说明他们认同一件事：AI 流量里大量是规则的一对多，值得为矩形（而不是任意目的地集合）做硬件。任意集合可以拆成多个矩形或多次单播，这和 ETH Zurich 后来在集合通信 NoC 里用可扩展的 multi-address 编码，走的是同一类取舍——为了规模，先牺牲完全任意的目的地集合。</p>
+    <p>从软件看，MMIO 发起、计数器完成、弱排序默认、同步靠原子和计数，这更接近显式消息传递，而不是缓存一致性。编译器（TT-Metal 一类）必须把数据流编成事务序列，并决定用哪一张 NoC、要不要预约、要不要静态 VC。2026 年 Taylor 等人把数值核搬到 Wormhole 上的经验，也是在验证这条「空间计算 + 显式 NoC」能不能服务非神经网络负载。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限与文档没写清的地方</h2>
+    <ul>
+      <li>这是架构与编程手册，不是带应用加速比的论文。文档不给出端到端 GEMM、注意力或 MoE 的 NoC 利用率，也没有功耗数字。</li>
+      <li>「每拍 1 flit」是无拥塞的链路能力。实际有效带宽还取决于包长、排序开关、广播预约和热点（例如多核同时打同一个 GDDR tile）。</li>
+      <li>路由算法的细节在 RoutingPaths 等子页，本笔记没有逐页展开所有路径与拥塞案例。</li>
+      <li>片间互连走 Ethernet tile，机柜内再组成 mesh；那一层不是本 NoC。不要把 Galaxy 服务器里的 8×4 芯片阵列写成片上网络。</li>
+      <li>Moreh 文中的 tile 计数和字节/周期是理解布局的有用对照，但不是 Tenstorrent 签字的数据手册；若与 ISA 冲突，以 ISA 为准。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数值</th><th>出处与条件</th></tr></thead>
+      <tbody>
+        <tr><td>拓扑</td><td>双 2D torus，流向相反</td><td>Blackhole NoC README</td></tr>
+        <tr><td>Wormhole flit / 时钟</td><td>256 bit / 1 GHz</td><td>README 对 Blackhole 升级的对照句</td></tr>
+        <tr><td>Blackhole flit / 时钟 / 地址</td><td>512 bit / 1.35 GHz / 64 bit</td><td>同上</td></tr>
+        <tr><td>邻居跳延迟 / 吞吐</td><td>9 拍，每拍每轴 1 flit</td><td>README 性能表，每 NoC</td></tr>
+        <tr><td>NIU↔router</td><td>约 5 拍，每拍 1 flit</td><td>同上</td></tr>
+        <tr><td>最大有效载荷</td><td>16384 B（1+256 flit）</td><td>README；极短包可用 1 个 header 带 4 B</td></tr>
+        <tr><td>单轴单向峰值（推算）</td><td>32 GB/s（WH）/ 86.4 GB/s（BH）</td><td>flit×时钟；文档未直接写 GB/s</td></tr>
+        <tr><td>PCIe 方向的拆包提示</td><td>大于 128 B 的请求很可能变成多笔 PCIe 事务</td><td>README，PCIe tile 段</td></tr>
+        <tr><td>Wormhole 布局（合作方）</td><td>10×12 网格，80 Tensix；32 B/cycle</td><td>Moreh 2025-11-18 PDF，须与 ISA 交叉验证</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 2026-11-22 抓取的 Tenstorrent 官方 ISA 文档 BlackholeA0/NoC/README.md，并对照 Moreh 公开系统架构说明。图为示意，不是原文插图。
+  </footer>
+
+</div>
+</body>
+</html>

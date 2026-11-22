@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 芯片与 GPU 片上网络设计综述 | 规整流、组播与层次界限</title>
+  <style>
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">专题综述</span>
+      <span class="badge">片上网络 NoC</span>
+      <span class="badge">AI 加速器 · GPU</span>
+      <span class="badge ok">截止日期 2026-11-22 · Asia/Shanghai</span>
+      <span class="badge">mlsys-paper / noc</span>
+    </div>
+    <h1>AI 芯片与 GPU 的片上网络：设计思路、代表芯片与近年经验</h1>
+    <p class="subtitle">Network-on-Chip for AI accelerators and GPUs — a design-oriented survey</p>
+    <p class="meta">
+      <strong>范围：</strong>AI 芯片与 GPU <em>片上</em>互连的设计思路、可核实的架构事实、顶会/arXiv 论文与 Hot Chips / 官方文档中的工程经验。<br />
+      <strong>不是：</strong>NVLink、NVSwitch、UALink、TPU ICI、NeuronLink、Cerebras SwarmX、Dojo Tile 间 / Z-plane 等片间或机柜级 scale-up 的专论；这些只在层次界限处交代。<br />
+      <strong>写法：</strong>阅读笔记与对照，不是教科书转写。图均为根据公开描述重画的示意，不是原文插图。事实与数字都回得到已打开的源；找不到就写不确定。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">为什么这不是传统 CMP 的 NoC</a></li>
+      <li><a href="#s3">先把三层互连划清</a></li>
+      <li><a href="#s4">设计空间</a></li>
+      <li><a href="#s5">GPU 片上互联</a></li>
+      <li><a href="#s6">典型 AI 加速器上的 NoC</a></li>
+      <li><a href="#s7">近年论文脉络与工程经验</a></li>
+      <li><a href="#s8">开放问题</a></li>
+      <li><a href="#s9">参考文献</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">AI 芯片和现代 GPU 的片上网络，不该再被写成「缩小版的多核 CPU mesh」。负载给出的是可被编译器看见的规整流：权重和激活要一对多分发，部分和要规约，HBM 近侧要走突发 DMA，稀疏和 MoE 再往上叠一层不规则。谁把这些集合操作仍拆成单播 cache line，谁就会在 PE 数目上去之后先撞上通信墙。工业界已经用不同语言承认这一点——Hopper 在 GPC 内加了 SM-to-SM 的 distributed shared memory，Tenstorrent 把矩形广播写成 NoC 事务，Cerebras 用 24 条 color 在晶圆 mesh 上单周期挪 32-bit wavelet，Eyeriss v2 早在 2019 年就把 NoC 做成可在单播与组播之间切换的层次 mesh。学术上，2025–2026 年最清楚的一条线是 ETH Zurich 的 FlooNoC 及其 MLSys 集合扩展：为大数据块加宽链路，再把组播/规约做进路由器，并用 Direct Compute Access 借用 tile 里已有的 FPU，而不是在网络里再造一棵浮点树。读这类材料时，第一件事是把片上 NoC、封装内 chiplet 互联、板级/机柜级 scale-up 分开；把 NVLink 或 TPU ICI 叫做「片上网络」，后面的设计讨论就会全部错位。</p>
+    <div class="kpi">
+      <div><div class="n">一对多 / 多对一</div><div class="k">权重广播、激活分发、部分和规约，是比 cache-line 单播更接近 AI NoC 的设计点</div></div>
+      <div><div class="n">三层界限</div><div class="k">片上 NoC ≠ 封装 NoP ≠ NVLink / ICI / NeuronLink / SwarmX</div></div>
+      <div><div class="n">16.9%</div><div class="k">开源集合 NoC 把组播+规约+屏障做进路由器的面积开销（MLSys 2026，7nm）</div></div>
+      <div><div class="n">公开程度极不均</div><div class="k">Tenstorrent / Cerebras SDK 可对照实现；多数 GPU 与云 ASIC 只公开到交叉开关或「改进了 NoC」</div></div>
+    </div>
+    <div class="callout teal">这份综述配套同目录的 <code>entries.md</code> / <code>entries.json</code>，以及两篇深读：Tenstorrent 官方 ISA 中的双 torus NoC，和 Colagrande 等人在 MLSys 2026 的 Collective-Capable NoC。条目会继续追加，综述只抓已经能回到源的事实。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 为什么这不是传统 CMP 的 NoC</h2>
+    <p>经典 NoC 文献面对的是缓存一致性多核：报文短，目的地不规则，延迟敏感，组播多半来自失效与应答，死锁和虚通道的理论也是为这类流量长出来的。AI 加速器和 GPU 计算侧给出的图景不一样。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>传统 CMP / 通用 manycore</h4>
+        <p>Cache-line 粒度，请求–响应成对出现，编程模型尽量把互连藏在共享存储后面。优化目标常是平均延迟、公平性和对任意通信图的正确性。</p>
+      </div>
+      <div class="tile">
+        <h4>AI 加速器 / GPU 计算路径</h4>
+        <p>软件或 dataflow 编译器知道下一块权重要去哪一行 PE、哪一列要做规约。报文是突发的大块，允许弱排序，允许把完成检查交给计数器。优化目标是把通信移出 GEMM / 注意力的关键路径，并少付一次片外访存。</p>
+      </div>
+    </div>
+    <p>几件具体差别值得单独写出来。</p>
+    <p><strong>规整流，而不是任意点对点。</strong>脉动阵列、row-stationary、SUMMA、weight streaming，本质上都在规定「谁在何时把同一块数据送给哪些邻居」。Eyeriss v2 把这一点变成 NoC 的一等需求：同一块网络必须既能在低复用时提供单播带宽，又能在高复用时做组播/广播，否则 PE 不是饿死就是在重复搬同一份权重。FlooNoC 的出发点更硬：新一代域专用加速器要的是大块搬运，不是相干系统里那种延迟敏感的 cache line。</p>
+    <p><strong>集体通信已经下沉到片上。</strong>模型并行、张量并行、专家并行在机柜里催生了 NCCL 和各种 EP 库；当一颗芯片上已经有成百上千个集群，同样的 broadcast / reduce / barrier 会再出现一次。Colagrande 等人直接写：技术缩放让「分布式系统」和「片上系统」的边界糊了。他们在 RTL 里看到，不做硬件集合的话，GEMM 在很大的 mesh 上会掉到利用率不足 50%。</p>
+    <p><strong>稀疏与不规则是第二层，不是第一层。</strong>激活稀疏、剪枝、MoE dispatch 会把规则的一对多打出空洞或数据相关的目的地。Eyeriss v2 用压缩域计算消化稀疏；Tenstorrent 和 Dojo 把绕死 tile、harvest 列交给掩码和软件。但今天真正被硬件优先加速的，仍然是规则的矩形/行/列集合；任意目的地集合往往要拆事务。对 MoE 不能假装已经有成熟的片上解决方案。</p>
+    <p><strong>近存和 HBM 是 NoC 的端点，不是「另一套总线就好」。</strong>很多加速器把存储控制器、DMA、片外接口和计算 tile 挂在同一张网上。好处是权重可以从 GDDR/HBM 直接流到计算阵列；风险是一次广播若没掩好就会写穿存储，或所有核同时锤同一存储 tile 造成热点。GPU 则把 L2 和内存控制器放在 many-to-few 的汇聚点上，互连形状跟着变。</p>
+    <p><strong>质量指标也要换一套。</strong>只报零负载延迟不够。更有用的是：组播一棵树要多少拍、规约在 2D 上会不会掉到每两拍一个 beat、对剖带宽够不够喂满矩阵单元、每跳多少 picojoule、组播相对软件能少多少次 DMA store。FlooNoC 给过 0.15 pJ/B/hop（12nm，0.8 V）；集合扩展把 16×16 SUMMA 的 DMA Store 计数从 983 降到 66（kB）。这类数字比「平均 hop 数少 0.3」更接近芯片决策。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 先把三层互连划清</h2>
+    <p>后面每一节都依赖这张图。混用名词是这个领域最常见的阅读事故。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三层互连示意">
+        <text x="380" y="20" text-anchor="middle" font-size="13" fill="#57534e" font-family="Segoe UI, sans-serif">示意：片上 NoC、封装内互联、板级/机柜级 scale-up（不是原文插图）</text>
+        <rect x="20" y="40" width="230" height="190" rx="8" fill="#fff7ed" stroke="#9a3412"/>
+        <text x="135" y="64" text-anchor="middle" font-size="14" fill="#9a3412" font-family="Segoe UI, sans-serif">① 片上 NoC</text>
+        <text x="135" y="88" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">同一块硅上的 PE / SM</text>
+        <g fill="#ffedd5" stroke="#9a3412">
+          <rect x="45" y="110" width="40" height="28" rx="3"/><rect x="95" y="110" width="40" height="28" rx="3"/><rect x="145" y="110" width="40" height="28" rx="3"/>
+          <rect x="45" y="150" width="40" height="28" rx="3"/><rect x="95" y="150" width="40" height="28" rx="3"/><rect x="145" y="150" width="40" height="28" rx="3"/>
+        </g>
+        <text x="135" y="205" text-anchor="middle" font-size="10" fill="#57534e" font-family="Segoe UI, sans-serif">mesh / torus / 交叉开关</text>
+        <rect x="265" y="40" width="230" height="190" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="380" y="64" text-anchor="middle" font-size="14" fill="#0f766e" font-family="Segoe UI, sans-serif">② 封装内 / chiplet</text>
+        <text x="380" y="88" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">NoP、die-to-die、InFO/SoW</text>
+        <g fill="#ccfbf1" stroke="#0f766e">
+          <rect x="290" y="115" width="80" height="70" rx="4"/>
+          <rect x="390" y="115" width="80" height="70" rx="4"/>
+        </g>
+        <text x="330" y="154" text-anchor="middle" font-size="10" fill="#115e59" font-family="Segoe UI, sans-serif">chiplet</text>
+        <text x="430" y="154" text-anchor="middle" font-size="10" fill="#115e59" font-family="Segoe UI, sans-serif">chiplet</text>
+        <text x="380" y="210" text-anchor="middle" font-size="10" fill="#57534e" font-family="Segoe UI, sans-serif">Simba NoP、Dojo Tile、MI300</text>
+        <rect x="510" y="40" width="230" height="190" rx="8" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="625" y="64" text-anchor="middle" font-size="14" fill="#1e3a5f" font-family="Segoe UI, sans-serif">③ 板级 / 机柜级</text>
+        <text x="625" y="88" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">scale-up，不是 NoC</text>
+        <g fill="#dbeafe" stroke="#1e3a5f">
+          <rect x="535" y="115" width="70" height="50" rx="4"/>
+          <rect x="645" y="115" width="70" height="50" rx="4"/>
+        </g>
+        <line x1="605" y1="140" x2="645" y2="140" stroke="#1e3a5f" stroke-width="2"/>
+        <text x="625" y="190" text-anchor="middle" font-size="10" fill="#1e3a5f" font-family="Segoe UI, sans-serif">NVLink · ICI</text>
+        <text x="625" y="208" text-anchor="middle" font-size="10" fill="#1e3a5f" font-family="Segoe UI, sans-serif">NeuronLink · SwarmX</text>
+      </svg>
+    </div>
+    <p class="figcap">图 1. 三层互连的工作定义。本图是示意，不是原文插图。</p>
+    <table>
+      <thead><tr><th>层次</th><th>典型例子</th><th>本专题如何处理</th></tr></thead>
+      <tbody>
+        <tr><td>片上 NoC</td><td>GPU 的 SM–L2 交叉开关与 GPC 内 SM-to-SM；Tenstorrent 双 torus；Cerebras PE mesh；Dojo D1 上 354 节点的 2D mesh；Graphcore exchange；MTIA 的 PE 网格 NoC；Eyeriss HM-NoC</td><td>主体</td></tr>
+        <tr><td>封装内 / 晶圆模块</td><td>Simba 的 NoP；AMD MI300 一类 chiplet 之间的 Infinity Fabric；Dojo 5×5 Training Tile 的边；部分 GPU 的多 die LTC fabric（介于①②之间）</td><td>只作为与 NoC 的接口和带宽台阶来写</td></tr>
+        <tr><td>板级 / 机柜 / minicabinet</td><td>NVLink / NVSwitch / UALink；TPU ICI 与光交换；Trainium NeuronLink 与 CC-Core；Cerebras SwarmX；Dojo Z-plane / TTPoE；Graphcore IPU-Link</td><td>点名并画界，不展开协议与拓扑专论</td></tr>
+      </tbody>
+    </table>
+    <p>有些系统故意把语义做连续：Cerebras 说 SwarmX「把片上 fabric 延伸到片外」，Dojo 给整机一个平坦地址空间。对软件这是优点，对读微结构的人是陷阱——延迟从单周期邻居跳到 die 边约 100 ns，再跳到 Tile 和 Z-plane，已经不是同一层网络。ServeTheHome 对 Dojo 的现场记录把这层台阶写得很清楚。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 设计空间</h2>
+    <h3>拓扑</h3>
+    <p>没有一种拓扑同时赢下 GPU 的汇聚流量和瓦级 mesh 的近邻流。</p>
+    <ul>
+      <li><strong>交叉开关与层次交叉开关。</strong>GPU 的 many-to-few-to-many（大量 SM 打少量 L2/MC 再散开）让 mesh 处于劣势。CD-Xbar（2019）把 SM 先在本地交叉开关里收敛，再经全局交叉开关散到 LLC 与内存控制器，相对同等对剖带宽的 mesh 面积/功耗降 52.5%/48.5%，性能平均高 13.9%，距理想全连接只有 2.9%。代价是定制结构，扩展到更多 SM 时要重新切分。Colagrande 与 Benini 2025 年的组播 AXI 交叉开关说明，在规模还撑得住交叉开关时，组播可以做得很轻（16×16 上面积/时序约 +12%/+6%），但他们自己在后续工作里承认交叉开关撑不住大规模 tile 阵列。</li>
+      <li><strong>2D mesh。</strong>规则、布线短、好做 XY 路由，是 Cerebras、Dojo、MTIA、FlooNoC 以及大量学术 DNN 加速器的默认选择。缺点是对剖带宽随边长线性增长、角落到角落要走很多跳，广播若不做树就会变成洪水。</li>
+      <li><strong>2D torus。</strong>Tenstorrent 给每颗芯片两张流向相反的 torus，用 dateline 破环。环回边提供了不绕远路的路径，也多了一类死锁要处理。对「计算、GDDR、Ethernet 挂在同一张网上」这种用法，torus 比纯 mesh 更说得通。</li>
+      <li><strong>层次 mesh / 簇内全连接。</strong>Eyeriss v2 的 HM-NoC 把 all-to-all 关在 12 个 PE 的簇内，簇间走 mesh，从而在面积几乎不涨（全部 HM-NoC 约占逻辑 2.6%）的前提下切换单播、广播和两种组播。这是「为 dataflow 配 NoC」而不是「先铺一张通用网再映射网络」的样板。</li>
+      <li><strong>功能切片与确定性流。</strong>Groq TSP（ISCA 2020）不走包交换：存储与运算按条带排开，数据沿固定方向流，调度在编译时做完。它解决的是抖动和可预测延迟，而不是任意通信图。把它叫成 NoC 会误导，但它属于同一设计空间里的极端点：把控制面完全交给编译器。</li>
+      <li><strong>脉动阵列。</strong>TPU 的 MXU 是运算数据通路，相邻 MAC 之间的短边是硬连线，不是路由出来的包。不要把脉动阵列写成片上网络，也不要把 ICI 写成片上网络。TPU 芯片内部多核之间如果有高带宽链路（DeepMind 教程写明 TPU7x 去掉 megacore、改为两核之间的片内高带宽链路），那才是片上互连，而且公开细节很少。</li>
+    </ul>
+    <h3>路由、死锁、流控与虚通道</h3>
+    <p>AI NoC 大多仍用确定性 XY / 维序路由，加上为 torus 准备的 dateline。自适应路由在公开的商用 AI 芯片文档里很少成为主角——编译器已经把路径写死时，运行时再自适应的收益有限，验证成本却很高。Tenstorrent 把常见事务的死锁交给硬件，把链接虚通道、不预约的广播、非零仲裁优先级交回软件：这是一种很工程的分割，默认路径求「不容易卡死」，要吞吐再自己证明。</p>
+    <p>虚通道在这里至少干三件事：破环（dateline）、分开请求/响应/广播以免响应被请求堵住（Tenstorrent 的 class 位）、以及在 GPU 上区分延迟敏感的 load 和批量 DMA。公开的 GPU 资料几乎不给 VC 数量和仲裁公式，只能把「应当按流量类分 VC」当成设计原则，不能当成某代 NVIDIA 芯片的规格。</p>
+    <h3>广播、组播与规约</h3>
+    <p>这是 2023 年以后论文最密集的方向，也是和传统 NoC 分叉最明显的地方。实现大致有四档：</p>
+    <ol>
+      <li>软件树 / 流水单播，靠 DMA 和屏障拼集合操作；</li>
+      <li>硬件树形组播（路由器 fork），目的地用矩形、掩码或子网格编码；</li>
+      <li>路径预约，避免多棵广播树在中间节点打结，代价是启动延迟；</li>
+      <li>网内算术规约，过去常被认为面积不可接受，MLSys 2026 用 DCA 把运算卸到 tile 的 FPU 上，全功能路由器只多 16.9% 面积。</li>
+    </ol>
+    <p>编码几乎都在「任意目的地集合」和「可扩展的头部」之间妥协。Tenstorrent 用矩形加固件掩码；ETH 用地址 don’t-care 掩码，只能打对齐的 2 的幂子网格。对权重广播和 SUMMA 够用，对完全数据相关的专家分发可能要拆多次。</p>
+    <h3>与 dataflow / 编译器的协同</h3>
+    <p>哪一张网、哪一种集合原语有用，几乎总是由数据流决定的。Row-stationary 让 Eyeriss 的 weight NoC 可以简化成沿行复用；SUMMA 需要行组播加列组播；融合注意力则在末尾要一次规约。Cerebras 的 color 在编译期绑到任务与路由；Graphcore 的 BSP 把计算和 exchange 相位切开，由 Poplar 编排；Dojo 不保证端到端排序，同步树由编译器构造，完成靠目的地计数；Groq 更进一步，连仲裁都尽量从运行时拿掉。结论是：AI NoC 的「可编程性」往往表现为编译器可配置的静态路径和集合原语，而不是应用随时发出任意包。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. GPU 片上互联</h2>
+    <p>把 GPU 说成「就是一张大 mesh」通常是错的。计算集群（SM / CU）到共享的 L2、再到 HBM 控制器，流量天然是 many-to-few-to-many。CD-Xbar 2019 年就把这件事写进摘要：mesh 在 manycore CPU 上因为规则、好扩展而常见，但并不契合 GPU 计算负载。</p>
+    <h3>NVIDIA：分区 L2 交叉开关，再加上 GPC 内的 SM 网</h3>
+    <p>官方对 Hopper 的表述是（NVIDIA 技术博客，2022-03-22）：L2 采用<em>分区的交叉开关结构</em>，让缓存靠近与之直接相连的 GPC 所产生的访存；H100 的 L2 为 50 MB，HBM3 带宽超过 3 TB/s。同一篇文章引入 thread block cluster 和 distributed shared memory：同一集群里的 SM 可以对彼此的共享内存做 load / store / atomic，而不必先绕到 L2。这是片上又长出的一层近邻网，粒度比「全芯片 L2 交叉开关」小，也更接近加速器里的 PE 网格。</p>
+    <p>2025–2026 年的微基准把这张图补细了。Hopper 剖析（arXiv:2501.12084）专门测了 DSM 等 SM 间通信。更关键的是 2026 年对 die 扩展的那篇（arXiv:2609.24270）：H200 / B200 上 L2 按内存亲和分区，中间由 LTC fabric 相连；远端 HBM 带宽的瓶颈是这块 fabric，不是 HBM 本身。跨分区的加载会把数据复制进本地 L2，再访问的延迟约 310 拍（H200）和 360 拍（B200），接近本地 L2 命中。于是「统一 L2」在程序员心里还在，物理上已经是带复制和容量干扰的 NUMA。B200 的可利用边界还进一步走到了 die 与 die 之间。这已经踩在第 3 节的①和②之间，但不能把它叫做 NVLink。</p>
+    <div class="callout warn">NVIDIA 没有公开路由器微结构、虚通道数目、全局交叉开关的具体端口划分或 GPC 内 SM 网的拓扑图。上面这些只是官方措辞加上第三方微基准能支持的部分。把博客里的「分区交叉开关」画成一张具体的蝶形或 mesh，是过度推断。</div>
+    <h3>AMD：公开材料停在封装层</h3>
+    <p>Instinct MI300 一族在 Hot Chips 36 等场合讲得比较多的是 3D / chiplet 封装和 Infinity Fabric / Infinity Cache。这些首先是封装和存储层次的故事。本轮没有找到与 NVIDIA L2 交叉开关或 DSM 同等级别的、可引用的「计算单元到 LLC 的片上 NoC」官方微结构描述，因此不编造 CU 网格拓扑或片上交叉开关规格。阅读 AMD 资料时，应默认 Infinity Fabric 跨 die、跨插座的部分属于第 ②、③ 层，除非原文明确写的是 die 内。</p>
+    <h3>和 AI 负载的关系</h3>
+    <p>矩阵核心吃的是 SM 本地寄存器、共享内存和 TMA 一类异步拷贝；跨 SM 复用同一块权重或 KV，过去要经 L2，Hopper 之后可以走 DSM。集体通信库走的是 NVLink / NIC，不是这层 NoC。把 NCCL 的拓扑图解释成 GPU 片上网络，是最常见的错位。反过来，内核作者若忽略 L2 分区和 DSM 的可见范围，会把本来能留在 GPC 内的交换做成全芯片往返——那才是片上互连真正在惩罚的事情。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 典型 AI 加速器上的 NoC</h2>
+    <p>下面只写能回到公开源的部分。规格以官方或经过实测的论文为准；第三方转述会标明。没有公开片上互连微结构的，就明确写「不知道」。</p>
+    <table>
+      <thead>
+        <tr><th>系统</th><th>片上互连（已核实）</th><th>不要算成 NoC 的部分</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>TPU</td>
+          <td>MXU 是脉动阵列数据通路；VMEM 是核内便笺。TPU7x 两核之间有高带宽片内链路（DeepMind 教程）。核与 HBM 的具体交换结构公开很少。</td>
+          <td>ICI、光电路交换、3D torus 机柜</td>
+        </tr>
+        <tr>
+          <td>Cerebras WSE</td>
+          <td>数十万 PE 的 2D mesh；邻居单周期 32-bit wavelet；24 条 color 虚通道；CE 只经本 PE 的 router 与四邻居通信。官方产品页（2026-11 抓取）写 WSE-3 片上 SRAM 44 GB、存储带宽 43.2 PB/s，wafer-scale fabric 内部带宽 53.5 PB/s。</td>
+          <td>SwarmX / MemoryX 集群织物；主机侧 100GbE</td>
+        </tr>
+        <tr>
+          <td>Graphcore IPU（初代，实测）</td>
+          <td>1216 tile 经 exchange 通信；全 tile 随机 all-to-all 聚合 7.7 TB/s，每 tile 约 6.3 GB/s；同列延迟 37–59 ns。BSP + 硬件 all-to-all。</td>
+          <td>IPU-Link（同板单向 55 GB/s，跨板约 28 GB/s）</td>
+        </tr>
+        <tr>
+          <td>Tesla Dojo D1</td>
+          <td>354 节点 2D mesh，每节点 1.25 MB SRAM，片上共 440 MB；2 GHz 量级。第三方根据 HC34 整理为每个方向 2×64B 链路。官方摘要：362 TFLOPS，645 mm²，TSMC 7nm。</td>
+          <td>Training Tile 边（现场记录 4.5 TB/s）、DIP/HBM、Z-plane、TTPoE</td>
+        </tr>
+        <tr>
+          <td>Tenstorrent</td>
+          <td>双 2D torus，流向相反；Blackhole 512-bit flit @ 1.35 GHz，邻居 9 拍、每拍 1 flit；矩形广播与原子。详见同目录深读。</td>
+          <td>Ethernet 片间链路、Galaxy 机柜 mesh</td>
+        </tr>
+        <tr>
+          <td>Groq TSP</td>
+          <td>功能切片上的确定性张量流，编译器静态调度，不是传统包交换 NoC。</td>
+          <td>芯片间的 scale-out 互连（Hot Chips 34 有系统级演讲，本综述不展开）</td>
+        </tr>
+        <tr>
+          <td>AWS Trainium2</td>
+          <td>8 个 NeuronCore-v3、96 GiB HBM @ 2.9 TB/s、DMA 3.5 TB/s。公开文档几乎不描述 8 核之间的片上网络微结构。</td>
+          <td>NeuronLink-v3（每芯片 1.28 TB/s）、16 个 CC-Core，官方写成芯片之间</td>
+        </tr>
+        <tr>
+          <td>Meta MTIA（下一代，2024 博客）</td>
+          <td>8×8 PE 网格；官方写明改进的 NoC 带宽翻倍，并可在 PE 间低延迟协同。片上 SRAM 256 MB / 2.7 TB/s。</td>
+          <td>机架内 PCIe Gen5、可选 RDMA NIC 做机架外扩展</td>
+        </tr>
+        <tr>
+          <td>SambaNova SN40L</td>
+          <td>数据流图上的片上分布式 SRAM；三层存储的最内层。公开论文对路由器/拓扑着墨不多。</td>
+          <td>封装内 HBM、封装外 DDR，以及 RDU 之间的专用互连</td>
+        </tr>
+        <tr>
+          <td>Simba（MICRO 2019，背景）</td>
+          <td>同一 chiplet 内用 NoC 连 PE。36 个 chiplet 的样片整包最高 128 TOPS、6.1 TOPS/W。</td>
+          <td>封装上的 NoP；论文的核心贡献之一正是把这两层分开优化</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>读这些芯片时的对照</h3>
+    <p><strong>Cerebras</strong> 把「单周期邻居 + 虚通道（color）+ 缺陷绕行」做到了晶圆尺度。SDK 把 mental model 写得很干净：你指挥的是一张会独立计算和通信的 PE 网格，而不是少数几个大核。color 既是路由标签，也是唤醒任务的匹配键，拥堵时一条 color 不堵塞另一条。产品页上的 53.5 PB/s 是厂商口径的内部 fabric 带宽，阅读时要记住这是整张晶圆的聚合能力，不是单条邻居链路，也不能直接拿去和 GPU 的 HBM 带宽做同口径对比。WSE-3 Turbo 的 4 万亿晶体管、90 万核、250 petaflops 同页给出，本综述不讨论其与 GPU 的系统级对比是否公平。</p>
+    <p><strong>Dojo</strong> 更接近「海量可编程 CPU 节点 + 超宽 mesh」。它没有虚拟内存、不保证端到端排序、靠计数完成同步，编译器必须理解拓扑并构造同步树——这些都是把 NoC 暴露给系统软件之后才会做的取舍。D1 自身不带 HBM 和 PCIe，存储在 DIP 一侧，因此片上 NoC 的另一头很快就进入模块级互连。引用带宽时必须说清是节点边、die 边还是 Tile 边。</p>
+    <p><strong>Graphcore</strong> 的价值是一份认真的片上实测，而不是宣传页。7.7 TB/s 是「所有 tile 同时向随机目的地发送」的实际聚合，不是理论峰值；每 tile 6.3 GB/s 几乎不随并发数下降，说明 exchange 的对剖在这种负载下没有先塌掉。延迟随岛和列变化，证明即使用「全连接感」的名字（exchange），物理上仍然有距离。</p>
+    <p><strong>Tenstorrent</strong> 是目前公开文档最细的商用 AI NoC，适合作为实现对照。统一 torus 服务计算和 IO，矩形广播带固件掩码，死锁责任分层，都是可以抄进自己设计评审清单的句子。细节见同目录分析。</p>
+    <p><strong>Trainium / Inferentia</strong> 在公开文档里把笔墨给了 NeuronCore 内部引擎、HBM 和芯片间的 NeuronLink。作为 NoC 专题，能负责任写下的是：片上 8 核怎么连，官方没有讲到可引用的拓扑和链路宽度。宁可留白，不要用服务器里 4×4 torus 的 NeuronLink 拓扑去填这张表。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 近年论文脉络与工程经验</h2>
+    <h3>一条可以按年读的线</h3>
+    <p><strong>2018–2020，问题成型。</strong>Eyeriss v2 证明 NoC 必须跟随层形态在单播和组播之间切换；Simba 证明再往上的扩展首先撞的是封装互连，必须把 NoC 和 NoP 分成两层来做 tiling；CD-Xbar 给 GPU 写下「不要盲目铺 mesh」；Groq 把编译期确定性流推到极端；Graphcore 的微基准让「片上 all-to-all 到底有多快」有了可复现的数字。</p>
+    <p><strong>2022–2024，工业界把互连当成产品故事的一部分。</strong>Hot Chips 34 同时出现 Dojo 与 Cerebras 深潜。Hopper 把 DSM 写进官方架构博客。Meta 在 2024 年原话写「改进的 NoC 带宽翻倍」。SambaNova 把三层存储和数据流放到 SN40L 论文与 HC36。FlooNoC（arXiv 2024-09，TVLSI 2025）则给学术界补上一个面向大块 AXI 流量、能量数字像样的开源基线：12nm 上 645 Gbps/链路、103 Tbps 聚合、0.15 pJ/B/hop，相对传统多层 AXI 面积少 30%。</p>
+    <p><strong>2025–2026，集合通信从软件下沉到路由器。</strong>同一组作者先在交叉开关上做组播（GEMM +29%），再把它扩到 mesh，并加上屏障和网内算术规约（MLSys 2026）。并行地，HT-NoC 继续为全连接层和 Transformer FFN 做可重构拓扑；URMP 与树形组播机制处理 DNN 一对多；也有工作开始抠 NoC 上的位翻转功耗。GPU 一侧，微基准把 L2 分区和 LTC fabric 从「不知道的互连」变成可以测的 NUMA 现象。</p>
+    <h3>几条反复出现的工程经验</h3>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>为规则集合做硬件，把任意集合留给软件</h4>
+        <p>矩形、行、列、2 的幂子网格，是权重广播和 SUMMA 真正的形状。为它们加 fork、掩码和预约，比做一个能表达任意目的地集合的豪华组播引擎更划算。</p>
+      </div>
+      <div class="tile">
+        <h4>能卸到已经存在的计算单元就不要在路由器里再造一份</h4>
+        <p>DCA 只是这个原则的一个实现：FPU 已经付过面积，网络需要的是端口、tag 和背压。Cerebras 的 CE 与 router 分离、Dojo 节点自己做运算，也是同一类分工。</p>
+      </div>
+      <div class="tile">
+        <h4>默认路径求不死锁，高级开关求吞吐</h4>
+        <p>Tenstorrent 把三种危险 flag 写进程序员须知，比宣称「本 NoC 无死锁」更可信。广播预约是典型交易：延迟换可预期。</p>
+      </div>
+      <div class="tile">
+        <h4>通信不在关键路径上，硬件集合就是白给的面积</h4>
+        <p>MLSys 2026 把这一点写成两条与内核无关的条件。双缓冲 GEMM 只有通信绑定时才吃到组播；评测若只用计算绑定的形状，会得出「组播没用」的假阴性。</p>
+      </div>
+      <div class="tile">
+        <h4>缺陷、harvest 和关钟是互连问题</h4>
+        <p>晶圆级和超大芯片必须能绕开坏 PE。Cerebras 用冗余路由；Tenstorrent 用广播掩码，关钟却未掩码的 tile 会让广播永远完不成。Dojo 把绕死节点交给软件。</p>
+      </div>
+      <div class="tile">
+        <h4>文档质量本身是竞争力</h4>
+        <p>同样宣称「有组播」的芯片，Tenstorrent 和 Cerebras 给出了可以写内核的机制，多数云 ASIC 只给出口号。闭源并不妨碍芯片快，但会妨碍生态和外部优化，也会让论文里的「工业界已经有了」无法被检验。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 开放问题</h2>
+    <ol>
+      <li><strong>不规则集合：MoE、稀疏专家、数据相关 dispatch。</strong>当前硬件原语偏爱矩形和对齐子网格。专家并行在机柜级已经逼出一串手写库；它们在片上应该落成多次矩形广播、硬件 gather，还是继续走单播加软件，还没有像 SUMMA 那样清楚的公开答案。</li>
+      <li><strong>多 die / 多分区之后，片上网络的一致性模型。</strong>B200 的 LTC fabric 已经让「统一 L2」变成带复制的 NUMA。以后的 GPU 和加速器会更碎。编译器和运行时要不要显式看见这些分区，还是继续靠硬件隐藏并承受悄悄的带宽台阶，是开放的系统问题。</li>
+      <li><strong>网内计算的边界。</strong>DCA 证明算术规约不必很贵，但它依赖「规约与本地计算不重叠」或可预测的争用。把更多算子（softmax 分段、量化、稀疏压缩）塞进网络，会在何时打输「让 PE 自己算」？</li>
+      <li><strong>端到端证据仍然稀缺。</strong>很多加速比停在原语或单个 GEMM 模型。把硬件组播/规约接到完整 Transformer 或训练步上，并报告对 HBM 流量和利用率的贡献，仍少见。</li>
+      <li><strong>能耗与宽链路的物理实现。</strong>FlooNoC 用高层金属走宽链路拿到了很好的 pJ/B，这在更先进工艺、更大规模 mesh、更乱的流量下能否保持，需要更多流片数据，而不是只在 8×4 上讲一次。</li>
+      <li><strong>与编译器 IR 的接合。</strong>计算侧已经有 tile DSL 和多级 IR；通信在片上往往还是 MMIO、DMA 描述符或厂商运行时。把矩形广播、color、屏障做成编译器可改的 IR（而不是最后链进库），在 GPU 集群通信里刚开始出现，在片上 NoC 上几乎还没开始公开讨论。</li>
+      <li><strong>公开规格的缺口。</strong>NVIDIA、AMD、Google TPU、AWS Trainium 的片上互连，外部研究者主要靠微基准逆向。这限制了可重复的设计空间探索，也让「下一代该不该上 torus / 该不该做网内规约」缺乏共同的工业对照点。</li>
+    </ol>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 参考文献</h2>
+    <p>下列链接均可公开打开（论文优先 arXiv 或出版社摘要页）。更完整、按时间追加的条目见同目录 <a href="entries.md">entries.md</a>。</p>
+    <ul>
+      <li>Chen, Yang, Emer, Sze. Eyeriss v2. IEEE JETCAS 2019 / <a href="https://arxiv.org/abs/1807.07928" target="_blank" rel="noopener">arXiv:1807.07928</a></li>
+      <li>Zhao, Ma, et al. CD-Xbar. IEEE Transactions on Computers, 2019. <a href="https://www.computer.org/csdl/journal/tc/2019/09/08673612/1ciKE7LYgr6" target="_blank" rel="noopener">IEEE 摘要页</a></li>
+      <li>Shao et al. Simba. MICRO 2019. <a href="https://research.nvidia.com/publication/2019-10_simba-scaling-deep-learning-inference-multi-chip-module-based-architecture" target="_blank" rel="noopener">NVIDIA Research</a></li>
+      <li>Jia, Tillman, Maggioni, Scarpazza. Dissecting the Graphcore IPU… <a href="https://arxiv.org/abs/1912.03413" target="_blank" rel="noopener">arXiv:1912.03413</a></li>
+      <li>Abts et al. Think Fast: A Tensor Streaming Processor. ISCA 2020. <a href="https://www.computer.org/csdl/proceedings-article/isca/2020/09138986/1lsasZYR61O" target="_blank" rel="noopener">IEEE 摘要页</a></li>
+      <li>Andersch et al. NVIDIA Hopper Architecture In-Depth. 2022-03-22. <a href="https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/" target="_blank" rel="noopener">NVIDIA 技术博客</a></li>
+      <li>Talpes et al. The Microarchitecture of DOJO. IEEE Micro 2023 / Hot Chips 34. <a href="https://www.computer.org/csdl/magazine/mi/2023/03/10078146/1LH8HyZD3ws" target="_blank" rel="noopener">IEEE Micro</a>；现场与转述：<a href="https://www.servethehome.com/tesla-dojo-ai-system-microarchitecture/" target="_blank" rel="noopener">ServeTheHome</a>，<a href="https://old.chipsandcheese.com/2022/09/01/hot-chips-34-teslas-dojo-microarchitecture/" target="_blank" rel="noopener">Chips and Cheese</a></li>
+      <li>Lie. Cerebras Architecture Deep Dive. IEEE Micro 2023. <a href="https://www.computer.org/csdl/magazine/mi/2023/03/10123162/1N3MpzfExos" target="_blank" rel="noopener">IEEE Micro</a>；WSE-2 晶体管与核数：<a href="https://www.cerebras.ai/blog/announcing-the-cerebras-architecture-for-extreme-scale-ai" target="_blank" rel="noopener">Cerebras 博客</a>；机制：<a href="https://sdk.cerebras.ai/computing-with-cerebras" target="_blank" rel="noopener">SDK</a>；WSE-3 带宽：<a href="https://cerebras.ai/product-chip" target="_blank" rel="noopener">产品页</a>（2026-11-22 抓取）</li>
+      <li>Austin et al. How to Think About TPUs. 2025-02-04. <a href="https://jax-ml.github.io/scaling-book/tpus/" target="_blank" rel="noopener">How to Scale Your Model</a></li>
+      <li>Prabhakar et al. SambaNova SN40L. <a href="https://arxiv.org/abs/2405.07518" target="_blank" rel="noopener">arXiv:2405.07518</a></li>
+      <li>Meta. Our next generation MTIA. 2024-04-10. <a href="https://ai.meta.com/blog/next-generation-meta-training-inference-accelerator-AI-MTIA/" target="_blank" rel="noopener">工程博客</a></li>
+      <li>AWS. Trainium2 Architecture. <a href="https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html" target="_blank" rel="noopener">Neuron 文档</a></li>
+      <li>Fischer et al. FlooNoC. <a href="https://arxiv.org/abs/2409.17606" target="_blank" rel="noopener">arXiv:2409.17606</a> / IEEE TVLSI 2025</li>
+      <li>Colagrande, Benini. A Multicast-Capable AXI Crossbar… <a href="https://arxiv.org/abs/2502.19215" target="_blank" rel="noopener">arXiv:2502.19215</a></li>
+      <li>Colagrande, Leone, Wu, Fischer, Roth, Benini. A Lightweight High-Throughput Collective-Capable NoC… MLSys 2026 / <a href="https://arxiv.org/abs/2603.26438" target="_blank" rel="noopener">arXiv:2603.26438</a></li>
+      <li>Tenstorrent. NoC ISA documentation. <a href="https://github.com/tenstorrent/tt-isa-documentation" target="_blank" rel="noopener">tt-isa-documentation</a>；<a href="https://raw.githubusercontent.com/tenstorrent/tt-isa-documentation/main/BlackholeA0/NoC/README.md" target="_blank" rel="noopener">Blackhole README</a></li>
+      <li>Zhang et al. Dissecting the NVIDIA Hopper Architecture… <a href="https://arxiv.org/abs/2501.12084" target="_blank" rel="noopener">arXiv:2501.12084</a></li>
+      <li>Dissecting How Die Scaling Breaks GPU Fine-grained Scheduling. <a href="https://arxiv.org/abs/2609.24270" target="_blank" rel="noopener">arXiv:2609.24270</a></li>
+      <li>HT-NoC. ARC 2025. <a href="https://doi.org/10.1007/978-3-031-87995-1_2" target="_blank" rel="noopener">doi:10.1007/978-3-031-87995-1_2</a></li>
+      <li>URMP. Journal of Supercomputing, 2023. <a href="https://link.springer.com/article/10.1007/s11227-023-05255-7" target="_blank" rel="noopener">Springer</a></li>
+      <li>Bit Transition Reduction… <a href="https://arxiv.org/abs/2509.00500" target="_blank" rel="noopener">arXiv:2509.00500</a></li>
+      <li>Taylor et al. Numerical Kernels on Tenstorrent Wormhole. <a href="https://arxiv.org/abs/2603.23343" target="_blank" rel="noopener">arXiv:2603.23343</a></li>
+    </ul>
+    <div class="callout navy">配套深读：<a href="Tenstorrent_NoC_架构分析.html">Tenstorrent_NoC_架构分析.html</a>、 <a href="CollectiveNoC_论文分析.html">CollectiveNoC_论文分析.html</a>。追踪清单：<a href="entries.md">entries.md</a>、<a href="entries.json">entries.json</a>。</div>
+  </section>
+
+  <footer>
+    综述截止日期 2026-11-22（Asia/Shanghai）。只使用已打开的公开源中的事实与数字；图为示意，不是原文插图。本页准备上传到 github.com/xqdan/mlsys-paper 的 noc/ 目录，本身尚未执行 git 操作。
+  </footer>
+
+</div>
+</body>
+</html>
