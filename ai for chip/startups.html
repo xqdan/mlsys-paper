@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>创业公司进展 | AI for Chip</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.navy { background: #e8eef5; color: #1e3a5f; border-color: #bfd0e3; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    .local-nav {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 14px; margin: 16px 0 0;
+    }
+    .local-nav a { text-decoration: none; margin-right: 16px; }
+    .local-nav a:hover { text-decoration: underline; }
+    .local-nav a.current { color: var(--accent); font-weight: 650; }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .table-wrap { overflow-x: auto; margin: 12px 0 18px; }
+    .table-wrap table { margin: 0; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .src { font-size: 12.5px; word-break: break-all; }
+    .note { font-size: 14px; color: var(--muted); }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+
+  
+  </style>
+</head>
+<body>
+  <div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">创业公司</span>
+      <span class="badge ok">融资与产品</span>
+      <span class="badge navy">截至 2026-11-22</span>
+    </div>
+    <h1>创业公司进展</h1>
+    <p class="subtitle">用人工智能做芯片设计的创业公司：已核验的融资、产品与基准发布。</p>
+    <p class="meta">截至 <strong>2026-11-22</strong>（Asia/Shanghai）。融资与客户数字取公司新闻稿或具名媒体原文，未独立审计。</p>
+    
+    <div class="local-nav">
+      <a href="index.html" class="">总览</a>
+      <a href="papers.html" class="">论文</a>
+      <a href="startups.html" class="current">创业公司</a>
+      <a href="industry.html" class="">业界</a>
+    </div>
+  </header>
+  
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+        <li><a href="#takeaway">怎么看这一年的创业公司</a></li>
+        <li><a href="#chipagents">ChipAgents</a></li>
+        <li><a href="#ricursive">Ricursive Intelligence</a></li>
+        <li><a href="#chipstack">ChipStack 并入 Cadence</a></li>
+        <li><a href="#table">一览表</a></li>
+        <li><a href="#gaps">未写入的公司</a></li>
+    </ol>
+  </nav>
+  
+  <section class="card" id="takeaway">
+    <h2>怎么看这一年的创业公司</h2>
+    <div class="callout">
+      独立公司里，最能核验到一手材料的是两条：ChipAgents 把智能体卖进设计与验证生产流程，并在 2026 年三次扩大 A 轮至 1.34 亿美元；Ricursive 由 AlphaChip 作者创立，四个月内募到 3.35 亿美元（估值 40 亿美元），并在 11 月放出为芯片设计平台训练的开源权重模型 Ripple-65B Preview。另一件结构性事件是 ChipStack 于 2025 年 11 月并入 Cadence，随后变成 ChipStack AI Super Agent 产品线。
+    </div>
+    <p>下面只写打开过原文的节点。公司自述的倍速、客户数和 ARR 增速都明确标为自述。</p>
+  </section>
+
+  <section class="card" id="chipagents">
+    <h2>ChipAgents（法律实体 Alpha Design AI）</h2>
+    <p>2024 年成立，创始人兼 CEO 为加州大学圣巴巴拉分校的 William Wang。产品定位是用领域智能体做规格到 RTL、验证资产和根因分析，而不是只做代码补全。总部在圣克拉拉，研发在戈利塔。顾问董事会在后续轮次中陆续加入 Wally Rhines（Mentor Graphics 前 CEO）、Raúl Camposano（Synopsys 前 CTO）、Jack Harding（Cadence 前 CEO）等人。</p>
+
+    <h3>2025-10-21：A 轮 2100 万美元</h3>
+    <p>官方新闻稿称完成超额认购的 2100 万美元 A 轮，累计融资 2400 万美元。领投为 Bessemer Venture Partners，战略投资方包括 Micron、MediaTek、Ericsson，另有 ScOp、Amino Capital，以及新顾问天使。稿件称部署出现在 50 家领先半导体公司，并给出「第二年年初 ARR 同比 50 倍」的自述。来源：<a href="https://chipagents.ai/newsroom/chipagents-series-a-21m">https://chipagents.ai/newsroom/chipagents-series-a-21m</a></p>
+
+    <h3>2026-02-17：A1 轮 5000 万美元，累计 7400 万美元</h3>
+    <p>由 Matter Venture Partners 领投。稿件称 Matter 是「有台积电背景的 HardTech 基金」，Wen Hsieh 加入董事会。公司称已把总部迁到圣克拉拉，团队从 10 人扩到 46 人，部署扩到 80 家公司，并拿到数年期、数百万美元级许可协议；ARR 同比自述为 140 倍。同一份稿件列出一组生产环境自述指标：规格阅读 15 倍、形式化断言生成时间降到 1/240、形式验证达到 100% 代码与功能覆盖、UVM 环境生成 400 倍。这些数字未提供对照方法和审计。Sandeep Bharathi（Marvell 数据中心集团总裁）加入顾问董事会。来源：<a href="https://chipagents.ai/newsroom/chipagents-series-a1-74m">https://chipagents.ai/newsroom/chipagents-series-a1-74m</a></p>
+
+    <h3>2026-07-29：A2 轮追加 6000 万美元，A 轮扩至 1.34 亿美元</h3>
+    <p>新投资方 B Capital 加入，Bessemer、Micron、MediaTek、Ericsson、ScOp 等跟投。稿件称这是在首次 A 轮关闭约六个月后追加，累计「超过 1.34 亿美元」。自述 2026 上半年 ARR 增长 6 倍，部署超过 120 家半导体公司，其中包括 MediaTek 与 Micron；并称可把设计周期缩短 50% 以上。Daisy Cai 代表 B Capital 发表评论。来源：<a href="https://chipagents.ai/newsroom/chipagents-series-a2-134m">https://chipagents.ai/newsroom/chipagents-series-a2-134m</a></p>
+
+    <h3>2026-10-14：与 NVIDIA 合作发布 Build-A-Chip-Bench</h3>
+    <p>基准测量的不是单点 RTL 对错，而是智能体能否把规格推进到通过功能、时序、功耗、面积和物理验证的 GDS。初评写明：受测智能体平均约 40% 的任务通过功能验证，只有约 10% 达到要求的物理 PPA。任务细节与方法见 <a href="https://chipagents.ai/research/build-a-chip-bench">https://chipagents.ai/research/build-a-chip-bench</a>。基准由 Surya Gunukula、Jerry Yicheng Wang、Kexun Zhang 开发，NVIDIA 提供技术意见。来源：<a href="https://chipagents.ai/newsroom/chipagents-nvidia-build-a-chip-bench">https://chipagents.ai/newsroom/chipagents-nvidia-build-a-chip-bench</a></p>
+  </section>
+
+  <section class="card" id="ricursive">
+    <h2>Ricursive Intelligence</h2>
+    <p>由 Anna Goldie（CEO）与 Azalia Mirhoseini（CTO）于 2025 年创立。两人是 Google AlphaChip 工作的核心作者，也曾在 Anthropic 工作。公司定位不是做一颗对标 GPU 的芯片，而是用人工智能加速各类芯片的设计，目标客户包括芯片厂商；NVIDIA 是投资方之一。官网自述团队还与 RL-CCD、Insta、C3PO 等工作有关，这些论文题名本轮未逐一打开核对。</p>
+
+    <h3>2026 年 1–2 月：种子轮加 A 轮，四个月 3.35 亿美元</h3>
+    <p>TechCrunch 于 2026-02-16 报道：Sequoia 领投 3500 万美元种子轮后，Lightspeed 领投 3 亿美元 A 轮，估值 40 亿美元，四个月累计 3.35 亿美元；NVIDIA 是投资方。创始人表示平台会在不同芯片之间迁移学习，并覆盖从元件放置到验证，但早期客户名单未公开。本条以 TechCrunch 采访稿为准，本轮未找到可打开的公司官方融资新闻稿。来源：<a href="https://techcrunch.com/2026/02/16/how-ricursive-intelligence-raised-335m-at-a-4b-valuation-in-4-months/">https://techcrunch.com/2026/02/16/how-ricursive-intelligence-raised-335m-at-a-4b-valuation-in-4-months/</a></p>
+
+    <h3>2026 年 11 月：Ripple-65B Preview</h3>
+    <p>官网发布页称，为驱动芯片设计平台，团队从零训练了一套语言模型，并放出其通用变体 Ripple-65B Preview：在 12 万亿 token 上预训练，上下文最长 100 万，稠密 65B。官方给出 TerminalBench 2.1 上 80.52 的美国开源权重结果，并列出对若干更大开源权重模型的对照。官方称完整研发成本为 3200 万美元（含梯子实验、数据、评测和最终训练），并强调内部变体用于其芯片设计平台。权重与推理入口见 Hugging Face、Together AI、GMI Cloud、OpenRouter 和 Fireworks。来源：<a href="https://www.ricursive.com/ripple">https://www.ricursive.com/ripple</a></p>
+  </section>
+
+  <section class="card" id="chipstack">
+    <h2>ChipStack 并入 Cadence</h2>
+    <p>2025-11-10，Cadence 官方博客宣布与 ChipStack 达成加入协议。ChipStack 是做芯片验证智能体的创业公司，此前已与 Cadence 的 Xcelium 和 Jasper 等多年代合作。Cadence 称将把其智能体嵌入全流程验证，并继续支持既有产品路线。这次收购是 2026 年 ChipStack AI Super Agent、InnoStack、ViraStack 产品线的直接前序，细节见 <a href="industry.html">业界页</a>。来源：<a href="https://community.cadence.com/cadence_blogs_8/b/corporate-news/posts/cadence-welcomes-chipstack">https://community.cadence.com/cadence_blogs_8/b/corporate-news/posts/cadence-welcomes-chipstack</a></p>
+  </section>
+
+  <section class="card" id="table">
+    <h2>一览表</h2>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日期</th><th>公司</th><th>事件</th><th>已核验要点</th><th>来源</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2025-10-21</td><td>ChipAgents</td><td>A 轮 2100 万美元</td><td>Bessemer 领投，累计 2400 万美元。</td><td class="src"><a href="https://chipagents.ai/newsroom/chipagents-series-a-21m">chipagents.ai/.../series-a-21m</a></td></tr>
+        <tr><td>2025-11-10</td><td>ChipStack</td><td>并入 Cadence</td><td>验证智能体创业公司被收购。</td><td class="src"><a href="https://community.cadence.com/cadence_blogs_8/b/corporate-news/posts/cadence-welcomes-chipstack">Cadence 博客</a></td></tr>
+        <tr><td>2026-01–02</td><td>Ricursive</td><td>种子 + A 轮共 3.35 亿美元</td><td>估值 40 亿美元，Lightspeed 领投 A 轮；NVIDIA 投资。来自 TechCrunch。</td><td class="src"><a href="https://techcrunch.com/2026/02/16/how-ricursive-intelligence-raised-335m-at-a-4b-valuation-in-4-months/">TechCrunch 2026-02-16</a></td></tr>
+        <tr><td>2026-02-17</td><td>ChipAgents</td><td>A1 轮 5000 万美元</td><td>Matter VP 领投，累计 7400 万美元。</td><td class="src"><a href="https://chipagents.ai/newsroom/chipagents-series-a1-74m">chipagents.ai/.../series-a1-74m</a></td></tr>
+        <tr><td>2026-07-29</td><td>ChipAgents</td><td>A2 轮 6000 万美元</td><td>B Capital 加入，A 轮扩至 1.34 亿美元；部署超 120 家（自述）。</td><td class="src"><a href="https://chipagents.ai/newsroom/chipagents-series-a2-134m">chipagents.ai/.../series-a2-134m</a></td></tr>
+        <tr><td>2026-10-14</td><td>ChipAgents / NVIDIA</td><td>Build-A-Chip-Bench</td><td>初评约 40% 过功能，约 10% 达物理 PPA。</td><td class="src"><a href="https://chipagents.ai/newsroom/chipagents-nvidia-build-a-chip-bench">chipagents.ai/.../build-a-chip-bench</a></td></tr>
+        <tr><td>2026-11</td><td>Ricursive</td><td>Ripple-65B Preview</td><td>从零训练的 65B 开源权重模型，内部变体用于芯片设计平台。</td><td class="src"><a href="https://www.ricursive.com/ripple">ricursive.com/ripple</a></td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="card" id="gaps">
+    <h2>未写入的公司</h2>
+    <p>ChipNexus（由 PrimisAI 更名）官网称提供面向数字、验证和模拟流程的智能体平台 NEX，但本轮没有打开到足够清楚的官方融资稿，融资金额暂缺。Circuit Mind 等更偏板级电子设计的公司未纳入本目录，以免和芯片 EDA 主线混在一起。</p>
+  </section>
+
+  <footer>
+    <p>本目录为 mlsys-paper 仓库「ai for chip」进展跟踪页，风格对齐既有中文笔记。本地文件写于 2026-11-22。</p>
+  </footer>
+  </div>
+</body>
+</html>
