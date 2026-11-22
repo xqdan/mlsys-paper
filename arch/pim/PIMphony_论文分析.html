@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PIMphony 论文分析 | 给长上下文 LLM 编排 PIM 的带宽和容量</title>
+  <style>
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">HPCA 2026</span>
+      <span class="badge">arXiv:2412.20166v3</span>
+      <span class="badge">PIM · 长上下文 LLM 推理</span>
+      <span class="badge ok">Hanyang × KAIST × SK hynix</span>
+      <span class="badge warn">仿真：改造 NeuPIMs / CENT + Ramulator</span>
+    </div>
+    <h1>PIMphony：把长上下文注意力在 PIM 上跑满通道、叠掉 I/O、按需分配 KV</h1>
+    <p class="subtitle">Overcoming Bandwidth and Capacity Inefficiency in PIM-based Long-Context LLM Inference System</p>
+    <p class="meta">
+      <strong>作者：</strong>Hyucksung Kwon*、Kyungmo Koo*、Janghyeon Kim、Woongkyu Lee、Minjae Lee、Gyeonggeun Jung、Hyungdeok Lee 等；Hanyang University、KAIST、SK hynix Solution Advanced Technology（*共同一作；通讯 Jungwook Choi）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2412.20166" target="_blank" rel="noopener">arXiv:2412.20166</a>
+      · <a href="https://arxiv.org/pdf/2412.20166" target="_blank" rel="noopener">PDF</a>（笔记依据 v3，2025-12-25）
+      · 会议：<a href="https://2026.hpca-conf.org/details/hpca-2026-main-conference/40/PIMphony-Overcoming-Bandwidth-and-Capacity-Inefficiency-in-PIM-based-Long-Context-LL" target="_blank" rel="noopener">HPCA 2026</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：PIM 一拉长上下文就空转</a></li>
+      <li><a href="#s3">三个失效点</a></li>
+      <li><a href="#s4">思路：TCP、DCS、DPA</a></li>
+      <li><a href="#s5">编译器、运行时和硬件开销</a></li>
+      <li><a href="#s6">实验与结果</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">已有 PIM 加速器多在较短上下文（常见 4K）上证明“GEMV 适合近存计算”。上下文拉到数十万乃至百万 token 后，注意力更偏带宽，PIM 反而出现通道空闲、写–算–读流水卡住 MAC、以及按最大上下文静态预留 KV 造成的容量浪费。PIMphony 是一个编排层：Token-Centric Partitioning 按 token 把一个 head 切到模块内所有通道；Dynamic Command Scheduling 按真实依赖乱序发射，把 I/O 和计算重叠；Dynamic PIM Access 在模块内做虚实地址翻译，按 1 MB 块懒分配 KV。作者用 MLIR / IREE 生成命令，在改造过的 CENT（PIM-only）和 NeuPIMs（xPU+PIM）仿真器上评测。相对这些 PIM 基线，GQA、最长 128K 的 LV-Eval 上 PIM-only 最多 11.3 倍，xPU+PIM 摘要峰值为 8.4 倍；把上下文再拉到 1M 时，CENT 基线利用率掉到 2%，PIMphony 相对它是 46.6 倍。数字全部来自仿真，不是硅片实测。</p>
+    <div class="kpi">
+      <div><div class="n">11.3× / 8.4×</div><div class="k">相对 CENT / NeuPIMs 基线的峰值吞吐；GQA、最长 128K</div></div>
+      <div><div class="n">2.1–4.5×</div><div class="k">非 GQA、LongBench、最长 32K 上的吞吐范围</div></div>
+      <div><div class="n">75.6% vs 31–40.5%</div><div class="k">DPA 把平均 KV 容量利用率从静态预留大约翻倍有余</div></div>
+      <div><div class="n">46.6× @ 1M</div><div class="k">固定 512 GB 的 CENT 上，基线利用率只剩 2%</div></div>
+    </div>
+    <div class="callout warn">11.3× 和 8.4× 是相对<strong>同样仿真出来的 PIM 基线</strong>（CENT、NeuPIMs），不是相对真机 A100 的墙钟倍数。与 GPU 的对比在图 20，正文只定性写“有明显加速、72B 上相对收益收窄”，没有给出可直接引用的倍数，不要补一个图上估的数字。1M 上下文的 46.6× 是 CENT 几乎塌掉之后的比值，不能和 128K 上的 11.3× 混着说成常规加速。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：PIM 一拉长上下文就空转</h2>
+    <p>长上下文带来的不只是更长的 KV，还有计算强度塌陷。图 2(a) 显示，随着上下文增长，解码注意力从偏 GEMM 变成偏 GEMV，OPs/Byte 迅速下降，性能更吃裸带宽；图 2(b) 显示 KV 随上下文和 batch 增长，很快压过单卡 A100 80 GB。GPU 侧已有 FlashInfer 一类框架，但仍受限于 GPU 的带宽和容量。</p>
+    <p>PIM 看起来正好对口：NeuPIMs 把 GEMM 留在 NPU、GEMV 下到 PIM；CENT 则是多 PIM 节点、用 CXL 扩展的 PIM-only 系统。作者指出，这些工作主要针对较短上下文（例如 4K；CENT 虽有到 32K 的消融，但收益随序列变长下降）。他们把场景推到 1M token，发现瓶颈换成了 PIM 自己的利用率：负载不均导致通道空闲，固定的写输入–MAC–读输出流水造成 I/O 停顿，KV 再按最大上下文静态预留，遇到真实流量里长短不一的请求就会浪费容量。</p>
+    <p>评测用的模型规格（表 I）对齐 Qwen1.5-7B / 72B 和 Llama 3.1-8B / 70B 的层数、头数、是否 GQA（组大小 4 或 8）以及 32K / 128K 窗口。工作负载来自 LongBench（如 QMSum、Musique）和 LV-Eval（multifieldqa、Loogle-SD），表 II 给出了长度均值、方差和最大最小，用来强调真实请求长度差很大。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 三个失效点</h2>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>通道吃不满</h4>
+        <p>已有系统按 head 和 batch 把 KV 分到通道（Head-First Partitioning）。长上下文时单个请求就能占满一条通道，batch 变小，head–batch 并行不够铺满模块；不同请求长度还会让短请求所在通道空等。</p>
+      </div>
+      <div class="tile">
+        <h4>I/O 卡住 MAC</h4>
+        <p>一次点积是固定的 WR-INP → MAC → RD-OUT。每通道输入缓冲约 2 KB、每 bank 输出约 4 字节，注意力的 dh 又小，复用差、缓冲周转快。静态调度无法按真实依赖重叠搬运和计算。</p>
+      </div>
+      <div class="tile">
+        <h4>静态容量预留</h4>
+        <p>命令里嵌的是固定物理地址，只能按 Tmax 预分配 KV，batch 被最坏容量卡住。正文后面测到静态方案的容量利用率只有 31.0%–40.5%（引言里写过平均 36.2%）。</p>
+      </div>
+    </div>
+    <p>图 4 给出一个量化预览：在 CENT、LLM-7B-32K-GQA 上，32K 上下文时 MAC 利用率相对短上下文下降 48%。这不是调一个映射就能修好的，所以作者同时改划分、调度和地址翻译。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 思路：TCP、DCS、DPA</h2>
+    <h3>Token-Centric PIM Partitioning（TCP）</h3>
+    <p>把单一 head 的 token 维切到模块内所有通道。QK<sup>T</sup> 时各通道并行处理不同 token 段；SV 时各通道对自己的 token 做部分规约，再经共享的 PIM HUB 和 GPR 汇总。以图 6 的例子：16K token、每通道 16 个 bank、头维 32，QK<sup>T</sup> 每通道 4K token，SV 每通道 2K 再做一次跨通道规约。在张量并行下，它缓解不同请求长度造成的通道空等；在流水线并行下，无论当前是哪一级，通道都可以一起干活。按文中商业 PIM 模块配置（16 通道、每通道 16 bank），QK<sup>T</sup> 在 token 数超过 256、SV 超过 32 时就可以铺满通道。</p>
+    <p>代价是模块内多了一次跨通道规约。论文把这部分算进端到端，而不是只报通道内 MAC 时间。</p>
+    <h3>Dynamic PIM Command Scheduling（DCS）</h3>
+    <p>两部分。先做 I/O-aware buffering：把已有多条目 Global Buffer 当输入缓冲，扩大 Output Register 成双端口 Output Buffer，使 MAC 消耗当前输入的同时可以预取下一组或排空输出。再在控制器里加依赖表（D-Table）和状态表（S-Table）：每条命令有 ID 和必须等待的 Dependency ID，只在真正存在数据依赖时才强制命令间时序。于是 WR-INP、MAC、RD-OUT 可以在同一块缓冲的不同条目上重叠，而不必像 ping-pong 那样把缓冲劈成两半、等两边都空闲再切换。文中例子显示可以越过本不必要的 tCCDS 以外的停顿。相对总容量相同的 ping-pong，DCS 在注意力设置上最多把计算单元利用率再提高 1.4 倍。</p>
+    <h3>Dynamic PIM Access（DPA）</h3>
+    <p>模块上放一个轻量 dispatcher，相当于 PIM 里的伪 MMU：维护 VA2PA 表，在指令解码时按当前 request 把操作数地址翻译成物理地址。同一条虚拟地址 0 的 MAC，请求 1 可以落到物理 22，请求 2 落到 33，于是 KV 不必连续、也不必按 Tmax 预留。主机在 KV 增长时按 1 MB 块按需分配并更新翻译表，内部碎片只出现在每个请求最后一块。解码和执行流水进行，翻译不排在关键路径上额外停顿。在 xPU+PIM 上，TCP 和 DCS 加速注意力之后，全连接可能反过来成为瓶颈；DPA 提高有效 batch，有助于把 NPU 侧也喂饱。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 编译器、运行时和硬件开销</h2>
+    <p>实现基于 MLIR：扩展方言，用模式匹配生成注意力和 FFN 中适合下到 PIM 的子图（QK<sup>T</sup>、SV、FFN）的命令，并嵌入动态划分和内存分配元数据。编译是离线的，不计入推理延迟。运行时改了 IREE 及其 HAL，对接商业平台提供的 PIM SDK（文中与 AiMX / PIM HUB 文献和规格对齐）。作者写这些运行时扩展“不假设新的硬件原语”，以便接到 NeuPIMs 和 CENT 的仿真后端；但 DCS 和 DPA 本身是带面积开销的控制器 / dispatcher 改动，评测里是作为硬件修改建模进去的。</p>
+    <p>仿真配置（表 IV）：NeuPIMs 每模块 32 GB、内部带宽 32 TB/s，8 个矩阵单元（256 TFLOPS）加 32 条 PIM 通道，注意力下到 PIM，FC 留在 xPU；CENT 每模块 16 GB、16 TB/s，近存计算 3 TFLOPS、32 通道，全部计算走 PIM。7B 配 128 GB（CENT 8 模块 / NeuPIMs 4 模块），72B 配 512 GB（32 / 16 模块）。时序和资源争用按 AiMX 规格校准，使用经过验证的 Ramulator 系仿真器。</p>
+    <p>面积与功耗是综合结果，不是芯片量测：I/O 缓冲约占每 bank MAC 面积的 0.47%（CACTI）；DCS 在 PIM HUB 全部控制块上面积 +0.5%、功耗 +1.3%，含每控制器 576 B 的 D-Table / S-Table 和依赖检查；DPA dispatcher 面积约 +4%，内部缓冲（VA2PA、命令、配置）不到 200 KB，对比典型 PIM 里 512 KB 的 GPR。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验与结果</h2>
+    <p>主评测上下文最长 128K：非 GQA 的 7B/72B-32K 用 LongBench，GQA 的 7B/72B-128K 用 LV-Eval。图 13、14 按 TCP → DCS → DPA 累加，并在各自最优的 TP/PP 设置下报告。非 GQA 模型吞吐 2.1–4.5 倍；GQA、最长 128K 时最多 11.3 倍。相对收益往往在 72B、PIM-only 上更高，因为 CENT 基线的欠利用更严重；xPU+PIM 则在非常长的上下文上差距更明显，因为 PIM 侧注意力开始主导。结论和摘要把 xPU+PIM 的峰值写成 8.4 倍。</p>
+    <p>机制与并行方式对得上文字解释：TCP 先把通道利用率拉起来，系统随后可能改成 I/O 受限，尤其是 GQA 的行复用会增加 WR-INP，这时 DCS 把额外搬运叠进 MAC，放大 ACT/PRE 方面的节省。DPA 在异构系统上通过更大 batch 平衡 xPU 侧。图 15 里，7B-32K 非 GQA 上 TCP 明显改善 TP；加上 DCS 和 DPA 后，PP 由于更大 batch 可以略高一点。7B-128K GQA 上 DCS 更关键，DPA 加 KV 复用把 batch 抬起来后，PP 还能再高约 20%。</p>
+    <h3>能量、扩展性、容量、GPU 对照</h3>
+    <p>图 16：基线注意力里，MAC 利用率低导致后台能量占到 71.5%。PIMphony 把注意力执行最多加快 19 倍，后台能量占比降到 13.0%，注意力能量最多降到约 1/3.46。GQA 上因为加速空间更大，这笔账更明显。</p>
+    <p>图 17：在 64K 上下文上，容量从 128 GB 扩到 1024 GB，吞吐跟着长，说明模块加得进去。固定 512 GB、上下文从 4K 扫到 1M 时，CENT 在流水线气泡下利用率掉到 2%，PIMphony 相对该基线 46.6 倍；NeuPIMs 靠 TP 更稳，PIMphony 仍有 5.0 倍。作者解释：PIMphony 让注意力比 FC 更高效，上下文越长（注意力越占主导）系统利用率反而上去，基线则相反。短上下文也不是零收益：256 token 上仍有 2.1 倍。</p>
+    <p>图 19：DPA 把平均容量利用率从 31.0%–40.5% 提到 75.6%，静态方案的浪费来自按最大长度粗粒度预留，动态方案只在每个请求最后一块上残留碎片。</p>
+    <p>图 20 与内存对齐的 A100 对比：7B 用两张 A100-80GB，72B 用八张，GPU 侧开 flash-decoding 和 paged attention。正文说加速可观，在内存需求高的非 GQA 上更明显；72B 上 GPU 在计算密集的 FC 上占优，相对收益收窄。GQA 对 GPU 是 KV 复用的好事，对 PIM 却变成重复输入搬运，DCS 靠重叠把这条短处补上。正文没有给出这张图的具体倍数。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>作为 PIM 目录里继 DCC 之后的第二篇，它补的是 DCC 没讲的那一层：DCC 解决 host 与近 bank 计算之间的数据布局和循环划分；PIMphony 假设命令已经能下到 PIM，再解决长上下文下的通道划分、命令调度和 KV 容量。作者阵容里有 SK hynix，指令和时序对准 AiMX / 商业 PIM 模块，面积开销看起来不大（缓冲 &lt;1% MAC、DCS +0.5% 控制面积、dispatcher +4%），编译走 MLIR + IREE，方向是能接到现有 SDK 的那种软件栈。</p>
+    <p>但它仍然是研究基础设施，不是生产开关。评测是改造仿真器，GPU 对照也在“内存容量对齐的 A100”框架下，没有和真实 HBM-PIM / GDDR 近存计算板子对墙钟。DCS 和 DPA 需要改控制器和模块内翻译，不能在已出货、命令地址写死的 PIM 上当作纯软件补丁打开。主模型是按 Qwen1.5 / Llama 3.1 规格构造的 7B / 72B 配置，没有 2025–2026 年的 MoE 服务模型，也没有把预填充阶段、投机解码或多租户调度算进主实验。和 TokenWeave、Obaleth 不同，这里没有可运行的开源 runtime 声明。</p>
+    <div class="callout teal">读这篇更有用的不是记住 11.3 倍，而是三句话：长上下文下按 head/batch 切 PIM 通道会先空转；注意力的小 dh 会把 PIM 变成 I/O 机，需要依赖驱动的重叠，而不是再做一个 ping-pong 缓冲；KV 必须能在 PIM 地址空间里按需、非连续分配，否则容量利用率会掉到三分之一左右。等可采购的近存内存真正出现时，这些是软件和微结构都得一起改的点。在那之前，不宜把它写成可以替换 GPU 长上下文服务的方案。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li><strong>仿真，不是硅片。</strong> 后端是改造的 CENT / NeuPIMs + Ramulator，面积用 CACTI 和综合估计。缺少与真实 PIM 原型或 A100 墙钟的交叉验证。</li>
+      <li><strong>11.3× / 8.4× 相对的是欠利用的 PIM 基线。</strong> 相对 GPU 的倍数在正文里没有写出；1M 上的 46.6× 含有基线塌缩。</li>
+      <li><strong>需要改硬件。</strong> DCS 的依赖表、扩大的输出缓冲、DPA dispatcher 都不是纯编译器技巧。运行时“不假设新原语”指的是和现有仿真 SDK 接口兼容，不等于现有商业 PIM 不用改就能跑出这些倍数。</li>
+      <li><strong>模块内规约是 TCP 的结构成本</strong>，在更弱的跨通道互连上可能侵蚀收益。论文没有单独把这笔开销做成对真实互连敏感的扫描。</li>
+      <li><strong>模型与阶段覆盖有限。</strong> 配置级 7B / 72B，主实验偏解码注意力；预填充、MoE 路由、投机解码、多租户不在主表里。</li>
+      <li><strong>没有公开实现链接。</strong> 与 DCC 已开源 API、TokenWeave 已接 vLLM 不同，这篇目前只能当设计笔记。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照与条件</th></tr></thead>
+      <tbody>
+        <tr><td>PIM-only 峰值吞吐</td><td>最多 11.3×</td><td>相对 CENT；GQA，LV-Eval，最长 128K</td></tr>
+        <tr><td>xPU+PIM 峰值吞吐</td><td>最多 8.4×</td><td>相对 NeuPIMs；摘要 / 结论</td></tr>
+        <tr><td>非 GQA、32K</td><td>2.1–4.5×</td><td>LongBench</td></tr>
+        <tr><td>1M 上下文、512 GB</td><td>CENT 上 46.6×；NeuPIMs 上 5.0×</td><td>CENT 基线利用率降至 2%</td></tr>
+        <tr><td>短上下文 256 token</td><td>2.1×</td><td>相对同一 PIM 基线</td></tr>
+        <tr><td>注意力执行 / 能量</td><td>最多 19× 更快；能量最多 3.46× 更低</td><td>后台能量占比 71.5% → 13.0%</td></tr>
+        <tr><td>容量利用率</td><td>静态 31.0%–40.5%，DPA 平均 75.6%</td><td>1 MB 懒分配；引言另写静态平均 36.2%</td></tr>
+        <tr><td>32K 时 MAC 利用率</td><td>相对短上下文下降 48%</td><td>CENT，LLM-7B-32K-GQA，图 4</td></tr>
+        <tr><td>DCS vs ping-pong</td><td>计算单元利用率最多再高 1.4×</td><td>同等总缓冲</td></tr>
+        <tr><td>铺满通道的最小 token</td><td>QK<sup>T</sup> &gt; 256，SV &gt; 32</td><td>16 通道 × 16 bank</td></tr>
+        <tr><td>GQA + DPA 后 PP 再增益</td><td>约 20%</td><td>LLM-7B-128K-GQA，图 15</td></tr>
+        <tr><td>面积 / 功耗开销</td><td>缓冲 0.47% MAC；DCS +0.5% / +1.3%；dispatcher +4%</td><td>CACTI / 综合，非芯片量测</td></tr>
+        <tr><td>GPU 对照配置</td><td>7B：2×A100-80GB；72B：8×A100</td><td>Flash-decoding + paged attention；正文未给倍数</td></tr>
+        <tr><td>系统容量</td><td>7B 用 128 GB，72B 用 512 GB</td><td>CENT 16 GB/模块，NeuPIMs 32 GB/模块</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2412.20166v3（2025-12-25），对应 HPCA 2026。所有性能、能量和面积数字均来自改造 CENT / NeuPIMs + Ramulator 的仿真及 CACTI 综合，来源为论文摘要与第 VIII 节。与 GPU 的具体倍数以原文图 20 为准，正文未写出，故未转抄。
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TokenWeave 论文分析 | 小 batch 上也把 TP 通信叠进计算</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">MLSys 2026</span>
+      <span class="badge">arXiv:2505.11329v5</span>
+      <span class="badge">LLM 推理 · 张量并行 · 计算–通信重叠</span>
+      <span class="badge ok">Microsoft Research India</span>
+      <span class="badge ok">真机：8×H100 / 4×H100 / 8×B200</span>
+      <span class="badge ok">开源，接入 vLLM-V1</span>
+    </div>
+    <h1>TokenWeave：让低延迟推理里的 AllReduce 也能和计算重叠</h1>
+    <p class="subtitle">Efficient Compute-Communication Overlap for Distributed LLM Inference</p>
+    <p class="meta">
+      <strong>作者：</strong>Raja Gond、Nipun Kwatra、Ramachandran Ramjee；Microsoft Research India<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2505.11329" target="_blank" rel="noopener">arXiv:2505.11329</a>
+      · <a href="https://arxiv.org/pdf/2505.11329" target="_blank" rel="noopener">PDF</a>（笔记依据 v5，2026-05-01）
+      · 会议：第 9 届 MLSys（Bellevue，2026）
+      · 开源：<a href="https://github.com/microsoft/tokenweave" target="_blank" rel="noopener">microsoft/tokenweave</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：低延迟 serving 叠不上通信</a></li>
+      <li><a href="#s3">三个判断</a></li>
+      <li><a href="#s4">思路：融合、重排、按波切分</a></li>
+      <li><a href="#s5">怎么接到 vLLM</a></li>
+      <li><a href="#s6">实验与结果</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">张量并行推理即使走 NVLink，AllReduce 仍能占端到端延迟的约 9%–23%，但 vLLM、SGLang、TensorRT-LLM 默认都没有开计算–通信重叠：低延迟 serving 每轮 token 少，把计算切细再重叠，往往比不切更慢。TokenWeave 抓住被忽略的 RMSNorm，做成只占 2–8 个 SM 的融合 AllReduce–RMSNorm 内核，并用对 GPU wave 敏感的两路 token 切分，把一路的通信和归一化叠到另一路的计算上。它接进 vLLM 0.8.5 的 V1 引擎，在 8×H100 上相对已经用上 Multimem / NVSHARP 的基线，延迟最多 1.28 倍、吞吐最多 1.19 倍；1K token 的小 batch 仍有约 1.2 倍。不少场景里，它甚至快过“把通信完全拿掉”的反事实基线，因为连 RMSNorm 的带宽开销也被叠掉了。</p>
+    <div class="kpi">
+      <div><div class="n">1.28× / 1.19×</div><div class="k">相对 vLLM-Multimem 的最大延迟加速 / ShareGPT 吞吐</div></div>
+      <div><div class="n">1.2× @ 1K</div><div class="k">Llama-3.3-70B、8×H100，小到 1024 token 仍有延迟收益</div></div>
+      <div><div class="n">1.34–1.39×</div><div class="k">融合 AllReduce–RMSNorm 相对串行两者，64–32K token</div></div>
+      <div><div class="n">2–8 SM</div><div class="k">8×H100 上通信加归一化占用的 SM；先前工作常用 16–20+</div></div>
+    </div>
+    <div class="callout warn">1.28× 和 1.19× 都是相对<strong>已经启用 Multimem / NVSHARP 的 vLLM</strong>，不是相对默认 NCCL AllReduce。依赖第四代及以后 NVSwitch 上的 NVSHARP（Hopper / Blackwell）。完整的切分+重叠目前不支持 CUDA Graph；B200 上小 decode batch 只报了融合内核（约 1.01–1.05 倍），不要把 H100 预填充的 1.28 倍直接写成 Blackwell 解码倍数。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：低延迟 serving 叠不上通信</h2>
+    <p>大模型推理常常必须张量并行。互连已经很快，但通信并没有消失。论文在 8×H100 DGX、vLLM 0.8.5 V1 上锁 TDP 频率测量：Llama-3.3-70B、Qwen2.5-72B、Mixtral-8x22B 的 AllReduce 仍占端到端延迟的 9%–23%，RMSNorm 另占 4%–9%（图 1）。摘要把它概括成“即便走 NVLink，仍可到 20%”。</p>
+    <p>文献里叠通信的办法很成熟：把计算切成更细的子任务，做完一块就发一块。可以按 tile 切（Flux、TileLink 等），也可以按 token 切（NanoFlow、DeepSeek 的 DualPipe 一类）。但这些技术<strong>没有</strong>成为 vLLM、SGLang、TensorRT-LLM 里张量并行 serving 的默认开关。</p>
+    <p>原因不是没人写过，而是 serving 的问题规模不对。切分会引入 wave quantization：H100 有 132 个 SM，300 个 CTA 本来 3 波就能做完；均分成两份 150 个 CTA，每份都要 2 波，合计 4 波，计算本身变慢。AllReduce 已经被优化到只剩约 9%–23%，切分带来的损失很容易把重叠收益吃掉。先前方案往往要到 8K+ token 才划算，那是训练常见、低延迟推理少见的规模。vLLM 0.8.5 默认 chunk size 是 2048。于是生产系统继续付这笔通信账。</p>
+    <div class="callout navy">论文脚注对比了专家并行：DeepSeek 一类 EP 的 all-to-all 开销可到 50% 以上，更容易被重叠掩盖。TokenWeave 针对的是<strong>已经很快、但还没快到能忽略</strong>的张量并行 AllReduce，难度更高，也更贴近当前多卡 serving 的默认路径。</div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 三个判断</h2>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>RMSNorm 不是边角料</h4>
+        <p>它占 4%–9%，而且和 AllReduce 紧挨着：规约之后每个 GPU 都拿到完整 embedding，再各自做一遍完全相同的归一化，计算是冗余的。</p>
+      </div>
+      <div class="tile">
+        <h4>拆成 RS+AG 再归一化，数学对、系统亏</h4>
+        <p>ReduceScatter 之后每个 GPU 只对自己的 1/N 分片做 RMSNorm，计算量降到 1/N。但把 AllReduce 拆开会多出 HBM 读写，表 1 里简单融合在 512–8K 上甚至比串行更慢。</p>
+      </div>
+      <div class="tile">
+        <h4>通信不该抢走计算的 SM</h4>
+        <p>NVSHARP / Multimem 让交换机做规约和组播，6%–8% 的 SM 就能打满通信带宽。先前重叠方案常预留 16–20+ 个 SM 给通信，等于先削弱计算再去叠它。</p>
+      </div>
+    </div>
+    <p>这三条合在一起，才解释得通为什么“再做一个更细的重叠”解决不了 serving：需要一个几乎不比单独 AllReduce 慢的融合内核，还得少占 SM；切分最多两路，而且要按 wave 来切；token 太少时干脆只开融合、不开重叠。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 思路：融合、重排、按波切分</h2>
+    <h3>融合 AllReduce–RMSNorm</h3>
+    <p>内核利用 Multimem：ReduceScatter 时由 NVSHARP 在交换机上规约本卡负责的那 1/N 分片，规约结果留在 SM 寄存器里直接算方差和缩放，再写回 Multimem 地址，由交换机做 AllGather。残差加法也融合在内。标准 RMSNorm 要对整个张量做两次 HBM 读、一次写；这里只操作本地分片，还省掉“先写再读”的那一趟。</p>
+    <p>表 1（hidden 8192、bf16、8×H100，单位微秒）里，融合内核相对串行 AllReduce+RMSNorm 是 1.34–1.39 倍，覆盖 64 到 32K token，并且几乎追上单独 AllReduce 的时间。例如 1K token：AllReduce 74.85、RMSNorm 29.82、串行 104.67，融合 75.71（1.38 倍）。“简单融合”（RS+RMSNorm+AG 拼在一个 kernel 里但不减流量）在 512–8K 上相对串行只有 0.92–0.98 倍，是倒退。图 10 显示 8 个 SM 已经接近饱和，再加 SM 收益很小。于是通信加归一化可以压到 2–8 个 SM，把其余 SM 留给另一路计算。</p>
+    <h3>RMSNorm 重排</h3>
+    <p>AllReduce 之后各卡 token embedding 已经相同，再各自做 RMSNorm 是 N 倍重复。把它插到 ReduceScatter 和 AllGather 之间，只对自己的 token 分片归一化。前提是 ReduceScatter 必须按 token 边界切，保证每张卡拿到完整的 token 向量。只做重排而不做流量融合，会被拆集合的开销抵消，所以重排必须和上面的融合内核绑在一起。</p>
+    <h3>Wave-aware 的两路切分</h3>
+    <p>最多切成两路，用两条 CUDA stream：通信流跑融合内核，计算流跑 Attention / FFN，用 <code>stream.wait(stream)</code> 处理依赖。例如 300 个 CTA 在 132 SM 上，均分会变成 4 波；Smart-splitting 切成 132 + 168，总波数仍是 3。图 9 显示，token 较少时，这种切法能明显压掉均分的损失。图 17 的消融说明：关掉 smart-splitting 后，加速比会随序列长度抖动；打开之后曲线平稳。</p>
+    <p>token 数低于阈值时，系统只启用融合内核、不做切分（图 3）。规则对预填充、混合 batch、纯解码一视同仁。分离式 serving 里，小的纯解码 batch 吃融合收益，大的纯预填充 batch 再开完整重叠。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 怎么接到 vLLM</h2>
+    <p>实现基于 vLLM 0.8.5 的 V1 引擎，PyTorch 2.6.0、CUDA 12.4、Triton 3.2.0。通信走 PyTorch SymmetricMemory（<code>symm_mem.empty()</code> / <code>rendezvous()</code>），用 Triton 和自定义 CUDA 扩展写集合，注意力后端是 FlashAttention-3。主文实验在 8×H100 DGX（NVSHARP、128 核 CPU、800 GB 主机内存）上锁 TDP 频率；附录 B 用同一台机器的 4 卡，附录 C 是 8×B200。关闭前缀缓存以保证对比公平；端到端不计 detokenization。</p>
+    <p>端到端吞吐实验默认打开 chunked prefill：稠密模型 chunk 2K（vLLM 0.8.5 默认），Mixtral 用 4K。TokenWeave 对达到阈值的混合 batch 开完整重叠（稠密 1K+，Mixtral 4K+），更小的纯解码 batch 只用融合内核。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验与结果</h2>
+    <p>模型是 Llama-3.3-70B、Qwen2.5-72B 和 Mixtral-8x22B，都用 instruction-tuned 版本。工作负载包括 ShareGPT、arXiv，以及固定输入/输出长度的合成请求。基线 <code>vLLM-Multimem</code> 已经是优化过的 Multimem AllReduce，不是默认实现；<code>vLLM-nocomm</code> 是去掉通信、只留计算的反事实对照。</p>
+    <h3>端到端吞吐与单轮延迟</h3>
+    <p>图 11：8×H100 上，稠密模型在真实轨迹上大约 1.19 倍吞吐（ShareGPT 上限），arXiv 轨迹最多 1.15 倍。图 12 里把 Llama-3.3-70B 的 chunk 大小扫一遍，加速在 1.14–1.26 倍之间，说明收益不是绑在某一个 chunk 上。图 13：预填充单轮延迟，稠密模型从 1K token 起就是 1.16–1.28 倍；图 2 写明 1K 约 1.2 倍，4K 及以上可以超过 <code>vLLM-nocomm</code>。Mixtral 的通信占比本身更低（图 1），完整重叠在 1K 和 2K 上会亏——MoE 的 token 还要再分到 8 个专家，FFN 在小请求上已经偏带宽，两路切分的损失补不回来。这时只开融合内核仍有收益。4 卡上趋势相同，但通信占比更低，倍数也更小。Mixtral 在 4×H100 上因 KV 容量不足没有测。</p>
+    <h3>对比 TileLink 与 NanoFlow</h3>
+    <p>两者都没有接到 vLLM，所以比较方式不同。TileLink 用 Llama-3.3-70B 的单层、batch 1 扫序列长度（图 14）：TokenWeave 在 1K 已是 1.20 倍，TileLink 在短序列上是净亏损，要到 ≥4K 才开始赚，并且饱和在大约 1.2 倍，TokenWeave 单层可到 1.35 倍。端到端倍数低于单层，因为还有 embedding、采样和运行时开销。作者还加了只重叠 MLP 的 TileLink-OnlyMLP：小 batch 时注意力投影给不出足够的重叠窗口，硬叠反而更慢。</p>
+    <p>NanoFlow 有自己的 serving 栈，原实现只支持 A100。作者把它改到 H100 上，发现 vLLM-V1 0.8.5 的绝对吞吐已经高于 NanoFlow 的框架，于是改比“各自相对自己基线收回了多少通信”。图 15：NanoFlow 大约 1.04–1.09 倍，接近原论文报告的 1.07 倍通信改善；TokenWeave 在宽范围上大约 1.19 倍。</p>
+    <h3>消融与 B200</h3>
+    <p>图 16：只开融合内核（TokenWeave-fuseonly）在各模型上是 1.04–1.09 倍，来自去掉重复 RMSNorm 和中间 HBM 访问；完整 TokenWeave 再把重叠加上去。附录 C：8×B200 上融合内核相对“Multimem AllReduce + RMSNorm 相加”是 1.24–1.38 倍。vLLM 0.8.5 还不支持 B200，解码实验改用较新的 vLLM，并关掉 <code>torch.compile</code>（当时还不支持 symmetric memory）。小解码 batch 上两路切分的开销会吃掉重叠，所以图 26 只报 fuseonly：Llama-3.3-70B（2K/4K 上下文）和 Qwen3-235B-A22B（2K）为 1.01–1.05 倍，上下文越长，RMSNorm 占比越低，相对收益越小。完整方案在 B200 上因不支持 CUDA Graph，预填充在 eager 模式下测：fuseonly 对 Llama 为 1.05–1.07 倍，完整方案在 1K–64K 上最多 1.22 倍（图 27）。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>这是本批里最接近现有推理栈的一篇：真机覆盖 Hopper 和 Blackwell，代码公开，已经接进 vLLM-V1，对比的是生产里会用的 Multimem 路径，而不是一张容易打的默认基线。chunked prefill、混合 batch、分离式预填充/解码都考虑到了，并且用阈值决定“只融合”还是“融合+重叠”，避免在 MoE 小 batch 上帮倒忙。</p>
+    <p>要进生产，还有几道坎。第一，硬件门槛是 NVLink4 及以后的 NVSwitch（NVSHARP / Multimem）。没有交换机内规约，融合内核的 SM 占用和带宽故事都会变；论文预期未来 NVIDIA 乃至 AMD 会普及类似能力，但没有在 AMD 上测。第二，工程缺口写得很清楚：<code>torch.compile</code> 当时不能分配 symmetric memory；完整切分+重叠不支持 CUDA Graph。解码路径若强依赖 Graph，目前只能先上 fuseonly，收益会从“重叠”缩到“少做一次 RMSNorm、少跑几次 HBM”。第三，它优化的是<strong>域内张量并行 AllReduce</strong>，不解决专家并行的 all-to-all，也不取代仓库里已有的 Zero-SM NCCL（后者针对大宗数据搬运、不占 SM 的训练/通道路径）。两者叠的是不同的集合、不同的消息尺寸。</p>
+    <div class="callout teal">比较现实的接入顺序是：先在 Hopper / Blackwell 的 NVSwitch 机器上，把融合 AllReduce–RMSNorm 接到 vLLM / SGLang 的 TP 路径，用 fuseonly 覆盖小解码 batch；等 CUDA Graph 和 <code>torch.compile</code> 认 symmetric memory 之后，再对超过阈值的 chunk / 预填充打开两路重叠。不要指望它在短上下文、已经算满的大 batch，或没有 NVSHARP 的机器上复制 1.28 倍。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li><strong>绑定 NVSHARP / Multimem。</strong> 没有第四代及以后 NVSwitch，这篇的内核设计和 SM 预算都不成立。</li>
+      <li><strong>完整方案和编译/Graph 栈还有缝。</strong> 对称内存与 <code>torch.compile</code> 不兼容；切分+重叠不能走 CUDA Graph。B200 解码因此只展示了融合内核的 1.01–1.05 倍。</li>
+      <li><strong>MoE 小 batch 不能盲目开重叠。</strong> Mixtral 在 1K、2K 上完整实现有净开销，必须回退到只融合。</li>
+      <li><strong>和 TileLink、NanoFlow 的对比不是同一套 serving 栈上的端到端对打。</strong> 单层或“相对各自基线”的比法是诚实的，但不能直接读成“在 vLLM 里替换它们会得到图上的倍数”。</li>
+      <li><strong>主结果在锁 TDP 频率、关闭前缀缓存的条件下取得</strong>，便于复现，和数据中心动态频率、前缀命中率高的流量会有差距。</li>
+      <li><strong>没有 AMD、没有跨节点 TP。</strong> 域外通信、多机张量并行不在评测里。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照与条件</th></tr></thead>
+      <tbody>
+        <tr><td>TP 通信占比</td><td>9%–23%（摘要约 20%）</td><td>8×H100、vLLM 0.8.5 V1，三模型，图 1</td></tr>
+        <tr><td>RMSNorm 占比</td><td>4%–9%</td><td>同上，含已融合的残差加法</td></tr>
+        <tr><td>端到端延迟</td><td>最多 1.28×；1K token 约 1.2×</td><td>Llama-3.3-70B，相对 vLLM-Multimem</td></tr>
+        <tr><td>稠密模型预填充延迟</td><td>1.16–1.28×（从 1K 起）</td><td>8×H100；4K 起可超过 vLLM-nocomm</td></tr>
+        <tr><td>ShareGPT / arXiv 吞吐</td><td>最多 1.19× / 1.15×</td><td>8×H100，chunked prefill</td></tr>
+        <tr><td>扫 chunk 大小</td><td>1.14–1.26×</td><td>Llama-3.3-70B，图 12</td></tr>
+        <tr><td>融合内核 vs 串行 AR+RMSNorm</td><td>1.34–1.39×（H100）；1.24–1.38×（B200）</td><td>hidden 8192，bf16，64–32K</td></tr>
+        <tr><td>只融合、不重叠</td><td>1.04–1.09×</td><td>端到端消融，图 16</td></tr>
+        <tr><td>通信+归一化占用</td><td>2–8 个 SM</td><td>8×H100；先前工作常 16–20+</td></tr>
+        <tr><td>单层 vs TileLink</td><td>1K 上 1.20×；单层最多 1.35×</td><td>TileLink 短序列亏损，≥4K 才约 1.2×</td></tr>
+        <tr><td>相对 NanoFlow 框架内收益</td><td>~1.19× vs 1.04–1.09×</td><td>各自相对自己的 serving 基线</td></tr>
+        <tr><td>B200 解码（仅融合）</td><td>1.01–1.05×</td><td>无 torch.compile；小 decode batch 不开切分</td></tr>
+        <tr><td>B200 预填充（eager）</td><td>融合 1.05–1.07×；完整最多 1.22×</td><td>Llama-3.3-70B，1K–64K</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2505.11329v5（2026-05-01），对应 MLSys 2026。倍数均来自论文摘要与第 5 节及附录 B、C；除另行说明外，基线是已启用 Multimem / NVSHARP 的 vLLM，不是默认 AllReduce。
+  </footer>
+
+</div>
+</body>
+</html>
