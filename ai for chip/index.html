@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 芯片研发进展 | AI for Chip</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.navy { background: #e8eef5; color: #1e3a5f; border-color: #bfd0e3; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    .local-nav {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 14px; margin: 16px 0 0;
+    }
+    .local-nav a { text-decoration: none; margin-right: 16px; }
+    .local-nav a:hover { text-decoration: underline; }
+    .local-nav a.current { color: var(--accent); font-weight: 650; }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .table-wrap { overflow-x: auto; margin: 12px 0 18px; }
+    .table-wrap table { margin: 0; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .src { font-size: 12.5px; word-break: break-all; }
+    .note { font-size: 14px; color: var(--muted); }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">进展跟踪</span>
+      <span class="badge ok">EDA · 前端 · 后端</span>
+      <span class="badge navy">截至 2026-11-22</span>
+      <span class="badge ">mlsys-paper / ai for chip</span>
+    </div>
+    <h1>AI 芯片研发进展</h1>
+    <p class="subtitle">用人工智能做芯片设计的全流程跟踪：顶会与 arXiv 论文、创业公司，以及 EDA 与半导体业界进展。</p>
+    <p class="meta">截至 <strong>2026-11-22</strong>（Asia/Shanghai）。条目均核验过一手链接；厂商数字按原文口径标注，未独立复现。</p>
+    
+    <div class="local-nav">
+      <a href="index.html" class="current">总览</a>
+      <a href="papers.html" class="">论文</a>
+      <a href="startups.html" class="">创业公司</a>
+      <a href="industry.html" class="">业界</a>
+    </div>
+  </header>
+  
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+        <li><a href="#takeaway">本期判断</a></li>
+        <li><a href="#org">目录怎么读</a></li>
+        <li><a href="#flow">流程上的 AI 插入点</a></li>
+        <li><a href="#highlights">最值得先看的几条</a></li>
+        <li><a href="#background">必要的背景</a></li>
+        <li><a href="#watch">建议每周跟踪的来源</a></li>
+        <li><a href="#gaps">本轮未写入或需小心的内容</a></li>
+    </ol>
+  </nav>
+  
+  <section class="card" id="takeaway">
+    <h2>本期判断</h2>
+    <div class="callout">
+      2025 下半年到 2026 年 11 月，这条线已经从「LLM 写一段 Verilog」转向「智能体调用签核级 EDA 工具、做长程闭环」。三大 EDA 厂商都把产品叙事改成了 agentic / Super Agent / Autopilot；创业公司里 ChipAgents 把 A 轮扩到 1.34 亿美元，Ricursive 在约四个月内募到 3.35 亿美元。与此同时，Build-A-Chip-Bench 的初评仍然扎眼：功能验证通过大约 40%，真正碰到 PPA 目标的大约 10%。能写对 RTL，还不等于能把芯片做完。
+    </div>
+    <p class="lead">本文件夹跟踪用人工智能做芯片研发的全流程，覆盖 EDA 工具与流程、前端（架构、规格到 RTL、验证、测试、形式化）和后端（布局规划、布局、布线、时序、时钟树、DRC/LVS、光刻与物理实现）。内容按论文、创业公司和业界三条线分开，便于每周增补。</p>
+    <div class="kpi">
+      <div><div class="n">16</div><div class="k">已收录近年论文（另有背景条目）</div></div>
+      <div><div class="n">2</div><div class="k">独立创业公司主线（另有被收购案例）</div></div>
+      <div><div class="n">12</div><div class="k">已核验的业界节点</div></div>
+      <div><div class="n">2026-11-22</div><div class="k">Asia/Shanghai 截止日期</div></div>
+    </div>
+  </section>
+
+  <section class="card" id="org">
+    <h2>目录怎么读</h2>
+    <div class="grid-3">
+      <div class="tile">
+        <h4><a href="papers.html">papers.html</a></h4>
+        <p>按前端、后端、跨层与基准分组的论文表，每条有会议或 arXiv 日期、作者、链接和 2–4 句技术摘要。</p>
+      </div>
+      <div class="tile">
+        <h4><a href="startups.html">startups.html</a></h4>
+        <p>ChipAgents、Ricursive，以及 ChipStack 被 Cadence 收购这一退出事件。融资与客户数字一律取公司或可靠媒体原文。</p>
+      </div>
+      <div class="tile">
+        <h4><a href="industry.html">industry.html</a></h4>
+        <p>Synopsys、Cadence、Siemens EDA、TSMC、NVIDIA、OpenAI/AMD 等厂商公告与合作，按时间排列。</p>
+      </div>
+    </div>
+    <p>结构化清单在 <a href="entries.json">entries.json</a> 与 <a href="entries.md">entries.md</a>，方便以后按周追加，不必改叙述骨架。</p>
+  </section>
+
+  <section class="card" id="flow">
+    <h2>流程上的 AI 插入点</h2>
+    <p>今天真正在推进的，不只是单点模型，而是把智能体接到已有工具链上：读日志、改脚本、跑仿真或物理实现、用形式化或签核引擎做对错判决，再把反馈写回任务上下文。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>前端</h4>
+        <p>规格理解、架构探索、规格到 RTL、测试台与断言生成、仿真与形式化闭环、时序导向的 RTL 改写。代表工作包括 ACE-RTL、Dr. RTL、RTL-Interact，以及 Cadence ChipStack / Synopsys Verification AgentEngineer。</p>
+      </div>
+      <div class="tile">
+        <h4>后端与跨层</h4>
+        <p>综合脚本调参、宏块放置、布局布线与时钟树、3D IC 电热协同、DRC/LVS 与签核。代表工作包括 ORFS-agent、MAGE、OpenLayout、PDAgent-Bench，以及 Siemens Fuse 与 Synopsys Autopilot 的实现/多物理场代理。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="highlights">
+    <h2>最值得先看的几条</h2>
+    <ul>
+      <li><strong>OpenAI × 自研芯片与 AMD</strong>（2026-11-18）：官方称 Jalapeño 向量/矩阵单元标准单元面积分别约减 13% 与 10%，且已经硅验证；与 AMD 合作在旗舰 GPU IP 上相对「已经很优化的基线」最多约 14%，部分改动已进入一次近期流片。同时宣布与 Synopsys 合作训练 GPT-Synopsys。<a class="src" href="https://openai.com/index/advancing-chip-design-with-our-models/">https://openai.com/index/advancing-chip-design-with-our-models/</a></li>
+      <li><strong>ChipOmni</strong>（arXiv:2611.13020，2026-11-09）：通用 EDA 智能体，案例中把自然语言 RISC-V 规格推到通过物理签核的微型 SoC GDSII，初始化后不再人工介入。这是「全流程跑通」叙事里最新、也需要小心对照实验设置的一篇。<a class="src" href="https://arxiv.org/abs/2611.13020">https://arxiv.org/abs/2611.13020</a></li>
+      <li><strong>Build-A-Chip-Bench</strong>（ChipAgents 与 NVIDIA，2026-10-14）：把评测从「RTL 对不对」拉到规格到 GDS。初评大约 40% 过功能验证，大约 10% 达到物理 PPA。<a class="src" href="https://chipagents.ai/newsroom/chipagents-nvidia-build-a-chip-bench">https://chipagents.ai/newsroom/chipagents-nvidia-build-a-chip-bench</a></li>
+      <li><strong>三大 EDA 的产品化</strong>：Cadence 于 2025-11-10 收购 ChipStack，2026-02-10 发布 ChipStack AI Super Agent，2026-06-01 在 Computex 宣布 Level-5，2026-09-22 加上规格到 RTL 与早期 PPA 代理。Synopsys 在 2026-07-26 DAC 演示最多 50 倍「到已验证 RTL」加速，2026-09-28 发布 Autopilot 与 AgentEngineer，称超过 50 个客户在评估，计划 2026 年底可用。Siemens 于 2026-03-16 发布 Fuse EDA AI Agent，并在 2026-07-26 与 2026-10-21 把自验证代理延伸到特征化与 3D IC 电热。</li>
+      <li><strong>创业融资</strong>：ChipAgents 三轮 A 轮合计扩到 1.34 亿美元（2026-07-29 官方稿）；Ricursive 种子轮 3500 万美元、A 轮 3 亿美元、估值 40 亿美元，四个月累计 3.35 亿美元（TechCrunch，2026-02-16）。Ricursive 随后开源了为其芯片设计平台训练的 Ripple-65B Preview。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="background">
+    <h2>必要的背景，不是本周新闻</h2>
+    <p>后面几条是理解当前叙事的地基，收录时明确标为背景。</p>
+    <ul>
+      <li><strong>AlphaChip</strong>（Nature 2021，2024 年补遗并开源检查点）：Google 用强化学习做宏块放置，官方称用于多代 TPU。方法与复现曾引发持续争议，引用时请同时看原论文、补遗和后续评论。来源：<a href="https://deepmind.google/discover/blog/how-alphachip-transformed-computer-chip-design">https://deepmind.google/discover/blog/how-alphachip-transformed-computer-chip-design</a></li>
+      <li><strong>ChipNeMo</strong>（NVIDIA，arXiv:2311.00176，2023）：领域适应 LLM 做芯片设计助手，是后来 ACE-RTL、CVDP 等 NVIDIA 工作的前序。</li>
+      <li><strong>DSO.ai / Cerebrus / Solido</strong>：Synopsys、Cadence、Siemens 在智能体浪潮之前就已经把强化学习或机器学习用在设计空间探索、实现调参和定制电路验证上。2026 年的 Super Agent 是叠在这些优化引擎之上，而不是从零开始。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="watch">
+    <h2>建议每周跟踪的来源</h2>
+    <ul>
+      <li>arXiv 的 cs.AR 与相关 cs.AI / cs.LG 检索：RTL、EDA agent、placement、physical design、verification。</li>
+      <li>会议日程：DAC、ICCAD、DATE、ISPD、ASP-DAC、ITC、MLCAD，以及明确针对芯片或 EDA 的 NeurIPS/ICML/ICLR 论文。</li>
+      <li>厂商新闻稿：<a href="https://news.synopsys.com/">https://news.synopsys.com/</a>、<a href="https://www.cadence.com/en_US/home/company/newsroom.html">Cadence Newsroom</a>、<a href="https://news.siemens.com/">https://news.siemens.com/</a>、TSMC OIP、NVIDIA 计算工程与 Nemotron 博客。</li>
+      <li>创业公司新闻室：<a href="https://chipagents.ai/newsroom">https://chipagents.ai/newsroom</a>、<a href="https://www.ricursive.com/">https://www.ricursive.com/</a>。</li>
+      <li>OpenAI 芯片设计研究页与 Synopsys 合作后续：<a href="https://openai.com/index/advancing-chip-design-with-our-models/">https://openai.com/index/advancing-chip-design-with-our-models/</a></li>
+    </ul>
+  </section>
+
+  <section class="card" id="gaps">
+    <h2>本轮未写入或需小心的内容</h2>
+    <ul>
+      <li><code>arXiv:2607.17528</code>（Can AI Agents Really Complete RTL-to-GDS?）已被作者撤回，不收录其结论。</li>
+      <li>ChipNexus（原 PrimisAI）官网与产品页存在，但本轮没有打开到足够清楚的官方融资稿，故暂不写入融资金额。</li>
+      <li>TSMC AI Design Kit（ADK）的「数字设计 3–5 倍、模拟/RF 最高 6 倍」来自 SemiWiki 对 2026 OIP 的报道，转述 TSMC 口径；本轮未找到可打开的 TSMC 官方 PDF，生产力数字不作独立基准。</li>
+      <li>ChipAgents 新闻稿中的 15x / 240x / 400x 与客户数、ARR 增速均为公司自述，未独立审计。</li>
+      <li>AlphaChip 的第三方复现与学术争议未在本轮逐条重核，只作为背景提示。</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>本目录为 mlsys-paper 仓库「ai for chip」进展跟踪页，风格对齐既有中文笔记。本地文件写于 2026-11-22。</p>
+  </footer>
+  </div>
+</body>
+</html>

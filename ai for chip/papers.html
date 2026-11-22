@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>论文进展 | AI for Chip</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.navy { background: #e8eef5; color: #1e3a5f; border-color: #bfd0e3; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    .local-nav {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 14px; margin: 16px 0 0;
+    }
+    .local-nav a { text-decoration: none; margin-right: 16px; }
+    .local-nav a:hover { text-decoration: underline; }
+    .local-nav a.current { color: var(--accent); font-weight: 650; }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .table-wrap { overflow-x: auto; margin: 12px 0 18px; }
+    .table-wrap table { margin: 0; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .src { font-size: 12.5px; word-break: break-all; }
+    .note { font-size: 14px; color: var(--muted); }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+
+  
+  </style>
+</head>
+<body>
+  <div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">论文</span>
+      <span class="badge ok">arXiv / 顶会</span>
+      <span class="badge navy">截至 2026-11-22</span>
+    </div>
+    <h1>论文进展</h1>
+    <p class="subtitle">2025–2026 年用人工智能做芯片设计的论文与基准，按前端、后端和跨层分组。</p>
+    <p class="meta">截至 <strong>2026-11-22</strong>（Asia/Shanghai）。条目均核验过一手链接；数字按原文口径摘录。</p>
+    
+    <div class="local-nav">
+      <a href="index.html" class="">总览</a>
+      <a href="papers.html" class="current">论文</a>
+      <a href="startups.html" class="">创业公司</a>
+      <a href="industry.html" class="">业界</a>
+    </div>
+  </header>
+  
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+        <li><a href="#read">怎么读这张表</a></li>
+        <li><a href="#frontend">前端</a></li>
+        <li><a href="#backend">后端</a></li>
+        <li><a href="#cross">跨层与通用 EDA 智能体</a></li>
+        <li><a href="#table">一览表</a></li>
+        <li><a href="#bg">背景论文</a></li>
+    </ol>
+  </nav>
+  
+  <section class="card" id="read">
+    <h2>怎么读这张表</h2>
+    <div class="callout teal">
+      优先看 2025 年中至 2026 年 11 月的工作。背景论文单独放在文末。凡写「最多」「约」「官方称」，都是论文或厂商自己的口径，不是本目录的复现结果。
+    </div>
+    <p class="lead">近年的主线很清楚：基准变难了，智能体开始调用真实 EDA 工具，评估也从「仿真过不过」延伸到时序、面积、功耗和物理签核。前端论文数量最多；后端正在用 OpenROAD / 商业工具做闭环，但长程物理实现仍然是短板。</p>
+  </section>
+
+  <section class="card" id="frontend">
+    <h2>前端：RTL、验证与综合优化</h2>
+    <h3>CVDP</h3>
+    <p><strong>Comprehensive Verilog Design Problems</strong> · Nathaniel Pinckney, Chenhui Deng, Chia-Tung Ho, Yun-Da Tsai, Mingjie Liu, Wenfei Zhou, Brucek Khailany, Haoxing Ren（NVIDIA）· arXiv:2506.14074 · 2025-06-17</p>
+    <p>NVIDIA 放出的下一代 RTL 与验证基准，共 783 题、13 类任务，覆盖 RTL 生成、验证、调试、规格对齐和技术问答，并同时提供非智能体与智能体两种形式。论文写明，当时最强模型在代码生成上的 pass@1 不超过 34%；涉及 RTL 复用和验证的智能体任务尤其难。它后来成为 ACE-RTL、ChipCraftBrain 等工作的共同参照。来源：<a href="https://arxiv.org/abs/2506.14074">https://arxiv.org/abs/2506.14074</a></p>
+
+    <h3>RealBench</h3>
+    <p><strong>Benchmarking Verilog Generation Models with Real-World IP Designs</strong> · Pengwei Jin, Di Huang, Chongxiao Li 等 · arXiv:2507.16200 · 2025-07-22 · 开源 <a href="https://github.com/IPRC-DIP/RealBench">https://github.com/IPRC-DIP/RealBench</a></p>
+    <p>把评测从教学小模块拉到真实开源 IP，配有多模态规格、100% 行覆盖测试台和形式化检查，并区分模块级与系统级。文中评估显示，即便当时表现最好的模型之一 o1-preview，模块级 pass@1 也只有 13.3%，系统级为 0%。这说明「能写对小电路」远不等于能处理层次化 IP。来源：<a href="https://arxiv.org/abs/2507.16200">https://arxiv.org/abs/2507.16200</a></p>
+
+    <h3>ChipBench</h3>
+    <p><strong>A Next-Step Benchmark for Evaluating LLM Performance in AI-Aided Chip Design</strong> · Zhongkai Yu, Chenyang Zhou, Yichen Lin, Hejia Zhang 等 · arXiv:2601.21448 · 2026-01-29</p>
+    <p>针对已饱和的旧基准，从 Verilog 生成、调试和参考模型生成三项任务重新命题，含 44 个带层次结构的模块、89 个调试案例，以及 Python / SystemC / CXXRTL 参考模型样本。文中 Claude-4.5-opus 在 Verilog 生成上为 30.74%，Python 参考模型生成仅 13.33%。代码：<a href="https://github.com/zhongkaiyu/ChipBench.git">https://github.com/zhongkaiyu/ChipBench.git</a>。来源：<a href="https://arxiv.org/abs/2601.21448">https://arxiv.org/abs/2601.21448</a></p>
+
+    <h3>ACE-RTL</h3>
+    <p><strong>When Agentic Context Evolution Meets RTL-Specialized LLMs</strong> · Chenhui Deng, Zhongzhi Yu, Guan-Ting Liu, Nathaniel Pinckney, Brucek Khailany, Haoxing Ren（NVIDIA）· arXiv:2602.10218 · 首发 2026-02-10，v2 为 2026-03-21</p>
+    <p>把两条此前分开的路并到一起：一边是在 170 万条 RTL 样本上训练的领域模型，一边是带仿真反馈的通用推理模型。框架由 generator、reflector、coordinator 三个部件做上下文演化，并分析并行探索调试轨迹以降低首次成功的墙钟迭代。在 CVDP 上，论文称相对 14 个对照最多提升 41.02 个百分点的通过率。Siemens 后来在 DAC 2026 新闻稿中提到，Nemotron 3 Ultra 在 ACE-RTL 智能体基准的开源模型里领先。来源：<a href="https://arxiv.org/abs/2602.10218">https://arxiv.org/abs/2602.10218</a></p>
+
+    <h3>ChipCraftBrain</h3>
+    <p><strong>Validation-First RTL Generation via Multi-Agent Orchestration</strong> · Cagri Eryilmaz · arXiv:2604.19856 · 2026-04-21</p>
+    <p>预印本强调「先验证再生成」。作者指出，MAGE 一类多智能体在 VerilogEval 上可以把通过率做到 95.9%，但尚未在更难的工业基准 CVDP 上充分检验，也缺少综合意识，且 API 成本偏高。ChipCraftBrain 用 PPO 在 168 维状态上调度六个专职智能体，并对卡诺图等问题走符号求解。适合作为「基准变难之后，编排策略怎么改」的对照阅读。来源：<a href="https://arxiv.org/abs/2604.19856">https://arxiv.org/abs/2604.19856</a></p>
+
+    <h3>ChipMATE</h3>
+    <p><strong>Multi-Agent Training via Reinforcement Learning for Enhanced RTL Generation</strong> · Zhongkai Yu, Yichen Lin, Chenyang Zhou 等 · arXiv:2605.12857 · 2026-05-13</p>
+    <p>针对工业场景的三个错位：生成时往往没有黄金测试台、封闭 API 进不了隔离网、厂商私有 RTL 无法用来训练。ChipMATE 自称首个可自训练的多智能体 RTL 生成框架，让 Verilog 智能体与 Python 参考模型智能体互相校验，而不是假定测试台事先存在。这条路线和「只调闭源大模型」是分开的。来源：<a href="https://arxiv.org/abs/2605.12857">https://arxiv.org/abs/2605.12857</a></p>
+
+    <h3>From Prompts to Silicon（AI-HDL）</h3>
+    <p><strong>Scaling LLM-Assisted Chip Design with the AI Hardware Design League</strong> · Parsa Mirfasihi, Harish Kumar Dharavath, Muhtasim Alam Chowdhury 等 · arXiv:2610.18891 · 2026-10-09</p>
+    <p>这不是新算法，而是一次大规模教学实验：学生用 LLM 迭代写 Verilog，仿真、综合、时序、安全审查和物理验证提供工程反馈。两届赛事从 172 人、40 队扩到 604 人、108 队，覆盖 19 个国家；2026 届 68.7% 的参与者此前没有 Verilog 经验。22 队走完四阶段；两个分组冠军设计在 SkyWater 130 nm 上完成物理签核，DRC 与 LVS 零违例并提交流片。完成率而不是入门，仍是主要瓶颈。来源：<a href="https://arxiv.org/abs/2610.18891">https://arxiv.org/abs/2610.18891</a></p>
+
+    <h3>RTL-Interact</h3>
+    <p><strong>Training EDA-Interactive Models for Multi-Task RTL Design</strong> · Wenxuan Shi, Yaoyu Zhu, Di Huang 等（中国科学院计算所等相关团队）· arXiv:2610.41225 · 2026-10-30 · 注明在投 ICLR 2027</p>
+    <p>不是另写一套智能体外壳，而是把「生成 RTL、构造合适的 EDA 检查、根据工具反馈改设计」训进同一个领域模型。训练分阶段，从思维链监督走到工具集成推理，并用 Pattern-Aware Policy Optimization（在 GRPO 上加正确性门控奖励）做多任务强化学习。这是「可部署的交互模型」而不是「每次调用前沿通用模型」的代表。来源：<a href="https://arxiv.org/abs/2610.41225">https://arxiv.org/abs/2610.41225</a></p>
+
+    <h3>Toward Autonomous RTL and Synthesis Optimization（Dr. RTL）</h3>
+    <p><strong>Benchmarking and Self-Improving Agents</strong> · Wenji Fang, Yao Lu, Jinghua Wang, Zhiyao Xie · arXiv:2611.13713 · 2026-11-10 · ASP-DAC'27 邀请论文</p>
+    <p>三条线并置：更贴近真实 EDA 流程的 RTL 优化基准；工具接地的多智能体 Dr. RTL，自动做关键路径分析、RTL 改写和实现级评估，并把优化技能沉淀下来复用；以及面向具体设计的综合脚本调参与可执行综合算法发现。在 20 个真实 RTL 设计上，论文称相对商业综合，平均 WNS/TNS 改善 21%/17%，面积下降 6%。来源：<a href="https://arxiv.org/abs/2611.13713">https://arxiv.org/abs/2611.13713</a></p>
+
+    <h3>LOCA：Verified Netlist-to-RTL Recovery</h3>
+    <p><strong>Verified Netlist-to-RTL Recovery with LLM Agents</strong> · Ahmet Efe, Recep Bugra Uludag, Ulya R. Karpuzcu · arXiv:2611.25324 · 2026-11-19</p>
+    <p>这是安全向的工作：把匿名门级网表按逻辑锥切开，并行智能体改写后再组装，只保留与网表形式等价的 RTL。21 个模型–设计对里，LOCA 恢复了 17 个，整网表提示只有 6 个。功能保持的混淆挡不住它，但未知密钥或隐藏单元功能会让它无法证明恢复了原设计。对 IP 保护和逆向工程都有直接含义。来源：<a href="https://arxiv.org/abs/2611.25324">https://arxiv.org/abs/2611.25324</a></p>
+  </section>
+
+  <section class="card" id="backend">
+    <h2>后端：物理设计、调参与评测</h2>
+    <h3>ORFS-agent</h3>
+    <p><strong>Tool-Using Agents for Chip Design Optimization</strong> · Amur Ghose, Andrew B. Kahng, Sayak Kundu, Zhiang Wang · arXiv:2506.08332 · 首发 2025-06-10，v3 为 2026-04-30</p>
+    <p>在开源 OpenROAD 流程里用 LLM 智能体调数千维参数，替代纯贝叶斯优化。在 ASAP7 与 SKY130HD 的六个基准上，思维链后端（文中为 Sonnet 4.6 与 Kimi K2.5）相对 OR-AutoTuner，几何平均归一化线长、有效时钟周期和联合目标最多改善 1.0%、1.3% 和 2.7%，迭代少约 40%。开源权重的 Kimi K2.5 与 Sonnet 4.6 相差不超过 0.24%。Kahng 团队在 DAC 2026 邀请报告里把它放进「从调参到改算法」的路线图。来源：<a href="https://arxiv.org/abs/2506.08332">https://arxiv.org/abs/2506.08332</a></p>
+
+    <h3>MMCircuitEval</h3>
+    <p><strong>A Comprehensive Multimodal Circuit-Focused Benchmark for Evaluating LLMs</strong> · Chenchen Zhao, Zhengyuan Shi, Xiangyu Wen 等 · arXiv:2507.19525 · 2025-07-20 · ICCAD 2025</p>
+    <p>首个面向电路的多模态基准，3614 道经过专家审阅的问答，覆盖数字与模拟、从前端到后端。评估显示现有模型在后端设计和复杂计算上差距明显。它提醒：只看 Verilog 文本生成，会低估版图、波形和文档理解的难度。来源：<a href="https://arxiv.org/abs/2507.19525">https://arxiv.org/abs/2507.19525</a></p>
+
+    <h3>PDAgent-Bench</h3>
+    <p><strong>Characterizing, Grounding, and Architecting LLM/VLM Agents for VLSI Physical Design</strong> · Qiufeng Li, Rongqian Chen, Quan Cheng, Chengxuan Wang, Sizhe Tang, Chia-Tung Ho, David Z. Pan, Tian Lan · arXiv:2606.17253 · 2026-06-15</p>
+    <p>专门补物理设计智能体评测的空白：353 道题，既有概念问答，也有带工业工件的可执行任务，并提供人对齐的闭环工作流。11 个模型的实验表明，概念题还过得去，工具执行明显弱，例如 Innovus 脚本生成约 42.2%。加入人类设计技能的智能体工作流能改善端到端物理设计。开源：<a href="https://github.com/fenggev56/PDAGENT-BENCH">https://github.com/fenggev56/PDAGENT-BENCH</a>。来源：<a href="https://arxiv.org/abs/2606.17253">https://arxiv.org/abs/2606.17253</a></p>
+
+    <h3>MAGE</h3>
+    <p><strong>Human-Like Macro Placement via Agentic Multimodal Reasoning</strong> · Andrew B. Kahng, Sayak Kundu, Bodhisatta Pramanik · arXiv:2607.18536 · 2026-07-20</p>
+    <p>宏块放置在工业流程里仍大量靠人手微调。MAGE 不用标注放置数据做训练，而是把专家规则写成自然语言指令和校验标准，走「分组—放置—校验—精炼」的六阶段多模态多智能体流程，并用锦标赛方式在候选之间传递反馈。论文还提出 notch、whitespace、pocket、alignment 四个人类风格指标。这是「让智能体扮演资深 floorplanner」而不是再训练一个强化学习放置器。来源：<a href="https://arxiv.org/abs/2607.18536">https://arxiv.org/abs/2607.18536</a></p>
+
+    <h3>OpenLayout</h3>
+    <p><strong>An Open and Agentic-Driven Platform for Holistic VLSI Physical Design and Benchmarking</strong> · Qiufeng Li, Sizhe Tang, Quan Cheng, Zirui Wang, Wantong Li, Tian Lan, Weidong Cao · arXiv:2611.18517 · 2026-11-13 · 录用 ICCAD 2026</p>
+    <p>面向先进工艺与商业 EDA 工具的智能体物理设计平台，强调把工程师经验写进多智能体协作，做自迭代的设计空间优化。配套 OpenLayout-Bench。论文称相对基线约有 20% 的准确率提升，并开源在 <a href="https://github.com/fenggev56/OpenLayout">https://github.com/fenggev56/OpenLayout</a>。与 PDAgent-Bench 是同一方向上的平台加基准。来源：<a href="https://arxiv.org/abs/2611.18517">https://arxiv.org/abs/2611.18517</a></p>
+  </section>
+
+  <section class="card" id="cross">
+    <h2>跨层与通用 EDA 智能体</h2>
+    <h3>ChipOmni</h3>
+    <p><strong>A General-Purpose AI Agent for Electronic Design Automation</strong> · Pengkun Wang, Rui Mao, Zhe Zhao, Dongting Xie, Haibin Wen, Song Xu, Di Wu, Xu Wang, Zhengyang Zhou, Binwu Wang, Xiaofeng Cao, Yang Wang · arXiv:2611.13020 · 2026-11-09</p>
+    <p>把多模态理解、动态规划、多智能体协作和「验证驱动的工具交互」收进一个会演化任务上下文的框架，覆盖模拟电路、RTL、测试台和形式化断言。论文称在 AnalogCoder-Pro 的 30 项任务上全部解出；在长程案例中，把自然语言 RISC-V 规格经过三个设计层级推进到通过物理签核的微型 SoC GDSII，初始化后不再人工介入。这是目前最强的「全流程跑通」学术主张之一，阅读时需要对照基准规模、工艺与工具设置。来源：<a href="https://arxiv.org/abs/2611.13020">https://arxiv.org/abs/2611.13020</a></p>
+  </section>
+
+  <section class="card" id="table">
+    <h2>一览表</h2>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日期</th><th>简称</th><th>阶段</th><th>场合</th><th>一句话</th><th>链接</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2025-06-10</td><td>ORFS-agent</td><td>后端</td><td>arXiv v3 2026-04-30</td><td>开源流程里用智能体调参，迭代少约 40%。</td><td class="src"><a href="https://arxiv.org/abs/2506.08332">arxiv.org/abs/2506.08332</a></td></tr>
+        <tr><td>2025-06-17</td><td>CVDP</td><td>前端</td><td>arXiv</td><td>NVIDIA 783 题基准，代码生成 pass@1 当时不超过 34%。</td><td class="src"><a href="https://arxiv.org/abs/2506.14074">arxiv.org/abs/2506.14074</a></td></tr>
+        <tr><td>2025-07-20</td><td>MMCircuitEval</td><td>跨层</td><td>ICCAD 2025</td><td>3614 题多模态电路基准，后端明显更难。</td><td class="src"><a href="https://arxiv.org/abs/2507.19525">arxiv.org/abs/2507.19525</a></td></tr>
+        <tr><td>2025-07-22</td><td>RealBench</td><td>前端</td><td>arXiv</td><td>真实 IP 级 Verilog；系统级曾为 0%。</td><td class="src"><a href="https://arxiv.org/abs/2507.16200">arxiv.org/abs/2507.16200</a></td></tr>
+        <tr><td>2026-01-29</td><td>ChipBench</td><td>前端</td><td>arXiv</td><td>生成/调试/参考模型；SOTA 生成约 30.74%。</td><td class="src"><a href="https://arxiv.org/abs/2601.21448">arxiv.org/abs/2601.21448</a></td></tr>
+        <tr><td>2026-02-10</td><td>ACE-RTL</td><td>前端</td><td>arXiv v2 2026-03-21</td><td>领域模型加上下文演化，CVDP 通过率最多 +41.02 个百分点。</td><td class="src"><a href="https://arxiv.org/abs/2602.10218">arxiv.org/abs/2602.10218</a></td></tr>
+        <tr><td>2026-04-21</td><td>ChipCraftBrain</td><td>前端</td><td>arXiv</td><td>验证优先的多智能体编排。</td><td class="src"><a href="https://arxiv.org/abs/2604.19856">arxiv.org/abs/2604.19856</a></td></tr>
+        <tr><td>2026-05-13</td><td>ChipMATE</td><td>前端</td><td>arXiv</td><td>可自训练、互校验的多智能体，面向隔离部署。</td><td class="src"><a href="https://arxiv.org/abs/2605.12857">arxiv.org/abs/2605.12857</a></td></tr>
+        <tr><td>2026-06-15</td><td>PDAgent-Bench</td><td>后端</td><td>arXiv</td><td>353 题物理设计智能体基准，脚本生成仍然弱。</td><td class="src"><a href="https://arxiv.org/abs/2606.17253">arxiv.org/abs/2606.17253</a></td></tr>
+        <tr><td>2026-07-20</td><td>MAGE</td><td>后端</td><td>arXiv</td><td>多模态智能体做类人宏块放置。</td><td class="src"><a href="https://arxiv.org/abs/2607.18536">arxiv.org/abs/2607.18536</a></td></tr>
+        <tr><td>2026-10-09</td><td>AI-HDL</td><td>跨层</td><td>arXiv</td><td>教学竞赛把 LLM 流程推到 Sky130 签核与流片提交。</td><td class="src"><a href="https://arxiv.org/abs/2610.18891">arxiv.org/abs/2610.18891</a></td></tr>
+        <tr><td>2026-10-30</td><td>RTL-Interact</td><td>前端</td><td>arXiv（在投 ICLR 2027）</td><td>把工具交互训进同一个 RTL 模型。</td><td class="src"><a href="https://arxiv.org/abs/2610.41225">arxiv.org/abs/2610.41225</a></td></tr>
+        <tr><td>2026-11-09</td><td>ChipOmni</td><td>跨层</td><td>arXiv</td><td>自然语言规格到微型 SoC 签核 GDS 的长程案例。</td><td class="src"><a href="https://arxiv.org/abs/2611.13020">arxiv.org/abs/2611.13020</a></td></tr>
+        <tr><td>2026-11-10</td><td>Dr. RTL</td><td>前端</td><td>ASP-DAC'27 邀请论文</td><td>真实设计上 WNS/TNS 平均 +21%/+17%，面积 -6%。</td><td class="src"><a href="https://arxiv.org/abs/2611.13713">arxiv.org/abs/2611.13713</a></td></tr>
+        <tr><td>2026-11-13</td><td>OpenLayout</td><td>后端</td><td>ICCAD 2026</td><td>开源智能体物理设计平台与基准。</td><td class="src"><a href="https://arxiv.org/abs/2611.18517">arxiv.org/abs/2611.18517</a></td></tr>
+        <tr><td>2026-11-19</td><td>LOCA</td><td>前端</td><td>arXiv</td><td>形式等价的网表到 RTL 恢复，有安全含义。</td><td class="src"><a href="https://arxiv.org/abs/2611.25324">arxiv.org/abs/2611.25324</a></td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="card" id="bg">
+    <h2>背景论文</h2>
+    <p>以下条目用于定位谱系，不是 2025–2026 的新进展。</p>
+    <ul>
+      <li>AlphaChip / 「A graph-placement methodology for fast chip design」，Nature 2021，2024 年补遗。DeepMind 介绍：<a href="https://deepmind.google/discover/blog/how-alphachip-transformed-computer-chip-design">https://deepmind.google/discover/blog/how-alphachip-transformed-computer-chip-design</a></li>
+      <li>ChipNeMo: Domain-Adapted LLMs for Chip Design，NVIDIA，arXiv:2311.00176（2023）。<a href="https://arxiv.org/abs/2311.00176">https://arxiv.org/abs/2311.00176</a></li>
+      <li>Andrew B. Kahng 等，DAC 2026 邀请报告 <em>Progress and Roadmap Toward an Automated EDA R&amp;D Engineer</em>，讨论 ORFS-agent、HELIX 与 MAGE 等层级。<a href="https://vlsicad.ucsd.edu/NEWS26_2/DAC2026_invited-v5-POSTED.pdf">https://vlsicad.ucsd.edu/NEWS26_2/DAC2026_invited-v5-POSTED.pdf</a></li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>本目录为 mlsys-paper 仓库「ai for chip」进展跟踪页，风格对齐既有中文笔记。本地文件写于 2026-11-22。</p>
+  </footer>
+  </div>
+</body>
+</html>

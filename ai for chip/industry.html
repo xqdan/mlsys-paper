@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>业界进展 | AI for Chip</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --teal-soft: #ccfbf1;
+      --navy: #1e3a5f;
+      --gold: #b45309;
+      --good: #166534;
+      --warn: #9a3412;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.navy { background: #e8eef5; color: #1e3a5f; border-color: #bfd0e3; }
+    h1 { font-size: 28px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    .local-nav {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 14px; margin: 16px 0 0;
+    }
+    .local-nav a { text-decoration: none; margin-right: 16px; }
+    .local-nav a:hover { text-decoration: underline; }
+    .local-nav a.current { color: var(--accent); font-weight: 650; }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .table-wrap { overflow-x: auto; margin: 12px 0 18px; }
+    .table-wrap table { margin: 0; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .src { font-size: 12.5px; word-break: break-all; }
+    .note { font-size: 14px; color: var(--muted); }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+
+  
+  </style>
+</head>
+<body>
+  <div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">业界</span>
+      <span class="badge ok">EDA · 晶圆厂 · 模型公司</span>
+      <span class="badge navy">截至 2026-11-22</span>
+    </div>
+    <h1>业界进展</h1>
+    <p class="subtitle">EDA 厂商、晶圆厂、NVIDIA 与模型公司在「用人工智能做芯片」上的已核验公告。</p>
+    <p class="meta">截至 <strong>2026-11-22</strong>（Asia/Shanghai）。融资与客户数字取公司新闻稿或具名媒体原文，未独立审计。</p>
+    
+    <div class="local-nav">
+      <a href="index.html" class="">总览</a>
+      <a href="papers.html" class="">论文</a>
+      <a href="startups.html" class="">创业公司</a>
+      <a href="industry.html" class="current">业界</a>
+    </div>
+  </header>
+  
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+        <li><a href="#takeaway">本期业界判断</a></li>
+        <li><a href="#timeline">时间线</a></li>
+        <li><a href="#table">一览表</a></li>
+    </ol>
+  </nav>
+  
+  <section class="card" id="takeaway">
+    <h2>本期业界判断</h2>
+    <div class="callout navy">
+      2026 年三大 EDA 厂商的官方叙事已经对齐：不是再做一个助手，而是让长程智能体调用自家签核引擎，在隔离运行时里做验证闭环、实现收敛和多物理场分析。Synopsys、Cadence、Siemens 都与 NVIDIA 的 Agent Toolkit、Nemotron 和 OpenShell 绑定。台积电则试图用 AI Design Kit 给这些代理提供工艺知识层。11 月 18 日 OpenAI 的官方研究页把这条线从工具推进到「模型已经改到自研芯片和 AMD 的生产设计」。
+    </div>
+    <p>以下时间线只收打开过的官方新闻稿、官方博客或（TSMC ADK 这一条）SemiWiki 对 OIP 的现场报道。加速比、覆盖率提升和客户引言全部是发布方口径。</p>
+  </section>
+
+  <section class="card" id="timeline">
+    <h2>时间线</h2>
+
+    <h3>2025-11-10 · Cadence 收购 ChipStack</h3>
+    <p>Cadence 宣布 ChipStack 加入其智能体团队，并把已有的 Xcelium、Jasper 合作升级为收购。这是 2026 年 Super Agent 产品线的起点。来源：<a href="https://community.cadence.com/cadence_blogs_8/b/corporate-news/posts/cadence-welcomes-chipstack">https://community.cadence.com/cadence_blogs_8/b/corporate-news/posts/cadence-welcomes-chipstack</a></p>
+
+    <h3>2026-02-10 · Cadence 发布 ChipStack AI Super Agent</h3>
+    <p>定位为前端设计与验证的智能体工作流，官方称在编码设计与测试台、测试计划、回归、调试和自动修复上最多约 10 倍生产力。稿件称该方案编排多位「虚拟工程师」调用 Cadence 基础工具，并与已用于超过 1000 次流片的优化 AI / 助手（含 Verisium、Cerebrus）以及 JedAI 数据平台结合；模型可选云端或本地，包括可定制的 NVIDIA Nemotron 与云端 GPT。早期部署点名 Altera、NVIDIA、Qualcomm、Tenstorrent。Altera 称部分验证工作量大约降到 1/10；Tenstorrent 称在三个关键模块、三个月评估中验证时间最多减少 4 倍。当时为早期试用。来源：<a href="https://www.cadence.com/en_US/home/company/newsroom/press-releases/pr/2026/cadence-unleashes-chipstack-ai-super-agent-pioneering-a-new.html">https://www.cadence.com/en_US/home/company/newsroom/press-releases/pr/2026/cadence-unleashes-chipstack-ai-super-agent-pioneering-a-new.html</a></p>
+
+    <h3>2026-03-16 · Siemens 发布 Fuse EDA AI Agent</h3>
+    <p>在 NVIDIA GTC 2026 发布，覆盖半导体、3D IC 和 PCB。Fuse 在已有 RAG、多模态 EDA 数据湖、MCP 与 Agent Skills 之上，做跨工具的规划与编排，并支持 NVIDIA Agent Toolkit 与 Nemotron。前端接到 Catapult 与 Questa One Agentic Toolkit，后端接到 Aprisa、Solido、Veloce、Calibre、Innovator3D IC、Tessent 和 OPC。Samsung 存储设计技术负责人 Jung Yun Choi 被引述为在其智能体工作流中引入 Fuse。稿件写明「NVIDIA 在芯片研发中使用 Siemens Fuse EDA」。来源：<a href="https://news.siemens.com/en-us/siemens-fuse-eda-ai-agent/">https://news.siemens.com/en-us/siemens-fuse-eda-ai-agent/</a></p>
+
+    <h3>2026-06-01 · Cadence 在 Computex 宣布 Level-5 自主虚拟工程师</h3>
+    <p>把 ChipStack 延伸到官方所称的 Level-5 自主，运行在 NVIDIA OpenShell 中，模型用 Nemotron。稿件称 NVIDIA 将让每位工程师用 ChipStack 代理，配合 Xcelium 与 Jasper 跑数百次动态仿真，RTL 验证周期超过 40 倍，典型五周验证环缩短到不到一天。回顾了 2025 年 11 月收购、2026 年 2 月首个产品，以及 4 月 CadenceLIVE 上的 ViraStack（定制/模拟）、InnoStack（数字实现与签核）和 AgentStack 编排框架。Level-5 与 AgentStack 计划 2026 下半年向早期客户提供。来源：<a href="https://www.cadence.com/en_US/home/company/newsroom/press-releases/pr/2026/cadence-unveils-industrys-first-fully-autonomous-virtual.html">https://www.cadence.com/en_US/home/company/newsroom/press-releases/pr/2026/cadence-unveils-industrys-first-fully-autonomous-virtual.html</a></p>
+
+    <h3>2026-07-26 · Synopsys 在 DAC 演示长程自主验证与 CAE 代理</h3>
+    <p>与 NVIDIA 合作，用 Nemotron 与 OpenShell。官方要点：完全自主的长程设计验证代理编排整段验证周期，最多 50 倍「到已验证 RTL」加速，并额外提高 20% 覆盖率；首个完全自主的电子设备热管理 CAE 工作流；超过 20 款 GPU 加速的 EDA 与多物理场产品，其中 PrimeSim SPICE 最多约 18 倍。AMS 方向上，Custom Compiler 布局综合加 AgentEngineer 编排，官方称生产力最多约 3 倍。客户当时在评估，计划 2026 下半年提供。来源：<a href="https://news.synopsys.com/2026-07-26-Synopsys-Showcases-Comprehensive-Autonomous-Engineering-Workflows-from-Silicon-to-Systems,-Developed-with-NVIDIA-Technology">https://news.synopsys.com/2026-07-26-Synopsys-Showcases-Comprehensive-Autonomous-Engineering-Workflows-from-Silicon-to-Systems,-Developed-with-NVIDIA-Technology</a></p>
+
+    <h3>2026-07-26 · Siemens 在 DAC 推出自验证智能体工作流</h3>
+    <p>Fuse 接入 Intelligence Center X，强调用物理引擎持续校验代理决策，并引入 NVIDIA NeMo Gym、OpenShell、Nemotron 与 CUDA-X。Solido 特征化套件的代理工作流被称可将特征化周转缩短 10 倍以上，token 成本降到 1/5 到 1/10。Questa One 与 Nemotron 3 Ultra 结合；稿件称在 ACE-RTL 智能体基准上，Nemotron 3 Ultra 在开源模型中领先。STMicroelectronics 被引述用于 Solido Layout Analyzer。来源：<a href="https://news.siemens.com/es-mx/siemens-nvidia-dac-2026/">https://news.siemens.com/es-mx/siemens-nvidia-dac-2026/</a></p>
+
+    <h3>2026-09-22 · Cadence 为 ChipStack 增加 RTL 生成与早期 PPA 代理</h3>
+    <p>从自然语言做面向 PPA 的规格到 RTL、分析与精炼，并支持按新需求改已有 RTL。早期评估口径：相对「纯基础模型代码生成」平均面积减少 24%、功耗减少 18%，并称 RTL 功能全部正确。Honda R&amp;D 被点名为在先进汽车 SoC 上评估。扩展后的 ChipStack 与 InnoStack 能力计划 2026 年第四季度向部分早期客户提供。来源：<a href="https://www.cadence.com/ko_KR/home/company/newsroom/press-releases/pr/2026/cadence-expands-chipstack-ai-super-agent-with-a-new-agent-for.html">https://www.cadence.com/ko_KR/home/company/newsroom/press-releases/pr/2026/cadence-expands-chipstack-ai-super-agent-with-a-new-agent-for.html</a></p>
+
+    <h3>2026-09-23 · Synopsys 与 TSMC：A14 认证流程与智能体工作流</h3>
+    <p>在 TSMC OIP 周期发布。合作覆盖 A14 数字/模拟认证流程并启用智能体能力、CoWoS 上的 IVR 多裸片、COUPE 共封装光学，以及 2 nm IP 组合。智能体侧：Custom Compiler 加速模拟迁移，Fusion Compiler 用 LLM 辅助分析；3DIC Compiler 上新增智能体芯片粒 floorplan 协同优化，面向 3DFabric。来源：<a href="https://news.synopsys.com/2026-09-23-Synopsys-and-TSMC-Partner-to-Accelerate-AI-Systems-Innovation-with-Agentic-AI-and-Advanced-Design">https://news.synopsys.com/2026-09-23-Synopsys-and-TSMC-Partner-to-Accelerate-AI-Systems-Innovation-with-Agentic-AI-and-Advanced-Design</a></p>
+
+    <h3>2026-09-28 · Synopsys 发布 Autopilot 平台与 AgentEngineer 组合</h3>
+    <p>官方称为「从硅到系统」的领域长程智能体组合，覆盖验证、系统确认、实现、模拟、制造与仿真分析，底层是开放且带治理的 Autopilot 平台（编排、技能、记忆、遥测、安全）。演示口径再次包括最多 50 倍验证收敛、高 20% 的覆盖、30% 生产力、2 倍 token 效率。客户引言包括：AheadComputing 用实现 AgentEngineer 减少从 RTL 移交到 ECO 与签核的手工；Fujitsu 称 RTL 代码生成生产力提升 10–30%；Intel 谈验证调试；MediaTek 谈在 SmartFloorplanning 之后继续合作 AMS 代理；Samsung 存储与 TSMC 谈先进封装电源完整性。稿件称超过 50 个合作评估正在进行，计划 2026 年底提供。来源：<a href="https://news.synopsys.com/2026-09-28-Synopsys-Powers-Autonomous-Engineering-with-a-Broad-Portfolio-of-Long-Horizon-Agents-and-Autopilot-Platform">https://news.synopsys.com/2026-09-28-Synopsys-Powers-Autonomous-Engineering-with-a-Broad-Portfolio-of-Long-Horizon-Agents-and-Autopilot-Platform</a></p>
+
+    <h3>2026 年 9 月末 · TSMC AI Design Kit（ADK）</h3>
+    <p>SemiWiki 对 TSMC 2026 OIP 的报道（2026-10-01）称，TSMC 引入 ADK，作为给智能体设计框架用的「技术知识层」，不同于给人看的传统 PDK。报道转述 TSMC 口径：数字设计生产力 3 到 5 倍，模拟/RF 最高 6 倍，并提醒公开说明不足以把这些数字当成普遍基准。Aveek Sarkar 的表述被直接引用。本轮未打开到 TSMC 官方 PDF，故只作为行业报道收录。来源：<a href="https://semiwiki.com/semiconductor-manufacturers/tsmc/374098-tsmcs-ai-design-kit-bringing-agentic-ai-into-chip-design/">https://semiwiki.com/semiconductor-manufacturers/tsmc/374098-tsmcs-ai-design-kit-bringing-agentic-ai-into-chip-design/</a></p>
+
+    <h3>2026-10-21 · Siemens 把自验证代理扩展到 3D IC 电热协同</h3>
+    <p>Fuse 与 Intelligence Center X 编排 7 个 Siemens 工具上的 9 步流程，一次循环跑 50 到 100 步推理、约 8 到 10 小时，可扫描 200–500 以上设计点。基准研究口径：工程投入最多减少 95%（数周变数小时），流程搭建时间最多减少 99%，设计探索覆盖最多约 50 倍。工具链包括 Innovator3D IC、Solido Characterizer、mPower Digital、Calibre 3DThermal、Simcenter Flotherm、Calibre xACT 和 Solido SPICE，并使用 NVIDIA Agent Toolkit 与 Nemotron。更多工作流计划在 GTC Berlin 展示。来源：<a href="https://news.siemens.com/de-ch/siemens-nvidia-gtc-3d-ic-thermal-ai/">https://news.siemens.com/de-ch/siemens-nvidia-gtc-3d-ic-thermal-ai/</a></p>
+
+    <h3>2026-11-18 · OpenAI：用自家模型改自研芯片和 AMD 设计</h3>
+    <p>官方研究页回顾：2025 年初起用 GPT-o3 mini 等模型辅助第一款自定义推理芯片 Jalapeño。团队估计模型提出的改动使向量单元标准单元面积约减 13%、矩阵单元约减 10%，并已在硅上验证；其中一个乘法器重设计综合后单元面积约少 15%，延迟从两拍降到一拍。与 AMD 合作，在「已经很优化的基线」上，旗舰 GPU IP 最多约 14% 的改善，官方称约一年的进展压缩到不到五个月，部分改动已进入一次近期流片，另一些进入未来版本的生产设计文件；下一代旗舰 CPU 的关键模块上也有个位数百分比的 PPA 收益。为测量模型迭代，OpenAI 还在 PicoRV32 与 OpenTitan Ibex 两个开源核上做了优化与「按规格重设计」评测（共 9881 次计分运行）。下一步是与 Synopsys 合作训练 GPT-Synopsys，让模型按工程师的方式使用 EDA 工具。来源：<a href="https://openai.com/index/advancing-chip-design-with-our-models/">https://openai.com/index/advancing-chip-design-with-our-models/</a></p>
+  </section>
+
+  <section class="card" id="table">
+    <h2>一览表</h2>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日期</th><th>主体</th><th>阶段</th><th>事件</th><th>来源</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2025-11-10</td><td>Cadence / ChipStack</td><td>前端</td><td>收购验证智能体创业公司。</td><td class="src"><a href="https://community.cadence.com/cadence_blogs_8/b/corporate-news/posts/cadence-welcomes-chipstack">Cadence 博客</a></td></tr>
+        <tr><td>2026-02-10</td><td>Cadence</td><td>前端</td><td>ChipStack AI Super Agent，早期客户含 NVIDIA 等。</td><td class="src"><a href="https://www.cadence.com/en_US/home/company/newsroom/press-releases/pr/2026/cadence-unleashes-chipstack-ai-super-agent-pioneering-a-new.html">Cadence PR</a></td></tr>
+        <tr><td>2026-03-16</td><td>Siemens / NVIDIA</td><td>跨层</td><td>Fuse EDA AI Agent，NVIDIA 自称在用。</td><td class="src"><a href="https://news.siemens.com/en-us/siemens-fuse-eda-ai-agent/">Siemens PR</a></td></tr>
+        <tr><td>2026-06-01</td><td>Cadence / NVIDIA</td><td>前端</td><td>Computex 宣布 Level-5；称验证环从五周到不到一天。</td><td class="src"><a href="https://www.cadence.com/en_US/home/company/newsroom/press-releases/pr/2026/cadence-unveils-industrys-first-fully-autonomous-virtual.html">Cadence PR</a></td></tr>
+        <tr><td>2026-07-26</td><td>Synopsys / NVIDIA</td><td>跨层</td><td>DAC：最多 50 倍到已验证 RTL，覆盖 +20%。</td><td class="src"><a href="https://news.synopsys.com/2026-07-26-Synopsys-Showcases-Comprehensive-Autonomous-Engineering-Workflows-from-Silicon-to-Systems,-Developed-with-NVIDIA-Technology">Synopsys PR</a></td></tr>
+        <tr><td>2026-07-26</td><td>Siemens / NVIDIA</td><td>跨层</td><td>DAC：自验证代理；Solido 特征化超过 10 倍。</td><td class="src"><a href="https://news.siemens.com/es-mx/siemens-nvidia-dac-2026/">Siemens PR</a></td></tr>
+        <tr><td>2026-09-22</td><td>Cadence / Honda</td><td>前端</td><td>RTL 生成代理；相对基础模型面积 -24%、功耗 -18%（早期评估）。</td><td class="src"><a href="https://www.cadence.com/ko_KR/home/company/newsroom/press-releases/pr/2026/cadence-expands-chipstack-ai-super-agent-with-a-new-agent-for.html">Cadence PR</a></td></tr>
+        <tr><td>2026-09-23</td><td>Synopsys / TSMC</td><td>跨层</td><td>A14 认证流程与智能体、3DIC floorplan 协同优化。</td><td class="src"><a href="https://news.synopsys.com/2026-09-23-Synopsys-and-TSMC-Partner-to-Accelerate-AI-Systems-Innovation-with-Agentic-AI-and-Advanced-Design">Synopsys PR</a></td></tr>
+        <tr><td>2026-09-28</td><td>Synopsys</td><td>跨层</td><td>Autopilot + AgentEngineer；超过 50 个评估，计划年底可用。</td><td class="src"><a href="https://news.synopsys.com/2026-09-28-Synopsys-Powers-Autonomous-Engineering-with-a-Broad-Portfolio-of-Long-Horizon-Agents-and-Autopilot-Platform">Synopsys PR</a></td></tr>
+        <tr><td>2026-09/10</td><td>TSMC</td><td>EDA</td><td>OIP 上的 ADK；3–5 倍 / 最高 6 倍为转述口径。</td><td class="src"><a href="https://semiwiki.com/semiconductor-manufacturers/tsmc/374098-tsmcs-ai-design-kit-bringing-agentic-ai-into-chip-design/">SemiWiki</a></td></tr>
+        <tr><td>2026-10-21</td><td>Siemens / NVIDIA</td><td>后端</td><td>3D IC 电热代理；探索覆盖最多约 50 倍。</td><td class="src"><a href="https://news.siemens.com/de-ch/siemens-nvidia-gtc-3d-ic-thermal-ai/">Siemens PR</a></td></tr>
+        <tr><td>2026-11-18</td><td>OpenAI / AMD / Synopsys</td><td>前端</td><td>Jalapeño 面积约 -13%/-10% 且已硅验证；AMD GPU IP 最多约 14%；将训 GPT-Synopsys。</td><td class="src"><a href="https://openai.com/index/advancing-chip-design-with-our-models/">OpenAI</a></td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>本目录为 mlsys-paper 仓库「ai for chip」进展跟踪页，风格对齐既有中文笔记。本地文件写于 2026-11-22。</p>
+  </footer>
+  </div>
+</body>
+</html>
