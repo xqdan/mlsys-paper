@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPU 与 AI 芯片固件实践综述 | 分层、升级与排错</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    td.num { font-family: "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre {
+      font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+      background: #f5f0e6; border: 1px solid var(--line); padding: 12px 14px; overflow-x: auto;
+      line-height: 1.55; margin: 0 0 16px;
+    }
+    .small { font-size: 14px; color: var(--muted); }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3 { columns: 1; grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="badge-row">
+    <span class="badge hot">实践综述</span>
+    <span class="badge">GPU / AI 芯片</span>
+    <span class="badge ok">固件 · 驱动 · 运维</span>
+  </div>
+  <h1>先分清几层固件，再谈升级和排错</h1>
+  <p class="subtitle">把 VBIOS、GSP、InfoROM、SMU/PSP、整机 BMC 和驱动之间的边界说清楚，并整理可以核对的官方文档、工具和会议材料。条目的原始链接在同目录 <a href="entries.md">entries.md</a>。</p>
+  <p class="meta">
+    <strong>用途</strong>　给做 MLSys、集群运维和软硬件协同的人，建立一张固件地图，并落到可执行的查询、升级和排错习惯。<br />
+    <strong>读法</strong>　先看第 1 节的分层图，再按厂商读实践。第 7 节是常见坑，第 9 节是资源清单。<br />
+    <strong>截至</strong>　2026-11-22（Asia/Shanghai）。正文只写能追到公开来源的事实；某家公开资料少，会直接说少。链接在撰写时做过 HTTP 核对，访问异常记在 <a href="entries.md">entries.md</a> 对应条目里。
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#s1">先分清几层固件</a></li>
+    <li><a href="#s2">NVIDIA：GSP、开源模块与查询</a></li>
+    <li><a href="#s3">NVIDIA：整机固件、NVSwitch 与保密计算</a></li>
+    <li><a href="#s4">AMD：linux-firmware、IFWI 与版本矩阵</a></li>
+    <li><a href="#s5">其他 AI 加速器</a></li>
+    <li><a href="#s6">集群里怎么升、怎么锁版本</a></li>
+    <li><a href="#s7">调试、Xid 和常见坑</a></li>
+    <li><a href="#s8">安全：签名、认证与研究</a></li>
+    <li><a href="#s9">资源清单</a></li>
+  </ol>
+</nav>
+
+<section class="card" id="s1">
+  <h2>1. 先分清几层固件</h2>
+  <p class="lead">人们说的「GPU 固件」往往不是同一块东西。一块数据中心加速卡上，至少有驱动启动时加载的运行时微码、板上闪存里的板级固件，以及整机 BMC / BIOS / CPLD / 交换机那一层。混在一起谈「升一下固件」，最常见的结果是升错层、升完不复位，或者只改了驱动、板级镜像还停在旧版本。</p>
+  <p>不要先记产品名字。先按「谁加载、存在哪里、升完要不要掉电」把栈拆开。三层的职责是叠在一起的：运行时微码再新，下面的 VBIOS 或 IFWI 不对，保密计算、分区、RAS 记录仍可能对不上；板级固件再对，BMC 和 GPU 托盘不同步，整机升级照样会失败。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="从应用到整机固件的分层">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">
+        <rect x="40" y="20" width="900" height="56" rx="6" fill="#faf7f2" stroke="#e7e0d4"/>
+        <text x="490" y="42" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1917">应用与框架　CUDA / ROCm / PyTorch / JAX / CANN</text>
+        <text x="490" y="62" text-anchor="middle" fill="#57534e">不直接刷固件，但会踩到驱动–固件不匹配</text>
+
+        <rect x="40" y="86" width="900" height="56" rx="6" fill="#f0f4f8" stroke="#93c5fd"/>
+        <text x="490" y="108" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a5f">用户态驱动与运行时　nvidia-smi、Fabric Manager、amd-smi、hl-smi、npu-smi</text>
+        <text x="490" y="128" text-anchor="middle" fill="#57534e">查询版本、启持久化、组织 NVSwitch；本身不是板上固件</text>
+
+        <rect x="40" y="152" width="900" height="56" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+        <text x="490" y="174" text-anchor="middle" font-size="15" font-weight="700" fill="#0f766e">内核驱动　nvidia.ko / amdgpu / habanalabs / ascend / tt-kmd</text>
+        <text x="490" y="194" text-anchor="middle" fill="#57534e">启动时从 /lib/firmware 加载运行时微码；开源 NVIDIA 模块还强依赖 GSP</text>
+
+        <rect x="40" y="218" width="440" height="88" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="260" y="244" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">运行时微码</text>
+        <text x="260" y="266" text-anchor="middle" fill="#44403c">NVIDIA GSP　AMD SMU / PSP / SDMA / MES / IMU</text>
+        <text x="260" y="288" text-anchor="middle" fill="#57534e">随发行版或驱动包更新，通常要重启或重载驱动</text>
+
+        <rect x="500" y="218" width="440" height="88" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="720" y="244" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">板级固件</text>
+        <text x="720" y="266" text-anchor="middle" fill="#44403c">VBIOS / IFWI　InfoROM　SPI / eROM　MCU</text>
+        <text x="720" y="288" text-anchor="middle" fill="#57534e">写在板上，升级常要 reset、下电或 AC cycle</text>
+
+        <rect x="40" y="316" width="900" height="72" rx="6" fill="#1c1917"/>
+        <text x="490" y="344" text-anchor="middle" font-size="15" font-weight="700" fill="#fafaf9">整机与机柜固件</text>
+        <text x="490" y="366" text-anchor="middle" fill="#d6d3d1">BMC　SBIOS / UEFI　CPLD　ERoT　HMC　NVSwitch　网卡　电源　中背板</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 1 · 固件不在同一层。中间两块都叫「GPU 固件」，但加载路径和升级工具完全不同；最下面一层通常走 Redfish / <code>nvfwupd</code> / OEM 工具，而不是 <code>apt upgrade linux-firmware</code>。</p>
+
+  <div class="grid-3">
+    <div class="tile">
+      <h4>运行时微码</h4>
+      <p>由内核驱动在初始化时加载。NVIDIA 的 GSP 镜像随驱动放在 <code>/lib/firmware/nvidia/&lt;驱动版本&gt;/</code>；AMD 的 blobs 在 <code>/lib/firmware/amdgpu</code>，通常来自发行版的 <code>linux-firmware</code>。</p>
+    </div>
+    <div class="tile">
+      <h4>板级固件</h4>
+      <p>驻留在卡上的闪存。NVIDIA 的 VBIOS 和 InfoROM、AMD Instinct 的 IFWI / VBIOS、Gaudi 的 SPI / eROM、昇腾的 NPU 固件和 MCU，都属于这一层。升级失败的后果通常比只换微码更重。</p>
+    </div>
+    <div class="tile">
+      <h4>整机固件</h4>
+      <p>BMC、主机 BIOS、CPLD、PCIe 交换/重定时器、NVSwitch、网卡和电源。数据中心 GPU 的很多「固件包」其实是整托盘一起发的，不能只抽一张卡来刷。</p>
+    </div>
+  </div>
+
+  <h3>几个容易混的词</h3>
+  <p><strong>VBIOS</strong> 是板上的 GPU BIOS。NVIDIA 的 <code>nvidia-smi</code> 把它单独列成 “VBIOS Version”，并写明这是 GPU 板的 BIOS。<strong>InfoROM</strong> 是另一块小的持久存储，用来放配置和状态，例如 ECC 记录、电源管理对象；镜像版本和 VBIOS 一样，唯一标识这块板上烧录的 InfoROM，对象版本只表示能力。<strong>GSP</strong> 是 GPU 上的系统处理器，用来卸载原来由 CPU 侧驱动完成的初始化和管理；它跑的是驱动附带的固件文件，不是 VBIOS 本身。</p>
+  <p>AMD 一侧，内核文档把 <strong>PSP</strong> 称为 Platform Security Processor，<strong>SMU / SMC</strong> 是电源与系统管理，<strong>SDMA</strong> 是系统 DMA，<strong>MES</strong> 是 MicroEngine Scheduler，<strong>IMU</strong> 是 Integrated Management Unit。这些是运行时微码的角色名。板级则另有 VBIOS 和 IFWI（integrated firmware image）。Instinct 文档把「固件」明确拆成这两类：<code>/lib/firmware/amdgpu</code> 里的公开微码，以及经 OEM 发布的 VBIOS / PLDM 包。</p>
+  <p>再往外，是 <strong>BMC</strong> 和主机固件。它们不在 GPU 驱动里，但决定你能不能带外升级、升级后要不要 AC 下电，以及 RAS 事件能不能出带外通道。NVIDIA 的 Fabric Manager 也不是固件，而是跑在主机上、用来把 NVSwitch 系统组织成可用织物的服务；它和 NVSwitch 固件、GPU 驱动必须在同一套支持组合里。</p>
+
+  <div class="callout teal">
+    一条可用的习惯：先用厂商的查询命令把「驱动版本、运行时微码版本、VBIOS / IFWI、整机 BMC / BIOS」四行都读出来，再决定升哪一层。只看 <code>nvidia-smi</code> 的 Driver Version，或只看 <code>amd-smi version</code> 里的 ROCm 号，都会漏掉真正决定能否启动的那一层。
+  </div>
+</section>
+
+<section class="card" id="s2">
+  <h2>2. NVIDIA：GSP、开源模块与查询</h2>
+  <p class="lead">从 Turing 开始，NVIDIA 把大量原来在 CPU 侧 Resource Manager 里做的初始化和管理，搬到 GPU 上的 GSP。开源内核模块直接依赖这条路径：没有 GSP，就没有开源模块。</p>
+
+  <h3>GSP 是什么，怎么确认它在跑</h3>
+  <p>NVIDIA 驱动 README（以 580.95.05 为例）的原话是：部分 GPU 含有 GPU System Processor，可用来卸载 GPU 初始化和管理任务；这份处理器由驱动分发的固件驱动，在支持它的 GPU 上默认启用。把传统上由 CPU 侧驱动做的工作卸到 GSP，是因为 GSP 访问 GPU 内部的时延更低。固件文件名为 <code>gsp_*.bin</code>，安装在 <code>/lib/firmware/nvidia/580.95.05/</code> 这类按驱动版本分目录的路径下，文件名按架构命名，例如 <code>gsp_tu10x.bin</code> 对应 Turing，一份文件可以覆盖一个或多个架构。</p>
+  <p>查询方式是官方写死的。运行 <code>nvidia-smi -q</code>，若 GSP 启用会看到一个有效的 “GSP Firmware Version”（通常与驱动版本相同，例如 <code>580.95.05</code>）；若禁用则显示 <code>N/A</code>。同一项也出现在 <code>/proc/driver/nvidia/gpus/PCI-BUS-ID/information</code>。还可以在 <code>nvidia-smi -q -d</code> 里单独指定 <code>GSP_FIRMWARE_VERSION</code>。</p>
+  <p>专有模块仍可用模块参数 <code>NVreg_EnableGpuFirmware=0</code> 关掉 GSP。开源模块做不到这一点：vGPU 文档把「装了开源内核模块后，即使把该参数设为 0 并重启，<code>nvidia-smi -q</code> 仍显示 GSP 版本而不是 N/A」记为已知限制，状态是 “Not a bug”。绕过办法是改用专有内核模块再关 GSP。这不是推荐配置，只说明两条内核模块路线对 GSP 的依赖不同。</p>
+
+  <h3>开源内核模块和封闭固件</h3>
+  <p>2022 年 5 月，R515 首次以 GPL/MIT 双许可发布开源 Linux GPU 内核模块。2024 年 7 月 17 日的 NVIDIA 技术博客宣布，从即将发布的 R560 起，默认安装改为开源模块。这篇博客和随后的驱动安装指南、580.95.05 的 <cite>Open Linux Kernel Modules</cite> 一章，合在一起可以把边界说清楚：</p>
+  <ul>
+    <li>开源模块只支持 Turing 及之后的 GPU，因为它依赖 Turing 才引入的 GSP。</li>
+    <li>Maxwell、Pascal、Volta 必须继续用专有模块。</li>
+    <li>Blackwell 及之后只支持开源模块，专有模块不再覆盖这些平台。更早的博客还点过 Grace Hopper：这些新平台必须用开源模块。</li>
+    <li>保密计算、GPUDirect Storage、HMM、GPU fault handler 的 CPU affinity、CUDA 分配的 DMABUF，官方写明只在开源模块上工作。</li>
+    <li>两种模块互斥，不能同时装进内核，也不该同时留在文件系统上。用户态组件则是同一套。</li>
+    <li>自己编译开源模块时，必须搭配<strong>同一版本</strong>的用户态驱动和 GSP 固件。GitHub 仓库 <a href="https://github.com/NVIDIA/open-gpu-kernel-modules">NVIDIA/open-gpu-kernel-modules</a> 的 README 写得很硬：编出来的模块要和对应驱动版本的 GSP 固件及用户态组件一起用，可用 <code>.run --no-kernel-modules</code> 只装用户态。</li>
+  </ul>
+  <p>开源模块相对「关掉 GSP 的专有模块」，官方也列了已知差异：GPU 初始化更慢，可用 <code>nvidia-persistenced</code> 提前初始化来缓解；S3 / S4 / RTD3 进出更长，因为要恢复额外的 GSP 状态；部分场景功耗会有轻微影响；RTD3 只在 Ampere 及之后支持。判断当前装的是哪一种：<code>modinfo nvidia | grep license</code> 为 <code>Dual MIT/GPL</code>，或 <code>/proc/driver/nvidia/version</code> 里出现 “Open Kernel Module”，就是开源模块。</p>
+
+  <div class="callout">
+    实践上：Turing 及更新的训练和推理节点，按官方建议走开源模块，并接受 GSP 不可关闭。旧卡或新老混插，继续用专有模块。不要把开源模块和专有模块的安装包叠在同一台机器上，也不要拿 A 版本的内核模块去配 B 版本的 GSP 固件。
+  </div>
+
+  <h3>持久化：不要只靠遗留的 Persistence Mode</h3>
+  <p>GPU 没有客户端打开设备文件时，驱动会卸掉 GPU 状态，下一次作业就要重新初始化。对已经把大量初始化放进 GSP 的卡，这个代价更明显。NVIDIA 以前提供内核里的 Persistence Mode（<code>nvidia-smi -pm</code>），后来改为主推用户态的 <code>nvidia-persistenced</code>：守护进程打开设备文件并休眠，相当于一直有一个客户端握着 GPU，但并不真正用卡做计算。官方文档写明，近一段时间两种方案都会支持，但未来的开发和修复集中在守护进程上，并鼓励尽早迁过去。</p>
+  <p>安装注意：驱动安装器会把二进制放到 <code>/usr/bin/nvidia-persistenced</code>，但不会可靠地把它登记进所有发行版的 init 系统。发行版包装或管理员需要自己启用服务。保密计算的部署指南也把「确认 <code>nvidia-persistenced</code> 在跑」写成验证步骤之一。开源模块 README 把这个守护进程当作缓解初始化变慢的手段，不是可选项点缀。</p>
+</section>
+
+<section class="card" id="s3">
+  <h2>3. NVIDIA：整机固件、NVSwitch 与保密计算</h2>
+
+  <h3>VBIOS、InfoROM 和行重映射</h3>
+  <p><code>nvidia-smi -q</code> 除了 GSP，还会给出 VBIOS 和 InfoROM。InfoROM 里有镜像版本，以及 OEM、ECC、电源管理等对象版本；也提供校验和状态（<code>--query-gpu inforom.checksum_validation</code>，值为 valid / invalid / N/A）。驱动把 InfoROM 损坏列为退出码 14。某些功能明确依赖 InfoROM 对象达到指定版本，例如 ECC 模式开关需要 ECC 对象 1.0 或更高。</p>
+  <p>从 Ampere 开始，帧缓冲内存的可靠性机制从「页退役」换成硬件 <strong>row remapping（行重映射）</strong>。官方说明：每个 DRAM bank 有备用行，重映射在硬件层替换坏单元，不会在软件地址空间里留下空洞；要生效必须做 GPU reset，并且在 GPU 生命周期内保持。相对旧方案，帧缓冲最多 512 次重映射（旧方案最多 64 次页退役）。正确纠正错误占用的备用行，在备用行耗尽时可以被不可纠正错误的重映射替换。</p>
+  <p>和 InfoROM 直接相关的 Xid 是官方写过的：Xid 63 表示成功把一条行重映射记录写入 InfoROM，Xid 64 表示写入失败；Xid 48 / 94 / 95 分别对应不可纠正 ECC、contained 和 uncontained 错误。统计既可以通过 <code>nvidia-smi</code> / NVML 看（已记录的重映射条数、pending、failure，以及分桶计数），也可以走带外 SMBPBI。注意：界面上的「已重映射行数」是 InfoROM 里记录的条目，不一定等于硬件此刻已经换上的行。Blackwell 上，同一 bank 第三次因不可纠正错误尝试重映射时，若有备用通道，会进入 HBM channel repair。</p>
+  <div class="callout warn">
+    看到 “Row remapping pending” 不要继续当成健康卡用满。官方要求一次 GPU reset 才会生效。若 failure 标志被置位，应走现场诊断和 RMA 策略，而不是反复复位撞运气。RMA 门槛写在 <a href="https://docs.nvidia.com/deploy/a100-gpu-mem-error-mgmt/latest/rma-policy-thresholds-for-row-remapping.html">GPU Memory Error Management</a> 里，例如同一 bank 已有八行不可纠正重映射后再尝试、对已经重映射的行再次因不可纠正错误重映射、或不可纠正重映射累计达到 512 次。
+  </div>
+
+  <h3>DGX / HGX 的固件栈和 nvfwupd</h3>
+  <p>单卡查询解决不了 HGX / DGX 这类系统。以 DGX B300 为例，官方把可升级部件拆到两只托盘：主板托盘上有 CPU、PCH、BMC 等；GPU 托盘上有 GPU、NVSwitch、HMC 等。升级可以带外走 Redfish，也可以在主机上用 <code>nvfwupd</code>。激活方式按部件不同：BMC 用 <code>ipmitool mc reset cold</code>；PCIe Switch / Retimer、BIOS、HGX（GPU 托盘）要用 <code>ipmitool chassis power cycle</code>；ERoT 和 CPLD 则要拔掉所有电源再上电（AC power cycle），不能用普通 reboot 代替。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 980 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DGX 主板托盘与 GPU 托盘的固件部件">
+      <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">
+        <rect x="40" y="24" width="440" height="180" rx="6" fill="#f0f4f8" stroke="#93c5fd"/>
+        <text x="260" y="54" text-anchor="middle" font-size="16" font-weight="700" fill="#1e3a5f">主板托盘</text>
+        <text x="260" y="84" text-anchor="middle" fill="#44403c">BMC　主机 BIOS　EROT</text>
+        <text x="260" y="108" text-anchor="middle" fill="#44403c">PCIe Switch / Retimer　PSU</text>
+        <text x="260" y="132" text-anchor="middle" fill="#44403c">主板 CPLD　中背板 CPLD</text>
+        <text x="260" y="168" text-anchor="middle" fill="#57534e">常见激活：BMC 冷复位，或整机 power cycle</text>
+        <rect x="500" y="24" width="440" height="180" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="720" y="54" text-anchor="middle" font-size="16" font-weight="700" fill="#9a3412">GPU 托盘</text>
+        <text x="720" y="84" text-anchor="middle" fill="#44403c">GPU VBIOS　NVSwitch　HMC</text>
+        <text x="720" y="108" text-anchor="middle" fill="#44403c">EROT　FPGA 等</text>
+        <text x="720" y="132" text-anchor="middle" fill="#44403c">有时需要过渡包，不能跨结构直接跳版本</text>
+        <text x="720" y="168" text-anchor="middle" fill="#57534e">激活常要 chassis power cycle；CPLD/EROT 要 AC 下电</text>
+      </g>
+    </svg>
+  </div>
+  <p class="figcap">图 2 · DGX / HGX 固件是按托盘打包的。工具是 <code>nvfwupd</code> 或 Redfish，不是 <code>nvidia-smi</code> 里的某个刷写开关。</p>
+
+  <p>DGX B200 的升级步骤把几条运维约束写得很具体，值得当成通用纪律，而不是只适用于这一个机型：</p>
+  <ul>
+    <li>开始前停掉不必要的系统活动。停掉所有 GPU 活动，<strong>包括不要运行 <code>nvidia-smi</code></strong>，否则可能挡住 VBIOS 更新。</li>
+    <li>升级过程中不要再加用户作业、诊断或监控。负载过高会打断升级，留下不能用的部件。</li>
+    <li>部分 VBIOS 版本之间的数据结构不兼容。B200 文档举例：低于 <code>97.00.5E.00.xx</code> 的版本，不能直接跳到高于 <code>97.00.7C.00.xx</code> 的版本，必须先打过渡包。已经在 97.00.5E 及以上，才可以直接升到最新。</li>
+    <li>GPU 托盘更新是并行打在托盘内各部件上的（VBIOS、NVSwitch、EROT、FPGA 等）。有的步骤要确认 <code>BackgroundCopyStatus</code> 为 <code>Completed</code>，再继续。</li>
+  </ul>
+  <p><code>nvfwupd</code> 本身是跨平台的固件更新工具，不仅用于 DGX。NVIDIA 的多节点 NVLink 固件更新指南覆盖 Grace Hopper、Grace Blackwell、Vera Rubin、HGX / MGX，以及 NVLink 交换机（NVOS）和电源架。它通过 BMC 的 Redfish 接口工作，输入是 NVIDIA 签名的 PLDM 包。命令里需要指定 <code>servertype</code>，支持的取值包括 DGX、HGX、HGXB100、HGXB300、GB200、GB300、各类 Switch 等。集群规模上，SuperPOD / BasePOD 更新指南建议按发行说明操作，并用 BCM 做多节点分发；工具仍是同一套 <code>nvfwupd</code>。</p>
+
+  <h3>Fabric Manager 和 NVSwitch</h3>
+  <p>NVSwitch 系统上，GPU 之间的全互连要靠 Fabric Manager 把交换机构成可用织物。这份服务随驱动或独立包安装，日志里的 NVSwitch 错误以 <code>SXid</code> 为前缀，GPU 错误以 <code>Xid</code> 为前缀。致命 SXid 若发生在连接 GPU 的端口，会传到 GPU，可能伴随 Xid 74 和 Xid 45，正在跑的 CUDA 作业会被中止，需要按手册做恢复后再提交新作业。连接两块 GPU 基板的端口上出现致命 SXid 时，FM 会中止所有正在运行的 CUDA 作业并阻止新作业。</p>
+  <p>有两点版本事实需要单独记住。第一，从 Fabric Manager 用户指南 2.6 版（2026-09-21）起，第四代 NVSwitch 上的 Fabric Manager 开始独立版本号，起点是 GPU 驱动发行 620——也就是说，不能再默认「FM 版本等于驱动版本」。第二，DGX B200/B300 和 HGX B200/B300 不再用原来的 NVSwitch SXid 报告方式，改由 DCGM 通过 NVSDM（NVIDIA Switch Device Manager）取交换错误。</p>
+
+  <h3>保密计算对固件的要求</h3>
+  <p>NVIDIA Confidential Computing 不是只开一个驱动开关。官方 <a href="https://www.nvidia.com/en-us/data-center/solutions/confidential-computing/secure-ai-compatibility-matrix/">Secure AI Compatibility Matrix</a> 列出的是 GPU、VBIOS、CUDA 驱动和保密计算模式的<strong>组合</strong>。两点写在矩阵说明里：HGX Hopper 固件 1.6.0 在 Protected PCIe 模式下有已知问题，可能导致启动时 GPU 掉总线，应使用 1.7.0；一旦使用 HGX Hopper 固件 1.8.0 或更新，就不能再回退到 1.7.1 或更早。威胁模型文档也写明，GPU 侧的保护取决于架构、安全模式、固件和驱动版本，要用这份矩阵核对已验证配置。</p>
+  <p>部署指南要求在跑工作负载之前先做 attestation：GPU 收集并签名测量值，校验器与已知良好的参考测量比较。认证成功不会自动把 GPU 设为可接受任务，还要在客户虚拟机里执行 <code>nvidia-smi conf-compute -srs 1</code>。事前还要确认 <code>nvidia-persistenced</code> 在运行，并用 <code>nvidia-smi conf-compute -f</code> 确认 CC 状态为 ON。</p>
+</section>
+
+<section class="card" id="s4">
+  <h2>4. AMD：linux-firmware、IFWI 与版本矩阵</h2>
+  <p class="lead">AMD Instinct 文档把「固件」分成两种，升级路径也不一样。一种是驱动启动时从 <code>/lib/firmware/amdgpu</code> 加载的、签名过的运行时微码；一种是板级 VBIOS、平台 PLDM 包等，经服务器 OEM 发布。</p>
+
+  <h3>运行时微码：发行版包是正路</h3>
+  <p>AMDGPU 内核驱动在启动过程中加载 SMU、PSP、SDMA、MES、IMU、RLC 等角色的固件。这些名字的权威释义在内核 <a href="https://www.kernel.org/dochtml/latest/gpu/amdgpu/amdgpu-glossary.html">AMDGPU Glossary</a>：PSP 是平台安全处理器，SMU/SMC 是系统管理单元/控制器，MES 是微引擎调度器，IMU 为电源管理提供支持。它们不是「再装一个闭源驱动」那么简单，而是开源 <code>amdgpu</code> 正常工作的前提。</p>
+  <p>Instinct 客户验收指南写明：更新这些微码的标准、受支持做法，是更新发行版的 <code>linux-firmware</code>（RHEL 系 <code>dnf update linux-firmware</code>，Debian/Ubuntu 系 <code>apt-get install --only-upgrade linux-firmware</code>），或随 AMD 官方仓库里的驱动栈一起更新，然后<strong>重启</strong>使其生效。上游参考仓库是 kernel.org 的 <a href="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/about/">linux-firmware.git</a>，以及 GitLab 镜像 <a href="https://gitlab.com/kernel-firmware/linux-firmware">kernel-firmware/linux-firmware</a>。不要从来路不明的目录随手拷一份 <code>.bin</code> 覆盖进去。</p>
+
+  <h3>板级 IFWI / VBIOS：跟 OEM 和 ROCm 矩阵走</h3>
+  <p>板级固件（VBIOS，或打进 PLDM bundle 的部件）由戴尔、HPE、联想、超微等 OEM 的工具发布和验证。Instinct 指南的原话是：只用 OEM 为<strong>你的确切服务器型号和 GPU 选件料号</strong>发布的包；如果平台没有对应的 GPU 固件，不要自行刷写，联系 OEM 或 AMD 支持。ROCm 发行说明里有硬件 / 驱动 / 固件依赖矩阵，规划升级时要查最新矩阵，而不是沿用上次装集群时的旧表。例如 ROCm 文档的 compatibility matrix 会按 MI350 / MI300 / MI325 等列出受支持的 PLDM bundle 版本，和驱动版本写在同一张表里。</p>
+  <p>内核文档 <a href="https://www.kernel.org/dochtml/latest/gpu/amdgpu/flashing.html">dGPU firmware flashing</a> 描述了另一条、面向 Navi3x 及更新消费级/工作站 dGPU 的路径：由 PSP 编排 IFWI 更新，通过 sysfs 的 <code>psp_vbflash</code> 暂存镜像、再读该文件启动烧录，并用 <code>psp_vbflash_status</code> 轮询完成。这是内核提供的机制说明，不是 Instinct 集群的推荐流程。Instinct 服务器上，AMD 另有 FW Flash 工具（<code>amdfwflash</code>）用户指南，用来更新 IFWI 和远程管理固件。这份 PDF 在 AMD 的 <code>drivers.amd.com/relnotes/</code> 上可以公开取到。指南里有几条运维约束写得很硬，应当当作官方规范而不是论坛经验：</p>
+  <ul>
+    <li>同一 hive（经 XGMI / Infinity Fabric 连在一起的一组 GPU）不能运行不同的固件版本，官方回答是 “No. This configuration is not supported and may cause undefined behavior.”</li>
+    <li>从工具 2.00 起，烧录时可以保持 <code>amdgpu</code> 已加载。</li>
+    <li>用 <code>rocm-smi --showhw</code>（或现在的 <code>amd-smi</code>）核对 VBIOS 列；若列不全，先检查当前启动的内核是否安装了对应的 amdgpu（<code>dkms status</code> 与 <code>uname -a</code> 是否同一内核），不要把 “WARNING: No AMD GPUs specified” 直接理解成烧录失败。</li>
+  </ul>
+  <p>分区等高级功能也会钉死固件版本。例如 MI300X 分区文档会给出一版经验证的 VBIOS（文档中的例子是 <code>022.040.003.043.000001</code>），并用 <code>amd-smi static --vbios</code> 查询名称、编译日期、料号和版本。版本对不上，不要先怀疑分区命令，先回到矩阵。</p>
+
+  <h3>升级后最少要验证什么</h3>
+  <p>Instinct 指南给的最小验证集是：<code>sudo dmesg | grep amdgpu</code> 看固件是否加载成功；<code>amd-smi version</code> 看 ROCm / 驱动；<code>amd-smi list</code> 或 <code>amd-smi monitor</code> 看健康；必要时用 <code>dmidecode</code> 核对系统型号和 BIOS，以便对照发行说明矩阵。集群层面，它明确建议保持 BIOS / BMC / GPU 运行时固件和配置在节点间一致，用滚动方式减少停机，并先单节点验证再做集群检查。</p>
+
+  <div class="callout warn">
+    发行版更新 <code>linux-firmware</code> 之后，<code>amdgpu</code> 加载失败是真实出现过的社区故障，不是理论上的边角。Ubuntu 的 Launchpad 缺陷 <a href="https://bugs.launchpad.net/ubuntu/+source/linux-firmware/+bug/2173166">#2173166</a>（社区报告，不是 AMD 官方公告）描述：某次 <code>apt upgrade</code> 后，RX 9070 XT 的显示微控制器固件（DMUB，DCN 4.0.1）被 PSP 拒绝，内核随后报 DMCUB 错误。处理这类问题，应先看 <code>dmesg</code> 里被拒绝的固件名和版本，再决定是回退 <code>linux-firmware</code>、换内核，还是等发行版修正，而不是直接刷 IFWI。
+  </div>
+</section>
+
+<section class="card" id="s5">
+  <h2>5. 其他 AI 加速器</h2>
+  <p class="lead">这一节只写能找到可靠公开说明的厂商。公开资料少的，直接说少，不补故事。</p>
+
+  <h3>Intel Gaudi：hl-fw-loader 和安全固件</h3>
+  <p>Gaudi 的公开文档在这方面相当完整。固件升级既可以用安装指南里的流程，也可以直接用 <code>hl-fw-loader</code>。系统级通常只需更新 SPI（preboot）固件，版本要以 Support Matrix 为准。标准步骤是：先卸驱动（1.21.0 之后的卸载顺序与更早版本不同，文档写了两种顺序），查询当前 SPI 版本，运行 <code>sudo hl-fw-loader</code>，再装回驱动，用 <code>hl-smi -L | grep SPI</code> 核对。升级过程中官方明确要求避免网络问题或掉电。</p>
+  <p>另外还有 eROM，主要用于恢复，不影响日常使用；空的 eROM 需要按最新版本写入，Gaudi 3 在需要时可以升级。查询用 <code>hl-smi --fw-version</code>（或文档中的 <code>--fw-versions</code>）。<code>hl-fw-loader</code> 还提供恢复模式（<code>-r</code>）在标准方法失败时直接烧闪存或 EEPROM，但安全设备（secured OAM）上不可用。固件更新锁可以把带内的 <code>hl-fw-loader</code> 接口锁掉，不影响从 BMC 走的带外更新；掉电会解除这把锁，需要的话要重新加上。</p>
+  <p>安全固件流也是公开的：可以查询 Security / Keys / Minimal SVN / Flash 写保护等状态；启用后用 FIT 文件提升 SVN，官方写明一旦更新 SVN，就不能再降到更早的固件版本。这对「先升后回滚」的运维计划是硬约束，要在升级前提前看清楚。</p>
+
+  <h3>华为昇腾：驱动和固件有固定顺序</h3>
+  <p>华为企业支持网站上有多份 Atlas 系列「NPU 驱动和固件升级指导书」，以及 <code>npu-smi</code> 命令参考。公开页面里写过两条非常具体的顺序：<strong>首次安装</strong>按「驱动 → 固件」；<strong>覆盖安装或升级</strong>按「固件 → 驱动」。版本查询可用 <code>npu-smi info -t board -i &lt;NPU ID&gt;</code>；升级可用 <code>npu-smi upgrade -t item -i id -f file_path</code>。推理卡上还有 MCU，作为带外管理模块，负责单板监测和故障上报，需要按对应机型的安装指南单独维护。</p>
+  <p>这些文档是一手来源，但部分网络访问华为企业支持站点会遇到 403 或 Cookie 墙，撰写时从本环境不能稳定抓取全文。引用时请以你能打开的官方页面为准，并先核对该机型和软件版本的配套表，不要把某个 3010 机型的步骤套到 A2 训练硬件上。</p>
+
+  <h3>AWS Neuron：公开的是 SDK 和实例，不是刷写手册</h3>
+  <p>AWS Inferentia / Trainium 的公开文档中心是 <a href="https://awsdocs-neuron.readthedocs-hosted.com/">AWS Neuron Documentation</a>。能稳定找到的，是驱动（<code>aws-neuronx-dkms</code>）、运行时和框架的发行说明，以及如何在 DLAMI / EKS 上安装 Neuron SDK。关于「如何在实例上刷芯片固件」或「固件与驱动的兼容矩阵」，公开材料很少。一个相关的官方公告是：从 Neuron 2.19 之后，<code>neuron-monitor</code> 将不再提供 <code>neuron-device-version</code> 字段，改用 <code>instance_info</code> 里的 <code>instance_type</code> 和 <code>neuroncore_version</code>。这更像是把「器件版本」收进实例和内核版本模型，而不是给用户一条自助刷写路径。对运维来说，实际可控的通常是 AMI / 驱动 / SDK 组合，而不是独立的固件包。</p>
+
+  <h3>Google TPU：用户选的是运行时，不是固件包</h3>
+  <p>Cloud TPU 文档讲的是创建 TPU 时选择的 software / runtime version（Ubuntu、Docker 和运行框架所需的预装环境），例如 Trillium（v6e）用 <code>v2-alpha-tpuv6e</code>，并按 TensorFlow / JAX / PyTorch 对齐 libtpu 版本。公开文档里没有给用户的 TPU 固件刷写流程。固件由 Google 在设施侧管理，用户侧要对齐的是运行时版本和框架，而不是自己维护一组 <code>.bin</code>。</p>
+
+  <h3>Tenstorrent：少见的公开固件仓库和刷写工具</h3>
+  <p>Tenstorrent 是少数把板级固件和刷写工具放在公开 GitHub 上的加速器厂商。官方入门文档的安装顺序是：先装内核驱动 TT-KMD，再用 <code>tt-flash</code> 把 <code>tt-system-firmware</code> 的 bundle 烧到设备上，然后重启；Blackhole 设备要求固件 18.3.0 或更新。若工具提示固件过旧，文档允许加 <code>--force</code> 再刷，然后重启。之后用 <code>tt-smi</code> 查看设备信息、遥测和固件。仓库包括 <a href="https://github.com/tenstorrent/tt-flash">tt-flash</a>、<a href="https://github.com/tenstorrent/tt-system-firmware">tt-system-firmware</a> 和 <a href="https://github.com/tenstorrent/tt-kmd">tt-kmd</a>。文档提醒：各 SDK 有自己的兼容矩阵，不要只追「最新」而忽略配套。</p>
+
+  <h3>其他厂商</h3>
+  <p>Cerebras、Graphcore、SambaNova、寒武纪等在公开网上很难找到与上述级别相当的、面向用户的固件升级说明。不是「没有固件」，而是公开资料不足以写成可核对的操作指南。遇到这些平台，应以厂商支持渠道和随机文档为准，不要用 NVIDIA / AMD 的步骤去类推。</p>
+</section>
+
+<section class="card" id="s6">
+  <h2>6. 集群里怎么升、怎么锁版本</h2>
+  <p>集群固件运维的核心不是「尽快升到最新」，而是让同一故障域里的驱动、运行时微码、板级固件和整机固件停在一套经过验证的组合上，并且能回退。</p>
+
+  <h3>先锁组合，再谈滚动</h3>
+  <p>各家都在用矩阵说话：NVIDIA 有数据中心驱动与 CUDA 的配套说明，以及保密计算的 VBIOS–驱动矩阵；AMD 有 ROCm 的硬件 / 驱动 / PLDM 矩阵；Gaudi 有 Support Matrix；昇腾有驱动固件配套表；Tenstorrent 各 SDK 也有兼容矩阵。把矩阵里的一组版本写进集群的变更单，比在每台机器上执行「升级到当前最新」要可靠。</p>
+  <p>滚动时注意故障域的粒度。AMD 官方禁止同一 XGMI hive 内混用不同板级固件。NVIDIA 的 GPU 托盘通常是一套包打进去，也不适合托盘内各卡各升各的。Gaudi 文档允许用 <code>-d</code> 指定单卡，但集群目标仍应是一套对齐的 SPI 版本。昇腾的升级顺序（先固件后驱动）是覆盖安装的硬规则，滚动脚本里不能反了。</p>
+
+  <h3>GPU Operator 管的是驱动，不是板级固件</h3>
+  <p>NVIDIA GPU Operator 的官方升级文档只覆盖<strong>容器化驱动</strong>的生命周期。它会在升级时禁用 GPU 客户端、卸载内核模块、拉起新的驱动 Pod、再恢复客户端，并可用 Upgrade Controller 做并行度、不可用节点比例、等待特定 Pod 完成、驱逐 GPU Pod 等控制。预装在宿主机上的驱动，Operator 不管。整机 BMC、VBIOS、NVSwitch 固件也不在这份流程里。它们仍要走 <code>nvfwupd</code>、Redfish 或 OEM 工具，而且往往要在驱动升级之外另开维护窗口。一个常见误区是：改了 ClusterPolicy 里的 <code>driver.version</code>，就以为节点的 VBIOS 和 BMC 也会一起动。</p>
+  <p>驱动升级本身已经够「重」：必须排空或驱逐使用 GPU 的工作负载。NVIDIA 另有 NVSentinel 等组件的升级 runbook，提醒在驱动升级期间避免健康检查系统干扰。这些都是主机软件层的事，不要和固件包的激活（冷复位、power cycle、AC 下电）排在同一分钟里盲目并行。</p>
+
+  <h3>回滚不是总是做得到</h3>
+  <p>保密计算矩阵写明某些 HGX Hopper 固件不能回退。Gaudi 在提升 SVN 之后不能降到旧固件。DGX 上部分 VBIOS 不能跨数据结构直接跳版本，回滚同样可能需要过渡包。规划维护窗口时，要把「不能回滚」当成可能的结果，而不是默认总有一条退路。能回滚的层（例如发行版的 <code>linux-firmware</code> 包、未锁 SVN 的 Gaudi SPI、仍允许降级的 DGX 包）应在升级前保留确切的包文件和版本记录，而不是只记一个「升过了」。</p>
+</section>
+
+<section class="card" id="s7">
+  <h2>7. 调试、Xid 和常见坑</h2>
+
+  <h3>先把当前版本读全</h3>
+  <table>
+    <thead>
+      <tr><th>栈</th><th>查什么</th><th>官方入口</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>NVIDIA 单卡</td><td>驱动、VBIOS、InfoROM、GSP、行重映射、持久化</td><td><code>nvidia-smi -q</code>；<code>-d GSP_FIRMWARE_VERSION,ROW_REMAPPER</code>；<code>/proc/driver/nvidia/gpus/.../information</code></td></tr>
+      <tr><td>NVIDIA 整机</td><td>BMC、BIOS、GPU 托盘、NVSwitch 等清单</td><td><code>nvfwupd ... show_version -p &lt;包&gt;</code>；对照机型固件更新指南</td></tr>
+      <tr><td>NVIDIA 模块种类</td><td>开源还是专有</td><td><code>modinfo nvidia | grep license</code>；<code>/proc/driver/nvidia/version</code></td></tr>
+      <tr><td>AMD</td><td>驱动 / ROCm、VBIOS、微码是否加载</td><td><code>amd-smi version</code>；<code>amd-smi static --vbios</code>；<code>dmesg | grep amdgpu</code></td></tr>
+      <tr><td>Gaudi</td><td>SPI / eROM</td><td><code>hl-fw-loader -s</code>；<code>hl-smi -L | grep SPI</code>；<code>hl-smi --fw-version</code></td></tr>
+      <tr><td>昇腾</td><td>驱动和固件配套</td><td><code>npu-smi info -t board -i &lt;NPU ID&gt;</code></td></tr>
+      <tr><td>Tenstorrent</td><td>设备固件与遥测</td><td><code>tt-smi</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Xid、SXid、dmesg 和 AER</h3>
+  <p>Xid 是 NVIDIA 驱动打到内核日志里的错误报告，典型形态是 <code>NVRM: Xid (PCI:0000:5a:00): 79, GPU has fallen off the bus.</code> 官方现在为 Ampere 及更新的 GPU 提供一份可下载的 Xid Catalog 表格，并要求按「保留完整上下文 → 对表 → 看组合解析规则 → 执行 Tenant 动作」来处理，而不是只记住几个代号的俗称。动作关键字例如 <code>RESET_GPU</code>、<code>RESTART_APP</code>、<code>CONTACT_SUPPORT</code>，定义在表格的 Guidance Classes 里。复位前要看平台和虚拟机限制。</p>
+  <p>目录和旧版说明里仍然有一组被反复引用的代号，含义应以当前 Catalog 为准，下面只作定向，不代替查表：</p>
+  <ul>
+    <li>Xid 48 / 94 / 95：ECC 及相关的 contained / uncontained。</li>
+    <li>Xid 63 / 64：行重映射写入 InfoROM 成功或失败。</li>
+    <li>Xid 74：NVLink 错误；在 NVSwitch 系统上常与 SXid 一起看。</li>
+    <li>Xid 79：GPU has fallen off the bus。这是后果描述，原因可能在电源、PCIe、固件、托盘接触或多个层同时出问题。不要一看到 79 就只重装驱动。</li>
+    <li>Xid 93：InfoROM 磨损限额的非致命违例。</li>
+    <li>Xid 45：OS 抢占式拆除通道，常见于作业被中止或恢复流程中。</li>
+  </ul>
+  <p>NVSwitch 的 SXid 要和 Fabric Manager 日志一起看。B200/B300 则改走 NVSDM / DCGM。PCIe 的 AER 日志（<code>dmesg</code> 里的 <code>AER</code>、<code>PCIe Bus Error</code>）往往和 Xid 79、掉卡同时出现，应用来判断问题是在链路还是在 GPU 内部。Google Cloud 也有一份面向 GPU 虚拟机的 Xid 排障说明，内容指向同一套 NVIDIA 概念，适合云上租户对照。</p>
+
+  <h3>升级失败和「竟然是固件」的真实情况</h3>
+  <ol>
+    <li><strong>升级时还在跑 <code>nvidia-smi</code> 或监控。</strong> DGX B200 指南把这写成会阻止 VBIOS 更新的条件。维护窗口里应显式停掉 DCGM、节点导出器和所有查询脚本，而不是只停用户作业。</li>
+    <li><strong>跳过过渡包。</strong> VBIOS 数据结构不兼容时，直接打最新包会失败。Redfish 路径上会出现文档所举的那类错误。先 <code>show_version</code>，对一下当前版本落在哪个区间。</li>
+    <li><strong>用错激活方式。</strong> BMC 冷复位、chassis power cycle、AC 下电不是一回事。CPLD / ERoT 只 reboot 不会生效。</li>
+    <li><strong>开源模块配错 GSP，或混装两种内核模块。</strong> 版本必须一致；两种模块互斥。初始化异常时先看 <code>dmesg</code> 是否找到对应目录下的 <code>gsp_*.bin</code>。</li>
+    <li><strong>行重映射 pending 却没有 reset。</strong> 卡会继续带着未生效的修复跑，后续 ECC 事件会被误判成新故障。</li>
+    <li><strong>AMD 只升了驱动，没升 <code>linux-firmware</code>，或发行版微码被 PSP 拒绝。</strong> 表现是 <code>dmesg</code> 里 firmware load failed，或显示/计算 IP 块初始化失败。先对微码，再怀疑板级 IFWI。</li>
+    <li><strong>同一 hive 混固件。</strong> AMD 官方直接说不支持、行为未定义。</li>
+    <li><strong>Gaudi 升级中掉电，或升完没对 Support Matrix。</strong> 文档把掉电和网络中断单独写成风险；升完必须再读 SPI 版本。</li>
+    <li><strong>昇腾把首次安装和覆盖安装的顺序写反。</strong> 这是官方安装指引里的硬顺序，不是习惯问题。</li>
+    <li><strong>把 GPU Operator 的驱动滚动当成固件滚动。</strong> 板级和整机固件不会跟着 <code>driver.version</code> 走。</li>
+    <li><strong>保密计算组合不在矩阵里，或试图回退不允许回退的 Hopper 固件。</strong> 官方点过 1.6.0 在 Protected PCIe 下可能掉总线；1.8.0 起不能退回 1.7.1 以前。</li>
+  </ol>
+</section>
+
+<section class="card" id="s8">
+  <h2>8. 安全：签名、认证与研究</h2>
+  <p>现代加速器固件普遍是签名镜像。AMD Instinct 把 <code>/lib/firmware/amdgpu</code> 下的文件直接称为 signed firmware，IFWI 更新由 PSP 编排。Gaudi 提供完整的安全固件流：密钥、SVN、闪存写保护、eFuse 永久启用，以及带内更新锁。NVIDIA 的 GSP 固件随官方驱动分发，开源内核模块也只能加载配套的官方镜像；保密计算还要在运行前对 GPU 做 attestation，把测量值比对照官方发布的参考值（RIM）。Tenstorrent 的刷写工具和固件包是公开仓库，但仍应以厂商发布的签名 bundle 为准。</p>
+  <p>把大量驱动逻辑搬进 GSP，等于把一块不小的可信计算基挪到 GPU 里面。LWN 对 2023 年 Linux Plumbers Conference 上 Dave Airlie 报告的记述写过几个工程后果：GSP 固件没有稳定 ABI，很多调用缺少文档，单份固件体积达到数十 MB 量级，且一台设备往往需要两份，会显著膨胀 <code>/boot</code> 和 initramfs——这是 Nouveau / 发行版要严格挑选固件版本的原因。这些并不是漏洞公告，但说明 GSP 已是主机和 GPU 之间一条又宽又深的接口。</p>
+  <p>公开安全研究方面，应读原论文，不要把二手标题当成结论。例如 2024 年的 <cite>Whispering Pixels</cite>（arXiv:2401.08881）讨论现代 GPU 上未初始化寄存器带来的泄露，针对的是 GPU 编程接口一侧的残留状态，不是一份 GSP 刷写指南。2026 年 6 月发布在 Zenodo 上的 <cite>A Canary in the Crypto Mine: Defeating Stack Protection in a GPU Secure Coprocessor</cite> 则把对象放在数据中心加速器的安全协处理器上（文中以与 A100 同晶圆的 CMP 170HX 为例）。这类论文说明 GPU 固件和安全协处理器已经成为被认真分析的攻击面。具体利用细节不应在运维综述里复述；补丁和缓解应以 <a href="https://www.nvidia.com/en-us/product-security/">NVIDIA Product Security</a> 以及 AMD、Intel、OEM 的公告为准。</p>
+  <div class="callout navy">
+    运维上能做的，仍然是平凡但有效的几件事：只安装厂商或 OEM 签名的包；把驱动、VBIOS 和保密计算模式限制在官方矩阵内；升完做 attestation 再放开工作负载；关注安全公告，而不是在生产集群里试验未签名或来路不明的 GSP / IFWI 镜像。
+  </div>
+</section>
+
+<section class="card" id="s9">
+  <h2>9. 资源清单</h2>
+  <p>下面只列撰写时核对过、值得长期回到的入口。更完整的条目、日期和访问情况见 <a href="entries.md">entries.md</a>。不把受版权保护的 PDF 或视频收入仓库，只给正式公开页。</p>
+
+  <h3>官方文档与工具</h3>
+  <table>
+    <thead><tr><th>资源</th><th>为什么要看</th></tr></thead>
+    <tbody>
+      <tr><td><a href="https://download.nvidia.com/XFree86/Linux-x86_64/580.95.05/README/gsp.html">NVIDIA Driver README：GSP Firmware</a></td><td>GSP 的定义、默认启用范围、查询和开关参数。</td></tr>
+      <tr><td><a href="https://download.nvidia.com/XFree86/Linux-x86_64/580.95.05/README/kernel_open.html">NVIDIA Driver README：Open Linux Kernel Modules</a></td><td>开源模块依赖 GSP、Blackwell 只支持开源模块、互斥安装和已知限制。</td></tr>
+      <tr><td><a href="https://github.com/NVIDIA/open-gpu-kernel-modules">NVIDIA/open-gpu-kernel-modules</a></td><td>源码和版本匹配要求；也说明 Nouveau 会抽取其中的固件镜像。</td></tr>
+      <tr><td><a href="https://developer.nvidia.com/blog/nvidia-transitions-fully-towards-open-source-gpu-kernel-modules/">NVIDIA 技术博客（2024-07-17）</a></td><td>R560 起默认改开源模块的官方说明。有<a href="https://developer.nvidia.cn/blog/nvidia-transitions-fully-towards-open-source-gpu-kernel-modules/">中文版</a>。</td></tr>
+      <tr><td><a href="https://docs.nvidia.com/deploy/nvidia-smi/index.html">nvidia-smi 手册</a></td><td>VBIOS、InfoROM、GSP、行重映射、退出码 14。</td></tr>
+      <tr><td><a href="https://docs.nvidia.com/deploy/driver-persistence/latest/persistence-daemon.html">Driver Persistence / Persistence Daemon</a></td><td>为什么要用 <code>nvidia-persistenced</code>，以及和遗留 -pm 的关系。</td></tr>
+      <tr><td><a href="https://docs.nvidia.com/deploy/xid-errors/latest/analyzing-xid-catalog.html">Xid Catalog 用法</a></td><td>怎么读官方 Xid 表，而不是背代号。</td></tr>
+      <tr><td><a href="https://docs.nvidia.com/deploy/a100-gpu-mem-error-mgmt/latest/row-remapping.html">GPU Memory Error Management</a></td><td>行重映射、InfoROM 统计、RMA 门槛。</td></tr>
+      <tr><td><a href="https://docs.nvidia.com/dgx/dgxb200-fw-update-guide/sequence.html">DGX B200 固件更新步骤</a>、<a href="https://docs.nvidia.com/dgx/dgxh100-fw-update-guide/nvfwupd-reference.html">nvfwupd 参考</a>、<a href="https://docs.nvidia.com/multi-node-nvlink-systems/nvfupd-guide/introduction.html">多节点 NVLink 更新指南</a></td><td>整机固件包、过渡版本、激活方式和工具语法。</td></tr>
+      <tr><td><a href="https://docs.nvidia.com/datacenter/tesla/fabric-manager-user-guide/">Fabric Manager 用户指南</a></td><td>NVSwitch、SXid、B200/B300 改走 NVSDM，以及 FM 独立版本号。</td></tr>
+      <tr><td><a href="https://www.nvidia.com/en-us/data-center/solutions/confidential-computing/secure-ai-compatibility-matrix/">Secure AI Compatibility Matrix</a> 与 <a href="https://docs.nvidia.com/confidential-computing/virtual-machines/deployment-guide/attest">Attesting the GPU</a></td><td>VBIOS–驱动组合、不可回退的版本、认证后再放行。</td></tr>
+      <tr><td><a href="https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/gpu-driver-upgrades.html">GPU Operator：驱动升级</a></td><td>明确 Operator 管容器化驱动，不管宿主机预装驱动和板级固件。</td></tr>
+      <tr><td><a href="https://instinct.docs.amd.com/projects/system-acceptance/en/latest/common/firmware-updates.html">AMD Instinct Firmware Updates</a> 与 <a href="https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html">ROCm compatibility matrix</a></td><td>两种固件、linux-firmware 路径、OEM 边界和版本矩阵。</td></tr>
+      <tr><td><a href="https://www.kernel.org/dochtml/latest/gpu/amdgpu/flashing.html">内核：dGPU firmware flashing</a> 与 <a href="https://www.kernel.org/dochtml/latest/gpu/amdgpu/amdgpu-glossary.html">AMDGPU Glossary</a></td><td>PSP 刷 IFWI 的 sysfs 接口，以及 SMU/PSP/MES 等缩写。</td></tr>
+      <tr><td><a href="https://docs.habana.ai/en/latest/Installation_Guide/Firmware_and_Platform_Components/Firmware_Upgrade.html">Gaudi Firmware Upgrade</a> 与 <a href="https://docs.habana.ai/en/latest/Management_and_Monitoring/Embedded_System_Tools_Guide/Intel_Gaudi_Secure_Firmware.html">Secure Firmware</a></td><td>hl-fw-loader、SPI/eROM、SVN 与更新锁。</td></tr>
+      <tr><td><a href="https://docs.tenstorrent.com/getting-started/manual-software-install.html">Tenstorrent Manual Installation</a></td><td>公开的驱动–刷写–验证顺序。</td></tr>
+    </tbody>
+  </table>
+
+  <h3>会议、讲座与工程报道</h3>
+  <p>能稳定打开、且直接讨论固件接口的材料并不多，下面这些是核实过的。</p>
+  <ul>
+    <li><a href="https://lwn.net/Articles/953144/">LWN：A Nouveau graphics driver update</a>（2023-12-01）记述 LPC 2023 上 Dave Airlie 的报告：GSP 把大量驱动逻辑搬进固件、ABI 不稳定、镜像体积很大，以及 Nouveau 在 6.7 左右首次并入 GSP 支持。这是理解「开源驱动也在吃封闭 GSP 固件」的一手会议报道。</li>
+    <li><a href="https://lpc.events/event/19/contributions/2297/">LPC 2025 Nova GPU Workshop</a>（东京，2025-12-11 至 13，页面时区 Asia/Tokyo）。议题明确包括 GSP 固件 API 的设计与演化。抓取时贡献页仍显示 “There are no materials yet”，所以这里给出的是会议条目，而不是一份已发布的讲稿或录像。</li>
+    <li><a href="https://lwn.net/Articles/1034788/">LWN：gpu: nova-core: process and prepare more firmwares to boot GSP</a>。上游 Nova（Rust）驱动围绕 GSP 启动和固件布局的补丁讨论，可与 LPC 工作坊对照。</li>
+  </ul>
+  <p>GTC、Hot Chips、XDC 上当然有 GPU 体系结构和驱动的报告，但撰写时没有把「标题里明确以固件升级或 GSP/IFWI 运维为主、且能稳定打开录像」的条目做成一份可核对清单。Phoronix 对 Nouveau 默认启用 GSP（Linux 6.18）等也有报道，但本环境访问 phoronix.com 返回 403，故不把具体篇目当成已打开的一级出处。Bilibili 和 YouTube 上的中文讲解同样没有纳入：没有经过打开核对的视频标题，不写进清单。</p>
+
+  <h3>安全与缺陷跟踪</h3>
+  <ul>
+    <li><a href="https://www.nvidia.com/en-us/product-security/">NVIDIA Product Security</a>：驱动和固件相关公告的官方入口。</li>
+    <li><a href="https://arxiv.org/abs/2401.08881">Whispering Pixels</a>（2024-01）。</li>
+    <li><a href="https://zenodo.org/records/20916112">A Canary in the Crypto Mine</a>（2026-06，Zenodo）。</li>
+    <li><a href="https://bugs.launchpad.net/ubuntu/+source/linux-firmware/+bug/2173166">Launchpad #2173166</a>：发行版 linux-firmware 更新后 AMD DMUB 被 PSP 拒绝的社区报告，标注为个人/发行版缺陷，不是 AMD 官方规范。</li>
+  </ul>
+
+  <h3>术语对照</h3>
+  <table>
+    <thead><tr><th>词</th><th>先理解成</th></tr></thead>
+    <tbody>
+      <tr><td>VBIOS</td><td>板上的 GPU BIOS，版本号标识烧在卡上的那一份</td></tr>
+      <tr><td>InfoROM</td><td>板上另一块小的持久存储，记录 ECC、配置和部分 RAS 状态</td></tr>
+      <tr><td>GSP</td><td>GPU 上的系统处理器，跑驱动附带的固件，卸载 CPU 侧管理任务</td></tr>
+      <tr><td>IFWI</td><td>AMD 的集成固件镜像，由 PSP 或厂商工具写入板级闪存</td></tr>
+      <tr><td>PSP / SMU / MES / SDMA / IMU</td><td>AMD GPU 上安全、电源、调度、DMA 和电源辅助等运行时微码角色</td></tr>
+      <tr><td>linux-firmware</td><td>Linux 发行版分发的、驱动启动时加载的固件包</td></tr>
+      <tr><td>BMC / SBIOS / CPLD / ERoT / HMC</td><td>整机管理、主机固件、逻辑器件、根可信与 GPU 托盘管理</td></tr>
+      <tr><td>nvfwupd</td><td>NVIDIA 用 Redfish 打签名 PLDM 包的固件更新工具</td></tr>
+      <tr><td>Fabric Manager</td><td>主机上组织 NVSwitch 织物的服务，不是板上固件</td></tr>
+      <tr><td>Xid / SXid</td><td>NVIDIA GPU / NVSwitch 打到内核日志里的错误报告</td></tr>
+      <tr><td>Row remapping</td><td>Ampere 起用备用行替换坏内存，需 GPU reset，记录落在 InfoROM</td></tr>
+      <tr><td>Attestation / RIM</td><td>把设备测量值与已知良好参考比较，确认固件和身份可信</td></tr>
+      <tr><td>SVN</td><td>安全版本号；抬升后通常不能再降固件</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  实践综述，依据文中列出的官方文档、内核文档和已核对的公开材料。条目清单见 entries.md。撰写截至 2026-11-22（Asia/Shanghai）。
+</footer>
+
+</div>
+</body>
+</html>
