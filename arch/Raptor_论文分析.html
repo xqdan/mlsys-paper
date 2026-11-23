@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raptor 论文分析 | 3D-DRAM 生成式推理加速器的早期硅片</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">ISCA 2026 · pp. 2632–2647</span>
+      <span class="badge">DOI 10.1109/ISCA66397.2026.00183</span>
+      <span class="badge">体系结构 · 3D-DRAM · 生成式推理</span>
+      <span class="badge ok">d-Matrix Inc. × UBC</span>
+      <span class="badge warn">早期硅片 × 部署模型混合出数</span>
+    </div>
+    <h1>Raptor：把加速器逻辑直接键合在 3D-DRAM 上</h1>
+    <p class="subtitle">Early Silicon of Raptor: The First 3D-DRAM Accelerator for Generative Inference</p>
+    <p class="meta">
+      <strong>作者：</strong>Prashant J. Nair（d-Matrix；University of British Columbia，休假期间在 d-Matrix 完成本工作）、Ramyad Hadidi、Subramani Ganesh 等 d-Matrix 团队<br />
+      <strong>原文：</strong><a href="https://doi.org/10.1109/ISCA66397.2026.00183" target="_blank" rel="noopener">DOI 10.1109/ISCA66397.2026.00183</a>
+      · <a href="https://ramyadhadidi.github.io/files/dMatrix-Raptor-ISCA.pdf" target="_blank" rel="noopener">作者版 PDF</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。数字后的括号标来源（摘要 / 节号 / 图表号）。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：解码要带宽也要容量</a></li>
+      <li><a href="#s3">3D-DRAM 与 logic-on-DRAM 是什么</a></li>
+      <li><a href="#s4">现有方案的四个缺口</a></li>
+      <li><a href="#s5">四个机制</a></li>
+      <li><a href="#s6">实验怎么做的</a></li>
+      <li><a href="#s7">结果怎么读</a></li>
+      <li><a href="#s8">功耗、热和封装</a></li>
+      <li><a href="#s9">局限</a></li>
+      <li><a href="#s10">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">生成式推理的解码阶段卡在存储上：SRAM 带宽高但只有几 GB，HBM 容量大但带宽和 I/O 功耗受限。Raptor 把 TSMC N4P 逻辑 die 用面对面（F2F）键合直接盖在 3D-DRAM die 上，并围绕 KV cache 流重新设计通道化、映射、总线功耗和可靠性，让一张卡做出约 100 TB/s 的存储带宽。早期硅片实测的是存储子系统本身（700 MHz 下每卡约 105 TB/s、平均 flit 延迟 2.5 ns）；端到端的吞吐和交互性倍数全部来自部署与流量模型，两者不能混读。</p>
+    <div class="kpi">
+      <div><div class="n">105 TB/s</div><div class="k">每卡 3D-DRAM 带宽，700 MHz 硅片实测（Fig. 9）；建模基线取 100（§VII）</div></div>
+      <div><div class="n">2.5 ns</div><div class="k">平均 flit 延迟，700 MHz 硅片实测（Fig. 9）；单周期接口、无突发</div></div>
+      <div><div class="n">4.71× / 2.44×</div><div class="k">部署模型里相对 HBM / SRAM 的每卡吞吐，六模型平均（摘要）；batch=32 单点为 4.38× / 3.15×（§VIII-C）</div></div>
+      <div><div class="n">9.96×</div><div class="k">部署模型里相对 HBM 的 TPOT 改善（引言平均）；交互性即 1/TPOT</div></div>
+    </div>
+    <div class="callout warn">摘要的 4.71× / 2.44× 和引言的 9.96× <strong>不是硅片端到端实测</strong>。硅片（§V）只测了存储子系统：flit 延迟、带宽、I/O 能耗、刷新开销、冗余修复；所有吞吐、交互性和网络敏感度结论都出自 §VII–VIII 的部署与流量模型（泊松到达、事件驱动批量引擎、统一平面网络抽象）。表 V 给 Raptor 贴的 “Silicon Test Chip” 标签说的是证据来源——Raptor 有硅片背书、H2-LLM 和 Stratum 只有仿真——不是端到端倍数在芯片上跑过。另外，摘要写 “up to 100 TB/s”，硅片在 700 MHz 实测约 105 TB/s，扣掉 4 ms 刷新后为 103.6 TB/s（Table I），摘要反而保守。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：解码要带宽也要容量</h2>
+    <p>解码器类模型分两段跑：prefill 是可并行的大矩阵乘，计算受限；decode 逐个 token 生成，每步都要对全部历史做 KV cache 读写，带宽受限，且随模型和上下文增长恶化（§I、§II-A）。论文用两个指标衡量：TPOT 决定单用户体验（tok/s/usr ≈ 1/TPOT），每卡吞吐 tok/s/card ≈ U/TPOT 决定部署效率（§I、§II-B）。</p>
+    <p>先把账算清（§I）。Llama 级 70B 模型权重在 8-bit 下约 70 GB，常超单卡容量，必须切分。KV 的增长更快：80 层、GQA 约 8 个 KV 头、head 维度约 128、8-bit 存储，每用户每 token 新增约 0.16 MB——8K 上下文累积约 1.25 GB，32K 约 5 GB，128K 约 20 GB（§I）。Llama-70B 的 KV 总量从 batch=1 的 10 GB 涨到 batch=32 的 320 GB，直接封死一张卡能同时承载的会话数（§III-B）。而带宽侧只算 KV 读的下界，长上下文加中等解码速率就要求数 TB/s（Fig. 2）：HBM3 卡（H100，约 3.35 TB/s）和 HBM4 卡（约 18 TB/s）都撑不住，这正是论文把目标定在约 100 TB/s 的理由。</p>
+    <p>现有两类基底各缺一半（§I、§II-C）：</p>
+    <table>
+      <thead><tr><th>基底</th><th>带宽</th><th>容量</th><th>论文指出的短板</th></tr></thead>
+      <tbody>
+        <tr><td>片上 SRAM（PCIe SKU）</td><td>约 150 TB/s</td><td>几 GB（模型取 4 GB/卡）</td><td>放不下 70B 权重，更放不下多会话 KV</td></tr>
+        <tr><td>HBM4 卡</td><td>低于 20 TB/s（模型取 18 TB/s）</td><td>几百 GB（模型取 192 GB/卡）</td><td>带宽和 I/O 功耗受限；接口越加越复杂</td></tr>
+        <tr><td>3D-DRAM（本文）</td><td>约 100 TB/s（硅片 105，Fig. 9）</td><td>32 GB/卡（模型基线）+ LPDDR5X 二级 128 GB/MCM</td><td>良率、105 °C 刷新、总线功耗都要重新设计</td></tr>
+      </tbody>
+    </table>
+    <p>权重或 KV 一旦放不下单卡，推理就得切到多卡，卡间集合通信把延迟和功耗又吃掉一块（§I）。所以论文的判断是：缺的是既高带宽又高容量、且每 bit 便宜的存储，不是更多张量核心。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 3D-DRAM 与 logic-on-DRAM 是什么</h2>
+    <p>按论文自己的分类（§II-C）：2.5D HBM 是 DRAM 叠坐在中介层旁边，靠加宽接口和拉高引脚速率换带宽——HBM3 保留 1024-bit、把通道翻到 16×64-bit；HBM3E 引脚速率超 9.2 Gb/s、每放置位超 1.2 TB/s；HBM4 接口翻倍到 2048-bit、32 通道、每栈最高 2 TB/s——复杂度和 I/O 能耗随之上升，而每 bit 能量并没有同步下降（Fig. 3，§III-D）。3D-DRAM 则把存储 die 直接放在逻辑 die 上，走密集垂直短连线，不用长走线的边带引脚。</p>
+    <p>Raptor 的叠法（§IV-B）：TSMC N4P 逻辑 die 与 3D-DRAM die 面对面（F2F）键合，36 µm 间距 µbump 阵列；每个 bank 每周期传一个 256-bit 字——单周期、无突发、无 DBI 边带，每 bit I/O 能耗 0.45 pJ，约比 HBM3 低 6 倍（§IV-D）。层级自顶向下（§IV-A）：一张卡 2–4 个 MCM；每个 MCM 四个 1.2 GHz chiplet；每个 chiplet 四个 gang；每个 gang 四个 slice；每个 slice 是 4×4 张量引擎（TE）阵列加一个 SIMD 核，配 slice 级 SRAM 暂存激活。每个 chiplet 的 840 个 3D-DRAM bank 切成 16 通道/slice、共 256 通道/chiplet，每条通道独喂一个 TE 的权重缓冲（WB），互不添堵。chiplet 内 gang 走片上 NoC，chiplet 间走 Gen-2 D2D（32 Gbps/lane），MCM 之间和上主机走 PCIe Gen7（§IV-A、§VI-A）。每 MCM 另挂 8 颗 LPDDR5X-9600（561 球、95 °C 认证、约 3.3 W/颗）提供 128 GB 二级容量，收留 3D-DRAM 放不下的权重和 KV（§IV-B）。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 232" role="img" aria-label="F2F 键合截面示意">
+        <rect x="40" y="14" width="470" height="30" rx="4" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="275" y="34" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">散热方案 + 铜盖 / TIM（占总热阻约 80%，Fig. 12）</text>
+        <rect x="40" y="52" width="470" height="44" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+        <text x="275" y="72" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">逻辑 die（TSMC N4P）</text>
+        <text x="275" y="89" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">TE 4×4 + SIMD + slice SRAM · gang×4 / chiplet · 热点约 92 °C</text>
+        <g fill="#c2410c">
+          <circle cx="70" cy="104" r="2.6"/><circle cx="110" cy="104" r="2.6"/><circle cx="150" cy="104" r="2.6"/><circle cx="190" cy="104" r="2.6"/><circle cx="230" cy="104" r="2.6"/><circle cx="270" cy="104" r="2.6"/><circle cx="310" cy="104" r="2.6"/><circle cx="350" cy="104" r="2.6"/><circle cx="390" cy="104" r="2.6"/><circle cx="430" cy="104" r="2.6"/><circle cx="470" cy="104" r="2.6"/>
+        </g>
+        <text x="580" y="108" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">36 µm µbump · F2F</text>
+        <text x="580" y="124" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">单周期 256-bit/bank · 0.45 pJ/bit</text>
+        <rect x="40" y="114" width="470" height="44" rx="4" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="275" y="134" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">3D-DRAM die</text>
+        <text x="275" y="151" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">840 bank/chiplet · 1364 行 × 124 列 · 比逻辑面低约 3.5 °C</text>
+        <rect x="40" y="166" width="470" height="30" rx="4" fill="#f5f0e6" stroke="#57534e"/>
+        <text x="275" y="186" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#57534e">C4（最小 110 µm）· 3D CoWoS 中介层</text>
+        <rect x="40" y="204" width="470" height="24" rx="4" fill="#faf8f4" stroke="#57534e"/>
+        <text x="275" y="221" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#57534e">9-4-9 有机基板 · 422 W/MCM · Tj 上限 105 °C</text>
+        <rect x="545" y="52" width="180" height="106" rx="4" fill="#fffdf8" stroke="#e7e0d4"/>
+        <text x="635" y="76" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700">LPDDR5X-9600 ×8</text>
+        <text x="635" y="96" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">561 球 · 95 °C 认证</text>
+        <text x="635" y="114" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">约 3.3 W/颗</text>
+        <text x="635" y="132" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">128 GB/MCM 二级容量</text>
+        <text x="635" y="150" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">（§IV-B）</text>
+      </svg>
+      <p class="figcap">按论文结构重画的 F2F 截面示意（非原文插图）：逻辑 die 在上、贴近散热，DRAM 在下因此更凉；每 chiplet 840 个 bank 切成 256 条独立通道直喂张量引擎的权重缓冲。</p>
+    </div>
+    <p>和仓库里其他几条线对照着读，差别就清楚了。TOM（<code>arch/TOM_论文分析.html</code>，ISCA 2016）讲的是 GPU 系统里把工作透明卸载到 HMC 这类 3D 堆叠存储的近数据处理——存储本身是标准件，改的是怎么用。<code>arch/8栈近存大模型部署.html</code> 是 CPU 中心的近存分层，DRAM 仍是挂在总线上的标准产品。DCC 和 PIMphony（<code>arch/pim/</code>）代表 PIM 路线：把计算塞进存储 bank，逻辑困在 DRAM 工艺里。Raptor 反过来：计算留在先进逻辑工艺（N4P）上，把存储拉到计算底下并按 KV 流的形状重造——通道数、bank 组织、映射、ECC、刷新策略全为解码改过（§IV、§X）。FLINT（<code>llm inference/</code>）是同一种“为推理重造存储层”的思路，但介质是 NAND（只读权重、纯仿真）；Raptor 是 DRAM（KV 读写并重、有早期硅片）。d-Matrix 自己的前代 Corsair 是 SRAM 片上存内计算（HC37，引文 [8]），论文引它作为 SRAM-centric 一档的参照；同一产品线的公开幻灯片在 <code>arch/Hotchip 2026/</code>（hc2026.dmatrix.SudeepBhoja.v3.0.pdf），这里只作相关材料，不展开。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 现有方案的四个缺口</h2>
+    <p>论文把“把 3D-DRAM 接进产品加速器”暴露的系统级问题列成四个（§I），每个都对应后文一个机制：</p>
+    <div class="grid-2">
+      <div class="tile"><h4>① 映射与并行</h4><p>几百个 DRAM bank 要对计算引擎呈现规整、均匀、低延迟的通道；KV 流必须榨干 bank 级并行，不能靠通用控制器碰运气。</p></div>
+      <div class="tile"><h4>② 总线功耗没有现成 DBI</h4><p>JEDEC 的 DBI 依赖多周期突发的前视窗口和专用引脚；单周期宽接口两者皆无。不处理，100 TB/s 的 I/O 就要烧约 360 W（§IV-D）。</p></div>
+      <div class="tile"><h4>③ 高 bank 数的良率</h4><p>840 个 bank 的 die，几个坏 bank 就整片扔不经济；简单禁用又产生窄/不对称通道，卡住整卡带宽（§IV-E）。</p></div>
+      <div class="tile"><h4>④ 高结温可靠性</h4><p>F2F 紧耦合把结温推到 105 °C，刷新间隔须从 HBM 标称的 32 ms 缩到 4 ms；ECC、scrubbing、RowHammer 都要随热重设计（§IV-E）。</p></div>
+    </div>
+    <p>相关工作里的缺口（§X）：以往 3D 堆叠存储研究面向 CNN/DNN 或通用 NDP 抽象，没有围绕 KV 流重造通道化、映射、可靠性和热；PIM 产品（HBM-PIM、AIM）保留 HBM 组织只加少量计算；H2-LLM 是 DRAM 工艺的单芯片设计；Stratum 的多芯片扩展卡在内外带宽 36 倍的悬崖上。表 V 里只有 Raptor 一栏的验证方式写着硅片。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 四个机制</h2>
+
+    <h3>5.1 流分块（stream blocking）：三 bank 拼一条 128 B 通道</h3>
+    <p>先算 bank 预算（§IV-C）。每个 bank 是 1364 行 × 124 列，一列 32 B，行缓冲一次铺满 124 列。每个 slice 有 16 个权重缓冲和 16 条通道，每条通道给 WB 送 128 B 的 flit。一列只有 32 B，凑 128 B 本要 4 个 bank 同时访问；256 通道 × 4 = 1024 个 bank，die 只做了 840 个；留 72 个备件后剩 768，只能每通道 3 个 bank。3 个 bank 一次给 96 B，一个 128 B flit 要两次访问，产生系统性的过量取数。</p>
+    <p>朴素的列交错能消掉过量取数（相邻两列错开拼 128 B），但要 192 B 缓冲加移位网络、还要逐地址跟踪列模式，时序收敛过不去（§IV-C）。流分块换一个方向：软件把权重和 KV 切成每通道近单位步长的 128 B 流。每个 flit 拆成 96 B 对齐段（三个 bank 同一列各出 32 B）加 32 B 尾段，相邻 flit 的尾段打包进共享尾段区。读一个 flit 是固定的两拍：第一拍读尾段区，把连续 flit 的 32 B 碎片缓存成 96 B；第二拍读对齐段并与缓存拼接。缓冲只有两个 96 B，数据通路退化成固定索引拼接，每次列访问都不浪费。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 196" role="img" aria-label="流分块映射示意">
+        <rect x="20" y="26" width="140" height="112" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+        <text x="90" y="46" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">Bank 0</text>
+        <g stroke="#e7e0d4"><rect x="32" y="58" width="28" height="16" fill="#fffdf8"/><rect x="60" y="58" width="28" height="16" fill="#fffdf8"/><rect x="88" y="58" width="28" height="16" fill="#fffdf8"/><rect x="116" y="58" width="28" height="16" fill="#fffdf8"/><rect x="32" y="76" width="28" height="16" fill="#fffdf8"/><rect x="60" y="76" width="28" height="16" fill="#fffdf8"/><rect x="88" y="76" width="28" height="16" fill="#fffdf8"/><rect x="116" y="76" width="28" height="16" fill="#fffdf8"/></g>
+        <rect x="60" y="76" width="28" height="16" fill="#fdba74" stroke="#c2410c"/>
+        <text x="90" y="116" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">124 列 × 32 B</text>
+        <text x="90" y="132" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">同列各出 32 B</text>
+        <rect x="190" y="26" width="140" height="112" rx="4" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="260" y="46" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">Bank 1</text>
+        <g stroke="#e7e0d4"><rect x="202" y="58" width="28" height="16" fill="#fffdf8"/><rect x="230" y="58" width="28" height="16" fill="#fffdf8"/><rect x="258" y="58" width="28" height="16" fill="#fffdf8"/><rect x="286" y="58" width="28" height="16" fill="#fffdf8"/><rect x="202" y="76" width="28" height="16" fill="#fffdf8"/><rect x="230" y="76" width="28" height="16" fill="#fffdf8"/><rect x="258" y="76" width="28" height="16" fill="#fffdf8"/><rect x="286" y="76" width="28" height="16" fill="#fffdf8"/></g>
+        <rect x="230" y="76" width="28" height="16" fill="#5eead4" stroke="#0f766e"/>
+        <text x="260" y="124" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">对齐段 = 96 B</text>
+        <rect x="360" y="26" width="140" height="112" rx="4" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="430" y="46" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">Bank 2</text>
+        <g stroke="#e7e0d4"><rect x="372" y="58" width="28" height="16" fill="#fffdf8"/><rect x="400" y="58" width="28" height="16" fill="#fffdf8"/><rect x="428" y="58" width="28" height="16" fill="#fffdf8"/><rect x="456" y="58" width="28" height="16" fill="#fffdf8"/><rect x="372" y="76" width="28" height="16" fill="#fffdf8"/><rect x="400" y="76" width="28" height="16" fill="#fffdf8"/><rect x="428" y="76" width="28" height="16" fill="#fffdf8"/><rect x="456" y="76" width="28" height="16" fill="#fffdf8"/></g>
+        <rect x="400" y="76" width="28" height="16" fill="#5eead4" stroke="#0f766e"/>
+        <text x="430" y="124" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">两拍：①尾段 ②对齐段</text>
+        <rect x="540" y="30" width="196" height="40" rx="4" fill="#fef3c7" stroke="#d97706"/>
+        <text x="638" y="55" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700">共享尾段区（32 B × N）</text>
+        <rect x="540" y="86" width="196" height="52" rx="4" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="638" y="108" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700">128 B flit → 权重缓冲</text>
+        <text x="638" y="126" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">96 B 对齐段 + 32 B 尾段</text>
+        <path d="M500 82 C 522 60, 528 52, 540 50" stroke="#d97706" fill="none" stroke-width="1.4" marker-end="url(#c)"/>
+        <path d="M500 92 C 522 96, 528 100, 540 104" stroke="#c2410c" fill="none" stroke-width="1.4" marker-end="url(#c)"/>
+        <defs><marker id="c" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#1c1917"/></marker></defs>
+        <text x="380" y="176" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">840 bank − 72 备件 = 768 → 每通道恰 3 bank；256 通道/chiplet，16 通道/slice（§IV-C、Fig. 5）</text>
+      </svg>
+      <p class="figcap">按论文结构重画的流分块示意（非原文插图）：三 bank 同列各出 32 B 拼成 96 B 对齐段，尾段集中打包；两次固定访问消掉过量取数，无需移位网络。</p>
+    </div>
+    <p>论文用 Llama-3.1-70B 单层 attention 把映射走了一遍（§III-E）：GQA 8 头、head 维度 128、FP16，每 token 产生 4 KB KV；4K 上下文一层 16 MB，切成 1,024 个 16 KB tile 均摊到 16 条通道（64 tile/通道）；每 tile 128 个 flit，跨约两行；每行 124 列共 3,968 B，行缓冲整行读完才激活下一行。64 个 tile 只占每 bank 1364 行中约 128 行（不到 10%），其余留给权重和其他层。16 KB 的 tile 粒度与 PagedAttention 的 ≥4 KB 页对齐，分配和逐出不破坏行缓冲局部性；16 条通道互相独立，一个 bank 刷新或清洗不挡其余 15 条。</p>
+
+    <h3>5.2 流翻转（stream flipping）：无引脚的架构级 DBI</h3>
+    <p>µbump 每 bit 0.45 pJ 已比 HBM3 低约 6 倍，但聚合带宽放大总翻转功耗：100 TB/s 满速不优化，仅 3D-DRAM I/O 就约 360 W（§IV-D）。JEDEC 的解法是 DBI——PHY 对多周期突发的每个 beat 决定是否取反、用专用引脚告知；Raptor 的接口是每 bank 单周期 256-bit，没有前视也没有边带。硅片实测显示，DBI 等效编码能省 18% 的 I/O 能耗（到约 0.37 pJ/bit，§I、§IV-D），于是把它搬到架构层：写侧把每个 flit 与同通道上一个 flit 比较，按最小翻转决定取反，在每个 flit 旁记 1 bit 元数据；读侧取出元数据位，条件还原。元数据按同样的流分块映射存放，容量开销仅 0.8%，DRAM PHY 一根线不动（Fig. 7）。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 210" role="img" aria-label="流翻转示意">
+        <text x="24" y="24" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700">不翻转：µbump 上按原值传</text>
+        <rect x="24" y="34" width="200" height="30" fill="#fffdf8" stroke="#e7e0d4"/>
+        <text x="124" y="54" text-anchor="middle" font-family="Consolas, monospace" font-size="12">0x0000…0000</text>
+        <rect x="280" y="34" width="200" height="30" fill="#fffdf8" stroke="#e7e0d4"/>
+        <text x="380" y="54" text-anchor="middle" font-family="Consolas, monospace" font-size="12">0xFFFF…FFFF</text>
+        <rect x="536" y="34" width="200" height="30" fill="#fffdf8" stroke="#e7e0d4"/>
+        <text x="636" y="54" text-anchor="middle" font-family="Consolas, monospace" font-size="12">0x0000…0000</text>
+        <path d="M224 64 C 250 84, 254 84, 280 62" stroke="#b91c1c" fill="none" stroke-width="1.6" marker-end="url(#d)"/>
+        <path d="M480 64 C 506 84, 510 84, 536 62" stroke="#b91c1c" fill="none" stroke-width="1.6" marker-end="url(#d)"/>
+        <text x="252" y="98" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#b91c1c">1024 位全翻转 ×2</text>
+        <text x="24" y="134" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700">流翻转：写侧取反 + 每 flit 1 bit 元数据</text>
+        <rect x="24" y="144" width="200" height="30" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="124" y="164" text-anchor="middle" font-family="Consolas, monospace" font-size="12">0x0000…0000</text>
+        <text x="124" y="188" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">元数据 0</text>
+        <rect x="280" y="144" width="200" height="30" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="380" y="164" text-anchor="middle" font-family="Consolas, monospace" font-size="12">0x0000…0000（已取反）</text>
+        <text x="380" y="188" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">元数据 1</text>
+        <rect x="536" y="144" width="200" height="30" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="636" y="164" text-anchor="middle" font-family="Consolas, monospace" font-size="12">0x0000…0000</text>
+        <text x="636" y="188" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">元数据 0</text>
+        <defs><marker id="d" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#b91c1c"/></marker></defs>
+      </svg>
+      <p class="figcap">按论文 Fig. 7 的结构重画的示意（非原图）：流式数据局部取反后，µbump 上翻转最少；读侧按元数据位一次条件还原。硅片实测有效翻转率压到 40–48%，0.455 → 0.376 pJ/bit（Fig. 10）。</p>
+    </div>
+    <p>硅片数据（Fig. 10，500 MHz、只读、BL128、VDD1 2.5 V、阵列轨 1.1 V）：8 个 bank 同开、最坏 100% 翻转时 0.455 pJ/bit；流翻转把有效翻转压到 40–48%，得 0.376 pJ/bit，省 18%，比已报道的 HBM3 能耗低约 6 倍。两个附带观察：同电压下 500 MHz 比 400 MHz 更省，因为静态功耗被更高吞吐摊薄；1.1 V 阵列轨道占活跃功耗的 87%，热管理的靶子是 DRAM 阵列活动本身（§V-A）。</p>
+
+    <h3>5.3 拓扑保持冗余 + 热感知刷新：坏 bank 不砍通道宽度</h3>
+    <p>良率侧的做法是 bank 链（§IV-E）：N 个功能 bank 加 M 个备件连成一条链，逻辑 die 上的轻量复用从 N+M 里任选连续 N 个组成通道。例：N=24、M=2，26 个里出 8 条 3-bank 通道，容忍任意 2 个坏 bank；只需 2 级复用，布线留在对应张量引擎近旁，不出现“备件堆在 die 边缘、长线绕坏 bank”的走线灾难。修复流程覆盖封前（晶圆级）和封后（堆叠级），与量产 DRAM 工艺一致；绝对良率未披露，Fig. 11 只给相对曲线：备件从 1 加到 4，同一 bank 故障率下 die 失效概率大幅下移，坏 bank 从良率杀手变成链上可绕的节点。</p>
+    <p>热侧的代价是刷新（§IV-E、§V-B）：105 °C 结温下保持余量要 4 ms 刷新间隔，是 HBM 标称 32 ms 的 8 倍频率。但 3D-DRAM 深 bank 化，每 bank 只有 1364 行，比常规 DRAM bank 少 16–32 倍，所以实测 700 MHz 下把 16 ms 换成 4 ms 只损失 1.37% 带宽（Table I：4 ms → 103.57 TB/s）。RowHammer 顺手被结构性缓解：论文按旧工艺 200K 次激活阈值、tRC 44 ns 算，背靠背激活凑满阈值要 8.8 ms，而 4 ms 刷新保证每行在被敲够之前必被刷新（§V-B）。</p>
+
+    <h3>5.4 交织 ECC：和 DBI 元数据同址的 RS 码</h3>
+    <p>每个 bank 的最后 8 列存一对 8-bit 符号的 [144, 140] Reed–Solomon 码字，按子阵列映射交织，并与流翻转的 DBI 元数据同址存放（§IV-E）。读时先取全通道的 ECC 和 DBI 元数据、再取数据 flit，先纠错再按 DBI 位决定是否取反进流水线；写时反序：算 ECC、选 DBI 极性、写数据、提交元数据。再加常规周期性后台清洗，把瞬态错误在累积之前修掉。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验怎么做的：硅片测了什么，模型算了什么</h2>
+    <p>这篇的证据分两桶，读的时候必须端稳。<strong>硅片桶（§V，测试芯片）</strong>只覆盖存储子系统：</p>
+    <ul>
+      <li><strong>带宽与延迟（Fig. 9，实测）</strong>：DRAM 频率从 500 MHz 扫到 1 GHz，比较每通道 2/3/4 bank；2-bank 方案保留 256 通道，4-bank 是假设 die 多 33% bank 的假想点。设计点 700 MHz 下平均 flit 延迟 2.5 ns、每卡带宽约 105 TB/s，约为 HBM3 卡的 12.5 倍；就算 HBM4 把 HBM 带宽翻倍，也还有 6.25 倍。</li>
+      <li><strong>I/O 能耗（Fig. 10，实测）</strong>：见 5.2，0.455 → 0.376 pJ/bit。</li>
+      <li><strong>冗余（Fig. 11）</strong>与<strong>刷新（Table I，实测）</strong>：见 5.3；4 ms 刷新下每卡仍有 103.57 TB/s。</li>
+      <li><strong>热（Fig. 12）不是硅片实测</strong>：是五层电阻网络的解析模型，别把 92 °C 热点读成芯片热像。</li>
+    </ul>
+    <p><strong>模型桶（§VII–VIII）</strong>才是端到端结论的出处。同一套 10 PFLOPS 的加速器逻辑（XPU）挂三种外存做受控实验（Table III）：SRAM 150 TB/s / 4 GB，HBM 18 TB/s / 192 GB，RP+3D-DRAM 100 TB/s / 32 GB（含 2 ms 刷新和清洗；即实测 105 取整并扣刷新）。另有四个消融点：带宽翻/翻四倍（容量不动），以及带宽容量同翻的 2× Full（64 GB）、4× Full（128 GB）——实验室正在测 2-High / 4-High 的 DRAM-on-top 堆叠，这两个点对应那种形态（§VII-A）。</p>
+    <p>负载三类（§VII-B）：稠密 Llama-3.1-70B；MoE 的 GPT-OSS 20B/120B、DeepSeek-V3、Kimi K2；语音的 Whisper 和 Canary。稠密用统一部署、TP 封顶 8；MoE 用分离部署——小 TP 组跑注意力、其余卡做专家并行。流量是泊松到达：110 req/s（约 950 万请求/天），事件驱动生成器加批量计算引擎；每批 1 ms 时平均批大小 1.00，1000 req/s 也只 5.12，推荐批大小在每批 100 ms 内都不超 16（Table IV），于是统一固定 batch=32（§VIII-A）。部署制度两种：minimal-card（放下权重+KV 的最少卡）和 iso-card（对齐到 3D-DRAM 的卡数）。网络把 NoC/D2D/PCIe Gen7/ESUN 三级抽象成一个平面 fabric，单向延迟扫 0.01–10 µs、聚合带宽扫 32 GB/s–4 TB/s（§VI-A、§VII）。基线还包括文献里的 H2-LLM 和 Stratum-XL——两者都是仿真架构（Table V），各自按公开参数放进同一模型跑（§X）。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 236" role="img" aria-label="硅片实测与部署模型两桶">
+        <rect x="20" y="20" width="330" height="196" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="185" y="44" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">硅片实测（§V，测试芯片）</text>
+        <text x="36" y="70" font-family="Segoe UI, sans-serif" font-size="12">• flit 延迟 2.5 ns @ 700 MHz（Fig. 9）</text>
+        <text x="36" y="92" font-family="Segoe UI, sans-serif" font-size="12">• 每卡带宽 105 TB/s @ 700 MHz（Fig. 9）</text>
+        <text x="36" y="114" font-family="Segoe UI, sans-serif" font-size="12">• I/O 能耗 0.455 → 0.376 pJ/bit（Fig. 10）</text>
+        <text x="36" y="136" font-family="Segoe UI, sans-serif" font-size="12">• 刷新开销：4 ms 损 1.37%（Table I）</text>
+        <text x="36" y="158" font-family="Segoe UI, sans-serif" font-size="12">• 冗余链修复坏 bank（Fig. 11）</text>
+        <text x="36" y="180" font-family="Segoe UI, sans-serif" font-size="12">• 热为解析模型，不在这一桶（Fig. 12）</text>
+        <text x="36" y="202" font-family="Segoe UI, sans-serif" font-size="11" fill="#9a3412">测的是存储子系统，不是端到端服务</text>
+        <rect x="410" y="20" width="330" height="196" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="575" y="44" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">部署与流量模型（§VII–VIII）</text>
+        <text x="426" y="70" font-family="Segoe UI, sans-serif" font-size="12">• XPU 10 PFLOPS 固定，只换外存（Table III）</text>
+        <text x="426" y="92" font-family="Segoe UI, sans-serif" font-size="12">• SRAM 150 TB/s/4 GB；HBM 18/192；3D 100/32</text>
+        <text x="426" y="114" font-family="Segoe UI, sans-serif" font-size="12">• 泊松 110 req/s，batch=32（Table IV）</text>
+        <text x="426" y="136" font-family="Segoe UI, sans-serif" font-size="12">• 网络平面抽象：0.01–10 µs / 32 GB/s–4 TB/s</text>
+        <text x="426" y="158" font-family="Segoe UI, sans-serif" font-size="12">• 4.71× / 2.44× / 9.96× 全部出自这里</text>
+        <text x="426" y="180" font-family="Segoe UI, sans-serif" font-size="12">• 对照 H2-LLM、Stratum-XL（均为仿真）</text>
+        <text x="426" y="202" font-family="Segoe UI, sans-serif" font-size="11" fill="#1e3a5f">参数取自硅片：100 TB/s ← 实测 105 / 102.13 @2 ms</text>
+        <path d="M350 118 H410" stroke="#1c1917" stroke-width="1.6" marker-end="url(#e)"/>
+        <text x="380" y="108" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">校准</text>
+        <defs><marker id="e" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#1c1917"/></marker></defs>
+      </svg>
+      <p class="figcap">按论文结构重画的证据分桶示意（非原文插图）：左桶是测试芯片测出的存储子系统数字，右桶是端到端模型。两桶之间只有参数校准关系，没有“端到端倍数在硅片上测过”这回事。</p>
+    </div>
+    <div class="callout warn">表 V（与 H2-LLM、Stratum 的架构对照）比的是目标域、计算设计、算力、存储技术、有效带宽、多芯片扩展性和<strong>验证方式</strong>，不是端到端跑分。Raptor 一栏的 “Silicon Test Chip” 意思是它的架构主张有硅片佐证、另两家只有仿真；把它读成“4.71× 是在芯片上端到端测的”就错了。</div>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 结果怎么读</h2>
+    <p>以下全部是<strong>模型桶</strong>的结论，按指标读，不倒表格。</p>
+
+    <h3>每卡吞吐与曲线形状</h3>
+    <p>摘要的平均倍数：相对 HBM 4.71×、相对 SRAM 2.44×（六模型，摘要）；batch=32、4K 上下文、0.5 µs / 1 TB/s 网络的单点是 4.38× / 3.15×（§VIII-C）。曲线形状分两类（§VIII-B）：稠密模型两段——小批时记忆受限、吞吐随批升，大批时算力饱和、TPOT 抬头；MoE 四段——注意力记忆受限、专家装载的近水平段、专家摊销后的近垂直段、注意力算力再主导的第二个水平段。谁赢谁：HBM 一致垫底，只在算力饱和段追平吞吐但交互性仍差；稠密模型上 SRAM 与基线 3D-DRAM 曲线相近；MoE 上 3D-DRAM 赢 SRAM；batch=32 时 3D-DRAM 两项指标都更好。</p>
+
+    <h3>交互性（1/TPOT）</h3>
+    <p>引言的平均数：相对 HBM 的 TPOT 低 9.96×（§I，模型平均）。iso-card 消融里（§VIII-D），HBM 靠大容量把批量拉起来改善吞吐，但交互性仍低于所有 3D-DRAM 档位，直到算力饱和段才追平——带宽决定每个 token 多快，容量只决定一批多大。</p>
+
+    <h3>网络敏感度</h3>
+    <p>单向延迟低于 0.1 µs 时各方案都平；过了这条线，SRAM 跌得最快——容量小被迫拉高 TP/PP、集合通信量大；HBM 最不敏感——TP 本来就小；3D-DRAM 在多数模型上保持领先（Fig. 15，§VIII-C）。带宽侧：稠密模型 1 TB/s 以上饱和，MoE 在 256 GB/s 就稳定；HBM 因通信量小而不敏感，SRAM 和 3D-DRAM 在低带宽时一起掉（Fig. 16）。论文的定位是“3D-DRAM 对网络延迟和带宽都更钝感”，来源是更高的单卡容量压低了并行度（§I、§VI-C）。</p>
+
+    <h3>卡数与容量（Table II 折算）</h3>
+    <p>minimal-card 制度下 SRAM 的卡数先爆炸：Kimi K2 要 6,336 GB，脚注明写 1,584 张卡 × 4 GB。更扎眼的对比是 HBM 对 3D-DRAM：HBM 每卡 192 GB，3D-DRAM 每卡只有 32 GB，所以 HBM 常比 3D-DRAM 少用卡——DeepSeek-V3 是 1,152 GB 对 1,216 GB（约 6 张对 38 张），Kimi K2 是 1,920 对 1,728 GB（约 10 张对 54 张），论文自己也承认这一点（§VIII-D）。3D-DRAM 赢的是每卡吞吐，不是系统卡数；把带宽容量同放的 2× Full / 4× Full 消融才把卡数压下来。长上下文（64K）把最大批量压小，DeepSeek-V3 被推回注意力记忆受限段，容量带宽同时吃紧（Fig. 18）。</p>
+
+    <h3>对照两个仿真架构（Fig. 20、Table V）</h3>
+    <p>H2-LLM：0.4 TB/s 通道带宽、0.28 PFLOPS 的 DRAM 工艺存内算力、单芯片无多芯片路径，卡在低吞吐低交互的角落；Raptor 的 100 TB/s 对它是约 250 倍原始带宽差（§X）。Stratum-XL：12 片内部聚合带宽可达 364 TB/s，但每片对外接口只有约 0.82 TB/s（合计约 10 TB/s），36 倍的内外悬崖把有效带宽拖到 10–35 TB/s；Raptor 的非分层统一 100 TB/s 管道有 3.3–10 倍优势（§X）。注意：这两组对照也是拿部署模型跑对方公开参数的结果，两篇原文本身都是仿真研究。</p>
+
+    <h3>例外要单独记</h3>
+    <p>语音模型（Whisper、Canary，上下文仅 448、单卡即可放下）上排序反转为 SRAM 最高、3D-DRAM 次之、HBM 最末，加带宽有用、加容量没用（Fig. 19，§VIII-D）。2.44× 的 SRAM 平均倍数主要由 MoE 拉动，稠密和语音两类并不占优——读摘要时要把这个平均值拆开。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 功耗、热和封装</h2>
+    <p>功耗预算（§IV-B、§V-C）：每 MCM 热设计功耗约 422 W，结温上限 105 °C，运行点约 106 W/chiplet（422 ÷ 4）。1.1 V 阵列轨道占活跃功耗的 87%，功耗管理的靶子是 DRAM 阵列活动；I/O 若不优化，100 TB/s 单 3D-DRAM 总线就要约 360 W——流翻转省下的 18% 在这个尺度上是几十瓦的量级。</p>
+    <p>热路径（Fig. 12，<strong>解析模型</strong>）：五层串联电阻——0.62 mm 薄化 die 叠、TIM1（k=5 W/mK、100 µm）、铜盖（k=390、1.5 mm）、TIM2（k=6、200 µm）、散热方案。散热方案占总热阻约 80%，含 3D-DRAM 的整叠只贡献约 1.5%（0.003 °C/W）——DRAM 堆上去并没有显著推高结温。三个冷却档：基线风冷（Rθ=0.16 °C/W、Ta=55 °C）只能撑 63 W/chiplet；优化散热器（Rθ=0.10、Ta=35 °C）在 106 W 下峰值约 93 °C，余量到约 140 W；液冷（Rθ=0.02）直接解除约束（106 W 下低于 60 °C）。芯片内 TE 阵列形成约 92 °C 的局部热点，SRAM、交叉开关和 PHY 低 4–6 °C。</p>
+    <p>一个结构性的热红利：逻辑 die 在上、DRAM 在下，DRAM 层比逻辑面低约 3.5 °C；HBM 正相反——DRAM 叠在发热的逻辑上方吸热。F2F 键合把这个方向倒过来，论文称之为热的“倒置”（Fig. 12c，§V-C）。</p>
+    <p>封装与扩展（§IV-B、§VI-A）：9-4-9 有机基板；36 µm µbump F2F；混间距 C4（最小 110 µm）接到 3D CoWoS 中介层；8 颗 LPDDR5X-9600 各约 3.3 W、95 °C 认证，提供每 MCM 128 GB 二级容量。扩展拓扑是每 MCM 经 PCIe Gen7 或 ESUN 连到每个交换盒的一跳胖树；PCIe/ESUN/D2D 的 PHY 也可以整体挪到一个成熟工艺的 IO chiplet 上，不动 N4P 计算 die（§VI-A）。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 局限：这些倍数依赖什么假设</h2>
+    <ul>
+      <li><strong>端到端倍数全是模型。</strong> 4.71× / 2.44× / 9.96× 依赖泊松到达、每批约 1 ms、batch=32、平面 fabric 网络这些设定（§VII–VIII）。硅片（§V）只验证存储子系统：带宽、延迟、能耗、刷新、冗余。到达过程换成突发流量、每批延迟变长，推荐批大小和倍数都会动。</li>
+      <li><strong>基线是参数化设计点，不是产品实测。</strong> HBM 18 TB/s / 192 GB、SRAM 150 TB/s / 4 GB 是论文在同一套 XPU 逻辑上的设定（Table III）；SRAM 档对应 d-Matrix 前代 Corsair 一类产品（引文 [8]，HC37），HBM 档是“典型 HBM4 卡”的抽象。HBM/SRAM 的卡数与并行度同样由模型推导。</li>
+      <li><strong>3D-DRAM 基线每卡只有 32 GB。</strong> minimal-card 制度下它常比 HBM 多用卡（§VIII-D）；吞吐优势是“每卡”，不是“每系统”。2× Full / 4× Full 对应的 2-High / 4-High 堆叠还在实验室，尚无硅片（§VII-A）。</li>
+      <li><strong>平均值盖住结构差异。</strong> 稠密模型上 SRAM ≈ 3D-DRAM；语音模型上 SRAM 反而最好（Fig. 19）。2.44× 主要由 MoE 拉动。摘要的六模型平均要拆开读。</li>
+      <li><strong>热是解析电阻网络，不是实测热图。</strong> 92 °C 热点、140 W 余量都是 Fig. 12 模型的输出；散热方案占总热阻 80%，实际风冷/液冷选型一变，结论就变。</li>
+      <li><strong>RowHammer 缓解绑在旧工艺假设上。</strong> 200K 激活阈值、tRC 44 ns 给出 8.8 ms 凑满窗口（§V-B）；工艺换代后阈值更低的话，4 ms 刷新是否仍然先到要重算。</li>
+      <li><strong>良率没有绝对数字。</strong> Fig. 11 只给相对曲线，绝对良率因商业原因未披露（§V-B）；72 个备件 bank（占 840 的约 8.6%）能容多少坏 bank，部署方拿不到下界。</li>
+      <li><strong>对照 H2-LLM / Stratum 是“用自家模型跑别人的公开参数”。</strong> 两篇原文都是仿真（Table V），参数层面之外的差距（编译器、调度、成品率）没有比。</li>
+      <li><strong>只有 decode。</strong> prefill / TTFT、训练都没碰；speculative decoding 和 attention-FFN 分离只是方向性讨论，引的是 Corsair 时代和 Vera Rubin / Groq 3 LPX 的旁证（§IX），不是本文的实验。</li>
+    </ul>
+    <div class="callout teal">和 FLINT 对照着读最清楚：两篇都认定推理的墙在存储层、修法是把存储重造成推理的形状。FLINT 用 NAND 做只读权重层，换来容量、牺牲延迟，全篇是 trace 仿真；Raptor 用 DRAM 做读写并重的 KV+权重主存，换带宽和每 bit 能耗，拿出了测试芯片。一个押“容量墙”，一个押“带宽墙”，正好是同一枚硬币的两面。</div>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照对象</th></tr></thead>
+      <tbody>
+        <tr><td>每卡 3D-DRAM 带宽</td><td>105 TB/s @ 700 MHz（实测，Fig. 9）；建模取 100（§VII）</td><td>HBM3 卡的约 12.5 倍；HBM4 翻倍后仍 6.25 倍</td></tr>
+        <tr><td>平均 flit 延迟</td><td>2.5 ns @ 700 MHz（实测，Fig. 9）</td><td>单周期 256-bit/µbump 接口，无突发结构</td></tr>
+        <tr><td>I/O 每 bit 能耗</td><td>0.455 → 0.376 pJ/bit（实测，Fig. 10）</td><td>流翻转省 18%；比已报道 HBM3 低约 6 倍</td></tr>
+        <tr><td>3D-DRAM I/O 总功耗</td><td>约 360 W @ 100 TB/s，不优化时（§IV-D）</td><td>流翻转按 18% 往回省</td></tr>
+        <tr><td>刷新开销</td><td>4 ms 间隔损 1.37% → 103.57 TB/s（实测，Table I）</td><td>HBM 标称 32 ms；16→4 ms 只多损 1.37%</td></tr>
+        <tr><td>RowHammer</td><td>8.8 ms 凑满 200K 次激活（tRC 44 ns，§V-B）</td><td>4 ms 刷新先到，结构性缓解</td></tr>
+        <tr><td>冗余</td><td>840 bank − 72 备件 = 768，每通道 3 bank（§IV-C）</td><td>N=24+M=2 的链容忍任意 2 个坏 bank</td></tr>
+        <tr><td>每卡吞吐倍数</td><td>4.71× HBM / 2.44× SRAM（模型平均，摘要）</td><td>batch=32 单点 4.38× / 3.15×（§VIII-C）；语音模型上 SRAM 反超</td></tr>
+        <tr><td>TPOT</td><td>9.96× 更低，相对 HBM（模型平均，§I）</td><td>交互性 = 1/TPOT；iso-card 下 HBM 仍落后所有 3D-DRAM 档</td></tr>
+        <tr><td>卡级容量</td><td>3D-DRAM 32 GB、HBM 192 GB、SRAM 4 GB（模型，Table III）</td><td>物理卡另有 LPDDR5X 二级 128 GB/MCM（§IV-B）</td></tr>
+        <tr><td>minimal-card 卡数</td><td>Kimi K2：SRAM 1,584 卡 / HBM 约 10 卡 / 3D-DRAM 约 54 卡（Table II 折算）</td><td>3D-DRAM 赢每卡吞吐，不赢卡数（§VIII-D）</td></tr>
+        <tr><td>功耗 / 结温</td><td>422 W/MCM、105 °C 上限、106 W/chiplet（§IV-B、§V-C）</td><td>优化散热器下峰值约 93 °C，余量约 140 W（Fig. 12 模型）</td></tr>
+        <tr><td>热阻</td><td>整叠 die 仅占 Rθ 约 1.5%（0.003 °C/W）</td><td>散热方案占约 80%（Fig. 12 模型）</td></tr>
+        <tr><td>热倒置</td><td>DRAM 比逻辑面低约 3.5 °C</td><td>HBM 是 DRAM 在上吸逻辑的热（Fig. 12c）</td></tr>
+        <tr><td>对照仿真架构</td><td>H2-LLM 0.4 TB/s；Stratum 有效 10–35 TB/s（模型，§X）</td><td>Raptor 100 TB/s：约 250× / 3.3–10×</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据作者版 PDF（ramyadhadidi.github.io/files/dMatrix-Raptor-ISCA.pdf，ISCA 2026，DOI 10.1109/ISCA66397.2026.00183，pp. 2632–2647；2026-11-22 读）。凡标“实测”的数字来自第 V 节硅片表征（Fig. 9、Fig. 10、Table I；Fig. 11 为冗余特性曲线，绝对良率未披露）；端到端吞吐、交互性与网络敏感度倍数（4.71× / 2.44× / 9.96× / 4.38× / 3.15×）来自摘要与第 VII–VIII 节的部署与流量模型；热数据来自 Fig. 12 的解析电阻网络模型；卡数按 Table II 的 memGB ÷ 每卡容量折算。本文是阅读笔记，不是译文；所有图是根据论文结构重画的示意，不是原文插图。
+  </footer>
+</div>
+</body>
+</html>
