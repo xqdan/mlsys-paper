@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pimba 论文分析 | 面向后 Transformer 服务的近存加速</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">MICRO 2025</span>
+      <span class="badge">arXiv:2507.10178v3</span>
+      <span class="badge">PIM · 后 Transformer LLM 服务</span>
+      <span class="badge ok">KAIST × Uppsala × Georgia Tech</span>
+      <span class="badge warn">仿真（Ramulator 2 + AttAcc 系系统模拟器），不是硅片实测</span>
+    </div>
+    <h1>Pimba：用两 bank 共享的近存单元和 MX8，同时接下状态更新和注意力</h1>
+    <p class="subtitle">Pimba: A Processing-in-Memory Acceleration for Post-Transformer Large Language Model Serving</p>
+    <p class="meta">
+      <strong>作者：</strong>Wonung Kim、Yubin Lee、Yoonsung Kim、Jinwoo Hwang、Seongryong Oh、Jiyong Jung、Aziz Huseynov、Woong Gyu Park（KAIST）；Chang Hyun Park（Uppsala University）；Divya Mahajan（Georgia Institute of Technology）；Jongse Park（KAIST）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2507.10178" target="_blank" rel="noopener">arXiv:2507.10178</a>
+      · <a href="https://arxiv.org/pdf/2507.10178" target="_blank" rel="noopener">PDF</a>（笔记依据 v3，2025-09-16）
+      · 会议：MICRO 2025（DOI 10.1145/3725843.3756121）
+      · 开源：<a href="https://github.com/casys-kaist/pimba" target="_blank" rel="noopener">casys-kaist/pimba</a>（全系统模拟器与精度评测代码）<br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：一套近存硬件要同时服务两类模型</a></li>
+      <li><a href="#s3">负载特征：状态更新也是带宽瓶颈</a></li>
+      <li><a href="#s4">两条设计原则：共享资源与 MX8</a></li>
+      <li><a href="#s5">Pimba 怎么做的</a></li>
+      <li><a href="#s6">实验与结果怎么读</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">后 Transformer 模型（Mamba-2、线性注意力、RNN 等）用固定大小的状态矩阵跨 token 传播上下文，不再让计算和内存随序列长度平方增长；但在大 batch 解码里，状态更新和 Transformer 的注意力一样，都是带宽瓶颈。已有面向注意力的近 bank PIM 以 GEMV 为主，把完整的状态更新（逐元素乘加、外积、再 GEMV）按 bank 各放一套流水线，面积会超过论文引用的 25% 逻辑占比上限。Pimba 让相邻两个 bank 共享一个状态更新处理单元（SPU），用访问交错把读和写叠到不同 bank 上；计算用微软 MX 的 8 bit 变体 MX8，并加随机舍入，以免连续累加时小数被“淹没”。在改造过的 Ramulator 2 与 AttAcc 系系统模拟器上，相对 LLM 优化过的 A100，生成吞吐平均高 1.9 倍、最多 4.1 倍；相对面积相当的 GPU+HBM-PIM，平均高 1.4 倍、最多 2.1 倍。这些吞吐和延迟数字全部来自仿真，不是硅片上的墙钟时间。小模型上的 MX8 精度是在 GPU 上实测的。</p>
+    <div class="kpi">
+      <div><div class="n">1.9× / 4.1×</div><div class="k">相对 A100 的生成吞吐：平均 / 峰值（仿真）</div></div>
+      <div><div class="n">1.4× / 2.1×</div><div class="k">相对 GPU+HBM-PIM 的生成吞吐：平均 / 峰值（仿真）</div></div>
+      <div><div class="n">14.6× / 6.9×</div><div class="k">大规模模型上状态更新延迟相对 GPU / GPU+PIM（不是端到端）</div></div>
+      <div><div class="n">13.4%</div><div class="k">综合缩放到 10 nm 后的 PIM 逻辑面积开销（对照 HBM-PIM 为 11.8%）</div></div>
+    </div>
+    <div class="callout warn">摘要里的“最多 4.1 倍 / 2.1 倍”是生成吞吐的峰值，平均值是 1.9 倍和 1.4 倍。14.6 倍和 6.9 倍只描述状态更新这一段延迟。注意力段的下降是 6.3 倍和 2.1 倍，端到端会被还留在 GPU 上的投影、FFN 以及 GPU–PIM 交替执行削薄。读倍数时要把“峰值 / 平均”“内核 / 端到端”“仿真 / 实测”分开。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：一套近存硬件要同时服务两类模型</h2>
+    <p>Transformer 的注意力和 KV cache 随上下文变长而变贵，这已经是近存加速里被写过很多次的故事。算法侧的应对是一批后 Transformer 结构：状态空间模型（文中以 Mamba-2 为例）、线性注意力、RNN，以及在 SSM 层里稀疏插入注意力层的混合模型（文中以 Zamba2 为例，大约每六层 Mamba-2 插一层注意力）。论文把它们统称为 post-transformer，并把其中靠“状态更新”传递上下文的一类叫做 SU-LLM。</p>
+    <p>这类模型的卖点很具体。文中用 27 亿参数的 Mamba-2 对照同样规模的 Transformer：容量少 2.3 倍，吞吐高 2.6 倍，准确率高 4.5 个百分点。这是模型族之间的对比，不是 Pimba 量化之后的结果。问题在于，服务系统如果只为注意力和 GEMV 做近存，就接不住状态更新；如果只为某一种 SSM 做专用电路，又接不住还在线上的 Transformer，也接不住 Zamba2 这种混合模型。论文要的是一个统一框架：同一套 PIM，既能做状态更新，也能做注意力。</p>
+    <p>已有 PIM 服务系统（文中点名的包括 HBM-PIM、NeuPIMs 以及同类 GPU+PIM 工作）主要按 GEMV 来设计近 bank 计算单元。状态更新不是“再做一个 GEMV”那么简单：它要把衰减、外积、累加和一次 GEMV 串在一起，而且每个请求都有一份不能跨请求复用的状态。把整条流水按 bank 各放一份，面积会先顶到墙。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 负载特征：状态更新也是带宽瓶颈</h2>
+    <p>论文把许多后 Transformer 的核心，收成同一组状态更新（单头形式）：</p>
+    <p style="text-align:center; font-size:17px; margin: 8px 0 16px;"><code>S<sub>t</sub> = d<sub>t</sub> ⊙ S<sub>t-1</sub> + k<sub>t</sub> v<sub>t</sub><sup>T</sup></code>，再 <code>y<sub>t</sub> = S<sub>t</sub><sup>T</sup> q<sub>t</sub></code></p>
+    <p><code>d<sub>t</sub></code>、<code>q<sub>t</sub></code>、<code>k<sub>t</sub></code> 是长度为 <code>dim<sub>head</sub></code> 的向量，<code>v<sub>t</sub></code> 长度为 <code>dim<sub>state</sub></code>，状态是 <code>dim<sub>head</sub> × dim<sub>state</sub></code> 的矩阵。先把 <code>d<sub>t</sub></code> 广播后与状态做逐元素乘法完成衰减，再累加 <code>k<sub>t</sub></code> 与 <code>v<sub>t</sub></code> 的外积，最后用 <code>q<sub>t</sub></code> 做 GEMV 得到输出。状态的容量和计算量不随序列变长，这是它相对注意力的好处；代价是每一步都要读出、改写整块状态，而且请求之间不能共享。</p>
+    <p>在 A100 上对 27 亿参数的 RetNet、GLA、HGRN2、Mamba-2，以及 70 亿参数的 Zamba2 做生成阶段拆分，状态更新会随 batch 变大而占满时间。RetNet 上，batch 从 32 增到 128，状态更新占比从 41.9% 升到 73.8%。原因很直接：运算强度低，读写量与状态矩阵成正比，又没有跨请求的参数复用，延迟几乎随 batch 线性涨。屋顶线图上，状态更新的运算强度大约是注意力的 4 倍，但仍然明显落在带宽墙下面。</p>
+    <p>混合模型给出另一条约束。Zamba2 里 Mamba-2 层数大约是注意力层的 6 倍，但 batch=128 时注意力仍能占到总延迟的 65.5%：状态更新的延迟不随序列变长，注意力会。只加速状态更新，接不住长上下文的混合模型和纯 Transformer。这是后文必须把注意力也映射到同一套 SPU 上的原因。</p>
+    <h3>量化行为也不一样</h3>
+    <p>把 SU-LLM 的状态、Transformer 的 KV cache 都压到 8 bit，两边的表现差得很远。Transformer 在整数、浮点和块浮点上困惑度都几乎不动；SU-LLM 用 e4m3 / e5m2 这类短尾数格式会严重变差——文中 GLA 配 e4m3 的困惑度到了 8,114。论文把它归到连续累加时的 swamping：小量级的更新加不进已经变大的状态。int8（约 7 bit 尾数）和 MX8（约 6 bit 尾数）够用；随机舍入对 SU-LLM 也很关键，例如 Mamba-2 的 e5m2 困惑度从 62 降到 11.9。只看精度，int8 加随机舍入似乎最好。下一节会看到，在 PIM 的面积约束里，这个选择会被推翻。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 两条设计原则：共享资源与 MX8</h2>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>原则一：尽量共享计算单元</h4>
+        <p>状态更新的原语比 GEMV 杂，按 bank 铺满流水线会先碰到面积墙。两个 bank 共享一个单元，用读写交错把吞吐保住。</p>
+      </div>
+      <div class="tile">
+        <h4>原则二：精度和面积要一起看</h4>
+        <p>int8 在 GPU 上更稳，但逐元素加法要先反量化再量化，PIM 上面积更贵。MX8 加随机舍入落在帕累托前沿。</p>
+      </div>
+    </div>
+    <h3>4.1 为何不能按 bank 各放一条流水</h3>
+    <p>论文对比了两种按 bank 配备计算单元的 PIM，并把通道带宽对齐到 A100。时间复用设计只放乘加，接近 HBM-PIM，状态更新吞吐相对 GPU 提高 2.8 倍，面积开销 17.8%。流水线设计把整串操作铺开，吞吐提高到 4.3 倍，但面积开销 32.4%，超过文中引用的 Newton（He 等，2020）所给 25% 逻辑占比上限。两个点都无法同时满足吞吐和面积。</p>
+    <p>关键观察是：即便是按 bank 铺开的流水线，计算单元也喂不饱。状态更新既要读又要写，同一个 row buffer 不能同时做这两件事，写回时计算单元在空转。于是可以把计算单元减半，让两个 bank 共享一个 SPU：一个 bank 在读，另一个在写，吞吐不必掉下来。这就是后文的访问交错。论文也写明，时间复用设计即使把处理单元跨两个 bank 放置，如果没有这套交错，仍然吃不满内部带宽——这正是后面 GPU+PIM 基线偏弱的原因，读加速比时要记住对照物是谁。</p>
+    <h3>4.2 为何选 MX8 而不是 int8</h3>
+    <p>MX8 是 MX 的一种 8 bit 变体：每 16 个数共享一个 8 bit 指数，组内每两个数再共享 1 bit 微指数，平均每位值 8 bit。在 Mamba-2、WikiText-2、按 bank 流水线 PIM 上画面积–精度曲线：fp8 困惑度不可用；int8 和 MX8 都能接近 fp16。但 int8 做不了直接的逐元素加法，必须先按缩放因子反量化，再按最大值重新量化，要额外的算术和比较逻辑。MX 在组内共享指数，加法用对齐移位就能做，不必走反量化。随机舍入只需 LFSR 和一次尾数加法，面积开销很小。于是 MX8 加随机舍入被选为帕累托点。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. Pimba 怎么做的</h2>
+    <p>系统形态接近已有的 GPU+PIM LLM 服务：Prefill 全部留在 GPU（状态更新在 prefill 里可以改写成计算密集形式）；Generation 阶段把状态更新和注意力下到 PIM，其余算子留在 GPU。PIM 侧先把操作数写入近存寄存器，算出部分和，再送回 GPU 做累加。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 200" role="img" aria-label="Pimba 系统在 prefill 和 generation 的分工">
+        <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#1c1917"/></marker></defs>
+        <rect x="20" y="20" width="200" height="160" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+        <text x="120" y="48" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700">GPU</text>
+        <text x="120" y="76" text-anchor="middle" font-size="12">Prefill：全部算子</text>
+        <text x="120" y="98" text-anchor="middle" font-size="12">Generation：投影 / FFN</text>
+        <text x="120" y="120" text-anchor="middle" font-size="12">注意力 softmax、部分和</text>
+        <text x="120" y="150" text-anchor="middle" font-size="11" fill="#57534e">CUDA API 扩展 + 自定义命令</text>
+        <rect x="320" y="20" width="420" height="160" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="530" y="48" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700">Pimba（HBM 近 bank PIM）</text>
+        <rect x="344" y="66" width="172" height="92" rx="5" fill="#fffdf8" stroke="#0f766e"/>
+        <text x="430" y="96" text-anchor="middle" font-size="13" font-weight="700">SPU / SPE</text>
+        <text x="430" y="118" text-anchor="middle" font-size="11" fill="#57534e">两 bank 共享</text>
+        <text x="430" y="138" text-anchor="middle" font-size="11" fill="#57534e">MX8 乘加与点积</text>
+        <rect x="544" y="66" width="172" height="92" rx="5" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="630" y="96" text-anchor="middle" font-size="13" font-weight="700">Bank 对</text>
+        <text x="630" y="118" text-anchor="middle" font-size="11" fill="#57534e">状态 / KV 按 chunk 排布</text>
+        <text x="630" y="138" text-anchor="middle" font-size="11" fill="#57534e">读与写交错</text>
+        <path d="M220 100 H320" stroke="#1c1917" stroke-width="1.6" marker-end="url(#arr)"/>
+        <text x="270" y="90" text-anchor="middle" font-size="11" fill="#57534e">REG_WRITE</text>
+        <text x="270" y="128" text-anchor="middle" font-size="11" fill="#57534e">RESULT_READ</text>
+      </svg>
+      <p class="figcap">示意：Prefill 仍走 GPU；Generation 只把状态更新和注意力下到近存。softmax 和跨设备规约还在 GPU 一侧。这不是原文插图。</p>
+    </div>
+    <p>软件栈沿用 HBM-PIM 的路子：驱动分配物理连续的内存块；为每个 Pimba 操作写自定义 GPU kernel，负责发命令和算地址；在 CUDA 一类编程模型里扩展出发自定义 DRAM 命令的 API，编译时降到这些命令；再把 kernel 注册成 PyTorch 自定义算子。论文据此称它可以被已有的 PIM Transformer 服务系统当作“即插即用的替换”，前提是那些系统已经改到也能接后 Transformer。这是接口与架构上的相似性，不是已经在 vLLM 或某块商用 HBM-PIM 板上跑通的结果。</p>
+
+    <h3>5.1 访问交错的 SPU</h3>
+    <p>每个 SPU 含一个状态更新处理引擎（SPE），由相邻两个 bank 共享。某一拍从“上 bank”读出一个子块，开始新的计算；同一拍“下 bank”把若干拍之前启动的结果写回去。下一拍对调。四个流水级是：（1）从 DRAM 取状态；（2）并行做衰减和外积；（3）两者相加，完成状态更新；（4）更新后的状态与 <code>q<sub>t</sub></code> 做点积，同时把新状态写回 DRAM。文中用连续四拍说明：读和写始终落在不同 bank，SPU 每一拍都能吃到新数据。</p>
+    <div class="fig">
+      <svg viewBox="0 0 760 210" role="img" aria-label="两个 bank 共享 SPU 的读写交错">
+        <defs><marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#1c1917"/></marker></defs>
+        <rect x="20" y="24" width="160" height="70" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="100" y="54" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">上 bank</text>
+        <text x="100" y="74" text-anchor="middle" font-size="11" fill="#57534e">读出子块 / 稍后写回</text>
+        <rect x="20" y="116" width="160" height="70" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="100" y="146" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">下 bank</text>
+        <text x="100" y="166" text-anchor="middle" font-size="11" fill="#57534e">写回结果 / 稍后读出</text>
+        <rect x="260" y="58" width="200" height="96" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="360" y="92" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700">共享 SPU</text>
+        <text x="360" y="114" text-anchor="middle" font-size="12" fill="#57534e">四级流水 SPE（MX8）</text>
+        <text x="360" y="134" text-anchor="middle" font-size="12" fill="#57534e">每拍只服务一个 bank 的读</text>
+        <rect x="540" y="36" width="200" height="140" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="640" y="64" text-anchor="middle" font-size="13" font-weight="700">一拍里同时发生</text>
+        <text x="640" y="92" text-anchor="middle" font-size="12">读：上 bank → SPU</text>
+        <text x="640" y="114" text-anchor="middle" font-size="12">写：SPU → 下 bank</text>
+        <text x="640" y="144" text-anchor="middle" font-size="11" fill="#57534e">下一拍对调，避免</text>
+        <text x="640" y="162" text-anchor="middle" font-size="11" fill="#57534e">同一 row buffer 的结构冲突</text>
+        <path d="M180 59 H260" stroke="#1c1917" stroke-width="1.6" marker-end="url(#arr2)"/>
+        <path d="M180 151 H260" stroke="#1c1917" stroke-width="1.6" marker-end="url(#arr2)"/>
+        <path d="M460 106 H540" stroke="#1c1917" stroke-width="1.6" marker-end="url(#arr2)"/>
+      </svg>
+      <p class="figcap">访问交错的结构：计算单元数量减半，但读和写走不同 bank，流水不必为写回停顿。这是按论文第 5.2 节重画的示意。</p>
+    </div>
+    <p>状态的布局也按这个流水来切。沿 <code>dim<sub>head</sub></code> 把每一列切成对齐 DRAM 列宽的子块，再沿 <code>dim<sub>state</sub></code> 把子块收成对齐 DRAM 行的 chunk；共享 <code>d<sub>t</sub></code>、<code>q<sub>t</sub></code>、<code>k<sub>t</sub></code> 的 chunk 组成一组，放到同一 bank 的连续行里。这样一组只需传一次共享操作数，每个 chunk 再传对应的 <code>v<sub>t</sub></code> 元素。</p>
+
+    <h3>5.2 MX 乘法和加法</h3>
+    <p>MX 原先主要为 GEMM 设计，逐元素乘加要改微结构。SPE 里的运算分三层：组级处理共享指数，子组级处理微指数，元素级用整数单元处理符号和尾数。乘法：组指数相加，微指数相加；若微指数和超出 1 bit 能表示的范围（得到 2），就把结果微指数置 1，并把该子组尾数右移一位。加法：先比较两组指数，取大的作为结果指数，较小的一组按差值右移尾数，再按各自微指数继续右移后相加；加法结果的微指数恒为 0。</p>
+
+    <h3>5.3 注意力复用同一套逻辑</h3>
+    <p>注意力不再另做一套硬件。KV cache 用与状态类似的子块 / chunk 布局。计算分两段：score 段用流水线里的点积单元做 query 与 key 的点积，中间结果送回 GPU 累加并做 softmax；attend 段用乘法器和加法器，把分数乘到 value 上再累加。因为注意力主要是 GEMV、没有状态更新那种写回，访问交错和四级流水的收益会变小。后文 2.1 倍相对 GPU+PIM 的注意力加速，更多来自 MX8 把搬运量减半，而不是交错本身。</p>
+
+    <h3>5.4 命令接口、调度和通信</h3>
+    <p>接口上的约束写得很清楚：遵守已有 DRAM 时序，操作是预定好的以兼容刷新，用扩展命令而不是另起一套协议，并像先前 PIM 那样采用 all-bank，以减小逻辑开销。五条自定义命令是：</p>
+    <ul>
+      <li><strong>ACT4：</strong>把要处理的状态或 KV 行激活到 row buffer。受功率和 <code>t<sub>FAW</sub></code> 限制，四次激活绑在一起，做法与先前 PIM 相同。</li>
+      <li><strong>REG_WRITE：</strong>宿主把 MX8 操作数写入近存寄存器。若宿主不会 MX8，可在内存控制器里放一个很小的量化单元：取最大指数，再移位调整尾数。</li>
+      <li><strong>COMP：</strong>在全部 bank 上启动状态更新或注意力。连续 COMP 要遵守 <code>t<sub>CCD_L</sub></code>，因为每次列读占用 I/O gating。</li>
+      <li><strong>RESULT_READ：</strong>取回结果。状态更新的 COMP 既有读也有写，其后要满足 <code>t<sub>RTP</sub></code> 和 <code>t<sub>WR</sub></code>。</li>
+      <li><strong>PRECHARGES：</strong>把各 bank row buffer 里更新过的状态写回 cell，并给下一轮腾出行。</li>
+    </ul>
+    <p>命令调度把数据搬运叠进本来就要等的窗口：<code>t<sub>FAW</sub></code> 造成的 ACT4 间隙里插入 REG_WRITE，PRECHARGES 的 <code>t<sub>RP</sub></code> 里重叠 RESULT_READ。PIM 直接挂在 GPU 的片外内存上，自定义命令时序确定，GPU 可以按约束连续下发，不必另做复杂同步。但依赖是阻塞的：例如注意力的 score 没算完，GPU 不能做 softmax，PIM 也不能开始 attend。论文自己把这件事写成局限，并指出 NeuPIMs 的双 row buffer 和子 batch 交错与本文正交，合进来才有机会填掉 GPU–PIM 交替的空泡。</p>
+    <p>单设备放不下大规模模型时，用流水线并行和张量并行，设备间走 NVLink 这类高带宽互连。张量并行下，QKVD 投影按输出通道切分，状态更新和注意力按头分配；投影输出和 FFN 之后做 all-reduce。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验与结果怎么读</h2>
+    <h3>评测怎么做的</h3>
+    <p>小规模模型用各家族公开的最大预训练配置：27 亿参数的 RetNet、GLA、HGRN2、Mamba-2，70 亿参数的 Zamba2，以及作为传统注意力对照的 70 亿参数 OPT。精度评测用 WikiText-2 的困惑度，以及 PIQA、LAMBADA、HellaSwag、ARC-Easy、ARC-Challenge、WinoGrande 的准确率。大规模性能把层数和隐维按比例放大到约 700 亿参数；因为已有工作指出增加状态更新头数可能损害困惑度，头数保持原值，只把 <code>dim<sub>head</sub></code> 和 <code>dim<sub>state</sub></code> 跟头数、隐维对齐。这是合成出来的 70B，不是公开的 70B 预训练 SU-LLM，性能数字不能当成“某个已发布的 70B Mamba 在 PIM 上的墙钟”。</p>
+    <p>对照有三个：NVIDIA A100 80GB（GPU）；同样的 GPU，但状态用与 Pimba 同位宽的 int8（GPU+Q）；GPU 加上 HBM-PIM（GPU+PIM）。Pimba 与 GPU+PIM 都用 40 个基于 HBM2E 的 PIM 存储模块，总线 1,512 MHz，带宽对齐 A100 原配内存。SPU 一拍对应 <code>t<sub>CCD_L</sub></code>（4 个内存总线周期），频率 378 MHz，与 HBM-PIM 文献一致。GPU+PIM 是时间复用、fp16、处理单元跨两个 bank，但没有访问交错，面积与 Pimba 相当。小模型单卡；大模型八卡，互连按 DGX A100 一类系统，用 NVLink3、600 GB/s，模型按张量并行切分。</p>
+    <p>PIM 子系统的性能和能量用基于 Ramulator 2 的周期精确模拟器，并计入已有 DRAM 时序和刷新。GPU 与 NVLink 通过扩展开源模拟器来建模，引用的是 Park 等 2024 的工作（AttAcc）。HBM 激活和读能量来自 O’Connor 等 2017。面积与功耗：Pimba 用 Synopsys Design Compiler 在 FreePDK 45 nm 上综合，再用 DeepScaleTool 缩放到 10 nm；HBM-PIM 走同样流程，单元来自 DesignWare。缩放沿用先前 PIM 工作的做法，并按“存储工艺密度约为同节点逻辑工艺的十分之一”来折算。SRAM 缓冲用 CACTI7 在 22 nm 建模后再缩到 10 nm。这些都是综合与缩放，不是流片量测。</p>
+
+    <h3>吞吐：先看平均，再看峰值</h3>
+    <p>生成阶段输入 / 输出长度均为 2,048。GPU+Q 因为状态体积减半，平均吞吐相对 GPU 高 1.4 倍。GPU+PIM 平均也是 1.4 倍，有时还不如 GPU+Q：没有访问交错，状态更新要跨多拍，内部带宽吃不满，又仍用 fp16，搬运量是 GPU+Q 的两倍。Pimba 平均相对 GPU 高 1.9 倍、相对 GPU+PIM 高 1.4 倍，峰值分别是 4.1 倍和 2.1 倍。平均和峰值差一截，转述时不应只报峰值。</p>
+
+    <h3>延迟拆分：加速主要来自状态更新占得足够多的时候</h3>
+    <p>大规模模型的生成延迟拆分里，状态更新相对 GPU 和 GPU+PIM 分别降到 1/14.6 和 1/6.9。端到端能降多少，取决于这段原本占多少。HGRN2 在 batch=32 时状态更新只占 14%，端到端只降到 1/1.2；RetNet 在 batch=128 时占 74%，端到端降到 1/3.2。注意力段相对 GPU 和 GPU+PIM 分别降到 1/6.3 和 1/2.1，这对 Zamba2 和 OPT 这类注意力占比高的模型更重要。论文明确写了：注意力几乎没有写回，吃不到流水和交错的完整好处，相对 GPU+PIM 的 2.1 倍主要来自 MX8。</p>
+
+    <h3>能量、面积、精度</h3>
+    <p>大规模模型、batch=128 的生成阶段，Pimba 平均能量相对 GPU 低 2.2 倍，相对 GPU+PIM 低 1.3 倍，来源是少搬状态和 KV，以及计算时间缩短。面积上，单个计算单元加缓冲：Pimba 总面积 0.092 mm²（计算 0.053、缓冲 0.039），开销 13.4%；对照的 HBM-PIM 为 0.081 mm² 和 11.8%，计算功耗 8.2908 mW 对 6.028 mW。13.4% 低于所引 25% 上限；多出来的约 1.5 个百分点，论文用最多 2.1 倍的吞吐来辩护。为了公平，对照用的 HBM-PIM 已经按状态更新做了裁剪（缩小内部寄存器、去掉部分控制逻辑），不是把完整商用 HBM-PIM 原样拿来比。</p>
+    <p>精度是小模型在 GPU 上用 MX8 加随机舍入跑出来的，不是模拟器里的数。几何平均准确率相对 fp16 GPU 基线，变化在 +0.1 到 −0.3 个百分点之间。WikiText-2 上多数模型只动小数点后两位，但 HGRN2 从 14.48 升到 15.09，是表里最明显的一次退化。说“精度可忽略”时，至少要把这一行单独写出来。</p>
+
+    <h3>和 NeuPIMs、以及换成 H100 设定</h3>
+    <p>与 NeuPIMs 的对比用的是 Zamba2 70B（同样是放大后的配置），batch=128，输入 / 输出各 1,024，双方都是八卡 A100、张量并行，并对齐时序和 HBM 叠数。文中只说 Pimba 延迟和内存占用都更低，没有给出一个可以单独转述的倍数。作者把原因归到两处：NeuPIMs 不能把状态更新下到 PIM；Pimba 没用双 row buffer，也没用子 batch 交错，处理单元还只有一半，却靠命令调度和 KV 的低精度，让延迟随输出 token 增长的曲线仍与 NeuPIMs 相近。没有倍数，就不要把这段读成“已经量化地打败 NeuPIMs”。</p>
+    <p>把平台换成 H100 设定后，双方改用 40 个 HBM3 PIM 模块，总线 2.626 GHz，SPU 657 MHz，带宽对齐 H100，互连为 NVLink4、900 GB/s。大规模模型上，Pimba 平均相对 GPU 高 1.8 倍，相对 GPU+PIM 高 1.3 倍，趋势与 A100 设定相近。这仍然是同一套模拟器换了一组参数，不是 H100 真机加 PIM 的墙钟。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>Pimba 要补的缺口是真的，而且和仓库里已有的两篇 PIM 笔记是互补的。PIMphony 解决的是长上下文 Transformer 注意力在商用 PIM 模块上怎么切通道、怎么叠命令、怎么按需分配 KV；DCC 解决的是 GEMV / 注意力 / 逐元素核在近 bank 设备上的布局和编译。Pimba 把对象扩到后 Transformer 的状态更新，并坚持同一套单元也能做注意力。Mamba 类和混合模型如果进入服务栈，只优化注意力的 PIM 会留下一块按 batch 线性变差的空洞。开源模拟器（Ramulator 2 + AttAcc 系系统模型）和 GPU 上的精度评测代码，也让后来者可以复现，而不是只停在论文数字上。</p>
+    <p>但当前证据的边界同样清楚，落地之前有几道硬坎：</p>
+    <ul>
+      <li><strong>没有硅片墙钟时间。</strong> 吞吐、延迟、能量都来自周期精确模拟；GPU 和 NVLink 基线也在同一套扩展模拟器里。面积和功耗是 45 nm 综合再缩到 10 nm，并按存储工艺密度十分之一折算。任何“快 4.1 倍”的转述都必须带上“仿真，而且是峰值吞吐”。</li>
+      <li><strong>对照的 GPU+PIM 不是最强的已有 PIM 服务系统。</strong> 它是面积对齐、时间复用、fp16、没有访问交错的 HBM-PIM。和 NeuPIMs 的对比只有 Zamba2 70B 一条曲线，正文没有给出倍数。不能把相对这块基线的 2.1 倍，说成相对 AttAcc、CENT 或 PIMphony 那一类系统的加速。</li>
+      <li><strong>70B 是按比例放大的模型，不是已发布的预训练 checkpoint。</strong> 头数还被有意固定。大规模数字说明的是“结构放大之后模拟器里会发生什么”，不能直接写成某代开源 70B SSM 的服务加速。</li>
+      <li><strong>硬件和软件都要改。</strong> 需要五条自定义 DRAM 命令、all-bank 执行、内存控制器里可能还要量化单元，以及 CUDA API 扩展、物理连续分配和 PyTorch 自定义算子。这已经超出“在现有 HBM-PIM 固件上开一个开关”。Samsung HBM-PIM、SK hynix AiM 的原型指令集是否能映射到这五条命令和四级流水，文中没有在真实设备上验证。</li>
+      <li><strong>Prefill 完全留在 GPU，Generation 里 GPU 与 PIM 还是阻塞交替。</strong> 端到端收益集中在大 batch、状态更新占比高的解码。短上下文、小 batch、或 prefill 占主导的负载，看不到摘要里的峰值倍数。作者自己也说，要把 NeuPIMs 一类的双缓冲和子 batch 交错合进来，才能填交替空泡——而这还没有做进评测。</li>
+      <li><strong>精度证据停在小模型、状态 / KV 的 MX8 上。</strong> 权重和激活的量化是正交工作，文中点名了 Quamba、MambaQuant、Q-Mamba。HGRN2 的 WikiText-2 退化需要在目标模型上重新测。随机舍入的实现（包括 PIM 上 LFSR 的统计质量）若与评测代码不一致，结果可能再走样。</li>
+      <li><strong>和现有服务栈的集成没有实验。</strong> 分页 KV、连续批处理、抢占、多租户下的 PIM 设备分配，以及与 vLLM / SGLang 的调度衔接，都不在本文范围内。所谓“drop-in replacement”指的是对已有 GPU+PIM 服务系统的接口相似性。</li>
+    </ul>
+    <div class="callout teal">更务实的落地点，不是“用 Pimba 替换 GPU 上的 Mamba 服务”，而是：如果下一代 GPU 内存真的带近 bank 计算，并且服务栈开始同时接待 Transformer、SSM 和混合模型，这类“两 bank 共享 + 能做逐元素更新的低精度单元”值得作为硬件选项认真看。在那之前，它更适合作为后 Transformer 近存研究的开放模拟基础设施，并和 DCC 的编译、PIMphony 的长上下文编排放在同一条工具链里讨论。不要把模拟器里的峰值吞吐乘到产品承诺上。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li><strong>性能与能量是仿真，GPU 基线也在同一模拟器家族里。</strong> 缺少与真实 A100 / H100 墙钟、或真实 HBM-PIM / GDDR6-AiM 原型板的交叉验证。</li>
+      <li><strong>大规模模型是缩放出来的。</strong> 没有用公开的超大规模预训练 SU-LLM，也没有把 MoE、投机解码或更复杂的混合调度放进主评测。</li>
+      <li><strong>GPU 与 PIM 阻塞交替，</strong> 两边都会空转。与 NeuPIMs 的系统级重叠被明确留作未来工作。</li>
+      <li><strong>注意力路径仍要回 GPU 做 softmax，</strong> 并在 score / attend 之间插入一次往返。这和只在 PIM 侧做完注意力的设计不是同一条数据路径。</li>
+      <li><strong>面积数字依赖工艺缩放假设，</strong> 包括存储工艺密度十分之一。换节点或换真实存储工艺，13.4% 可能移动。</li>
+      <li><strong>精度表覆盖的是小模型、指定基准。</strong> 长上下文、指令跟随或目标业务集上的质量，不能从这张表外推。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照与条件</th></tr></thead>
+      <tbody>
+        <tr><td>模型族对照（非 Pimba）</td><td>容量 2.3× 更少；吞吐 2.6×；准确率 +4.5 个百分点</td><td>27 亿 Mamba-2 vs 同规模 Transformer</td></tr>
+        <tr><td>状态更新运算强度</td><td>约为注意力的 4 倍，仍是带宽瓶颈</td><td>屋顶线，Fig. 1(b)</td></tr>
+        <tr><td>RetNet 状态更新占比</td><td>41.9% → 73.8%</td><td>A100，生成阶段，batch 32 → 128</td></tr>
+        <tr><td>Zamba2 注意力占比</td><td>65.5%</td><td>batch=128；Mamba-2 层数约 6 倍于注意力层</td></tr>
+        <tr><td>按 bank 时间复用 / 流水线 PIM</td><td>吞吐 2.8× / 4.3×；面积 17.8% / 32.4%</td><td>相对 A100，状态更新，batch=128；32.4% 超过所引 25% 上限</td></tr>
+        <tr><td>生成吞吐 vs GPU</td><td>平均 1.9×，最多 4.1×</td><td>仿真；(2,048, 2,048)</td></tr>
+        <tr><td>生成吞吐 vs GPU+PIM</td><td>平均 1.4×，最多 2.1×</td><td>对照为无交错、fp16 的时间复用 HBM-PIM</td></tr>
+        <tr><td>GPU+Q / GPU+PIM vs GPU</td><td>平均各 1.4×</td><td>GPU+PIM 有时不超过 GPU+Q</td></tr>
+        <tr><td>状态更新延迟</td><td>相对 GPU 14.6×，相对 GPU+PIM 6.9×</td><td>大规模模型，生成阶段；不是端到端</td></tr>
+        <tr><td>端到端延迟随占比变化</td><td>1.2×（HGRN2, bs=32，状态更新占 14%）；3.2×（RetNet, bs=128，占 74%）</td><td>大规模模型拆分</td></tr>
+        <tr><td>注意力延迟</td><td>相对 GPU 6.3×，相对 GPU+PIM 2.1×</td><td>写回少，交错收益有限；2.1× 主要来自 MX8</td></tr>
+        <tr><td>能量</td><td>相对 GPU 平均 2.2× 更低；相对 GPU+PIM 1.3× 更低</td><td>大规模，batch=128，生成阶段；综合能量模型</td></tr>
+        <tr><td>面积 / 开销</td><td>0.092 mm² / 13.4%（Pimba）；0.081 mm² / 11.8%（HBM-PIM）</td><td>计算 0.053 + 缓冲 0.039；45 nm 综合缩放到 10 nm</td></tr>
+        <tr><td>计算功耗</td><td>8.2908 mW vs 6.028 mW</td><td>Pimba vs 裁剪后的 HBM-PIM</td></tr>
+        <tr><td>H100 设定下的平均吞吐</td><td>相对 GPU 1.8×，相对 GPU+PIM 1.3×</td><td>40×HBM3 PIM，2.626 GHz / SPU 657 MHz，NVLink4 900 GB/s；仍是仿真</td></tr>
+        <tr><td>WikiText-2 困惑度（GPU → Pimba）</td><td>RetNet 15.83→15.95；GLA 15.54→15.57；HGRN2 14.48→15.09；Mamba-2 11.46→11.51；Zamba2 5.94→5.96；OPT 12.29→12.29</td><td>小模型，MX8 + 随机舍入，GPU 实测</td></tr>
+        <tr><td>下游准确率几何平均变化</td><td>+0.1 / −0.1 / 0.0 / −0.1 / −0.3 / −0.1 个百分点</td><td>依次为 RetNet、GLA、HGRN2、Mamba-2、Zamba2、OPT</td></tr>
+        <tr><td>硬件频率（A100 设定）</td><td>内存总线 1.512 GHz；PIM 378 MHz</td><td>SPU 一拍 = t<sub>CCD_L</sub> = 4 个总线周期</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2507.10178v3（2025-09-16），对应 MICRO 2025。吞吐、延迟与能量数字来自基于 Ramulator 2 与 AttAcc 系系统模拟器的仿真；小模型精度来自 GPU 实测（论文表 2）；面积与功耗来自 45 nm 综合及向 10 nm 的缩放。
+  </footer>
+</div>
+</body>
+</html>
