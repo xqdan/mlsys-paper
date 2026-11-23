@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Collective-Capable NoC 论文分析 | 用很小的路由器代价把组播和规约做进网内</title>
+  <style>
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">MLSys 2026</span>
+      <span class="badge">arXiv:2603.26438v2</span>
+      <span class="badge">集合通信 · 组播 · 网内规约 · DCA</span>
+      <span class="badge ok">ETH Zurich</span>
+      <span class="badge ok">开源：FlooNoC v0.8.0 + Picobello</span>
+    </div>
+    <h1>Collective-Capable NoC：组播和规约不必再由软件一遍遍单播</h1>
+    <p class="subtitle">A Lightweight High-Throughput Collective-Capable NoC for Large-Scale ML Accelerators</p>
+    <p class="meta">
+      <strong>作者：</strong>Luca Colagrande*、Lorenzo Leone*、Chen Wu、Tim Fischer、Raphael Roth、Luca Benini；ETH Zurich（*共同一作）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2603.26438" target="_blank" rel="noopener">arXiv:2603.26438</a>
+      · <a href="https://arxiv.org/pdf/2603.26438" target="_blank" rel="noopener">PDF</a>（笔记依据 v2，2026-05-12；文首标明 MLSys 2026，Bellevue）
+      · 实现：<a href="https://github.com/pulp-platform/FlooNoC/releases/tag/v0.8.0" target="_blank" rel="noopener">FlooNoC v0.8.0</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：上千个 PE 已经把片上当成了分布式系统</a></li>
+      <li><a href="#s3">思路：在 AXI 兼容的 mesh 上编码多地址</a></li>
+      <li><a href="#s4">关键机制：组播分叉、两类规约、DCA</a></li>
+      <li><a href="#s5">面积、原语与 GEMM</a></li>
+      <li><a href="#s6">落地意义</a></li>
+      <li><a href="#s7">局限</a></li>
+      <li><a href="#s8">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">当一颗芯片上已经能放下成百上千个计算集群时，GEMM、注意力融合和各类分发/规约，看起来就很像过去在机柜里做的集合通信——只是现在发生在 NoC 上。这篇 MLSys 2026 论文把组播、规约和屏障做进开源的 FlooNoC，并且提出 Direct Compute Access（DCA）：路由器不在自己里面堆宽位浮点树，而是直接借用本 tile 里已经付过面积的 FPU 来做网内规约。TSMC 7nm、1 GHz 下，全套集合扩展只增加 16.9% 的路由器面积、tile 级开销低于 1%。在 1–32 KiB 上，硬件组播和规约相对最好的软件实现几何平均快 5.3 倍和 2.8 倍。用已校准的模型外推 GEMM：SUMMA 靠组播可以在直到 256×256 的 mesh 上仍保持计算绑定（软件组播在 16×16 就掉进通信绑定），最高估得 3.8 倍；融合的 Concat+Linear 靠规约最高 2.4 倍；能量最高约 1.17 倍。论文把「大加速器的 NoC 应该会做集合通信」从口号写成了可综合、可对照软件基线的设计。</p>
+    <div class="kpi">
+      <div><div class="n">16.9%</div><div class="k">全功能路由器相对基线的面积开销；NI 仅 +3.5%，tile 级 &lt;1%</div></div>
+      <div><div class="n">5.3× / 2.8×</div><div class="k">1–32 KiB 上组播 / 规约相对最佳软件实现的几何平均加速</div></div>
+      <div><div class="n">3.8× / 2.4×</div><div class="k">SUMMA（组播）与 FusedConcatLinear（规约）估得的最高加速</div></div>
+      <div><div class="n">1.17×</div><div class="k">256×256 mesh 上 SUMMA 估得的能量改善上限</div></div>
+    </div>
+    <div class="callout warn">组播原语数字来自周期精确 RTL 仿真；GEMM 的 3.8× / 2.4× 和能量数字是「用已验证的通信模型 + 既有计算模型」做的分析估计，不是在 256×256 网格上跑出来的全芯片 RTL。宽规约每个路由器同时只支持 2 路输入，从 1D 走到 2D 时 32 KiB 传输会慢约 1.9 倍，之后再加行数，硬件时间几乎不再涨。不要把 3.8 倍读成「任意 Transformer 端到端快 3.8 倍」——论文自己把条件写清楚了：通信必须在关键路径上，并且模式要能映射成组播或规约。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：上千个 PE 已经把片上当成了分布式系统</h2>
+    <p>作者从一条已经被说滥、但仍在恶化的剪刀差起笔：过去二十年峰值 FLOPS 大约涨了 6 万倍，DRAM 带宽大约只涨了 100 倍（引 Gholami 等 2024）。加速器靠堆 PE 续上算力，片上通信和近存搬运却没有同比例变好。机柜级的集合通信已经有 SHARP、各种通信库；片上却长期默认「程序员或 DMA 自己发起一串单播」。结果是，权重广播和部分和规约会把 mesh 打满，双缓冲也救不回来——论文在 4.3 节观察到，大配置下 GEMM 会掉到通信绑定，256×256 mesh 上利用率不到 50%；把集合原语加速之后，内核时间最高能回来 3.8 倍。</p>
+    <p>他们还点了一篇 2025 年的 FlatAttention：用协调好的片上集合操作减少出片访存、提高张量单元利用率，相对 FlashAttention-3 最高 4 倍。这不是本文的实验，但说明目标负载已经从「缓存一致性里的小消息组播」变成了「GEMM / 注意力里的突发、软件管理的大块搬运」。</p>
+    <p>相关工作里有一句很关键的判断：传统观点认为片上不该做 many-to-one 的硬件支持，因为面积太贵（Krishna 等 2011）。既有网内规约多半只合并短 ACK，而不是做高吞吐算术规约。商用芯片方面，论文点名 Meta MTIA、SambaNova SN40L、Tenstorrent Blackhole 都有组播能力，但机制和量化都是闭源。作者声称这是第一份面向可编程 ML 加速器、端到端开源、并且拿硬件集合去对优化过的软件基线的设计。这个「第一」依赖他们划的范围（可编程 manycore + 开源 + 软件对照），阅读时当成主张，不必自动写成定论。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 思路：在 AXI 兼容的 mesh 上编码多地址</h2>
+    <p>基线系统沿用 FlooNoC（Fischer 等，IEEE TVLSI 2025）：2D mesh 上混合计算 tile 与内存 tile。计算 tile 是 8 个带 64-bit SIMD FPU 的 Snitch 核，共享 128 KiB L1，另有第 9 个核带着 DMA 做 tile 间突发搬运；内存 tile 带 1 MB L2 SPM。DMA 走宽网络，一次传输可写成 <code>T = α + nβ</code>（往返延迟加每拍一拍的 payload）。</p>
+    <p>集合通信的第一个麻烦是：怎么在一条事务里写出多个目的地。他们沿用 2025 年那篇 AXI 交叉开关组播里的办法——在 <code>AWUSER</code> 里带一个与地址等宽的掩码，置位的地址位视为 don’t care，掩 <em>n</em> 位就能表示最多 2<sup>n</sup> 个目的地。编码随地址空间对数增长，与目的地个数无关，因此能放到大规模 mesh 上；代价是能表示的集合不任意，只能是对齐的子网格。不满足的集合就拆成多笔事务。</p>
+    <p>落到 NoC 上，网络接口把地址掩码翻译成 X/Y 坐标掩码，塞进 AW flit 头，并在后续 W flit 上复用。AXI 还把组播和规约绑在一起：一笔组播 AW 会从多个从设备收回多个 B 响应，发起方却只想看到一个 B，所以网内必须把响应规约掉；反过来，多发起方做规约时，目的地的响应又要组播回去。协议上先承认这个对偶，路由器设计才不会把组播和规约当成两个互不相干的补丁。</p>
+    <div class="callout teal">可集合的区域必须是对齐到宽度/高度（且宽高为 2 的幂）的子 mesh。多数不规则地板规划要用「填充」把区域摆正。各节点地址空间还被假定成等大小、按 2 的幂对齐、沿 Y-major 连续映射，这样掩码翻译能收成位选择。这些约束是为了规模，不是为了通用 CMP。</div>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 关键机制：组播分叉、两类规约、DCA</h2>
+    <h3>组播：在 xy_route_fork 上选多个出口</h3>
+    <p>原来的 XY 路由只算一个出口。现在根据目的坐标和 X/Y 掩码，fork 可以同时选中多个输出端口，再由 <code>stream_fork</code> 保证所有被选出口都就绪才接收输入 flit——这是树形组播，不是在源端把同一块数据发很多遍。1D 硬件组播的时间被写成 <code>T_hw = α + (n + c − 1)β</code>：付一次启动延迟，然后 payload 与沿途的集群数流水铺开。</p>
+    <h3>窄规约：每个出口一套并行归约器</h3>
+    <p>为了合并组播的多个 B 响应，每个输出端口本来就需要一点规约能力。他们把这条路做成可并存的并行规约：同步模块根据掩码算出还要等哪些输入，多路规约用前导零计数器仲裁，交叉的规约路径也不会死锁。本工作实现了三种轻量操作：<code>CollectB</code>（合并组播响应）、<code>SelectAW</code>（聚合规约请求的 AW）、<code>LsbAnd</code>（对最低位做与，用来做屏障）。</p>
+    <h3>宽规约：每个路由器一次只吃两路，并可卸载到 FPU</h3>
+    <p>在宽网络上做浮点、多输入树会很贵。他们改成：每颗路由器只有一份集中的宽规约逻辑，同时只服务一笔、最多两路输入；用 header 缓冲把流水线延迟藏掉，缓冲深度大于功能单元级数时可以达到每拍一笔。两路不够时就在树上多拍，这解释了后文 2D 规约的吞吐打折。</p>
+    <h3>DCA：让网络直接借用已经存在的 FPU</h3>
+    <p>Direct Compute Access 是本文最值得记住的结构想法。计算集群增加三个 512-bit 端口（两路操作数、一路结果），操作类型走控制信号。512 bit 被切成 8 个 64-bit 片，分给 8 个 FPU；DCA 请求与核自己的 FPU 请求用 tag 在流水线里分开。于是宽规约不必在路由器里再造一棵浮点树——算术单元的面积本来就已经在 tile 里了。按 SIMD 宽度，系统每拍最多做 8 次双精度或 64 次 8-bit 浮点规约。核可以被闲置在低功耗状态，由网络把运算推过来。</p>
+    <div class="fig">
+      <svg viewBox="0 0 740 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DCA 示意">
+        <text x="370" y="22" text-anchor="middle" font-size="13" fill="#57534e" font-family="Segoe UI, sans-serif">示意：宽规约可以从路由器卸到本 tile 的 FPU（不是原文插图）</text>
+        <rect x="20" y="50" width="200" height="170" rx="8" fill="#fff7ed" stroke="#9a3412"/>
+        <text x="120" y="74" text-anchor="middle" font-size="13" fill="#9a3412" font-family="Segoe UI, sans-serif">FlooNoC Router</text>
+        <text x="120" y="100" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">组播 fork</text>
+        <text x="120" y="118" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">窄路并行规约</text>
+        <text x="120" y="136" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">宽路 2 输入规约</text>
+        <rect x="50" y="154" width="140" height="48" rx="4" fill="#ffedd5" stroke="#9a3412"/>
+        <text x="120" y="174" text-anchor="middle" font-size="11" fill="#9a3412" font-family="Segoe UI, sans-serif">offload 端口</text>
+        <text x="120" y="192" text-anchor="middle" font-size="10" fill="#57534e" font-family="Segoe UI, sans-serif">512b ×2 入 / ×1 出</text>
+        <path d="M220,178 L310,178" stroke="#1e3a5f" stroke-width="2" marker-end="url(#arr)"/>
+        <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#1e3a5f"/></marker></defs>
+        <rect x="310" y="50" width="410" height="170" rx="8" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="515" y="74" text-anchor="middle" font-size="13" fill="#0f766e" font-family="Segoe UI, sans-serif">Snitch cluster（8 FPU + DMA）</text>
+        <g font-family="Segoe UI, sans-serif" font-size="11">
+          <rect x="330" y="100" width="70" height="40" rx="4" fill="#ccfbf1" stroke="#0f766e"/><text x="365" y="124" text-anchor="middle" fill="#115e59">FPU0</text>
+          <rect x="410" y="100" width="70" height="40" rx="4" fill="#ccfbf1" stroke="#0f766e"/><text x="445" y="124" text-anchor="middle" fill="#115e59">FPU1</text>
+          <rect x="490" y="100" width="70" height="40" rx="4" fill="#ccfbf1" stroke="#0f766e"/><text x="525" y="124" text-anchor="middle" fill="#115e59">…</text>
+          <rect x="570" y="100" width="70" height="40" rx="4" fill="#ccfbf1" stroke="#0f766e"/><text x="605" y="124" text-anchor="middle" fill="#115e59">FPU7</text>
+          <rect x="650" y="100" width="50" height="40" rx="4" fill="#f5f0e6" stroke="#e7e0d4"/><text x="675" y="124" text-anchor="middle" fill="#57534e">L1</text>
+        </g>
+        <text x="515" y="170" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">核可以低功耗待命；DCA 与核请求用 tag 在 FPU 流水线里分流</text>
+        <text x="515" y="192" text-anchor="middle" font-size="11" fill="#57534e" font-family="Segoe UI, sans-serif">每拍最多 8×FP64 或 64×FP8 规约</text>
+      </svg>
+    </div>
+    <p class="figcap">图 1. DCA 把网内算术规约卸到 cluster 已有的 FPU。本图是示意，不是原文插图。</p>
+    <p>作者强调这不绑死在 Snitch 或 FlooNoC 上，只要具备三件套：规则 2D mesh 与 XY 路由、tile 内可外借的算术单元、可编程的数据搬运引擎。他们把 Cerebras WSE-3、Tenstorrent Blackhole、AMD XDNA、SambaNova SN40L、Meta MTIA 以及若干学术加速器都列进这个模板。这是类比，不是说这些芯片已经实现了 DCA。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 面积、原语与 GEMM</h2>
+    <h3>面积与时序</h3>
+    <p>NI 和路由器、以及完整 cluster tile，在 TSMC 7nm、Fusion Compiler 2024.09、1 GHz、最差角（SS，−40°C，0.675 V）下综合，作者称没有时序退化。逐步加功能的路由器开销是：</p>
+    <table>
+      <thead><tr><th>配置</th><th>面积效应（相对基线路由器）</th><th>备注</th></tr></thead>
+      <tbody>
+        <tr><td>仅组播（含响应路上必要的并行规约）</td><td>+5.8%（分叉本身约 +6.4%，响应规约占响应路由器 36.4%）</td><td>窄、宽路由器都加 fork</td></tr>
+        <tr><td>再加用于同步的并行规约</td><td>再 +2.7%</td><td>窄请求路由器每出口 1.13 kGE</td></tr>
+        <tr><td>再加宽规约</td><td>再 13.62 kGE（56.3% 组合 / 43.7% 时序）</td><td>主要是仲裁多路器和 header 缓冲</td></tr>
+        <tr><td>全部集合功能</td><td>+16.9%</td><td>NI 自身 +3.5%</td></tr>
+        <tr><td>放到 5.6 MGE 的 cluster tile 上</td><td>&lt;1%</td><td>复现 Fischer 等的 P&amp;R；FPU 面积远大于路由器，这正是 DCA 便宜的原因</td></tr>
+      </tbody>
+    </table>
+    <h3>原语：对着优化过的软件打</h3>
+    <p>性能用 QuestaSim 2023.4 做周期精确 RTL 仿真。软件基线不是 naive 单播循环，而是带着硬件屏障和 DMA 的流水顺序组播 / 双缓冲树规约，并且按模型选最优分块。作者给出的公式与测得周期吻合。</p>
+    <ul>
+      <li>1D 组播：硬件相对最佳软件在 1–32 KiB 上快 2.3–3.2 倍。</li>
+      <li>1D 规约：同样尺寸上快 2.0–3.0 倍。</li>
+      <li>2D 规约：因为每路由器只合 2 路，第一列部分路由器要吃三路输入，32 KiB 时相对 1D 慢约 1.9 倍；但再增加行数，硬件时间几乎不变，软件则规模性很差。4×4 mesh 上 1–32 KiB 规约的几何平均加速为 2.8 倍。</li>
+      <li>摘要中的 5.3 倍是组播（含 2D）的几何平均。</li>
+    </ul>
+    <h3>GEMM：通信一旦离开关键路径，倍数就消失</h3>
+    <p>SUMMA：双缓冲后稳态时间是 <code>max(T_comp, T_comm)</code>，通信是对 A 的行组播加对 B 的列组播。假设簇 L1 里能放下的最大方形子问题（16 KiB）以及 98.1% 的计算利用率（来自他们另一篇 RTL 实测的中位数，已含 DMA 与计算争用）。硬件组播让内核在直到 256×256 的 mesh 上仍计算绑定；软件组播在 16×16 就已经通信绑定。加速范围 1.1–3.8 倍。</p>
+    <p>FusedConcatLinear：每个 cluster 算一个注意力头，最后沿 K 维规约才能融掉 concat 和线性层的出片访问。规约发生在计算之后，不和 DCA 抢同一拍 FPU。最高估得 2.4 倍。</p>
+    <p>能量来自把 0 号 tile 换成后仿网表、用 PrimeTime 在典型角（TT，25°C，0.75 V，1 GHz）抽活动因子，再按原语次数外推到整网。16×16 上的记账很能说明组播为什么省能量：SUMMA 的 DMA Store 从 983 降到 66（单位为 kB 传输计数）。计算仍然主导总能量，所以 256×256 上 SUMMA 也只到 1.17 倍；FusedConcatLinear 最高 1.13 倍，来源是少搬数据，以及核可以在 DCA 期间保持低功耗。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 落地意义</h2>
+    <p>对做 AI 芯片 NoC 的人，本文最有用的不是「再快几倍」，而是把三条常常混在一起的事情拆开了。</p>
+    <p>第一，AI 流量的集合通信是突发、规则、软件可见的，和缓存一致性里那些任意目的地、短消息的组播不是同一个设计点。为了规模可以接受「只能打对齐子网格」这种编码，换来对数增长的头部开销和简单的 XY 树。</p>
+    <p>第二，网内算术规约之所以显得贵，常常是因为人们默认要在路由器里再造算术单元。DCA 的反驳是：算术单元已经在 tile 里，缺的是一条带背压和 tag 的卸载口。16.9% 的路由器开销、tile 级不到 1%，让「片上不该做 many-to-one」这句话至少在这个模板下不再是教条。</p>
+    <p>第三，加速能不能反映到内核上，有两个与内核无关的条件：通信是否在关键路径，模式能否映射成组播或规约。双缓冲内核只有在 <code>T_comm &gt; T_comp</code> 时才吃得到组播的好处；规约若是加性项，则总会吃到，幅度取决于它占壁钟的比例。这比再发一篇「我们的 NoC 在某几个网络上延迟更低」更接近芯片团队真正要做的权衡。</p>
+    <p>和 Tenstorrent 的矩形广播、Cerebras 的 color 通道、Hopper 的 SM-to-SM / DSM 放在一起看，产业界已经从不同方向承认：AI 芯片的片上网络必须会做一对多和多对一，而不能只做 cache line 单播。本文的贡献是把这件事做成了可综合的开源实现，并且用软件对照把倍数钉在原语和 GEMM 模型上。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 局限</h2>
+    <ul>
+      <li>大 mesh 上的 GEMM 与能量是模型估计，不是 256×256 的全系统 RTL 或硅上测量。通信模型在 4×4 量级的原语实验里对得很好，外推仍有风险。</li>
+      <li>没有端到端网络或完整模型（GPT、MoE）的评估。作者引用文献称 GEMM 类算子可占推理时间的大约 42.8%–96.6%，因此「预期」会反映到端到端，但本文没做。</li>
+      <li>宽规约每路由器 2 路，2D 规约会在部分节点掉到每 2 拍才出一个完全规约 beat。更大扇入或更不规则的 MoE 流量不在实验里。</li>
+      <li>DCA 与核的 FPU 请求会争用同一套算术单元；本文评的融合内核把规约放在计算之后，避开了争用。重叠通信与计算时，情况会更复杂，作者自己写了这一点。</li>
+      <li>multi-address 编码要求 2 的幂对齐子网格，任意目的地集合要拆事务。对稀疏专家分发是否仍然划算，本文没有直接实验。</li>
+      <li>对比的是「同一套 NoC 上的优化软件集合」，不是和其他硬件组播 NoC（商用或学术）做头对头。和闭源芯片的优劣无法从本文读出。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数值</th><th>出处与条件</th></tr></thead>
+      <tbody>
+        <tr><td>工艺 / 目标频率</td><td>TSMC 7nm，1 GHz</td><td>第 4.1 节，SS/−40°C/0.675 V，无时序退化</td></tr>
+        <tr><td>NI 面积开销</td><td>+3.5%</td><td>第 4.1 节</td></tr>
+        <tr><td>全功能路由器面积开销</td><td>+16.9%</td><td>摘要与 4.1 节</td></tr>
+        <tr><td>Cluster tile 开销</td><td>&lt;1%（tile 5.6 MGE）</td><td>第 4.1 节</td></tr>
+        <tr><td>组播原语</td><td>几何平均 5.3×；1D 为 2.3–3.2×</td><td>1–32 KiB，相对最佳软件；摘要与 4.2.2</td></tr>
+        <tr><td>规约原语</td><td>几何平均 2.8×；1D 为 2.0–3.0×</td><td>4×4 mesh，1–32 KiB；4.2.3。2D 时 32 KiB 相对 1D 慢约 1.9×</td></tr>
+        <tr><td>SUMMA GEMM</td><td>1.1–3.8×；硬件可撑到 256×256 仍计算绑定</td><td>第 4.3.1，模型估计，利用率 98.1%</td></tr>
+        <tr><td>FusedConcatLinear</td><td>最高 2.4×</td><td>第 4.3.2，模型估计</td></tr>
+        <tr><td>能量</td><td>SUMMA 最高 1.17×（256×256）；FCL 最高 1.13×</td><td>第 4.3.3，后仿能量 × 原语计数</td></tr>
+        <tr><td>DCA 峰值</td><td>每拍 8×FP64 或 64×8-bit 浮点规约</td><td>第 3.2.1</td></tr>
+        <tr><td>16×16 SUMMA DMA Store</td><td>软件 983 vs 硬件 66（kB 计数）</td><td>表 1</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2603.26438v2（2026-05-12）及文首的 MLSys 2026 标记。倍数来自摘要与第 4 节。GEMM 与能量为模型估计，原语为 RTL 仿真。图为示意，不是原文插图。
+  </footer>
+
+</div>
+</body>
+</html>
