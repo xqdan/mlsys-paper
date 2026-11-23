@@ -1,7 +1,7 @@
 {
-  "as_of": "2026-11-22",
+  "as_of": "2026-11-23",
   "timezone": "Asia/Shanghai",
-  "note": "仅含本轮打开并核验过的条目。厂商与公司数字按原文口径。",
+  "note": "仅含已打开并核验过的条目。厂商与公司数字按原文口径。2026-11-23 周报新增 14 篇论文；本周无新的创业融资或三大 EDA 厂商产品发布。",
   "entries": [
     {
       "title": "ORFS-agent: Tool-Using Agents for Chip Design Optimization",
@@ -67,15 +67,6 @@
       "summary": "生成、调试与参考模型三项任务；文中 Claude-4.5-opus 的 Verilog 生成为 30.74%。"
     },
     {
-      "title": "Ricursive 种子轮与 A 轮共 $335M",
-      "type": "创业公司",
-      "stage": "跨层",
-      "date": "2026-02-16",
-      "venue": "TechCrunch",
-      "url": "https://techcrunch.com/2026/02/16/how-ricursive-intelligence-raised-335m-at-a-4b-valuation-in-4-months/",
-      "summary": "Goldie 与 Mirhoseini 创立；Sequoia 种子轮 3500 万、Lightspeed A 轮 3 亿，估值 40 亿美元；NVIDIA 为投资方。报道日期 2026-02-16，融资发生在此前约四个月。"
-    },
-    {
       "title": "ACE-RTL",
       "type": "论文",
       "stage": "前端",
@@ -92,6 +83,15 @@
       "venue": "Cadence 新闻稿",
       "url": "https://www.cadence.com/en_US/home/company/newsroom/press-releases/pr/2026/cadence-unleashes-chipstack-ai-super-agent-pioneering-a-new.html",
       "summary": "前端设计与验证智能体；官方称最多约 10 倍生产力。早期客户包括 Altera、NVIDIA、Qualcomm、Tenstorrent。"
+    },
+    {
+      "title": "Ricursive 种子轮与 A 轮共 $335M",
+      "type": "创业公司",
+      "stage": "跨层",
+      "date": "2026-02-16",
+      "venue": "TechCrunch",
+      "url": "https://techcrunch.com/2026/02/16/how-ricursive-intelligence-raised-335m-at-a-4b-valuation-in-4-months/",
+      "summary": "Goldie 与 Mirhoseini 创立；Sequoia 种子轮 3500 万、Lightspeed A 轮 3 亿，估值 40 亿美元；NVIDIA 为投资方。报道日期 2026-02-16，融资发生在此前约四个月。"
     },
     {
       "title": "ChipAgents Series A1 $50M",
@@ -256,6 +256,42 @@
       "summary": "把 RTL 生成、EDA 检查构造和工具反馈修订训进同一个领域模型。"
     },
     {
+      "title": "Ripple-65B Preview",
+      "type": "创业公司",
+      "stage": "跨层",
+      "date": "2026-11",
+      "venue": "Ricursive 官网",
+      "url": "https://www.ricursive.com/ripple",
+      "summary": "从零训练的 65B 开源权重模型，内部变体用于其芯片设计平台；官方称完整研发成本 3200 万美元。"
+    },
+    {
+      "title": "ICLayout-Bench",
+      "type": "论文",
+      "stage": "后端",
+      "date": "2026-11-08",
+      "venue": "arXiv:2611.12982",
+      "url": "https://arxiv.org/abs/2611.12982",
+      "summary": "中科大与中科院计算所：评测 LLM 智能体从晶体管级网表做到 GDSII 版图，含物理验证、寄生抽取和后仿。165 题、13 个 PDK（3nm 到 180nm）；7 个模型共 22 种配置在公开/私有任务上的平均版图分分别为 4.22–80.26 和 1.43–67.01（100 分制）。公开集最高为 GPT-6 Astra medium 的 80.26，私有集最高为 GPT-6.1 Sol high 的 67.01；提高推理力度并不稳定提升均分。"
+    },
+    {
+      "title": "CASCoDe",
+      "type": "论文",
+      "stage": "跨层",
+      "date": "2026-11-09",
+      "venue": "arXiv:2611.11710",
+      "url": "https://arxiv.org/abs/2611.11710",
+      "summary": "德州大学奥斯汀分校 David Z. Pan 组：把模拟定参、结构 floorplan、行内 refinement 和布线尝试做成层次化离散动作，闭环做到经验证的 GDS。20 个 SKY130 放大器全部给出 DRC 与 LVS 干净的布线版图，是对照中唯一全部合法的；相对常规 P&R，面积降 59–85%（均值 71%），平均器件密度从 0.39 提到 0.74，平均后仿 FoM 高于 APPlace、MAGICAL、ALIGN（后三者 DRC 干净数分别为 15、0、1）。打赢全部基线的版图平均 11 分钟智能体时间出现。"
+    },
+    {
+      "title": "Evaluating AI Agents for Industrial-Level Chip Floorplanning",
+      "type": "论文",
+      "stage": "后端",
+      "date": "2026-11-09",
+      "venue": "arXiv:2611.12048（v2 2026-11-12）",
+      "url": "https://arxiv.org/abs/2611.12048",
+      "summary": "Nova-Silicon：把工业级宏块 floorplan 接到规定的下游实现流程再评分。一个 99 个宏块、约占固定 L 形区域 71% 的工业设计上，40 次评估里专用系统 Nova-SI 的综合质量均分 57.97，最强通用配置 GPT-6 Astra 为 31.17。"
+    },
+    {
       "title": "ChipOmni",
       "type": "论文",
       "stage": "跨层",
@@ -283,6 +319,24 @@
       "summary": "开源智能体物理设计平台与 OpenLayout-Bench；论文称相对基线约 20% 准确率提升。"
     },
     {
+      "title": "DVBench",
+      "type": "论文",
+      "stage": "前端",
+      "date": "2026-11-18",
+      "venue": "arXiv:2611.25066",
+      "url": "https://arxiv.org/abs/2611.25066",
+      "summary": "面向真实端到端 UVM 验证智能体的基准，含 95 题并保留各阶段依赖。13 种智能体–模型配置中，最强的 Codex 与 GPT-6 Astra 组合总成功率为 21.05%。"
+    },
+    {
+      "title": "Inference-Time Scaling in Agentic Hardware Verification Workflows",
+      "type": "论文",
+      "stage": "前端",
+      "date": "2026-11-18",
+      "venue": "ICLAD 2026 / arXiv:2611.23905",
+      "url": "https://arxiv.org/abs/2611.23905",
+      "summary": "Arm：在 AMBA 桥的智能体 UVM 测试台生成中比较四种推理时缩放策略。结构化诊断反馈相对原始 EDA 反馈，每美元 PVC 大约高 15 倍；双环策略在全部四个目标上达到 PVC ≥ 0.95 且无 scoreboard 错误，并在四个参考设计中的两个里暴露了潜伏 RTL 缺陷。输出由 Mentor Questa 周期精确工具链判定。"
+    },
+    {
       "title": "OpenAI Advancing chip design with our models",
       "type": "业界",
       "stage": "前端",
@@ -290,6 +344,33 @@
       "venue": "OpenAI 官方研究页",
       "url": "https://openai.com/index/advancing-chip-design-with-our-models/",
       "summary": "Jalapeño 向量/矩阵单元面积约 -13%/-10% 且已硅验证；AMD 旗舰 GPU IP 最多约 14%，部分已进入近期流片；将与 Synopsys 合作训练 GPT-Synopsys。"
+    },
+    {
+      "title": "CRAFT",
+      "type": "论文",
+      "stage": "前端",
+      "date": "2026-11-19",
+      "venue": "arXiv:2611.25908",
+      "url": "https://arxiv.org/abs/2611.25908",
+      "summary": "三星与首尔大学：LLM 智能体通过预计算查找表服务 DeX 按手算方式定参，循环中不跑 SPICE，最终用 HSPICE 独立验证。商业 28nm 上四个电路（最大为 37 管三级放大器）共 20 次全部满足规格与约束；该放大器上相对 HSPICE 闭环，10/10 对 6/10 通过，中位快 2.0 倍。"
+    },
+    {
+      "title": "Meta-RTL",
+      "type": "论文",
+      "stage": "前端",
+      "date": "2026-11-19",
+      "venue": "arXiv:2611.25891",
+      "url": "https://arxiv.org/abs/2611.25891",
+      "summary": "港中文：在固定优化模型、EDA 流程和预算下演化 RTL 优化智能体外壳。相对 Dr. RTL，20 个开发设计上聚合 WNS/TNS 违例再降 7.8%/11.0%，70% 设计面积下降；迁移到 10 个未见的 IC-RTL 设计后，聚合 WNS/TNS 再降 20.5%/14.0%，总综合面积 -12.6%。"
+    },
+    {
+      "title": "SiliconGym",
+      "type": "论文",
+      "stage": "跨层",
+      "date": "2026-11-19",
+      "venue": "arXiv:2611.25658",
+      "url": "https://arxiv.org/abs/2611.25658",
+      "summary": "加州大学圣地亚哥分校、佐治亚理工与 NVIDIA：跨任务、跨工具链的硬件设计与验证强化学习环境，覆盖模块级 RTL/测试台/PPA、仓库级修复和全层次 SoC。流式调度使 256 条回答的 RL 批次比原生 ChipSeek 快 21.9%；并比较开源训练成果迁移到商业仿真与综合时的功能正确性和 PPA。"
     },
     {
       "title": "LOCA: Verified Netlist-to-RTL Recovery",
@@ -301,13 +382,58 @@
       "summary": "按逻辑锥拆分并用形式工具守门，从网表恢复 RTL；21 对中恢复 17，整网表提示仅 6。"
     },
     {
-      "title": "Ripple-65B Preview",
-      "type": "创业公司",
-      "stage": "跨层",
-      "date": "2026-11",
-      "venue": "Ricursive 官网",
-      "url": "https://www.ricursive.com/ripple",
-      "summary": "从零训练的 65B 开源权重模型，内部变体用于其芯片设计平台；官方称完整研发成本 3200 万美元。"
+      "title": "From Seed to BLOOM (MiracleGro)",
+      "type": "论文",
+      "stage": "前端",
+      "date": "2026-11-20",
+      "venue": "arXiv:2611.26517",
+      "url": "https://arxiv.org/abs/2611.26517",
+      "summary": "Berkeley：智能体 MiracleGro 在无人工介入下分析周期级 RTL 与综合结果，改写开源乱序核 BOOM。论文称 SkyWater 130nm 上 IPC +85%、频率 +27%，完整 SPEC CPU2017 intspeed（约 30 万亿条指令）墙钟加速 2.34 倍。"
+    },
+    {
+      "title": "Verify the Verifier",
+      "type": "论文",
+      "stage": "前端",
+      "date": "2026-11-20",
+      "venue": "arXiv:2611.26588",
+      "url": "https://arxiv.org/abs/2611.26588",
+      "summary": "德州农工：用 LLM 交叉检查对照规格，捕捉通过 UVM scoreboard 但仍违反规格的缺陷。向四个 OpenTitan IP 插入 564 个缺陷，其中 68 个为候选 scoreboard escape，框架确认 41 个（断言在有缺陷设计上失败、在原设计上得证）。"
+    },
+    {
+      "title": "SGLayout",
+      "type": "论文",
+      "stage": "后端",
+      "date": "2026-11-20",
+      "venue": "ICCAD 2026 / arXiv:2611.25410",
+      "url": "https://arxiv.org/abs/2611.25410",
+      "summary": "北大、ChatEDA 与港中文：用 schema 把几何评估结果反投影到可修改的代码位置，闭环生成参数化版图。112 题 GDSFactory 基准上通过率 76.79%，最强基线为 50.89%。"
+    },
+    {
+      "title": "GRODE-RTL",
+      "type": "论文",
+      "stage": "前端",
+      "date": "2026-11-20",
+      "venue": "arXiv:2611.25661",
+      "url": "https://arxiv.org/abs/2611.25661",
+      "summary": "港中文与中科院计算所：从网表提取可疑寄存器的单时钟级扇入锥并映射回源码，做成按跳数折叠的依赖视图，辅助 LLM 修非局部 RTL 故障。30 个形式验证过的非局部故障上，相对源码级探索，三个模型的 pass@1 分别提高 16.7%、26.7%、20.0%。"
+    },
+    {
+      "title": "BOOMerang",
+      "type": "论文",
+      "stage": "前端",
+      "date": "2026-11-20",
+      "venue": "arXiv:2611.25438",
+      "url": "https://arxiv.org/abs/2611.25438",
+      "summary": "Berkeley：智能体闭环把 BOOM 的 RTL 与 gem5 模型对齐。论文称两天内做出 IPC 误差 3% 以内的 gem5 模型，并把 72 项微架构特性译回 RTL；组合后 SPECint 2017 性能提升 25%。"
+    },
+    {
+      "title": "ReLay",
+      "type": "论文",
+      "stage": "后端",
+      "date": "2026-11-20",
+      "venue": "arXiv:2611.25328",
+      "url": "https://arxiv.org/abs/2611.25328",
+      "summary": "布朗与密歇根：从已有模拟版图恢复生成器程序，并让库函数随版图积累演化。基准含 27 个电路族、三个开源 PDK 上的 1050 张手绘版图；学到的函数占留出集布局调用的 53–66%。前沿 LLM 智能体用 ReLay 完成任务的 API 成本比直接生成几何低 64–77%，完成率与电学质量相当。"
     },
     {
       "title": "AlphaChip（背景）",

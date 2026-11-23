@@ -1,6 +1,66 @@
 # AI for Chip 条目清单
 
-截至 2026-11-22（Asia/Shanghai）。用于每周追加，不必先改叙述页。
+截至 2026-11-23（Asia/Shanghai）。用于每周追加，不必先改叙述页。
+
+## 2026-11-23 周报新增
+
+- **2026-11-20** · 论文 · 前端 · From Seed to BLOOM (MiracleGro)（arXiv:2611.26517）
+  Berkeley：智能体 MiracleGro 在无人工介入下分析周期级 RTL 与综合结果，改写开源乱序核 BOOM。论文称 SkyWater 130nm 上 IPC +85%、频率 +27%，完整 SPEC CPU2017 intspeed（约 30 万亿条指令）墙钟加速 2.34 倍。
+  https://arxiv.org/abs/2611.26517
+
+- **2026-11-20** · 论文 · 前端 · Verify the Verifier（arXiv:2611.26588）
+  德州农工：用 LLM 交叉检查对照规格，捕捉通过 UVM scoreboard 但仍违反规格的缺陷。向四个 OpenTitan IP 插入 564 个缺陷，其中 68 个为候选 scoreboard escape，框架确认 41 个（断言在有缺陷设计上失败、在原设计上得证）。
+  https://arxiv.org/abs/2611.26588
+
+- **2026-11-20** · 论文 · 后端 · SGLayout（ICCAD 2026 / arXiv:2611.25410）
+  北大、ChatEDA 与港中文：用 schema 把几何评估结果反投影到可修改的代码位置，闭环生成参数化版图。112 题 GDSFactory 基准上通过率 76.79%，最强基线为 50.89%。
+  https://arxiv.org/abs/2611.25410
+
+- **2026-11-20** · 论文 · 前端 · GRODE-RTL（arXiv:2611.25661）
+  港中文与中科院计算所：从网表提取可疑寄存器的单时钟级扇入锥并映射回源码，做成按跳数折叠的依赖视图，辅助 LLM 修非局部 RTL 故障。30 个形式验证过的非局部故障上，相对源码级探索，三个模型的 pass@1 分别提高 16.7%、26.7%、20.0%。
+  https://arxiv.org/abs/2611.25661
+
+- **2026-11-20** · 论文 · 前端 · BOOMerang（arXiv:2611.25438）
+  Berkeley：智能体闭环把 BOOM 的 RTL 与 gem5 模型对齐。论文称两天内做出 IPC 误差 3% 以内的 gem5 模型，并把 72 项微架构特性译回 RTL；组合后 SPECint 2017 性能提升 25%。
+  https://arxiv.org/abs/2611.25438
+
+- **2026-11-20** · 论文 · 后端 · ReLay（arXiv:2611.25328）
+  布朗与密歇根：从已有模拟版图恢复生成器程序，并让库函数随版图积累演化。基准含 27 个电路族、三个开源 PDK 上的 1050 张手绘版图；学到的函数占留出集布局调用的 53–66%。前沿 LLM 智能体用 ReLay 完成任务的 API 成本比直接生成几何低 64–77%，完成率与电学质量相当。
+  https://arxiv.org/abs/2611.25328
+
+- **2026-11-19** · 论文 · 前端 · CRAFT（arXiv:2611.25908）
+  三星与首尔大学：LLM 智能体通过预计算查找表服务 DeX 按手算方式定参，循环中不跑 SPICE，最终用 HSPICE 独立验证。商业 28nm 上四个电路（最大为 37 管三级放大器）共 20 次全部满足规格与约束；该放大器上相对 HSPICE 闭环，10/10 对 6/10 通过，中位快 2.0 倍。
+  https://arxiv.org/abs/2611.25908
+
+- **2026-11-19** · 论文 · 前端 · Meta-RTL（arXiv:2611.25891）
+  港中文：在固定优化模型、EDA 流程和预算下演化 RTL 优化智能体外壳。相对 Dr. RTL，20 个开发设计上聚合 WNS/TNS 违例再降 7.8%/11.0%，70% 设计面积下降；迁移到 10 个未见的 IC-RTL 设计后，聚合 WNS/TNS 再降 20.5%/14.0%，总综合面积 -12.6%。
+  https://arxiv.org/abs/2611.25891
+
+- **2026-11-19** · 论文 · 跨层 · SiliconGym（arXiv:2611.25658）
+  加州大学圣地亚哥分校、佐治亚理工与 NVIDIA：跨任务、跨工具链的硬件设计与验证强化学习环境，覆盖模块级 RTL/测试台/PPA、仓库级修复和全层次 SoC。流式调度使 256 条回答的 RL 批次比原生 ChipSeek 快 21.9%；并比较开源训练成果迁移到商业仿真与综合时的功能正确性和 PPA。
+  https://arxiv.org/abs/2611.25658
+
+- **2026-11-18** · 论文 · 前端 · DVBench（arXiv:2611.25066）
+  面向真实端到端 UVM 验证智能体的基准，含 95 题并保留各阶段依赖。13 种智能体–模型配置中，最强的 Codex 与 GPT-6 Astra 组合总成功率为 21.05%。
+  https://arxiv.org/abs/2611.25066
+
+- **2026-11-18** · 论文 · 前端 · Inference-Time Scaling in Agentic Hardware Verification Workflows（ICLAD 2026 / arXiv:2611.23905）
+  Arm：在 AMBA 桥的智能体 UVM 测试台生成中比较四种推理时缩放策略。结构化诊断反馈相对原始 EDA 反馈，每美元 PVC 大约高 15 倍；双环策略在全部四个目标上达到 PVC ≥ 0.95 且无 scoreboard 错误，并在四个参考设计中的两个里暴露了潜伏 RTL 缺陷。输出由 Mentor Questa 周期精确工具链判定。
+  https://arxiv.org/abs/2611.23905
+
+- **2026-11-09** · 论文 · 跨层 · CASCoDe（arXiv:2611.11710）
+  德州大学奥斯汀分校 David Z. Pan 组：把模拟定参、结构 floorplan、行内 refinement 和布线尝试做成层次化离散动作，闭环做到经验证的 GDS。20 个 SKY130 放大器全部给出 DRC 与 LVS 干净的布线版图，是对照中唯一全部合法的；相对常规 P&R，面积降 59–85%（均值 71%），平均器件密度从 0.39 提到 0.74，平均后仿 FoM 高于 APPlace、MAGICAL、ALIGN（后三者 DRC 干净数分别为 15、0、1）。打赢全部基线的版图平均 11 分钟智能体时间出现。
+  https://arxiv.org/abs/2611.11710
+
+- **2026-11-09** · 论文 · 后端 · Evaluating AI Agents for Industrial-Level Chip Floorplanning（arXiv:2611.12048（v2 2026-11-12））
+  Nova-Silicon：把工业级宏块 floorplan 接到规定的下游实现流程再评分。一个 99 个宏块、约占固定 L 形区域 71% 的工业设计上，40 次评估里专用系统 Nova-SI 的综合质量均分 57.97，最强通用配置 GPT-6 Astra 为 31.17。
+  https://arxiv.org/abs/2611.12048
+
+- **2026-11-08** · 论文 · 后端 · ICLayout-Bench（arXiv:2611.12982）
+  中科大与中科院计算所：评测 LLM 智能体从晶体管级网表做到 GDSII 版图，含物理验证、寄生抽取和后仿。165 题、13 个 PDK（3nm 到 180nm）；7 个模型共 22 种配置在公开/私有任务上的平均版图分分别为 4.22–80.26 和 1.43–67.01（100 分制）。公开集最高为 GPT-6 Astra medium 的 80.26，私有集最高为 GPT-6.1 Sol high 的 67.01；提高推理力度并不稳定提升均分。
+  https://arxiv.org/abs/2611.12982
+
+## 既有条目
 
 - **2025-06-10** · 论文 · 后端 · ORFS-agent: Tool-Using Agents for Chip Design Optimization（arXiv:2506.08332（v3 2026-04-30））
   Kahng 等在 OpenROAD 流程用 LLM 智能体调参；相对 OR-AutoTuner 迭代少约 40%，若干目标最多改善约 1–2.7%。

@@ -136,7 +136,7 @@
     <div class="badge-row">
       <span class="badge hot">论文</span>
       <span class="badge ok">arXiv / 顶会</span>
-      <span class="badge navy">截至 2026-11-22</span>
+      <span class="badge navy">截至 2026-11-23</span>
     </div>
     <h1>论文进展</h1>
     <p class="subtitle">2025–2026 年用人工智能做芯片设计的论文与基准，按前端、后端和跨层分组。</p>
@@ -172,6 +172,38 @@
 
   <section class="card" id="frontend">
     <h2>前端：RTL、验证与综合优化</h2>
+    <h3>From Seed to BLOOM（MiracleGro）</h3>
+    <p><strong>Autonomously Growing a Better Out-of-Order Core</strong> · Angela Cui、Ferran Hermida-Rivera、Jack Toubes、Jim Fang、Chengyi Lux Zhang、Borivoje Nikolić、Christopher W. Fletcher、Sagar Karandikar（加州大学伯克利分校）· arXiv:2611.26517 · 2026-11-20</p>
+    <p>作者构建智能体系统 MiracleGro，在无人工介入下分析周期级 RTL 行为与综合结果，定位性能瓶颈，并把架构改写落实到开源乱序超标量核 BOOM。论文称在 SkyWater 130nm 上相对人工优化的 BOOM，IPC 提升 85%、频率提升 27%，完整 SPEC CPU2017 intspeed（约 30 万亿条指令）墙钟加速 2.34 倍。这是目前把智能体闭环做到应用级乱序核、并用完整 SPEC 参考输入量化的少见结果。来源：<a href="https://arxiv.org/abs/2611.26517">https://arxiv.org/abs/2611.26517</a></p>
+
+    <h3>BOOMerang</h3>
+    <p><strong>Autonomous Translation from RTL to Microarchitectural Simulators and Back</strong> · Ferran Hermida-Rivera、Jack Toubes、Angela Cui、Chengyi Lux Zhang、Sagar Karandikar（加州大学伯克利分校）· arXiv:2611.25438 · 2026-11-20</p>
+    <p>与 MiracleGro 同一组工作，解决的是另一半问题：高性能研究常用的 gem5 一类模拟器容易和真实 RTL 脱节。论文用智能体闭环（1）为 BOOM 自动生成 IPC 误差在 3% 以内的 gem5 模型，称两天内达到工业界常见对齐目标；（2）把该对齐模拟器中的 72 项微架构特性忠实译回 RTL。组合这些优化后，BOOM 的 RTL 实现在 SPECint 2017 上性能提升 25%。来源：<a href="https://arxiv.org/abs/2611.25438">https://arxiv.org/abs/2611.25438</a></p>
+
+    <h3>Verify the Verifier</h3>
+    <p><strong>Specification-Grounded LLM Cross-Checking for Bugs That Escape UVM Scoreboards</strong> · Ana E. Sanchez Villalobos、Michael D. Quinn、Aakash Tyagi、Minh D. Luu、David Kebo Houngninou（德州农工大学）· arXiv:2611.26588 · 2026-11-20</p>
+    <p>针对「回归全过仍可能违反规格」的 scoreboard escape：LLM 异常交叉检查器拿通过回归的轨迹对照规格。向四个 OpenTitan IP 插入 564 个缺陷，其中 68 个被测到、与参考模型不等价、却仍通过测试；框架确认 41 个为 scoreboard escape（断言在有缺陷设计上失败、在原设计上得证）。来源：<a href="https://arxiv.org/abs/2611.26588">https://arxiv.org/abs/2611.26588</a></p>
+
+    <h3>GRODE-RTL</h3>
+    <p><strong>Source-Mapped Dependency Views for LLM-Based RTL Repair</strong> · Jingyi Zhou、Yi Liu、Bin Sun、Ziyang Zheng、Hongji Zhang、Dongsheng Zuo、Qiang Xu（香港中文大学、中科院计算所）· arXiv:2611.25661 · 2026-11-20</p>
+    <p>LLM 修 RTL 时，非局部故障的根因和失效输出往往在源码里相距很远。GRODE-RTL 从网表提取可疑寄存器的单时钟级扇入锥，映射回可编辑源码行，并按跳数折叠成紧凑依赖视图，引导通用工具智能体，但不泄漏标准答案或 oracle。30 个形式验证过的非局部故障上，相对源码级探索，DeepSeek-V4-Flash、GLM-5.2、MiniMax-M3 的 pass@1 分别提高 16.7%、26.7%、20.0%。来源：<a href="https://arxiv.org/abs/2611.25661">https://arxiv.org/abs/2611.25661</a></p>
+
+    <h3>CRAFT</h3>
+    <p><strong>Analog Circuit Design by Reasoning LLM Agents from Pre-Computed Lookup Tables</strong> · Hyunjun Park、Seungyub Han、Jason Jaesung Lee 等（三星电子、首尔大学）· arXiv:2611.25908 · 2026-11-19</p>
+    <p>现有自动定参多半把 SPICE 放在循环里搜索，而有经验的设计师是用手算。CRAFT 让 LLM 智能体只通过 DeX（预计算查找表，提供器件特性并求解工作点与小信号响应）做计算，循环中不跑 SPICE，最终设计再用 HSPICE 独立验证。商业 28nm 上四个电路、每个 5 次共 20 次全部满足规格与约束，最大电路是 37 管、53 个设计变量的三级放大器。该放大器上，同一智能体用 DeX 替代 HSPICE 后，一小时内 10/10 对 6/10 通过，中位快 2.0 倍。来源：<a href="https://arxiv.org/abs/2611.25908">https://arxiv.org/abs/2611.25908</a></p>
+
+    <h3>Meta-RTL</h3>
+    <p><strong>Evolving Agent Harnesses for RTL Optimization</strong> · Xinzhuang Xiong、Yonghao Wang、Shengyao Sun、Chengxi Li、Evangeline Young（香港中文大学）· arXiv:2611.25891 · 2026-11-19</p>
+    <p>Dr. RTL 已经展示了用 EDA 反馈优化 RTL；Meta-RTL 进一步演化「外壳」本身，同时固定优化模型、EDA 流程和每个设计的预算。相对 Dr. RTL，20 个开发设计上聚合 WNS/TNS 违例再降 7.8%/11.0%，70% 设计面积下降。不做继续演化、直接迁到 10 个未见的 IC-RTL 设计后，聚合 WNS/TNS 再降 20.5%/14.0%，总综合面积下降 12.6%。来源：<a href="https://arxiv.org/abs/2611.25891">https://arxiv.org/abs/2611.25891</a></p>
+
+    <h3>DVBench</h3>
+    <p><strong>End-to-End Benchmark for Real-World UVM Design Verification Agents</strong> · Jiaru Qian、Jiawei Li、Xiaolong Hu、Zheng Shen 等 · arXiv:2611.25066 · 2026-11-18</p>
+    <p>现有验证基准多把子任务拆开，无法反映真实 UVM 流程里规划、建模、测试台构建和仿真反馈之间的依赖。DVBench 提供 95 道端到端题目，要求智能体独立走完整验证流程。13 种智能体–模型配置中，最强的 Codex 与 GPT-6 Astra 组合总成功率为 21.05%。这和 Build-A-Chip-Bench 一样，是「智能体还远不能独立收口」的硬指标。来源：<a href="https://arxiv.org/abs/2611.25066">https://arxiv.org/abs/2611.25066</a></p>
+
+    <h3>Inference-Time Scaling in Agentic Hardware Verification Workflows</h3>
+    <p><strong>A Multi-Strategy Characterization Across Protocol Complexity</strong> · Vikash Kumar（Arm）· ICLAD 2026 / arXiv:2611.23905 · 2026-11-18</p>
+    <p>在 AMBA 桥的智能体 UVM 测试台生成上，比较零样本、原始工具反馈迭代、结构化内环和完整双环四种推理时策略，并用 Mentor Questa 周期精确工具链而不是模型自评来打分。核心发现是：结构化诊断反馈相当于推理时算力乘数，相对原始 EDA 反馈，每美元 PVC 大约高 15 倍。双环策略在全部四个目标上达到 PVC ≥ 0.95 且无 scoreboard 错误，并在四个参考设计中的两个里暴露了潜伏 RTL 缺陷。来源：<a href="https://arxiv.org/abs/2611.23905">https://arxiv.org/abs/2611.23905</a></p>
+
     <h3>CVDP</h3>
     <p><strong>Comprehensive Verilog Design Problems</strong> · Nathaniel Pinckney, Chenhui Deng, Chia-Tung Ho, Yun-Da Tsai, Mingjie Liu, Wenfei Zhou, Brucek Khailany, Haoxing Ren（NVIDIA）· arXiv:2506.14074 · 2025-06-17</p>
     <p>NVIDIA 放出的下一代 RTL 与验证基准，共 783 题、13 类任务，覆盖 RTL 生成、验证、调试、规格对齐和技术问答，并同时提供非智能体与智能体两种形式。论文写明，当时最强模型在代码生成上的 pass@1 不超过 34%；涉及 RTL 复用和验证的智能体任务尤其难。它后来成为 ACE-RTL、ChipCraftBrain 等工作的共同参照。来源：<a href="https://arxiv.org/abs/2506.14074">https://arxiv.org/abs/2506.14074</a></p>
@@ -215,6 +247,22 @@
 
   <section class="card" id="backend">
     <h2>后端：物理设计、调参与评测</h2>
+    <h3>SGLayout</h3>
+    <p><strong>Schema-Guided Closed-Loop Refinement for LLM-Driven Parameterized Layout Generation</strong> · Siyang Chen、Yuan Pu、Yuhan Qin、Zhaotan Lin、Siyuan Liang、Zhuolun He、Lining Zhang、Bei Yu（北京大学、ChatEDA Tech、香港中文大学）· ICCAD 2026 / arXiv:2611.25410 · 论文挂到 arXiv 为 2026-11-20；会议于 2026-11-08 至 11-12 在圣何塞举行</p>
+    <p>LLM 可以借代码生成做参数化版图，但缺少空间意识，一次性生成不可靠；几何域的评估结果又很难翻译成代码层的可执行修改。SGLayout 用结构化 schema 建立代码实例与几何属性的双向对应，从意图符合（定量结构检查加视觉-语言评估）和规则符合（DRC）两边找违例，再反投影到精确代码位置做修补，直到收敛。112 题 GDSFactory 基准上通过率 76.79%，最强基线为 50.89%。来源：<a href="https://arxiv.org/abs/2611.25410">https://arxiv.org/abs/2611.25410</a></p>
+
+    <h3>ReLay</h3>
+    <p><strong>Bidirectional Layout-Code Translation and Library Evolution for Reusable and Process-Portable Analog Design</strong> · Minxing Chu、Quan Cheng、Anhang Li、Martins Atilla、Junyi Luo、Xinting Jiang、Ruichen Qi、Mehdi Saligane（布朗大学、密歇根大学）· arXiv:2611.25328 · 2026-11-20</p>
+    <p>模拟版图生成器的覆盖面受手写库限制，完整版图里的设计师知识往往只留在几何里。ReLay 从已有版图恢复生成器程序，支持跨 PDK 移植和参数化缩放，并把反复出现的构造提升为库函数。作者同时放出首个版图–代码基准：27 个电路族、三个开源 PDK 上的 1050 张手绘版图。学到的函数占留出集布局构建调用的 53–66%。前沿 LLM 智能体用 ReLay 完成新版图任务的 API 成本比直接生成几何低 64–77%，完成率与电学质量相当。来源：<a href="https://arxiv.org/abs/2611.25328">https://arxiv.org/abs/2611.25328</a></p>
+
+    <h3>Evaluating AI Agents for Industrial-Level Chip Floorplanning</h3>
+    <p><strong>A Framework and Empirical Study</strong> · Nova-Silicon Team · arXiv:2611.12048 · 首发 2026-11-09，v2 为 2026-11-12</p>
+    <p>宏块 floorplan 的质量不能只看工具是否跑通，而要接到规定的下游实现流程，检查几何合法性、物理质量（拥塞与时序）和资源消耗。在一个 99 个宏块、约占固定 L 形区域 71% 的工业设计上，作者比较专用系统 Nova-SI、通用工程智能体和仅有文件访问的智能体，共 40 次评估。0–100 综合分上，Nova-SI 均分为 57.97（评测时没有在线的电源地网络与放置反馈），最强通用配置 GPT-6 Astra 为 31.17。来源：<a href="https://arxiv.org/abs/2611.12048">https://arxiv.org/abs/2611.12048</a></p>
+
+    <h3>ICLayout-Bench</h3>
+    <p><strong>Benchmarking LLM Agents for Custom Circuit Layout Design</strong> · Zhangmai Li、Tianrui Ma、Zheng Weng、Mo Zou、Zidong Du、Yifan Hao、Yongwei Zhao、Wei Li、Jing Li、Qi Guo、Yunji Chen（中国科学技术大学、中科院计算所等）· arXiv:2611.12982 · 2026-11-08</p>
+    <p>评测 LLM 智能体从晶体管级网表构造并优化 GDSII 版图，再用物理验证、寄生抽取和后仿打分。基准含 165 题、13 个 PDK，覆盖 3nm 到 180nm 的模拟、数模混合和数字电路，以及开源与商业流程。7 个模型共 22 种配置在 21 道公开题和 19 道私有题上的平均版图分分别为 4.22–80.26 和 1.43–67.01（100 分制）；公开集最高为 GPT-6 Astra medium 的 80.26，私有集最高为 GPT-6.1 Sol high 的 67.01。提高推理力度并不稳定提升均分。来源：<a href="https://arxiv.org/abs/2611.12982">https://arxiv.org/abs/2611.12982</a></p>
+
     <h3>ORFS-agent</h3>
     <p><strong>Tool-Using Agents for Chip Design Optimization</strong> · Amur Ghose, Andrew B. Kahng, Sayak Kundu, Zhiang Wang · arXiv:2506.08332 · 首发 2025-06-10，v3 为 2026-04-30</p>
     <p>在开源 OpenROAD 流程里用 LLM 智能体调数千维参数，替代纯贝叶斯优化。在 ASAP7 与 SKY130HD 的六个基准上，思维链后端（文中为 Sonnet 4.6 与 Kimi K2.5）相对 OR-AutoTuner，几何平均归一化线长、有效时钟周期和联合目标最多改善 1.0%、1.3% 和 2.7%，迭代少约 40%。开源权重的 Kimi K2.5 与 Sonnet 4.6 相差不超过 0.24%。Kahng 团队在 DAC 2026 邀请报告里把它放进「从调参到改算法」的路线图。来源：<a href="https://arxiv.org/abs/2506.08332">https://arxiv.org/abs/2506.08332</a></p>
@@ -238,6 +286,14 @@
 
   <section class="card" id="cross">
     <h2>跨层与通用 EDA 智能体</h2>
+    <h3>SiliconGym</h3>
+    <p><strong>A Versatile Reinforcement Learning Environment for Agentic EDA</strong> · Hejia Zhang、Sheng Lu、Yitong Ma、Zhongming Yu、Zhijing Wu、Wentao Ni、Chia-Tung Ho、Jishen Zhao（加州大学圣地亚哥分校、佐治亚理工学院、NVIDIA）· arXiv:2611.25658 · 2026-11-19</p>
+    <p>面向用 EDA 反馈做强化学习的通用环境，解耦版本化工作区、预算执行和验收门控计分，覆盖模块级 RTL、测试台与 PPA，一直到多轮仓库修复和全层次 SoC 流程。流式调度让工具检查与生成重叠，256 条回答的 RL 批次比原生 ChipSeek 快 21.9%。作者还用可切换的开源与商业后端，观察开源上训出的功能正确性如何迁移到商业仿真，以及开源 PPA 收益在商业综合下是否还在。来源：<a href="https://arxiv.org/abs/2611.25658">https://arxiv.org/abs/2611.25658</a></p>
+
+    <h3>CASCoDe</h3>
+    <p><strong>A Closed-Loop Agentic Framework for Analog Sizing and Layout Co-Design</strong> · Ziming Wei、Bingyang Liu、David Z. Pan（德州大学奥斯汀分校）· arXiv:2611.11710 · 2026-11-09</p>
+    <p>把专家会反复回看的离散物理决策形式化成层次化动作空间：定参候选池、结构 floorplan、行内 refinement、布线尝试选择，再由智能体做反馈驱动的树搜索，从定参走到经验证的 GDS。20 个 SKY130 放大器全部给出 DRC 与 LVS 干净的布线版图，是对照流程中唯一全部合法的；相对常规 P&amp;R，面积下降 59–85%（均值 71%），平均器件密度从 0.39 提到 0.74，平均后仿 FoM 高于 APPlace、MAGICAL、ALIGN（后三者 DRC 干净数分别为 15、0、1）。打赢全部基线的版图平均 11 分钟智能体时间出现。来源：<a href="https://arxiv.org/abs/2611.11710">https://arxiv.org/abs/2611.11710</a></p>
+
     <h3>ChipOmni</h3>
     <p><strong>A General-Purpose AI Agent for Electronic Design Automation</strong> · Pengkun Wang, Rui Mao, Zhe Zhao, Dongting Xie, Haibin Wen, Song Xu, Di Wu, Xu Wang, Zhengyang Zhou, Binwu Wang, Xiaofeng Cao, Yang Wang · arXiv:2611.13020 · 2026-11-09</p>
     <p>把多模态理解、动态规划、多智能体协作和「验证驱动的工具交互」收进一个会演化任务上下文的框架，覆盖模拟电路、RTL、测试台和形式化断言。论文称在 AnalogCoder-Pro 的 30 项任务上全部解出；在长程案例中，把自然语言 RISC-V 规格经过三个设计层级推进到通过物理签核的微型 SoC GDSII，初始化后不再人工介入。这是目前最强的「全流程跑通」学术主张之一，阅读时需要对照基准规模、工艺与工具设置。来源：<a href="https://arxiv.org/abs/2611.13020">https://arxiv.org/abs/2611.13020</a></p>
@@ -263,10 +319,25 @@
         <tr><td>2026-07-20</td><td>MAGE</td><td>后端</td><td>arXiv</td><td>多模态智能体做类人宏块放置。</td><td class="src"><a href="https://arxiv.org/abs/2607.18536">arxiv.org/abs/2607.18536</a></td></tr>
         <tr><td>2026-10-09</td><td>AI-HDL</td><td>跨层</td><td>arXiv</td><td>教学竞赛把 LLM 流程推到 Sky130 签核与流片提交。</td><td class="src"><a href="https://arxiv.org/abs/2610.18891">arxiv.org/abs/2610.18891</a></td></tr>
         <tr><td>2026-10-30</td><td>RTL-Interact</td><td>前端</td><td>arXiv（在投 ICLR 2027）</td><td>把工具交互训进同一个 RTL 模型。</td><td class="src"><a href="https://arxiv.org/abs/2610.41225">arxiv.org/abs/2610.41225</a></td></tr>
+        <tr><td>2026-11-08</td><td>ICLayout-Bench</td><td>后端</td><td>arXiv</td><td>165 题、13 个 PDK 的定制电路版图智能体基准。</td><td class="src"><a href="https://arxiv.org/abs/2611.12982">arxiv.org/abs/2611.12982</a></td></tr>
+        <tr><td>2026-11-09</td><td>CASCoDe</td><td>跨层</td><td>arXiv</td><td>20 个 SKY130 放大器全部 DRC/LVS 干净，面积均值 -71%。</td><td class="src"><a href="https://arxiv.org/abs/2611.11710">arxiv.org/abs/2611.11710</a></td></tr>
+        <tr><td>2026-11-09</td><td>Floorplanning 评测</td><td>后端</td><td>arXiv v2 2026-11-12</td><td>工业设计上 Nova-SI 均分 57.97，最强通用配置 31.17。</td><td class="src"><a href="https://arxiv.org/abs/2611.12048">arxiv.org/abs/2611.12048</a></td></tr>
         <tr><td>2026-11-09</td><td>ChipOmni</td><td>跨层</td><td>arXiv</td><td>自然语言规格到微型 SoC 签核 GDS 的长程案例。</td><td class="src"><a href="https://arxiv.org/abs/2611.13020">arxiv.org/abs/2611.13020</a></td></tr>
         <tr><td>2026-11-10</td><td>Dr. RTL</td><td>前端</td><td>ASP-DAC'27 邀请论文</td><td>真实设计上 WNS/TNS 平均 +21%/+17%，面积 -6%。</td><td class="src"><a href="https://arxiv.org/abs/2611.13713">arxiv.org/abs/2611.13713</a></td></tr>
         <tr><td>2026-11-13</td><td>OpenLayout</td><td>后端</td><td>ICCAD 2026</td><td>开源智能体物理设计平台与基准。</td><td class="src"><a href="https://arxiv.org/abs/2611.18517">arxiv.org/abs/2611.18517</a></td></tr>
         <tr><td>2026-11-19</td><td>LOCA</td><td>前端</td><td>arXiv</td><td>形式等价的网表到 RTL 恢复，有安全含义。</td><td class="src"><a href="https://arxiv.org/abs/2611.25324">arxiv.org/abs/2611.25324</a></td></tr>
+        <tr><td>2026-11-18</td><td>DVBench</td><td>前端</td><td>arXiv</td><td>95 题端到端 UVM 验证基准，最强配置总成功率 21.05%。</td><td class="src"><a href="https://arxiv.org/abs/2611.25066">arxiv.org/abs/2611.25066</a></td></tr>
+        <tr><td>2026-11-18</td><td>ICLAD 推理时缩放</td><td>前端</td><td>ICLAD 2026</td><td>结构化诊断反馈每美元 PVC 约高 15 倍。</td><td class="src"><a href="https://arxiv.org/abs/2611.23905">arxiv.org/abs/2611.23905</a></td></tr>
+        <tr><td>2026-11-19</td><td>CRAFT</td><td>前端</td><td>arXiv</td><td>查找表手算定参，28nm 四个电路 20/20 达标。</td><td class="src"><a href="https://arxiv.org/abs/2611.25908">arxiv.org/abs/2611.25908</a></td></tr>
+        <tr><td>2026-11-19</td><td>Meta-RTL</td><td>前端</td><td>arXiv</td><td>演化 RTL 优化外壳，未见设计上面积再降 12.6%。</td><td class="src"><a href="https://arxiv.org/abs/2611.25891">arxiv.org/abs/2611.25891</a></td></tr>
+        <tr><td>2026-11-19</td><td>SiliconGym</td><td>跨层</td><td>arXiv</td><td>跨任务跨工具链的 agentic EDA 强化学习环境。</td><td class="src"><a href="https://arxiv.org/abs/2611.25658">arxiv.org/abs/2611.25658</a></td></tr>
+        <tr><td>2026-11-20</td><td>ReLay</td><td>后端</td><td>arXiv</td><td>模拟版图与生成器代码双向翻译，API 成本低 64–77%。</td><td class="src"><a href="https://arxiv.org/abs/2611.25328">arxiv.org/abs/2611.25328</a></td></tr>
+        <tr><td>2026-11-20</td><td>SGLayout</td><td>后端</td><td>ICCAD 2026</td><td>参数化版图闭环，通过率 76.79% 对基线 50.89%。</td><td class="src"><a href="https://arxiv.org/abs/2611.25410">arxiv.org/abs/2611.25410</a></td></tr>
+        <tr><td>2026-11-20</td><td>GRODE-RTL</td><td>前端</td><td>arXiv</td><td>源映射依赖视图修非局部故障，pass@1 最高 +26.7%。</td><td class="src"><a href="https://arxiv.org/abs/2611.25661">arxiv.org/abs/2611.25661</a></td></tr>
+        <tr><td>2026-11-20</td><td>BOOMerang</td><td>前端</td><td>arXiv</td><td>RTL 与 gem5 对齐，72 项特性译回 RTL，SPECint +25%。</td><td class="src"><a href="https://arxiv.org/abs/2611.25438">arxiv.org/abs/2611.25438</a></td></tr>
+        <tr><td>2026-11-20</td><td>Verify the Verifier</td><td>前端</td><td>arXiv</td><td>在 OpenTitan 上确认 41 个 scoreboard escape。</td><td class="src"><a href="https://arxiv.org/abs/2611.26588">arxiv.org/abs/2611.26588</a></td></tr>
+        <tr><td>2026-11-20</td><td>MiracleGro / BLOOM</td><td>前端</td><td>arXiv</td><td>自主改写 BOOM，SPEC CPU2017 intspeed 墙钟 2.34 倍。</td><td class="src"><a href="https://arxiv.org/abs/2611.26517">arxiv.org/abs/2611.26517</a></td></tr>
+
       </tbody>
     </table>
     </div>
@@ -283,7 +354,7 @@
   </section>
 
   <footer>
-    <p>本目录为 mlsys-paper 仓库「ai for chip」进展跟踪页，风格对齐既有中文笔记。本地文件写于 2026-11-22。</p>
+    <p>本目录为 mlsys-paper 仓库「ai for chip」进展跟踪页，风格对齐既有中文笔记。本地文件写于 2026-11-22，2026-11-23 周报增补。</p>
   </footer>
   </div>
 </body>

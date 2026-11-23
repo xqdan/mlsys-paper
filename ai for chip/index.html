@@ -135,7 +135,7 @@
     <div class="badge-row">
       <span class="badge hot">进展跟踪</span>
       <span class="badge ok">EDA · 前端 · 后端</span>
-      <span class="badge navy">截至 2026-11-22</span>
+      <span class="badge navy">截至 2026-11-23</span>
       <span class="badge ">mlsys-paper / ai for chip</span>
     </div>
     <h1>AI 芯片研发进展</h1>
@@ -156,6 +156,7 @@
         <li><a href="#takeaway">本期判断</a></li>
         <li><a href="#org">目录怎么读</a></li>
         <li><a href="#flow">流程上的 AI 插入点</a></li>
+        <li><a href="#week">2026-11-23 周报新增</a></li>
         <li><a href="#highlights">最值得先看的几条</a></li>
         <li><a href="#background">必要的背景</a></li>
         <li><a href="#watch">建议每周跟踪的来源</a></li>
@@ -166,14 +167,14 @@
   <section class="card" id="takeaway">
     <h2>本期判断</h2>
     <div class="callout">
-      2025 下半年到 2026 年 11 月，这条线已经从「LLM 写一段 Verilog」转向「智能体调用签核级 EDA 工具、做长程闭环」。三大 EDA 厂商都把产品叙事改成了 agentic / Super Agent / Autopilot；创业公司里 ChipAgents 把 A 轮扩到 1.34 亿美元，Ricursive 在约四个月内募到 3.35 亿美元。与此同时，Build-A-Chip-Bench 的初评仍然扎眼：功能验证通过大约 40%，真正碰到 PPA 目标的大约 10%。能写对 RTL，还不等于能把芯片做完。
+      2026 年 11 月 18–20 日的一批论文把「长程闭环」推到了真实乱序核和模拟版图上：Berkeley 的 MiracleGro 在无人工介入下改写开源乱序核 BOOM，论文称 SkyWater 130nm 上 IPC +85%、频率 +27%，完整 SPEC CPU2017 intspeed 墙钟加速 2.34 倍；同组的 BOOMerang 把 RTL 与 gem5 对齐。模拟侧，CRAFT 用查找表手算定参、20 次全部达标，CASCoDe 在 20 个 SKY130 放大器上全部给出 DRC/LVS 干净版图。另一面，DVBench 上最强端到端 UVM 智能体配置总成功率只有 21.05%。本周未看到新的创业融资或三大 EDA 厂商产品发布。数字按原文口径，未独立复现。
     </div>
     <p class="lead">本文件夹跟踪用人工智能做芯片研发的全流程，覆盖 EDA 工具与流程、前端（架构、规格到 RTL、验证、测试、形式化）和后端（布局规划、布局、布线、时序、时钟树、DRC/LVS、光刻与物理实现）。内容按论文、创业公司和业界三条线分开，便于每周增补。</p>
     <div class="kpi">
-      <div><div class="n">16</div><div class="k">已收录近年论文（另有背景条目）</div></div>
+      <div><div class="n">30</div><div class="k">已收录近年论文（另有背景条目）</div></div>
       <div><div class="n">2</div><div class="k">独立创业公司主线（另有被收购案例）</div></div>
       <div><div class="n">12</div><div class="k">已核验的业界节点</div></div>
-      <div><div class="n">2026-11-22</div><div class="k">Asia/Shanghai 截止日期</div></div>
+      <div><div class="n">2026-11-23</div><div class="k">Asia/Shanghai 截止日期</div></div>
     </div>
   </section>
 
@@ -202,18 +203,41 @@
     <div class="grid-2">
       <div class="tile">
         <h4>前端</h4>
-        <p>规格理解、架构探索、规格到 RTL、测试台与断言生成、仿真与形式化闭环、时序导向的 RTL 改写。代表工作包括 ACE-RTL、Dr. RTL、RTL-Interact，以及 Cadence ChipStack / Synopsys Verification AgentEngineer。</p>
+        <p>规格理解、架构探索、规格到 RTL、测试台与断言生成、仿真与形式化闭环、时序导向的 RTL 改写。代表工作包括 ACE-RTL、Dr. RTL、Meta-RTL、MiracleGro / BOOMerang、RTL-Interact，以及 Cadence ChipStack / Synopsys Verification AgentEngineer。</p>
       </div>
       <div class="tile">
         <h4>后端与跨层</h4>
-        <p>综合脚本调参、宏块放置、布局布线与时钟树、3D IC 电热协同、DRC/LVS 与签核。代表工作包括 ORFS-agent、MAGE、OpenLayout、PDAgent-Bench，以及 Siemens Fuse 与 Synopsys Autopilot 的实现/多物理场代理。</p>
+        <p>综合脚本调参、宏块放置、布局布线与时钟树、3D IC 电热协同、DRC/LVS 与签核。代表工作包括 ORFS-agent、MAGE、OpenLayout、SGLayout、CASCoDe、PDAgent-Bench，以及 Siemens Fuse 与 Synopsys Autopilot 的实现/多物理场代理。</p>
       </div>
     </div>
+  </section>
+
+
+  <section class="card" id="week">
+    <h2>2026-11-23 周报新增</h2>
+    <p>首版追踪截止于 2026-11-22。本周（Asia/Shanghai）主要补进 11 月 18–20 日 arXiv 批次中此前未写入的工作，并补录与 ChipOmni 同期、但首版未收入的三条模拟/版图论文。创业公司与业界产品线本周没有新的实质节点；既有 OpenAI 11 月 18 日公告的后续媒体转载不重复计入。</p>
+    <ul>
+      <li><strong>From Seed to BLOOM / MiracleGro</strong>（前端，arXiv:2611.26517，2026-11-20）：无人工介入改写 BOOM，论文称 IPC +85%、频率 +27%、SPEC CPU2017 intspeed 墙钟 2.34 倍。<a class="src" href="https://arxiv.org/abs/2611.26517">https://arxiv.org/abs/2611.26517</a></li>
+      <li><strong>BOOMerang</strong>（前端，arXiv:2611.25438，2026-11-20）：RTL 与 gem5 双向对齐，72 项特性译回 RTL，组合后 SPECint 2017 +25%。<a class="src" href="https://arxiv.org/abs/2611.25438">https://arxiv.org/abs/2611.25438</a></li>
+      <li><strong>Meta-RTL</strong>（前端，arXiv:2611.25891，2026-11-19）：演化 Dr. RTL 一类优化外壳；未见设计上聚合 WNS/TNS 再降 20.5%/14.0%，总综合面积 -12.6%。<a class="src" href="https://arxiv.org/abs/2611.25891">https://arxiv.org/abs/2611.25891</a></li>
+      <li><strong>CRAFT</strong>（前端，arXiv:2611.25908，2026-11-19）：查找表手算定参、循环中不跑 SPICE；商业 28nm 四个电路 20/20 达标。<a class="src" href="https://arxiv.org/abs/2611.25908">https://arxiv.org/abs/2611.25908</a></li>
+      <li><strong>SGLayout</strong>（后端，ICCAD 2026 / arXiv:2611.25410，2026-11-20）：参数化版图闭环，112 题通过率 76.79% 对最强基线 50.89%。<a class="src" href="https://arxiv.org/abs/2611.25410">https://arxiv.org/abs/2611.25410</a></li>
+      <li><strong>SiliconGym</strong>（跨层，arXiv:2611.25658，2026-11-19）：跨任务跨工具链的 agentic EDA 强化学习环境。<a class="src" href="https://arxiv.org/abs/2611.25658">https://arxiv.org/abs/2611.25658</a></li>
+      <li><strong>GRODE-RTL</strong>（前端，arXiv:2611.25661，2026-11-20）：源映射依赖视图修非局部 RTL 故障，三个模型 pass@1 分别 +16.7%、+26.7%、+20.0%。<a class="src" href="https://arxiv.org/abs/2611.25661">https://arxiv.org/abs/2611.25661</a></li>
+      <li><strong>Verify the Verifier</strong>（前端，arXiv:2611.26588，2026-11-20）：在 OpenTitan 上确认 41 个逃过 UVM scoreboard 的规格违反。<a class="src" href="https://arxiv.org/abs/2611.26588">https://arxiv.org/abs/2611.26588</a></li>
+      <li><strong>DVBench</strong>（前端，arXiv:2611.25066，2026-11-18）：95 题端到端 UVM 验证基准，最强配置总成功率 21.05%。<a class="src" href="https://arxiv.org/abs/2611.25066">https://arxiv.org/abs/2611.25066</a></li>
+      <li><strong>ReLay</strong>（后端，arXiv:2611.25328，2026-11-20）：模拟版图与生成器代码双向翻译，API 成本低 64–77%。<a class="src" href="https://arxiv.org/abs/2611.25328">https://arxiv.org/abs/2611.25328</a></li>
+      <li><strong>Inference-Time Scaling in Agentic Hardware Verification</strong>（前端，ICLAD 2026 / arXiv:2611.23905，2026-11-18）：结构化诊断反馈每美元 PVC 约高 15 倍，并在两个参考设计中暴露潜伏 RTL 缺陷。<a class="src" href="https://arxiv.org/abs/2611.23905">https://arxiv.org/abs/2611.23905</a></li>
+      <li><strong>CASCoDe</strong>（跨层，arXiv:2611.11710，2026-11-09）：20 个 SKY130 放大器全部 DRC/LVS 干净，面积均值 -71%。<a class="src" href="https://arxiv.org/abs/2611.11710">https://arxiv.org/abs/2611.11710</a></li>
+      <li><strong>Industrial-Level Chip Floorplanning</strong>（后端，arXiv:2611.12048，2026-11-09）：工业设计上 Nova-SI 均分 57.97，最强通用配置 31.17。<a class="src" href="https://arxiv.org/abs/2611.12048">https://arxiv.org/abs/2611.12048</a></li>
+      <li><strong>ICLayout-Bench</strong>（后端，arXiv:2611.12982，2026-11-08）：165 题、13 个 PDK 的定制电路版图智能体基准。<a class="src" href="https://arxiv.org/abs/2611.12982">https://arxiv.org/abs/2611.12982</a></li>
+    </ul>
   </section>
 
   <section class="card" id="highlights">
     <h2>最值得先看的几条</h2>
     <ul>
+      <li><strong>MiracleGro 改写 BOOM</strong>（2026-11-20）：本周最硬的前端结果。智能体在无人工介入下改写开源乱序核，论文称 SkyWater 130nm 上 IPC +85%、频率 +27%，完整 SPEC CPU2017 intspeed 墙钟 2.34 倍。<a class="src" href="https://arxiv.org/abs/2611.26517">https://arxiv.org/abs/2611.26517</a></li>
       <li><strong>OpenAI × 自研芯片与 AMD</strong>（2026-11-18）：官方称 Jalapeño 向量/矩阵单元标准单元面积分别约减 13% 与 10%，且已经硅验证；与 AMD 合作在旗舰 GPU IP 上相对「已经很优化的基线」最多约 14%，部分改动已进入一次近期流片。同时宣布与 Synopsys 合作训练 GPT-Synopsys。<a class="src" href="https://openai.com/index/advancing-chip-design-with-our-models/">https://openai.com/index/advancing-chip-design-with-our-models/</a></li>
       <li><strong>ChipOmni</strong>（arXiv:2611.13020，2026-11-09）：通用 EDA 智能体，案例中把自然语言 RISC-V 规格推到通过物理签核的微型 SoC GDSII，初始化后不再人工介入。这是「全流程跑通」叙事里最新、也需要小心对照实验设置的一篇。<a class="src" href="https://arxiv.org/abs/2611.13020">https://arxiv.org/abs/2611.13020</a></li>
       <li><strong>Build-A-Chip-Bench</strong>（ChipAgents 与 NVIDIA，2026-10-14）：把评测从「RTL 对不对」拉到规格到 GDS。初评大约 40% 过功能验证，大约 10% 达到物理 PPA。<a class="src" href="https://chipagents.ai/newsroom/chipagents-nvidia-build-a-chip-bench">https://chipagents.ai/newsroom/chipagents-nvidia-build-a-chip-bench</a></li>
@@ -250,12 +274,15 @@
       <li>ChipNexus（原 PrimisAI）官网与产品页存在，但本轮没有打开到足够清楚的官方融资稿，故暂不写入融资金额。</li>
       <li>TSMC AI Design Kit（ADK）的「数字设计 3–5 倍、模拟/RF 最高 6 倍」来自 SemiWiki 对 2026 OIP 的报道，转述 TSMC 口径；本轮未找到可打开的 TSMC 官方 PDF，生产力数字不作独立基准。</li>
       <li>ChipAgents 新闻稿中的 15x / 240x / 400x 与客户数、ARR 增速均为公司自述，未独立审计。</li>
+      <li>本周（截至 2026-11-23）未发现新的创业融资或 Synopsys、Cadence、Siemens 针对芯片设计智能体的新产品发布。</li>
+      <li>Siemens HyperLynx Agentic Toolkit（2026-11-11）和 DS2Agent（arXiv:2611.25774）主要面向板级信号/电源完整性或嵌入式板级设计，不纳入本芯片研发追踪。</li>
+      <li>FPGA-GEN、From FIPS to FPGA with LLM Agents、MicroAssert 与本期主线相邻，本周未作为核心条目展开。</li>
       <li>AlphaChip 的第三方复现与学术争议未在本轮逐条重核，只作为背景提示。</li>
     </ul>
   </section>
 
   <footer>
-    <p>本目录为 mlsys-paper 仓库「ai for chip」进展跟踪页，风格对齐既有中文笔记。本地文件写于 2026-11-22。</p>
+    <p>本目录为 mlsys-paper 仓库「ai for chip」进展跟踪页，风格对齐既有中文笔记。本地文件写于 2026-11-22，2026-11-23 周报增补。</p>
   </footer>
   </div>
 </body>
