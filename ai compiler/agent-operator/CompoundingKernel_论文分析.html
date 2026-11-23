@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CompoundingKernel 论文分析 | 从零搜索做到 SOL-ExecBench 榜首</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.AI · 2026-11-14</span>
+      <span class="badge">arXiv:2611.19230v1</span>
+      <span class="badge">算子生成 · 智能体搜索</span>
+      <span class="badge ok">Amazon</span>
+      <span class="badge warn">单基准、单卡型、人仍管投稿</span>
+    </div>
+    <h1>CompoundingKernel：让正确测量互相叠起来，而不是再多开一批智能体</h1>
+    <p class="subtitle">从 PyTorch 定义出发、不看官方分数，在 NVIDIA B200 上的 SOL-ExecBench 三个公开榜做到第一；真正卡住规模的是可靠评测吞吐，不是并发智能体数量。</p>
+    <p class="meta">
+      <strong>论文</strong>：Qian Qu, Hongyang Wang, Wenbo Chen, Yichuan Li, Jingguo Liu, Xian Li, Xuan Wang, Ruochen Wen, Leo Fan, Yiming Yan, Zheshen Wang, Benoit Dumoulin. <em>CompoundingKernel: Self-Improving from Zero to First</em>.
+      <a href="https://arxiv.org/abs/2611.19230">arXiv:2611.19230</a>。
+      提交于 2026-11-14。通信作者 Qian Qu（Amazon）。
+      探索页：<a href="https://huggingface.co/spaces/QianQu/CompoundingKernel-Explorer">HuggingFace Space</a>。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#takeaway">一句话结论</a></li>
+      <li><a href="#problem">问题：新硬件快过库，写 kernel 是搜索</a></li>
+      <li><a href="#bench">先把计分口径读清楚</a></li>
+      <li><a href="#method">做法：模型外档案与四层循环</a></li>
+      <li><a href="#checks">正确性在模型外判定，人只出现在外环</a></li>
+      <li><a href="#results">主结果怎么读</a></li>
+      <li><a href="#lessons">系统与搜索设计上的发现</a></li>
+      <li><a href="#deploy">落地可行性</a></li>
+      <li><a href="#numbers">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="takeaway">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">这不是又一个“让大模型直接写出更快 CUDA”的演示，而是一套把历次正确尝试存到模型外面、再用固定模型继续往前搜的系统。截至 2026-11-11，它在 SOL-ExecBench（NVIDIA B200）的 L1、L2 和 Quantization 三个公开榜上排名第一；全部 235 道题都有站点核验通过的正确 kernel，209 道公开题相对官方参考基线的几何平均加速是 4.40 倍（中位数 3.78 倍）。</p>
+    <p>作者自己强调的机制要点是：搜索从每道题的 PyTorch 定义冷启动，看不到参考实现和官方分数；智能体可以读 CUTLASS 头文件、互联网和可选资料。真正拉开差距的，不是再多派一些智能体，而是让每一次可靠测量都能被下一次尝试接着用。</p>
+  </section>
+
+  <section class="card" id="problem">
+    <h2>2. 问题：新硬件快过库，写 kernel 是搜索</h2>
+    <p>论文把 GPU kernel 写成“一次运算在 GPU 上跑的那段程序”。在 NVIDIA Blackwell 上，快路径要走到 <code>tcgen05</code> 张量核指令、tensor memory 和 TMA 拷贝引擎；对多数融合或低精度形状，库里还没有用上这些特性的实现。写这样的 kernel，本质上是：试一个设计，测一下，按测量结果改，再试。</p>
+    <p>难的不是单次改写，而是三件事同时成立：后一次尝试能叠在前一次之上；几百道题并行搜；搜索强大到足以发现检查器漏洞时，系统不会被自己的奖励黑客带跑。</p>
+    <div class="callout navy">站点自己给出的速度上限参考行大约是：L1 / L2 相对基线约 10 倍，FlashInfer-Bench 约 29 倍，Quantization 约 38 倍。空间很大，写错的空间同样很大。作者还提到，智能体写出的 kernel 中位长度大约 7,000 行，人无法按生成速度逐行审计。</div>
+  </section>
+
+  <section class="card" id="bench">
+    <h2>3. 先把计分口径读清楚</h2>
+    <p>SOL-ExecBench 是 NVIDIA 面向 AI 智能体写 kernel 的公开基准。235 道题来自 124 个真实模型，官方榜覆盖 3,957 组工作负载（输入形状），包含前向和反向，精度有 BF16、FP8 和 NVFP4。四个子集各自成榜：L1 单算子 94 题，L2 融合算子 82 题，Quantization 33 题，FlashInfer-Bench 26 题。</p>
+    <p>每组工作负载公布两个时间：优化过但未开源的 PyTorch 基线 <code>t_b</code>，以及 B200 上的速度上限 <code>t_sol</code>。某 kernel 在该负载上的 SOL 分数是把实测时间 <code>t_k</code> 放进这两个锚点之间归一化：匹配基线得 0.5，到达上限得 1，失败得 0。题目分数是各负载算术平均，榜分数是各题平均。站点在每组负载上先查正确性，再在 SM 时钟锁定 1,500 MHz 的自有 B200 上计时；构建超过 300 秒会停，运行时再编原生代码的方案会被拒绝。</p>
+    <div class="callout warn">论文里至少有四套数字，必须分开读：站点 SOL 分数（排榜用）；站点计时的相对官方基线加速（标题里的 4.40 倍）；本地 B200 上相对官方基线的加速（搜索奖励和 A/B）；以及本地相对 <code>torch.compile</code> 的加速（只作本地参照）。本地 SM 时钟未锁，最高大约 1,965 MHz，所以本地时间会偏快。</div>
+  </section>
+
+  <section class="card" id="method">
+    <h2>4. 做法：模型外档案与四层循环</h2>
+    <p>系统被写成四个嵌套循环，内环快、外环慢。全程子智能体和控制器都用 Claude Opus 5.5，模型本身保持固定。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>① 子智能体</h4>
+        <p>拿到一个父 kernel（或从零开新根）和一条方向，在 B200 上改、编、测。终局运行里，子会话在得到第一个正确 kernel 后就停。</p>
+      </div>
+      <div class="tile">
+        <h4>② LLM 控制器</h4>
+        <p>每个问题一个控制器，没有自己的状态，每轮重读档案：选已有节点继续改，或开一个新设计，再给空闲子槽各写一条互不相同的方向。</p>
+      </div>
+      <div class="tile">
+        <h4>③ 热重启改 harness</h4>
+        <p>停智能体、改提示/工具/评测，再拉起来，但保留本轮运行和每题档案。智能体自己不记记忆，重启后靠重读档案接着搜，而不是冷启动。</p>
+      </div>
+      <div class="tile">
+        <h4>④ 人决定投稿</h4>
+        <p>官方分数不进入搜索。人在搜索外面看公开排名，决定送哪份、何时发布，以及算力往哪放。</p>
+      </div>
+    </div>
+    <p>共享记忆全部放在模型外面：每道题一份档案。控制器和子智能体用只读 SQL 查询；只有评测在 kernel 判定正确后才会追加一个节点，失败尝试会记日志但不成节点。写入走追加账本，再由构建器重建 SQLite 并原子替换，智能体打开的是只读库。不同实验运行的档案互不可见，以免污染终局运行。</p>
+    <p>控制器可以展开档案里的任意祖先，不只是当前最优。Quantization/030 的最佳路径从本地 6.25 倍升到 27.36 倍，但 270 步里有 76 步是持平或更慢的——更慢但结构新的正确 kernel，可以成为小修当前最优到不了的垫脚石。</p>
+    <p>对正确 kernel 的奖励是：在该题全部工作负载上，相对已公布基线时间的几何平均加速。不用 SOL 分数做奖励，是因为它在高加速区间会变平。本地计时写入评测表，官方分数不进奖励。</p>
+  </section>
+
+  <section class="card" id="checks">
+    <h2>5. 正确性在模型外判定，人只出现在外环</h2>
+    <p>所有决定“正不正确”的检查都在模型外跑，结论和候选绑在一起存。检查大致分成五类：官方正确性（每组负载都要对上参考）；稳健性（未发布形状、压力输入、内存安全）；规则与奖励黑客（速度和正确性必须来自对输入的真实计算）；站点就绪（构建时限、赛前彩排）；以及送出前的清单评审、人的放行和站点分数。</p>
+    <p>作者给出三则证据说明检查起了作用：搜索自己找出过奖励黑客，他们在送出前加了新门槛；L2/079 曾有一个在所有形状上都过、但在压力输入上发生 FP16 溢出的“最优”，他们放弃它，本地加速一度从 1.62 倍掉到大约 0.48 倍；最终 235 份提交都被站点标为正确。</p>
+    <div class="callout teal">所谓“从零”描述的是搜索，不是模型。模型预训练见过公开代码；智能体还能读 CUTLASS 头文件、上网，以及可选的技能文档和公开 wiki。从 2026-10-25 起，人按每题与第一名的差距分配子槽：紧追第一的题加槽，稳居第一的题让出一些，舰队总数不变。智能体只看到本运行的槽数，看不到分数或名次。人还向部分运行的提示里加过少量已批准说明（设计方向、Triton 指引、时钟备注），其中不含分数或排名。</div>
+  </section>
+
+  <section class="card" id="results">
+    <h2>6. 主结果怎么读</h2>
+    <div class="kpi">
+      <div><div class="n">#1</div><div class="k">L1 / L2 / Quant 公开榜<br>截至 2026-11-11</div></div>
+      <div><div class="n">4.40×</div><div class="k">209 道公开题几何平均<br>中位数 3.78×（站点计时）</div></div>
+      <div><div class="n">235/235</div><div class="k">站点核验正确<br>FlashInfer 以私有行核验，结果未公布</div></div>
+      <div><div class="n">89 / 193</div><div class="k">209 题中单题第一 / 进入前十</div></div>
+    </div>
+    <p>三个公开榜的站点 SOL 分数分别是：L1 0.823339，L2 0.819260，Quantization 0.909670。L1 自 2026-10-27 起基本保持第一，只在 2026-11-07 短暂丢掉过。分榜几何平均加速是 L1 4.04 倍（94 题）、L2 3.62 倍（82 题）、Quantization 9.19 倍（33 题）。</p>
+    <p>加速分布比较宽，不是靠极端离群点撑起来的，但尾部也要看：209 道公开题里有 16 题没进前十（L1 10 题、L2 6 题）；有两题比基线更慢：L2/037 为 0.30 倍，L1/030 为 0.96 倍。21 题低于 1.5 倍，全部在 L1 或 L2，它们的平均站点 SOL 是 0.61，其余题目是 0.86。最差的 L2/037 有一部分是自我设限：代码审查否决了一个已经通过全部自动检查的库回退方案。</p>
+    <p>本地对照（截至 2026-11-10）：这些 kernel 相对 <code>torch.compile</code>（默认模式）是 11.2 倍，同一批 kernel 当天的站点口径加速是 4.47 倍。差距来自两处：本地时钟大约快 1.19 倍，以及 <code>torch.compile</code> 比官方 <code>t_b</code> 大约慢 2.11 倍。作者明确写：真正该比的是官方基线。</p>
+    <p>大部分收益来得早。按本地平均最优 SOL，从约 1% 时刻到数据窗口结束，L1 从 0.747 升到 0.893，L2 从 0.682 到 0.899，Quantization 从 0.835 到 0.938，FlashInfer 从 0.750 到 0.853；前 15% 时间里，各榜已经拿到升幅的 73–85%。按候选数量计，前 2% 的候选贡献了 81% 的收益（收益定义为相对该题第一个正确 kernel 的本地 SOL 提升，235 题汇总）。后期尾巴在 SOL 上不大，但决定了很多单题名次。正确候选数量和收益的秩相关是 −0.36：难、且剩余空间小的题吃掉了很多尝试。</p>
+    <p>最终 kernel 是偏手写级别的 Blackwell 代码，不是库封装。按声明语言：214/235 为 CUDA C++，13 为 CuTe DSL，6 为 Triton，2 为混合。2026-11-10 的 78 个单题第一全部是 CUDA C++ 或 CuTe DSL。221 份超过 1,000 行，中位约 7,000 行。按源码文本匹配：77% 出现 <code>tcgen05</code>，72% 发出 TMA 拷贝，94% 含内联 PTX，没有使用 Hopper 的 <code>wgmma</code>。这些只说明源码里有什么，不保证站点计时时跑到了这些路径。离 SOL 最远的是普通 GEMM/MLP 和完整层。</p>
+    <p>截至 2026-11-02，并行超过一千个智能体会话，被评测候选里 98.4% 是正确的。</p>
+  </section>
+
+  <section class="card" id="lessons">
+    <h2>7. 系统与搜索设计上的发现</h2>
+    <h3>可靠测量的速率限制规模</h3>
+    <p>一次热重启把每小时评测到的候选数提高了 3.6 倍，每个落地候选的 GPU 锁时间下降 71%。重启前，GPU 锁几乎都被占着，大约每个 GPU 有五个调用在等，但 GPU 本身只有约 13% 忙碌——锁覆盖了整次远程调用，包括 CPU 构建和 12–15 秒的 shell 启动。那次重启把构建移出锁、把 shell 启动降到毫秒、让 profiling 变为可选，并由基础设施接手校验新最优。正确率仍约 98%。作者承认 3.6 倍属于整次重启加窗口之间的其他进展，没有拆开各项贡献；也还没有用改变智能体数量的对照直接验证这个瓶颈。</p>
+    <h3>控制器赢在单位时间里的正确尝试次数</h3>
+    <p>在 Phase 1 harness、每臂 24 小时、同样的 Claude 子智能体和档案设计下，LLM 控制器在 38 道成对题中的 35 道上优于一种编码的 UCB 风格树搜索（严格按启动后 24 小时切断则是 34/38），几何平均比约为 1.14 倍。按同等候选数量看，两边几乎打平：控制器在 15 题更好、23 题更差。作者的判断是：单次选择质量差不多，领先来自同一时间内做了 2.4 倍的正确尝试（每轮满批次、带方向、不收窄宽度）。</p>
+    <h3>额外指导没有测到收益</h3>
+    <p>把可选参考文档和技能改成强制使用，使用率提高了 4.3 倍，但最终最优加速没有上升。Phase 2 上 233 对题、约 23 小时，强制臂相对对照臂的几何平均比是 0.981，对照臂反而在 126 对上领先（强制臂 107）。终局运行里，这些可选资料用得很少：前 5% 时间有 13.6% 的子会话打开自有技能，10% 时间之后降到 2% 以下；全程分别只有 1.19% 和 0.83% 打开技能与公开 wiki。对卡住运行做结构性转向的筛查试验也接近零效果，没有上线。这三项设计比较都跑在终局前的 harness 或短筛查上，每臂只有一次运行，作者提醒结论未必能外推到终局 harness 和全时段。</p>
+    <p>其他系统经验包括：热重启超过十几次却不必重来，是因为记忆在档案里；稳健性检查从“每个候选都做”改成“新最优和送出行才做”，每落地候选的检查次数从 0.66 降到 0.27，约 95% 的新最优仍在落地后几分钟内被检查，其中 95.9% 是稳健的；大父 kernel 改成以文件而不是整段贴进首条提示，首条提示写出的上下文减少 88–96%，候选吞吐大致不变。</p>
+  </section>
+
+  <section class="card" id="deploy">
+    <h2>8. 落地可行性</h2>
+    <p>如果目标是在<strong>与基准相近的 Blackwell 形状</strong>上，用大量 GPU 时间和一个强编码模型把单个算子搜到接近硬件上限，这套回路是目前公开文献里最像“能跑起来的工程系统”的之一：档案、只读评测库、模型外检查、热重启、送出门槛都写得很具体，而且他们愿意为了稳健性主动丢掉已经很快的候选。</p>
+    <p>要把它当成生产编译器或服务栈里的日常优化器，门槛仍然高，作者自己也写得比较克制。</p>
+    <ul>
+      <li><strong>证据范围窄。</strong>只有一个基准、一种卡（B200）、一个模型（Claude Opus 5.5），外加一次冷启动终局运行和若干单独 A/B。正确性是测出来的，不是证明出来的；他们考察过的形式化 / SMT 工具还建模不了 Blackwell 的异步张量核操作（<code>tcgen05</code>、TMA、<code>mbarrier</code>）。稳健性检查覆盖的是各运行的新最优（94.9% 被检查），不是每个候选。</li>
+      <li><strong>人没有退出回路。</strong>人批准 harness 修复、批准每次发布，并用公开排名分配子槽、选择送出哪些 kernel。搜索本身在终局运行的内两环可以无人值守，但“榜首”并不是一个完全自动、与人隔离的结果。</li>
+      <li><strong>本地计时会偏快，且服务栈收益会明显小于单 kernel 加速。</strong>作者计划把 kernel 换进形状匹配的服务框架，再测首 token 时间和吞吐，并预先说明：服务栈已经在用调过的库 kernel，端到端收益会更小。</li>
+      <li><strong>成本与产物形态。</strong>中位约 7,000 行的 CUDA/CuTe/PTX 很难维护，也很难迁到别的架构。规模被评测吞吐卡住，意味着要复制这套成绩，先要有一批能锁时钟、能做正确性与稳健性检查的 B200（或同等评测集群），而不是只多买 API 额度。</li>
+      <li><strong>工件。</strong>计划发布搜索循环、基准接口、检查和一个示例配置（不含智能体提示）以及全部 235 道题的最终 kernel；探索页已按榜和运算类型列出 235 道题。终局运行在数据读取之后仍继续，所以每条标题数字都带有“截至某日”。</li>
+    </ul>
+    <div class="callout">对仓库读者的建议：把它读成“测试时搜索 + 模型外记忆 + 评测工程”的系统报告，而不是一个可以直接 <code>pip install</code> 进 <code>torch.compile</code> 的新后端。和同目录里已有的 CAKE、FABRICA、uCUTLASS 相比，它更靠近大规模竞赛式搜核，而不是编译器 IR 共设计。</div>
+  </section>
+
+  <section class="card" id="numbers">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>口径与时间</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>公开榜排名</td><td>L1 / L2 / Quant 均为第 1</td><td>站点分数 0.823339 / 0.819260 / 0.909670；截至 2026-11-11</td></tr>
+        <tr><td>相对官方基线</td><td>几何平均 4.40×，中位数 3.78×</td><td>209 道公开题，站点计时，截至 2026-11-11</td></tr>
+        <tr><td>分榜加速</td><td>L1 4.04×；L2 3.62×；Quant 9.19×</td><td>同上</td></tr>
+        <tr><td>单题名次</td><td>89 题第一，193 题进入前十</td><td>209 道公开题</td></tr>
+        <tr><td>正确性</td><td>235/235 站点正确</td><td>FlashInfer 以私有行核验，结果未公布</td></tr>
+        <tr><td>差的尾巴</td><td>2 题慢于基线（0.30×、0.96×）；21 题低于 1.5×</td><td>站点计时</td></tr>
+        <tr><td>本地 vs torch.compile</td><td>11.2×</td><td>截至 2026-11-10；当天站点口径为 4.47×</td></tr>
+        <tr><td>热重启吞吐</td><td>评测速率 3.6×，锁时间 −71%</td><td>相同 GPU 与槽位的配对时段；多项改动捆在一起</td></tr>
+        <tr><td>控制器 vs UCB 树</td><td>35/38 题更好；正确尝试 2.4×</td><td>Phase 1，24 小时，本地相对官方基线</td></tr>
+        <tr><td>强制参考资料</td><td>几何平均比 0.981</td><td>233 对，约 23 小时，Phase 2</td></tr>
+        <tr><td>语言与特性（源码匹配）</td><td>214 CUDA C++ / 13 CuTe / 6 Triton；77% tcgen05，72% TMA，94% 内联 PTX</td><td>文本匹配，不保证计时时走这些路径</td></tr>
+      </tbody>
+    </table>
+    <p>本笔记根据 <a href="https://arxiv.org/abs/2611.19230">arXiv:2611.19230v1</a> 原文整理，数字均来自论文，未另行复现实验。</p>
+  </section>
+
+  <footer>AI 编译器跟踪笔记 · CompoundingKernel · 对应 PDF：2611.19230_CompoundingKernel.pdf</footer>
+</div>
+</body>
+</html>

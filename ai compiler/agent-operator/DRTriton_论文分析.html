@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DRTriton 论文分析 | 用合成数据课程强化学习训练 PyTorch 到 Triton 模型</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">NeurIPS 2026 · v3 2026-11-12</span>
+      <span class="badge">arXiv:2603.21465v3</span>
+      <span class="badge">算子生成 · 训练专用模型</span>
+      <span class="badge ok">Texas A&amp;M × Oracle</span>
+      <span class="badge warn">长程序几乎依赖测试时搜索</span>
+    </div>
+    <h1>DRTriton：先合成可验证的 PyTorch 程序，再把 7B 模型训成 Triton 翻译器</h1>
+    <p class="subtitle">和大规模调用通用智能体去搜 kernel 不同，这篇走的是“训练一个小的专用模型”。标题里的 92% 要连着测试时搜索一起读；没有搜索时，二十算子程序的通过率是 0。</p>
+    <p class="meta">
+      <strong>论文</strong>：Siqi Guo, Ming Lin, Tianbao Yang. <em>DRTriton: Large-Scale Synthetic Data Driven Reinforcement Learning for Triton Kernel Generation</em>.
+      <a href="https://arxiv.org/abs/2603.21465">arXiv:2603.21465</a>。
+      2026-03-23 首发，2026-11-12 修订为 v3，NeurIPS 2026。Texas A&amp;M University 与 Oracle。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#takeaway">一句话结论</a></li>
+      <li><a href="#problem">问题：真实 Triton 数据又少又难控</a></li>
+      <li><a href="#method">做法：CSP-DAG、课程 RL、测试时搜索</a></li>
+      <li><a href="#synth">合成基准：搜索决定覆盖，RL 决定速度</a></li>
+      <li><a href="#kb">KernelBench：先分清带不带搜索</a></li>
+      <li><a href="#deploy">落地可行性</a></li>
+      <li><a href="#numbers">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="takeaway">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">DRTriton 从 Qwen-2.5-Coder-7B-Instruct 出发，先用 2,026 对由 DeepSeek-R1 或 GPT-5.2 生成并经过校验的单算子 PyTorch–Triton 样本做 SFT，再在 100,000 个合成 PyTorch 程序上做课程强化学习，训练出一个把 PyTorch 翻成 Triton 的 7B 模型。配上把长程序切成片段、再挑最快合法组合的测试时搜索后，它在 KernelBench Level 2 上有 96% 通过验证，其中 92% 快于 PyTorch eager、56% 快于 <code>torch.compile</code>。</p>
+    <p>这和“再做一个能在 B200 上搜出 7,000 行 CUDA 的智能体系统”不是同一条路：它试图把能力训进一个可重复部署的小模型里。代价是算子集合目前只有 61 个，后端固定为 Triton，而且长程序的高通过率主要来自测试时搜索，不是模型一次写出整个融合 kernel。</p>
+  </section>
+
+  <section class="card" id="problem">
+    <h2>2. 问题：真实 Triton 数据又少又难控</h2>
+    <p>手工写高效 CUDA 仍然贵，Triton 降低了门槛，但写出快的 Triton 同样要试错。用 LLM 做 PyTorch 到 Triton / CUDA 的翻译，通用模型在相对简单的任务上就已经不行。先前工作（如 AutoTriton、TritonRL）从公开仓库收集成对数据，作者指出两个硬限制：规模不够（文中举例是 14k 和 11k 条）；难度和质不可控，稀疏奖励下如果过早喂难题，模型会长期拿到零奖励。</p>
+    <p>DRTriton 的对策是不依赖“找到足够多的真实 Triton”，而是先收集 61 个常用 PyTorch 算子（包含 KernelBench 用到的那些），把合法程序生成写成有向无环图上的约束满足问题，再用课程 RL 从易到难训练。</p>
+  </section>
+
+  <section class="card" id="method">
+    <h2>3. 做法：CSP-DAG、课程 RL、测试时搜索</h2>
+    <h3>3.1 CSP-DAG</h3>
+    <p>程序被表示成 DAG：边是形状待定的张量，节点是算子。节点分两类：<code>OpCompute</code> 吃张量、出张量；<code>OpCreate</code> 无张量输入、只创建张量。生成时维护候选张量列表，迭代加入计算节点；输入不够就插入创建算子。形状和广播约束交给 CP-SAT 求解。作者认为这种扁平、一行一个算子的形式，接近 <code>torch.export</code> 降下来的函数式 IR，所以后面能把 KernelBench 里面向对象的模型先导出再翻译。</p>
+    <h3>3.2 校验器</h3>
+    <p>一个 Triton 翻译被算作正确，需要同时满足：语法有效（至少有一个 <code>@triton.jit</code>，并能编译）；忠实性（用 monkey-patch 把 kernel 换成空操作，防止模型直接复述 PyTorch 却宣称自己写了 kernel）；正确性（从对应 PyTorch 程序构造 5 组随机输入，输出必须与 PyTorch“精确匹配”——原文用的是 <em>matched precisely</em>）。</p>
+    <h3>3.3 SFT 冷启动与课程 RL</h3>
+    <p>SFT 只用 Level 1（恰好一个 <code>OpCompute</code>）程序，由 DeepSeek-R1 或 GPT-5.2 生成 Triton 并经过校验，最终 2,026 对、覆盖 61 个算子，10 个 epoch，学习率 <code>2×10^{-6}</code>，批大小 64，大约 2 小时。</p>
+    <p>随后的 RL 不用把正确性和速度揉成一个稀疏标量，而是用 DRPO：提高正确输出的对数似然，并用速度奖励给它们加权；压低不正确输出的对数似然；再加上信任域式的 KL 约束。速度奖励定义为 PyTorch 与 Triton 执行时间之比的函数，消融里对数形式好于幂函数。课程上，当前难度在留出程序上的 Pass@1 超过 50% 就升一级，实验中在 Level 5 停止升级。实际训练分三阶段：Level 1 20k、Level 2 60k、Level 5 20k，共 100k 个合成程序，学习率 <code>1×10^{-6}</code>，每条提示 8 个 rollout，8×H100，大约 10 天。</p>
+    <h3>3.4 测试时搜索</h3>
+    <p>当程序太长、难以写进单个 Triton kernel 时，把长度为 <code>n</code> 的算子序列切成所有长度 1 到 <code>min(5, n)</code> 的连续片段，共 <code>O(n)</code> 个。模型为每个片段生成 kernel 并校验，再用通过的片段替换原程序中对应部分，其余算子仍走 PyTorch，最后在这些混合实现里选最快的一份。这保证最终方案在已验证选项里最快，但并不试图穷尽非连续或更复杂的融合。</p>
+  </section>
+
+  <section class="card" id="synth">
+    <h2>4. 合成基准：搜索决定覆盖，RL 决定速度</h2>
+    <p>合成测试集是 400 个与训练无重叠的程序：Level 1 / 2 / 5 / 20 各 100 个。指标有三项：通过校验的 Acc；既正确又比 PyTorch 快的 Faster1；以及几何平均加速——只在成功题上算（Success），或失败记 1 倍后对全部题算（Full）。</p>
+    <table>
+      <thead>
+        <tr><th>模型</th><th>L1 Acc / Faster1</th><th>L2</th><th>L5</th><th>L20</th><th>加速 Success / Full</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>GPT-5.2</td><td>54 / 17</td><td>43 / 35</td><td>5 / 5</td><td>0 / 0</td><td>1.34 / 1.08</td></tr>
+        <tr><td>Claude-Sonnet-4.5</td><td>68 / 14</td><td>49 / 29</td><td>7 / 3</td><td>0 / 0</td><td>0.68 / 0.89</td></tr>
+        <tr><td>AutoTriton</td><td>36 / 7</td><td>15 / 8</td><td>2 / 1</td><td>0 / 0</td><td>1.08 / 1.01</td></tr>
+        <tr><td>AutoTriton + 搜索</td><td>36 / 7</td><td>45 / 22</td><td>61 / 34</td><td>96 / 80</td><td>1.18 / 1.10</td></tr>
+        <tr><td>DRTriton</td><td>87 / 32</td><td>75 / 54</td><td>15 / 10</td><td>0 / 0</td><td>1.20 / 1.08</td></tr>
+        <tr><td>DRTriton + 搜索</td><td>87 / 32</td><td>96 / 78</td><td>99 / 89</td><td>99 / 86</td><td>1.57 / 1.53</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">引言里“20 个算子上 99% 准确、86% 快于原 PyTorch”指的是 Level 20 <strong>加上测试时搜索</strong>。不加搜索时，DRTriton 在 Level 20 的 Acc 是 0，Level 5 也只有 15%。搜索对长程序的覆盖几乎是决定性的；对 Level 1 则没有额外帮助（两边都是 87 / 32）。</div>
+    <p>把同一套搜索套到不同检查点上，可以分开看模型和搜索的贡献（合成基准）：基模型加搜索在 Level 20 已有 81% Acc，但全基准 Full 加速只有 1.03 倍，Level 1 / 2 的 Faster1 不超过 14%。第一次 DRPO 就把 Full 加速从 1.05 倍（仅 SFT + 搜索）拉到 1.29 倍，Level 2 Faster1 从 14% 到 62%；后两阶段再到 1.51 和 1.53 倍。作者的判断是：测试时搜索主要提高覆盖，最终速度主要由 RL 训出来的模型决定。Stage 2 在 Level 1 / 2 最好，Stage 3 的平均加速最高。</p>
+  </section>
+
+  <section class="card" id="kb">
+    <h2>5. KernelBench：先分清带不带搜索</h2>
+    <p>KernelBench 提供的是面向对象的 PyTorch。评测时先用 <code>torch.export</code> 降成与合成数据同构的扁平函数式 IR，再做测试时搜索，速度同时对比原始 PyTorch 和 <code>torch.compile</code>。表中 TE 是快于 Torch Eager 的比例，TC 是快于 <code>torch.compile</code> 的比例；Acc 与 Faster1 的单位都是百分比。</p>
+    <table>
+      <thead>
+        <tr><th>模型</th><th>L1 Acc / TE / TC</th><th>L2 Acc / TE / TC</th><th>L3 Acc / TE / TC</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>AutoTriton</td><td>44 / 12 / 6</td><td>45 / 14 / 12</td><td>32 / 14 / 6</td></tr>
+        <tr><td>GPT-5.2</td><td>40 / 23 / 23</td><td>32 / 23 / 11</td><td>30 / 18 / 10</td></tr>
+        <tr><td>Claude-Sonnet-4.5</td><td>46 / 8 / 8</td><td>36 / 19 / 12</td><td>36 / 12 / 12</td></tr>
+        <tr><td>AutoTriton + 搜索</td><td>44 / 12 / 6</td><td>89 / 32 / 19</td><td>86 / 48 / 20</td></tr>
+        <tr><td>Claude-Sonnet-4.5 + 搜索</td><td>67 / 41 / 30</td><td>96 / 68 / 42</td><td>86 / 64 / 30</td></tr>
+        <tr><td>DRTriton + 搜索</td><td>69 / 17 / 12</td><td>96 / 92 / 56</td><td>76 / 54 / 34</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">摘要写“DRTriton-7B 在 KernelBench Level 2 的 92% 任务上相对 PyTorch 有加速，GPT-5.2 为 23%，Claude-Sonnet-4.5 为 19%”。分母里的 92% 来自 <strong>DRTriton + 测试时搜索</strong>，而 23% 和 19% 来自两个通用模型<strong>不带搜索</strong>的 TE。更整齐的对照是同样加搜索的 Claude-Sonnet-4.5：Level 2 上 Acc 同为 96%，但 TE / TC 是 68% / 42%，低于 DRTriton 的 92% / 56%。Level 1 上 Claude + 搜索的速度比例反而更高（TE 41% / TC 30% 对 17% / 12%）；Level 3 上 Claude 与 AutoTriton 加搜索的 Acc 都是 86%，高于 DRTriton 的 76%，Claude 的 TE 也更高（64% 对 54%），DRTriton 只在相对 <code>torch.compile</code> 的比例上略高（34% 对 30% 和 20%）。作者强调这是 7B 开放模型取得的结果。</div>
+    <p>Level 1 加速偏弱，论文的解释是这些单算子在 PyTorch 里已经优化得比较好。在 Stage 1 的同一 SFT 检查点上，DRPO 在 Acc 和 Faster1 上稳定优于把正确性与速度加在同一个奖励里的 GRPO。</p>
+  </section>
+
+  <section class="card" id="deploy">
+    <h2>6. 落地可行性</h2>
+    <p>如果目标是<strong>得到一个可反复调用、不必每次都请前沿智能体团队</strong>的 PyTorch→Triton 翻译器，这条线比 CompoundingKernel 一类的大规模搜索更像产品形态：7B 模型、8 张 H100 上大约两小时 SFT 加十天 RL，测试时搜索是模型无关的，也可以套到别的模型上。把 KernelBench 先 <code>torch.export</code> 再翻译，说明它默认工作在静态、可导出的图上，这和许多推理编译流程是对得上的。</p>
+    <p>落地时要先接受几个边界。</p>
+    <ul>
+      <li><strong>算子集合只有 61 个。</strong>作者在结论里把扩展稀疏算子、自定义 CUDA 扩展、以及直接生成原生 CUDA，列为重要后续。超出这个集合，CSP-DAG 和课程数据都不会自动覆盖。</li>
+      <li><strong>长图几乎离不开测试时搜索，而且融合被限制在长度不超过 5 的连续片段。</strong>没有搜索时，二十算子合成程序的通过率是 0。部署时要把“一次生成一个大融合 kernel”的预期改成“片段翻译 + 组合选择”，并承担多次生成和多次计时的成本。论文没有把 KernelBench 上的测试时 token 数或延迟写成与训练开销并列的数字。</li>
+      <li><strong>对照摘要时容易看高。</strong>如上一节所述，92% 对 23% / 19% 不是同等测试时计算下的比较。更稳妥的读法是：在同样加搜索时，7B 模型在 Level 2 融合上快于 Claude-Sonnet-4.5，在 Level 1 速度和 Level 3 通过率上并不全面领先。</li>
+      <li><strong>正确性是 5 组随机输入上的精确匹配，加上反作弊的空操作检查，不是等价证明。</strong>数值容差、归约顺序、低精度累加这些在真实模型里常见的问题，正文没有展开成生产级校验协议。</li>
+      <li><strong>硬件与形状。</strong>训练在 8×H100 上；KernelBench 结果没有像 KernelOPT 那样写明卡型和是否固定形状以外的泛化。也没有报告把生成 kernel 接进完整服务栈后的端到端收益。</li>
+      <li><strong>工件。</strong>论文清单称讨论了数据和代码的开放获取，但正文结论没有给出仓库链接；本笔记写作时未把它当作已确认的开源发布。</li>
+    </ul>
+    <div class="callout">和同目录已有的 CAKE / FABRICA，以及本次一起收录的 CompoundingKernel、KernelOPT 放在一起看：DRTriton 是“把翻译能力训进小模型 + 用搜索补覆盖”，CompoundingKernel 是“固定大模型 + 海量可靠评测做进化搜索”，KernelOPT 是“对着编译产物做模型级去留”。三条路互补，不要用同一张加速表直接横比。</div>
+  </section>
+
+  <section class="card" id="numbers">
+    <h2>7. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>口径</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>基座与数据</td><td>Qwen-2.5-Coder-7B-Instruct；SFT 2,026 对；RL 100k 合成程序</td><td>61 个算子；L1 20k + L2 60k + L5 20k</td></tr>
+        <tr><td>训练开销</td><td>SFT 约 2 小时；课程 RL 约 10 天</td><td>8×H100</td></tr>
+        <tr><td>合成基准，无搜索</td><td>L1 87/32，L2 75/54，L5 15/10，L20 0/0</td><td>Acc / Faster1；Full 加速 1.08×</td></tr>
+        <tr><td>合成基准，加搜索</td><td>L1 87/32，L2 96/78，L5 99/89，L20 99/86</td><td>Success / Full 加速 1.57× / 1.53×</td></tr>
+        <tr><td>KernelBench L2，加搜索</td><td>Acc 96%，TE 92%，TC 56%</td><td>先 torch.export 再搜索</td></tr>
+        <tr><td>KernelBench L3，加搜索</td><td>Acc 76%，TE 54%，TC 34%</td><td>TC 为各方法中最高；Acc 低于 Claude/AutoTriton + 搜索的 86%</td></tr>
+        <tr><td>摘要中的 23% / 19%</td><td>GPT-5.2 / Claude 在 L2 的 TE</td><td>不带测试时搜索；不宜与 92% 直接对等</td></tr>
+        <tr><td>搜索套在基模型上</td><td>L20 Acc 81%，Full 加速仅 1.03×</td><td>覆盖主要来自搜索，速度主要来自 RL</td></tr>
+      </tbody>
+    </table>
+    <p>本笔记根据 <a href="https://arxiv.org/abs/2603.21465">arXiv:2603.21465v3</a>（2026-11-12）原文整理，数字均来自论文，未另行复现实验。</p>
+  </section>
+
+  <footer>AI 编译器跟踪笔记 · DRTriton · 对应 PDF：2603.21465_DRTriton.pdf</footer>
+</div>
+</body>
+</html>
