@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tri-Stack-PIM 论文分析 | 异构三层 3D PIM 的物理拆分与调度</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">ICCAD 2026</span>
+      <span class="badge">arXiv:2611.13644v1</span>
+      <span class="badge">3D PIM · LLM 推理</span>
+      <span class="badge ok">北京邮电大学 × 复旦大学</span>
+      <span class="badge warn">仿真（扩展 Ramulator 2），不是硅片实测</span>
+    </div>
+    <h1>Tri-Stack-PIM：把接口、近存非线性与密集 MAC 拆到三层异构 3D 叠层上</h1>
+    <p class="subtitle">Tri-Stack-PIM: A Heterogeneous Multi-Die 3D-Integrated Processing-in-Memory Architecture for Efficient LLM Inference</p>
+    <p class="meta">
+      <strong>作者：</strong>Shuao Jia、Zichao Ling、Kang Zhao、Jianwang Zhai<sup>*</sup>（北京邮电大学）；Chen Bai（复旦大学）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.13644" target="_blank" rel="noopener">arXiv:2611.13644</a>
+      · <a href="https://arxiv.org/pdf/2611.13644" target="_blank" rel="noopener">PDF</a>（笔记依据 v1，2026-11-10）
+      · 预印本页眉与 ACM Reference Format 写的是 ICCAD ’26（2026-11-08 至 11-12，San Jose）；正文未写 accepted / camera-ready，故不按已确认发表转述<br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：现有 3D PIM 把不该挤在一起的东西挤在同一层</a></li>
+      <li><a href="#s3">做法：异构三层、UBAR 调度、联合探索</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">落地可能性</a></li>
+      <li><a href="#s7">局限</a></li>
+      <li><a href="#s8">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">自回归解码受内存带宽限制，3D 叠层近存（PIM）能把计算放到 DRAM 旁边，但现有做法仍卡在同一层逻辑上：PHY、控制器和 DMA 与 MAC 阵列争先进制程 base die 的面积；hybrid bonding 的 keep-out zone 把 floorplan 打碎；DRAM 工艺算力密度低；非线性算子若甩回 host，通信瓶颈又回来了。Tri-Stack-PIM 的回答是物理拆分：顶层 DRAM 只存权重和 KV；中间用成熟工艺 buffer die 放 PHY、DMA、softmax/reduction 引擎（SRE）和调度器；底层先进制程 base die 专放 SIMD MAC。跨层依赖不能全靠编译期静态表，于是在 buffer die 上做 UBAR 硬件乱序微操作调度。评测指标是 32 层聚合后的<strong>每 token 平均注意力延迟</strong>，不是含 FFN / 投影的端到端解码。在扩展 Ramulator 2 的周期精确仿真里，相对边缘 GPU、AttAcc 和 H<sup>2</sup>-LLM，在 MHA / GQA / MQA、batch 1–32 上的几何平均加速为 4.95× / 2.57× / 1.68×。这些倍数全部来自仿真，不是硅片墙钟时间。</p>
+    <div class="kpi">
+      <div><div class="n">4.95× / 2.57× / 1.68×</div><div class="k">相对 GPU / AttAcc / H<sup>2</sup>-LLM 的几何平均注意力加速（仿真）</div></div>
+      <div><div class="n">33–66×</div><div class="k">相对朴素参数选择的 EDP（联合架构–dataflow 探索，仿真）</div></div>
+      <div><div class="n">86–90%</div><div class="k">B≥8 且 H≥8 时，in-order 会空转、乱序本可发出的活跃周期占比</div></div>
+      <div><div class="n">无硅片</div><div class="k">周期精确仿真扩展 Ramulator 2；面积/功耗/热来自综合与模型</div></div>
+    </div>
+    <div class="callout warn">摘要里「最多挽回 in-order 会丢掉的 90% 周期」说的是可恢复的队头阻塞空转占比（第 4.3.1 节在 B≥8、H≥8 时饱和于 86–90%），不是注意力延迟降了 90%。同一套 UBAR 对照实验里，相对 in-order 的总延迟优势是 17.2%（乱序重排 7.2%，多因子打分再加 9.4%）。读倍数时要把「空转周期 / 延迟」「几何平均 / 分项」「默认 64 路 SIMD / MQA 的 256 路」分开。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：现有 3D PIM 把不该挤在一起的东西挤在同一层</h2>
+    <p>论文把已有 LLM 近存路线收成三类。DRAM 工艺 PIM（表 1 列有 TransPIM、AttAcc、NeuPIMs、IANUS、SpecPIM）把计算直接放进存储阵列，离数据近，但逻辑密度低，算力铺不开。基于 microbump 的 3D 叠层（引言同样以 NeuPIMs 为例）往往把 GEMM 以外的算子留在 host，host–device 链路又变成瓶颈。Hybrid bonding（HB）让逻辑 die 可以按高性能工艺做、再和 DRAM 细间距键合（文中点名 H<sup>2</sup>-LLM、Duplex 等），密度限制和 host 往返似乎都能绕开，但键合焊盘会在 base die 上留下 keep-out zone，把可布线区域切碎，放置布线变难。</p>
+    <p>更麻烦的是功能和工艺的错配。宽 HB 接口、面向 host 的高速 PHY 和控制逻辑如果和密集运算做在同一块先进制程 die 上，会同时吃掉本该给算术的硅，并因 keep-out zone 进一步挤占 floorplan。论文强调，这不是换一个更好的 NPU 微结构、或把 host 链路加快一点就能消掉的耦合。</p>
+    <p>算法侧还在加码。GQA / MQA 让一次 KV 读取要在 G 个 query head 上广播（文中以 LLaMA-2-70B 的 G=8 为例），再乘上 batch B，有效运算强度按 G×B 涨；要吃到这份额外复用，逻辑 die 上还得留片上缓冲来暂存 KV。非计算结构占比一高，本该支撑高运算强度注意力的算力预算就被挤掉了。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>表 1 里四条同时成立的缺口</h4>
+        <p>先进节点算力、栈内 softmax、计算与接口的物理解耦、硬件动态微操作调度。DRAM 工艺一行都没有先进节点算力，也没有 C/I 解耦；其中 TransPIM 与 AttAcc 有栈内 softmax，SpecPIM 有动态调度，但都不完整。H<sup>2</sup>-LLM 有先进节点算力，但没有栈内 softmax、C/I 解耦和动态调度；Duplex 有先进节点、栈内 softmax 和动态调度，仍无 C/I 解耦。Tri-Stack-PIM 把四条都勾上——这是设计对照，不是硅片功能清单。</p>
+      </div>
+      <div class="tile">
+        <h4>拆层之后会出现新的调度问题</h4>
+        <p>Base die 是栈里最贵的先进制程硅，利用率直接决定注意力吞吐。QK / SV 的 GEMM 在底层，softmax 在中层，两者有严格数据依赖。编译器可以排出宏指令 DAG，但每条宏指令会拆成大量微操作，就绪与否取决于 DRAM timing、层间链路拥塞和异构单元占用——这些编译期看不见。静态表会脆，若再把微操作序列从 host 流过来，控制流量会爆。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：异构三层、UBAR 调度、联合探索</h2>
+    <p>论文把成熟的多层 hybrid bonding 和细间距 TSV 当作已经可制造的包装前提，在 DRAM 与计算层之间插入一块成熟工艺 buffer die。目的有两层：把所有面向 DRAM 的 HB I/O 从计算 die 上挪走，去掉会打碎 floorplan 的 per-bank keep-out zone；并把混合信号和固定功能块放到缩放收益差、成本更低的成熟节点上。文中写明，模拟/混合信号电路从尺寸微缩里获利很少，先进 FinFET 反而会恶化 PHY 的噪声、变异和电压余量；40/45 nm 一类平面工艺更合适。</p>
+
+    <h3>3.1 三层怎么拆</h3>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>顶层 DRAM die</h4>
+        <p>只负责容量：权重和随序列增长的 KV cache。不在 DRAM 工艺里堆密集逻辑。</p>
+      </div>
+      <div class="tile">
+        <h4>中层 buffer die（成熟工艺）</h4>
+        <p>面向 host 的 PHY、HB 控制器、DMA、UBAR 调度器，以及每 bank 一套 SRE（近存 softmax 与跨 bank 归约）。bank 级 I/O 在这里汇聚后再向下一层给出规整接口。</p>
+      </div>
+      <div class="tile">
+        <h4>底层 base die（先进工艺）</h4>
+        <p>每个 DRAM bank 经 HB 一对一对应一个计算 tile：本地 SRAM 缓冲 + 全流水 SIMD MAC。没有 PC、没有指令缓存、没有分支预测，执行只按离线编译的 DAG 就绪关系推进。</p>
+      </div>
+    </div>
+    <p>设计原则被写成三条：数据靠近（bank 到 tile 的 HB 直连）、计算与控制分离、以及宏级静态 / 微操作动态的混合调度。平台不是 MIMD（每 tile 一份固件太重），也不是完整 SIMT（不必为注意力再做一套锁步编译后端）。Host 编译器只决定算子类型、操作数位置和宏指令之间的依赖；UBAR 在运行时决定微操作顺序。</p>
+
+    <h3>3.2 注意力数据流与分层指令</h3>
+    <p>四类宏指令就够表达完整注意力：<code>LAUNCH_GEMM</code>（带 <code>repeat_count</code>，表示取到的 KV tile 要在多少个 GQA query head 上重复使用）、<code>SRE_SOFTMAX</code>、<code>DMA_H2D</code>、以及作为全局屏障的 <code>MODE_SWITCH</code>。每条宏指令带编译器分配的 tag 和前驱列表，构成静态 DAG；独立 GQA 组之间没有交叉依赖，可以跨通道并发。</p>
+    <p>单头注意力走四段：控制器发 ACTAB / RDAB（全 bank 激活与读取），列突发经 HB 把 KV tile 送下来，受 DRAM timing 节流；tile 落入 base die 本地 SRAM，由 SIMD MAC 消耗；QK 点积部分和向上送到 buffer die 的 per-bank SRE，若隐藏维跨 bank 切分，则经 2D mesh NoC 送到几何中心选出的 master SRE 做归约；master 用一次流式 softmax（跟踪 running-max、指数重缩放、分母累加）写出注意力权重，再经 HB 送回，底层做第二轮 <code>LAUNCH_GEMM</code> 取 V、累加得到 context 向量。SRE 放在中层，是为了用成熟节点的面积，并去掉「把 softmax 甩回 host 会引入的超过 1 µs 往返」。计算 tile 是数据触发的：SRAM 满了会向调度器反压；同一 tile 的连续突发由 ready-tick 串行化，前一块没退，MAC 不接新块。</p>
+
+    <h3>3.3 UBAR：硬件乱序微操作调度</h3>
+    <p>一条宏指令会拆成几十到上百个微操作。朴素 in-order 只要队头因 timing 或资源发不出去，后面已经就绪的微操作也得停。UBAR（Unified Buffer-Aware Ready-based）在 buffer die 上做记分牌，并把乱序发射和质量驱动的多资源仲裁绑在一起。就绪微操作的综合优先级为：</p>
+    <p style="text-align:center;"><code>S(u) = α T<sub>age</sub> + β T<sub>crit</sub> + γ T<sub>back</sub> + δ T<sub>bal</sub> + ε T<sub>starv</sub> − ζ T<sub>conf</sub></code></p>
+    <p><code>T<sub>age</sub></code> 随驻留时间线性增加并在可配置地平线上饱和，避免退化为无界 FIFO。<code>T<sub>crit</sub></code> 是创建时打好的静态关键路径类别（Barrier &gt; Softmax &gt; GEMM &gt; DRAM &gt; DMA）。<code>T<sub>back</sub></code> 监视 base die GEMM 输入 FIFO 的填充比，低过阈值就抬高能给算力管道补数的 DRAM 读——这是打破队头阻塞的主机制，默认权重也最大（γ = 5× 基线）。<code>T<sub>bal</sub></code> 按类别累计发射次数，惩罚过代表类，保持异构资源上的发射多样性。<code>T<sub>starv</sub></code> 是独立的反饥饿项：耐心阈值之前为 0，之后爬到饱和，保证最坏延迟有界。<code>T<sub>conf</sub></code> 是唯一的减项，按 DRAM 时序模型的开行状态，给行缓冲缺失的访问打满罚分。</p>
+    <p>每通道用两级仲裁压选择扇入：先在四个优先级类里各选得分最高的冠军，再全局取 argmax；资源检查失败则落到下一个冠军，而不是整槽停住。论文写这套路径要在单个 buffer die 周期内关闭。</p>
+
+    <h3>3.4 联合架构–dataflow 探索</h3>
+    <p>加宽 HB 并不能在 SIMD 已经不再受内存限制时继续换来加速；加宽 SIMD 也只有在 dataflow 能保持足够多的 tile 在飞时才抬峰值。表 2 列出四个域里的七个参数：KV 的 bank 映射（round-robin，或 sequence-shard ×{1,2,4,8}）、SIMD 路数 {32,64,128,256,512}、base / buffer 时钟与缓冲容量、以及 HB 位宽 {128…4096} bit。注意力的运算强度随 G = N<sub>heads</sub> / N<sub>KV</sub> 变化：MHA（G=1）偏内存受限，MQA（G=16）偏计算受限，GQA（G=4）两头都紧。探索对象是 OPT-6.7B、PaLM-8B、LLaMA3-8B，用 Ax/BoTorch 做多目标贝叶斯优化，同时压延迟、die 成本和功耗。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <p>三个模型覆盖三种注意力：OPT-6.7B（MHA，32/32 heads）、LLaMA3-8B（GQA，32/8）、PaLM-8B（MQA，16/1）。Batch 取 {1,4,8,16,32}；（prompt，generation）长度对为 (128,64)、(512,256)、(1024,64)、(1024,16)。因为工作针对注意力而不是 host–device 编排，指标是 32 个 decoder 层聚合后的每 token 平均注意力延迟。主对比里 base die 1.3 GHz、buffer die 1.0 GHz，对 GPU-only、AttAcc、H<sup>2</sup>-LLM 和 Tri-Stack-PIM 统一使用；未另行说明时，Tri-Stack-PIM 默认 64 路 SIMD，H<sup>2</sup>-LLM 为 32 路。</p>
+    <ul>
+      <li><strong>周期精确仿真：</strong>扩展 Ramulator 2。实验跑在 Intel Xeon Platinum 8375C、2.90 GHz 上，这是跑模拟器的机器，不是被测加速器。</li>
+      <li><strong>面积与功耗：</strong>base die 计算 tile 用 ASAP7 PDK 综合（0.5–1.5 GHz，16–256 MACs/tile；73.1–4614.5 µm<sup>2</sup>/block，0.15–41.2 fJ/MAC）。Buffer die SRE 用 NanGate 45 nm（0.1–1.0 GHz；0.47 mm<sup>2</sup>，1.1–9.5 pJ/softmax op）。片上 SRAM 用 FinCACTI：64 KB 在 7 nm 为 0.116 mm<sup>2</sup>、5.27 pJ/次，在 45 nm 为 0.305 mm<sup>2</sup>、10.55 pJ/次。层间链路能量 0.88 pJ/bit，取自 H<sup>2</sup>-LLM 的 HB 模型。</li>
+      <li><strong>GPU-only：</strong>代表性边缘 GPU，4 通道 LPDDR5X，有效带宽 30.7 GB/s，有效 FP16 算力 1.0 TFLOPS，用 AttAcc 开源的解析模型。</li>
+      <li><strong>AttAcc：</strong>同一套 LPDDR5X 假设下做周期精确仿真，bank-group 级 PIM（内部带宽 128 GB/s，0.128 TFLOPS）。</li>
+      <li><strong>H<sup>2</sup>-LLM：</strong>按其发表参数映射到同一 LPDDR 组织，在作者的周期精确模拟器上评。</li>
+    </ul>
+    <div class="callout teal">对照的不是数据中心 A100 / H100，而是边缘 GPU + LPDDR5X。AttAcc 和 H<sup>2</sup>-LLM 也被对齐到同一存储组织。读 4.95× 时，分子分母都是这条设定下的注意力延迟，不是完整模型和整机服务。</div>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <p>图 4 给出全部负载配置上的注意力延迟。摘要与第 4.2 节给出的几何平均是：相对 GPU-only 4.95×，相对 AttAcc 2.57×，相对 H<sup>2</sup>-LLM 1.68×，范围是三种注意力机制和 batch 1–32。分机制看：</p>
+    <ul>
+      <li>MHA（OPT-6.7B）/ GQA（LLaMA3-8B）相对 GPU-only 为 14.15× / 7.03×，相对 AttAcc 为 4.50× / 2.12×，相对 H<sup>2</sup>-LLM 为 1.16× / 2.05×。MHA 的 G=1，严格内存受限，边缘 GPU 更饿带宽；AttAcc 没有 base die SRAM 复用，会引入多余 DRAM 访问，对 MHA 惩罚更重。</li>
+      <li>MQA（PaLM-8B）在 SIMD=256 时，几何平均相对 GPU / AttAcc / H<sup>2</sup>-LLM 为 3.58× / 5.20× / 5.82×。文中给出三条观察：AttAcc 在该负载的每个配置上都不如 GPU——16 个 query head 走 bank-group 级 PIM 且没有复用缓冲，会按 bank group 重复扫 KV，GPU 则靠 L2 摊一次读取；DRAM 工艺也缺做密集 6T SRAM 的金属层。H<sup>2</sup>-LLM 同样会落后于 GPU-only：softmax 在 host，每头都有一道受 host–device 带宽限制的同步屏障，且没有跨层功能拆分时，base die 面积把 SIMD 限制在 32 路，算力跟不上 DRAM 吞吐。Tri-Stack-PIM 若停在 64 路，MQA 这种计算受限情形会不如 AttAcc；把路数扩到 256 之后才明显超过所有基线。</li>
+    </ul>
+    <p>总几何平均 4.95× / 2.57× / 1.68× 是否把 MQA 的 256 路配置算进去，正文没有逐项写明，这里不加臆测。</p>
+    <h3>UBAR 挽回的是什么</h3>
+    <p>图 5 统计的是记分牌活跃周期里、in-order 卡在队头、但旁边已有就绪微操作的比例。H=1、B=1 时只剩串行链，可恢复空转只有 3.5%；只把 batch 加到 8（H=1）是 63%，只把头数加到 8（B=1）是 64%。一旦 B≥8 且 H≥8，队头阻塞比例饱和在 86–90%，且对模型规模不敏感。这就是摘要「最多 90%」的出处：in-order 在高并发下会浪费近九成本可发射的活跃周期，而不是端到端延迟被挽回 90%。</p>
+    <p>第 4.3.2 节把打分从「仅仅乱序」里拆出来，对照只保留时间戳的 age-first 乱序。微基准是 SIMD=32、HB=2048 b、base die 500 MHz、buffer die 1.0 GHz、1 MB+4 MB 缓冲，单通道压力映射 8 ch × 16 banks，扫模型 S/M/L（2k/4k/8k）、batch 和 MHA 头数。32 个配置上，打分相对 age-first 的几何平均延迟收益是 9.4%，高于乱序重排单独贡献的 7.2%；朴素最老优先拿不到总 17.2% UBAR 优势的一半。低头数时打分更有用（H=8 时平均 11.7%，H=32 时 8.2%）。在 (S, B=1, H=8) 上，age-first 甚至比 in-order FCFS 慢 2.1%。</p>
+    <h3>设计空间、成本和热</h3>
+    <p>第 4.4 节写：Pareto 最优点相对最差配置，把 GQA / MHA / MQA 的注意力延迟分别降 28.5× / 17.1× / 39.8×，面积压缩 130–95×，功耗压缩 1.5–7.6×，相应 EDP 改善 33–66×。这是探索空间内部相对朴素/最差参数的仿真结果，不是相对 GPU 的加速。三条 takeaway 也只在这个空间里成立：HB 从 128 b 加到 4096 b，MHA / GQA 的中位延迟降 12× / 4.8×，MQA 只有 2×；固定 HB 宽度时，仅映射策略就能带来 2.3×（MHA）到 9.6×（MQA）的延迟差异；SIMD 从 32 加到 256，MQA 近线性 4.5×，MHA / GQA 则不足 1.1×，瓶颈在带宽。</p>
+    <p>成本用的是 AccelStack 的经常性制造成本模型，DRAM die 在对照里相互抵消，也不含 NRE。缺陷密度取 7 nm 0.10 cm<sup>−2</sup>、45 nm 0.05 cm<sup>−2</sup>。面向 host 的 PHY 为 3.2 mm<sup>2</sup>/通道，被当作与节点无关；把合计 51 mm<sup>2</sup> 接口硅从 7 nm（晶圆成本 $9,346）搬到 45 nm（$2,000），仅 PHY 的单位晶圆成本降 4.7×。图 7 的扫描结论是：额外键合步开销大约低于 $5 时，三层方案仍比类 H<sup>2</sup>-LLM 的两层叠更有成本优势；键合良率在 0.90–0.99 里对总成本的影响不到 4%。正文也写明一个模型外因素：PHY 改到 buffer die 后，host 信号路径多了一层 HB 和 TSV，可能要重新做 PHY IP，这笔 NRE 没有量化。</p>
+    <p>热分析是 HotSpot-7.0 的稳态仿真，不是量测。三层各减薄到 50 µm，网格 64×128。满载总功耗 11.97 W，其中 buffer die 上的 PCIe Gen5 PHY 可到 3.58 W/栈（64 GB/s × 7 pJ/b）。散热分别按先进液冷（0.05 K/W）和微流道（0.01 K/W）。两种方案下三层峰值都低于 85 °C 的 DRAM 保持上限：液冷 63.74 / 63.75 / 62.63 °C（DRAM / buffer / base），微流道 61.90 / 61.91 / 60.76 °C，文中写都比 85 °C 低 22 K。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 落地可能性</h2>
+    <p>和仓库里已有的近存笔记对照（这些论文并未引用下列工作，只是对象不同）：PIMphony 处理的是长上下文注意力在商用 PIM 模块上怎么切通道、叠命令、按需分配 KV；DCC 是 PIM 上的数据布局与编译；Pimba 把同一套近 bank 单元扩到后 Transformer 的状态更新。Raptor 笔记写的是 3D-DRAM 生成式推理的早期硅片；「8 栈近存大模型部署」谈的是近存部署而不是三层异构的物理设计。Tri-Stack-PIM 补的是 <strong>异构三层 3D PIM 的物理拆分和跨层微操作调度</strong>，不是再写一遍注意力或 KV 映射。</p>
+    <p>问题本身是真的：把 PHY / 控制器和密集 MAC 做在同一块先进制程 die 上，面积、keep-out zone 和混合信号缩放会一起恶化。把 softmax 留在栈内，也确实对准了「非 GEMM 回 host」这条老瓶颈。但从这篇预印本走到可制造的硅片或可部署的系统，还缺好几步：</p>
+    <ul>
+      <li><strong>没有硅片，也没有墙钟时间。</strong>注意力加速、UBAR 收益、EDP、面积、功耗、成本、热，全部来自 Ramulator 2 扩展仿真，外加 ASAP7 / NanGate 45 nm 综合、FinCACTI、HotSpot 和 AccelStack 成本模型。不能把 4.95× 说成某块芯片上的实测。</li>
+      <li><strong>工艺异构和多层 HB 是前提，不是本文验证的结果。</strong>7 nm 级 base die、45 nm 级 buffer die、DRAM die，再加多层 hybrid bonding 与 TSV，论文引用工业封装进展声称可制造，但本文没有流片、没有键合良率实测、也没有展示可工作的三层原型。</li>
+      <li><strong>热和冷却假设不轻。</strong>满载 11.97 W/栈要压在 85 °C 以下，用的是先进液冷或微流道，不是普通风冷。换冷却方案，结论不能原样搬。</li>
+      <li><strong>成本模型是解析的，而且故意不含 NRE。</strong>键合步大约低于 $5 才保持优势，是扫描出来的分界，不是代工报价。PHY 改通道的 IP 再设计被作者自己留作未来工作。</li>
+      <li><strong>和现有 HBM-PIM 产品不是同一条路。</strong>Samsung HBM-PIM、SK hynix AiM 一类，是在 DRAM 工艺里放近存计算；这篇是「先进逻辑 + 成熟接口层 + DRAM」的三层拆分，指令集、封装、控制器和软件栈都不能当成在现有 HBM-PIM 固件上开一个开关。</li>
+      <li><strong>评测口径偏窄。</strong>只有注意力延迟，6.7B–8B 模型，序列长度到 1024 / 256，对照是边缘 GPU + LPDDR5X。FFN、投影、LayerNorm、多卡、长上下文服务栈都不在主表里。MQA 还依赖把 SIMD 从 64 扩到 256 才能胜过 AttAcc。</li>
+    </ul>
+    <p>更务实的读法，是把它当作一份 3D 叠层物理规划与调度的设计空间研究：如果未来真的出现「计算 die 必须同时伺候宽 HB 和高速 PHY」的产品定义，把接口和非线性挪到成熟节点中间层、把先进硅留给 MAC，是一条值得认真看的选项。在有原型硅片、有风冷或目标封装下的热预算、以及包含 FFN 的端到端数字之前，不要把仿真里的几何平均加速写成产品承诺。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 局限</h2>
+    <ul>
+      <li>全文是仿真与模型，没有硅片、没有封装原型、没有实测能效。</li>
+      <li>主指标不是端到端 token 吞吐，而是 32 层聚合的注意力延迟；投影、FFN 以及 host 编排被明确排除在指标之外。</li>
+      <li>GPU 基线是 30.7 GB/s、1.0 TFLOPS 的边缘设定，不能转述成相对 A100 / H100 的加速。</li>
+      <li>模型停在约 8B，上下文长度中等；GQA 广播的 70B 例子只出现在动机里，没有进入主评测。</li>
+      <li>正文没有给出计算 tile 的数值精度（只在数据路径公式里出现量化位宽符号，图中有 De-quant 块），精度与量化误差不在评测范围内。</li>
+      <li>UBAR 的 17.2% 延迟优势来自与主对比不同的微基准（500 MHz base die、SIMD=32 等），不能直接加成到 4.95× 上。</li>
+      <li>总几何平均与 MQA@256 的关系没有写清；64 路 SIMD 在 MQA 上会落后于 AttAcc。</li>
+      <li>热分析依赖液冷 / 微流道；PHY IP 再设计的 NRE、真实键合良率和量产校准未量化。没有公开实现链接。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>备注与出处</th></tr></thead>
+      <tbody>
+        <tr><td>几何平均注意力加速</td><td>4.95× / 2.57× / 1.68×</td><td>相对 GPU-only / AttAcc / H<sup>2</sup>-LLM；MHA、GQA、MQA 与 batch 1–32；仿真，不是硅片实测；摘要与第 4.2 节、图 4</td></tr>
+        <tr><td>MHA / GQA 分项几何平均</td><td>vs GPU 14.15× / 7.03×；vs AttAcc 4.50× / 2.12×；vs H<sup>2</sup>-LLM 1.16× / 2.05×</td><td>OPT-6.7B 与 LLaMA3-8B；第 4.2 节；仿真</td></tr>
+        <tr><td>MQA 分项几何平均</td><td>3.58× / 5.20× / 5.82×</td><td>PaLM-8B，SIMD=256；相对 GPU / AttAcc / H<sup>2</sup>-LLM；第 4.2 节写明 64 路时会低于 AttAcc；仿真</td></tr>
+        <tr><td>联合探索的 EDP</td><td>33–66×</td><td>相对朴素 / 最差参数选择，不是相对 GPU；Pareto 点相对最差配置：延迟 28.5× / 17.1× / 39.8×（GQA / MHA / MQA），面积 130–95×，功耗 1.5–7.6×；摘要与第 4.4 节；仿真 / 探索</td></tr>
+        <tr><td>in-order 可恢复空转</td><td>最多 86–90%</td><td>B≥8 且 H≥8 时队头阻塞占记分牌活跃周期的比例；H=B=1 时仅 3.5%；摘要「90%」出处；图 5、第 4.3.1 节。不是延迟降幅</td></tr>
+        <tr><td>UBAR 相对 in-order 的延迟优势</td><td>合计 17.2%（乱序 7.2% + 打分 9.4%）</td><td>相对 age-first 的几何平均为 9.4%；H=8 时 11.7%，H=32 时 8.2%；微基准 SIMD=32、base 500 MHz 等；第 4.3.2 节、图 6；仿真</td></tr>
+        <tr><td>HB 加宽的中位延迟收益</td><td>MHA 12×，GQA 4.8×，MQA 2×</td><td>128 b → 4096 b；第 4.4 节 takeaway 1；仿真</td></tr>
+        <tr><td>仅映射策略带来的延迟差异</td><td>2.3×（MHA）至 9.6×（MQA）</td><td>固定 HB 宽度；第 4.4 节 takeaway 2</td></tr>
+        <tr><td>SIMD 32→256</td><td>MQA 约 4.5×；MHA / GQA &lt; 1.1×</td><td>第 4.4 节 takeaway 3</td></tr>
+        <tr><td>GPU 基线</td><td>4 通道 LPDDR5X，30.7 GB/s，1.0 TFLOPS FP16</td><td>边缘 GPU，AttAcc 解析模型；第 4.1 节</td></tr>
+        <tr><td>AttAcc 设定</td><td>128 GB/s 内部带宽，0.128 TFLOPS</td><td>同一 LPDDR5X 假设，bank-group 级 PIM；第 4.1 节</td></tr>
+        <tr><td>综合与 SRAM 模型</td><td>SRE 0.47 mm<sup>2</sup>，1.1–9.5 pJ/softmax；64 KB SRAM 7 nm 为 0.116 mm<sup>2</sup> / 5.27 pJ</td><td>ASAP7、NanGate 45 nm、FinCACTI；HB 0.88 pJ/bit；第 4.1 节。综合，不是芯片量测</td></tr>
+        <tr><td>PHY 搬迁的成本模型</td><td>3.2 mm<sup>2</sup>/通道，合计 51 mm<sup>2</sup>；仅 PHY 单位晶圆成本 4.7×</td><td>7 nm 晶圆 $9,346，45 nm $2,000；键合步约低于 $5 时三层仍有成本优势；第 4.4 节。解析模型，不含 NRE</td></tr>
+        <tr><td>热仿真峰值</td><td>液冷 63.74 / 63.75 / 62.63 °C；微流道 61.90 / 61.91 / 60.76 °C</td><td>DRAM / buffer / base；满载 11.97 W，PHY 最高 3.58 W/栈；HotSpot-7.0，不是量测；目标低于 85 °C；第 4.4 节、图 8</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.13644v1（2026-11-10）。预印本页眉与 ACM Reference Format 列出 ICCAD ’26（2026-11-08 至 11-12，San Jose），并印有 ISBN 979-8-4007-2873-0/2026/11 与 DOI 10.1145/3831252.3834022；正文没有写出 accepted 或 camera-ready，故不按已确认发表转述。注意力加速、UBAR 与 EDP 数字来自扩展 Ramulator 2 的周期精确仿真；面积与功耗来自 ASAP7 / NanGate 45 nm 综合和 FinCACTI；成本来自 AccelStack 模型；热来自 HotSpot-7.0。均不是硅片实测。
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PIVOT 论文分析 | 商品 PIM 上的原生向量检索</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge">arXiv cs.AR · 2026-11-20</span>
+      <span class="badge">arXiv:2611.27010v1</span>
+      <span class="badge">商品 PIM · 近似近邻检索</span>
+      <span class="badge ok">香港中文大学</span>
+      <span class="badge warn">商品 PIM 硬件实测（UPMEM），不是仿真</span>
+    </div>
+    <h1>PIVOT：在商品 PIM 上用按位距离核和协同过滤做近似近邻检索</h1>
+    <p class="subtitle">Rethinking ANNS on Commodity PIM: PIM-Native Vector Search with Cooperative Filtering</p>
+    <p class="meta">
+      <strong>作者：</strong>Dawei Guo、Yizou Chen、Fan Yang、Hui Li、Ming-Chang Yang（香港中文大学；通讯邮箱为 <code>@cse.cuhk.edu.hk</code>）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.27010" target="_blank" rel="noopener">arXiv:2611.27010</a>
+      · <a href="https://arxiv.org/pdf/2611.27010" target="_blank" rel="noopener">PDF</a>（笔记依据 v1，2026-11-20）
+      · 预印本扉页只署香港中文大学，没有会议名称、版权块或录用声明，故不填写 venue<br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：CPU 式距离计算和 top-k 对不上商品 PIM</a></li>
+      <li><a href="#s3">做法：按位距离核、协同过滤、特化 kernel 与流水</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">落地可能性</a></li>
+      <li><a href="#s7">局限</a></li>
+      <li><a href="#s8">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">PIVOT 的对象不是 LLM decode，而是商品 DRAM-PIM（本文用 UPMEM）上的近似最近邻检索（ANNS），主路径是 IVF 簇扫描。已有 PIM-ANNS 系统多半把 CPU 上的距离计算和 top-k 选拔直接搬到内存侧核上：浮点或乘法偏重、PQ 还要按查询建查找表（LUT），再在彼此隔离的 DPU 上复制局部 top-k 堆并同步。这些做法和「算力弱、WRAM 小、核间不能直接通信」的商品 PIM 对不上。PIVOT 用 RaBitQ 风格的二进制量化，把 PIM 侧下界距离改成以 XOR / 人口计数为主的无 LUT 路径，再用 survivor-mass 模型估计查询相关半径，让 CPU 先丢掉低收益簇、DPU 按阈值独立过滤，只把存活向量 ID 送回 CPU 做多比特重排。评测跑在真实 UPMEM 硬件上：20 条 DIMM、2,543 个可用 DPU。相对 FAISS-IVF-RaBitQ，Recall@100 高于 0.95 时 QPS 为 14.0–18.8×；在先前 PIM 基线 DRIM-ANN-Rerank 能达到的召回目标上，最高为 DEEP1B 的 10.2× 与 SIFT1B 的 4.8×。这是「最高 / 在指定召回目标上的最佳 QPS」，不是几何平均。</p>
+    <div class="kpi">
+      <div><div class="n">最多 18.8× / 10.2×</div><div class="k">相对 CPU / 先前 PIM 的最高 QPS（UPMEM 实测，不是几何平均）</div></div>
+      <div><div class="n">99.3–99.7%</div><div class="k">两级过滤去掉的被探测向量比例（第 VI-C 节、图 8）</div></div>
+      <div><div class="n">20 DIMM / 2,543 DPU</div><div class="k">实测平台：Xeon Silver 4216 双路，UPMEM 400 MHz</div></div>
+      <div><div class="n">4.38×</div><div class="k">1024 维 MS MARCO10M 上 Recall@100&gt;0.95 时相对 CPU 的 QPS</div></div>
+    </div>
+    <div class="callout warn">18.8× 和 10.2× 都是「up to」。第 9 页写明：相对 CPU（FAISS-IVF-RaBitQ），Recall@100 高于 0.80 时是 5.0–5.1×，高于 0.95 时扩到 14.0–18.8×；相对 DRIM-ANN-Rerank，只统计该基线能达到的目标，DEEP1B 最高 10.2×、SIFT1B 最高 4.8×。DRIM-ANN-Rerank 在 DEEP1B 上到不了 0.85 以上、在 SIFT1B 上到不了 0.90 以上。不要把 18.8× 写成平均加速，也不要写成仿真结果。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：CPU 式距离计算和 top-k 对不上商品 PIM</h2>
+    <p>簇式 IVF 在十亿级检索里常用：离线把库向量分成 nlist 个簇，查询时先按质心选出 nprobe 个倒排表，再扫描量化码并保留候选，最后用更高精度表示重排。扫描阶段内存流量大、列表间并行度高，看起来很适合近存。但商品 PIM 的约束和 CPU 很不一样。以 UPMEM 为例：每颗 DPU 对着私有的 64 MB MRAM，本地只有 64 KB 软件管理的 WRAM 和 24 KB IRAM；整数加减、按位和移位便宜，浮点靠软件仿真，全宽乘除指令序列更长；DPU 之间没有共享内存或直连，全局归约必须经 host 搬数据；核内 tasklet 可以同步，但热路径里频繁同步会伤并行。</p>
+    <p>已有系统大体还是 CPU 的「先打分再排序」。UPVSS 在 PIM 上算浮点 L2，把所有距离和 ID 送回 CPU 做全局 top-k。UpANNS 和 DRIM-ANN 用 PQ，并在 DPU 内做部分 top-k：前者每条 tasklet 一个私有堆再汇总，后者一个 DPU 级共享优先队列由多条 tasklet 协同更新，再由 CPU 合并。第 III 节把由此产生的错配写成两条。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>评估核错配</h4>
+        <p>图 2 是在真实 UPMEM 上测的屋顶线。全精度 L2 受软件浮点拖累；INT8 L2 去掉浮点但仍偏乘法；PQ 要先做类似逐维 L2 的表构建，再做浮点累加，整数 PQ 好一些，LUT 构建仍然吃乘法。二进制距离以按位和人口计数为主，更靠近屋顶。WRAM 也紧：常见设定 nbits=8、32-bit 表项时，LUT 就要 1024M 字节；图 2(b) 显示总 WRAM 占用在 M=16 已接近 64 KB，从 M=32 起超出容量。高维、更高精度往往还要更大的 M，准确率和本地内存直接打架。</p>
+      </div>
+      <div class="tile">
+        <h4>检索范式错配</h4>
+        <p>查询被拆到大量隔离 DPU 上之后，局部 top-k 会放大输出、复制状态并引入同步。Per-DPU 堆在 P 个 DPU 上最多保留 P·k 个候选；per-tasklet 再乘上每核 tasklet 数 T。图 3(b) 显示 per-DPU 在 k=1000、per-tasklet 在 k=100 就会超过 64 KB WRAM。若像 UPVSS 那样不做 PIM 侧 top-k、把扫过的距离全送回，输出可到 CPU 全局 top-k 的 7813×。分布式堆还失去了 CPU 上那个全局动态剪枝阈值：每个 DPU 只看见本地堆顶，要维持全局截止就得在扫描中反复走 host。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：按位距离核、协同过滤、特化 kernel 与流水</h2>
+    <p>对应两条错配，PIVOT 的原则是：PIM 侧距离核要算术轻、状态轻；候选选拔不要做分布式 top-k，改用查询相关阈值，让各 PU 独立、无排名状态地过滤；查询全局的控制留在 CPU，内存密集、数据并行的过滤留给 PIM。</p>
+
+    <h3>3.1 PIM 原生的下界距离核</h3>
+    <p>索引仍是 IVF–RaBitQ。每条向量有一份给 PIM 用的 1-bit 基码，以及留在 host 内存里、供重排用的多比特码。RaBitQ 风格的下界分两步：先从二进制库码和量化查询得到整数相似度，再和逐向量、查询–簇辅助因子合成平方距离估计及其概率误差界。直接把完整路径搬到 DPU，仍要为每条码做人口计数，并用软件浮点做重建。</p>
+    <p>PIVOT 采用 FAISS 里对查询做零点中心量化的形式，去掉对每条库码的单独人口计数，改用加权 XOR–人口计数和整数累加得到 I(q, x)，再重建平方距离下界 LB<sup>2</sup>(q, x)。为了不再走通用软件浮点，它引入缩精度 FastFloat：用符号、指数和编译期设定的较短尾数，以整数和按位运算做对齐、尾数运算和规格化，并把 b<sub>x</sub> I(q, x) s<sub>q,j</sub> 熔成一次缩精度操作。第 VI-D 节后面会看到，这条路径对召回的影响很小，对吞吐影响很大。</p>
+
+    <h3>3.2 阈值引导的协同过滤</h3>
+    <p>有了逐向量下界，还需要在扫描前给出查询相关阈值，并且不要在 DPU 上维护堆。离线时，每个簇用 Nh 个箱子的残差范数直方图刻画残差分布，几乎不增加逐向量元数据。在线时，把簇内残差方向近似为各向同性，用标准正态上尾估计半径 r 内的期望存活量 M<sub>j</sub>(q, r)，再二分找到期望能覆盖最终 top-k 的半径 τ<sub>0</sub>(q)。各向同性是刻意做轻的，会有模型误差，因此用一小批校准查询乘上因子 β<sub>ϵ</sub>，使真实第 k 近邻落在阈值之外的比例不超过 ϵ，得到 τ(q)=β<sub>ϵ</sub> τ<sub>0</sub>(q)。没有查询轨迹时，可用抽样库向量充当校准查询。</p>
+    <p>CPU 先做 IVF 粗路由，再按 M<sub>j</sub>(q, τ(q)) ≥ µ<sub>min</sub> 丢掉期望存活量过低的簇。µ<sub>min</sub> 按 nprobe 区间校准，使簇过滤造成的 Recall@k 绝对损失不超过 δ。这和直接减小 nprobe 不同：后者按质心距离砍掉排在后面的簇，PIVOT 仍评估每一个被探测簇的查询条件存活量。通过过滤的列表连同编码查询和 τ<sup>2</sup>(q) 送到驻留该切片的 DPU；tasklet 划分列表，对每个向量算 LB<sup>2</sup>，仅当 LB<sup>2</sup>(q, x) ≤ τ<sup>2</sup>(q) 时写出 ID。热路径里没有查询相关 LUT，也没有排名缓冲或逐向量同步。CPU 收集存活 ID，用完整多比特 RaBitQ 码重排，再插入 CPU 侧 top-k 堆。</p>
+
+    <h3>3.3 数据布局、特化 kernel 与 CPU–PIM 流水</h3>
+    <p>实现基于 FAISS 的 IVF–RaBitQ 和 UPMEM SDK，用 C++ 写成。大倒排表按先前 PIM-ANNS 工作的办法切片并分布到 DPU，热门列表做复制；同一批次里若有多个副本，选当前已分配扫描量最低的 DPU。每条 PIM 驻留记录把向量 ID、1-bit 基码和下界因子连续放在 MRAM。Tasklet 把存活 ID 先堆在私有、DMA 大小的 WRAM 缓冲里，满了再短暂同步、一次性 DMA 到 DPU 级 MRAM 输出区；host 只用 scatter–gather 取回已填充的区域。同步被留在逐向量热路径之外。</p>
+    <p>维度、qb、tasklet 数、DMA 与输出缓冲、FastFloat 尾数宽度在索引和配置确定后就不再变。通用 kernel 会在热路径里留下配置分支、通用循环和动态 WRAM 分配（PIM 上动态分配开销和争用都不小）。PIVOT 在索引准备阶段生成特化 DPU 二进制：静态分配 tasklet 本地缓冲，去掉配置分支，固定循环上界，展开 XOR–人口计数，并把熔接的 FastFloat 乘积内联进下界计算。同一配置编译一次、缓存后复用。</p>
+    <p>同步调度会把 CPU 准备、PIM 过滤、取回和重排串起来，两边轮流空转。流水是：DPU 过滤 batch i 时，CPU 准备 i+1（粗路由、存活量估计、簇过滤、调度、查询编码），并重排 i−1 的存活者；i 一结束就取回 ID、立刻发射 i+1，然后在 DPU 过滤 i+1 时重排 i。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <p>全部实验在真实机器上跑，不是模拟器。平台是双路 Intel Xeon Silver 4216（2.10 GHz）、251 GiB DDR4，以及 20 条 UPMEM DIMM、2,543 个可用 DPU（400 MHz）。系统为 Ubuntu 22.04.5、UPMEM SDK 2025.1.0；host 用 GCC 11.4，DPU 用 UPMEM Clang 12，均为 -O3；FAISS 打开 AVX-512 和 Intel MKL。</p>
+    <ul>
+      <li><strong>数据集：</strong>十亿级 SIFT1B（1B 向量，128 维，uint8）和 DEEP1B（1B，96 维，float32）。各提供 10,000 条查询，1,000 条用于校准，9,000 条用于评测。另用 MS MARCO 子集 MS MARCO10M（10M，1,024 维，float32，1,000 条查询）看高维。参数扫描和硬件扩展用 DEEP1B 的 100M 子集 DEEP100M。</li>
+      <li><strong>CPU 基线：</strong>FAISS-IVF-RaBitQ，与 PIVOT 同一套索引和多比特重排路径。</li>
+      <li><strong>PIM 基线：</strong>DRIM-ANN（开源 IVFPQ，原论文的 PQ-M=16、INT8 输入）。DRIM-ANN-Rerank 在此之上加 CPU 重排，DPU 本地 top-k 容量取还能塞进 64 KB WRAM 的最大值为 500，重排开销计入端到端。UPVSS 的 384–512 GB 全精度索引超出 PIM 容量，无法在 1B 规模运行。UpANNS 被排除：设计同属 IVFPQ，原论文报告不如 DRIM-ANN，且 per-tasklet top-k 在 k=500 时超过 WRAM。PIMANN 被当作正交的调度工作，未纳入对照。</li>
+      <li><strong>指标：</strong>Recall@k 与端到端 QPS。端到端时间包括在线 CPU 计算、PIM 执行和 CPU–PIM 传输；索引构建、校准、kernel 编译和初始装库算离线，不计。默认 batch=1,000，k=100，qb=4，多比特码宽 nb=8，ϵ=0.01，δ=0.002，Nh=64，FastFloat 尾数 7 bit。</li>
+    </ul>
+    <div class="callout teal">这是仓库里多数 LLM-PIM 仿真笔记之外的重要差别：数字来自 20 条 UPMEM DIMM 上的墙钟 QPS 和召回，不是 Ramulator 一类系统模拟器。代价是平台、DPU 可用数量和 WRAM 容量都写进了结果的前提里。</div>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <p>图 6 是 DEEP1B / SIFT1B、三种 nlist 上的吞吐–召回曲线，每个点对应不同 nprobe。PIVOT 在两条数据集、全部 nlist 上保持更高 QPS，而且优势随召回升高而变大——更高召回需要更大 nprobe，扫描更重，才吃得上 PIM 的带宽和并行。PIVOT 与 FAISS-IVF-RaBitQ 的最高召回几乎相同，说明 PIM 原生核和偏保守的过滤没有把精度换掉。DRIM-ANN 停留在明显更低的召回区：PQ-M=16 受 WRAM 限制，量化误差更大；在 DEEP1B 上还要把原始 float32 先量化成 INT8。DRIM-ANN-Rerank 能抬召回，但固定的 DPU 本地 500 槽可能在 CPU 重排前丢掉全局有用的候选，而且不能再加大。</p>
+    <p>图 7 把「在给定最低 Recall@100 下、扫过所有 nlist 和 nprobe 后的最佳 QPS」摊开来。相对 FAISS-IVF-RaBitQ：高于 0.80 时是 5.0–5.1×，高于 0.95 时是 14.0–18.8×（图 7 柱上 DEEP1B 一侧标 14.0×，SIFT1B 一侧标 18.8×，与该区间相符）。相对 DRIM-ANN-Rerank，只比较对方能达到的目标：DEEP1B 最高 10.2×，SIFT1B 最高 4.8×。该基线在 DEEP1B 上达不到 0.85 以上，在 SIFT1B 上达不到 0.90 以上——图中的叉就是这个意思。摘要里的 18.8× 和 10.2×，分别对应「高召回相对 CPU 的上限」和「在先前 PIM 基线可达目标上的上限」，不是全曲线几何平均。</p>
+    <h3>过滤掉了什么，以及两级是否都必要</h3>
+    <p>图 8 统计各级之后剩下的向量数。第 VI-C 节写：在 nprobe=128 时，CPU 簇过滤先去掉 DEEP1B 被探测向量的 38.3–55.4%、SIFT1B 的 39.1–48.3%；PIM 向量过滤再把通过的向量收成很小的存活集。两级合计去掉最初被探测向量的 99.3–99.7%。簇过滤减的是 DPU 扫描量，向量过滤减的是 PIM–CPU 传输和 CPU 重排。簇过滤在更大 nprobe、更小 nlist 时更有效——更大 nprobe 会纳入更多边缘簇，更大 nlist 则让列表更细、短，低收益工作本身更少。</p>
+    <p>图 9 的消融（在所有变体都能达到的最高召回目标上）：用 DPU 本地 top-500 替换 PIM 向量过滤，QPS 在 DEEP1B / SIFT1B 上分别降 68.9% 和 68.2%；两级都关掉并走同一套本地选拔加 CPU 重排，QPS 再降到相对完整 PIVOT 的 −77.5% 和 −79.3%。本地 top-500 变体到不了更高召回，因为 WRAM 限制了可供重排的候选池。CPU 簇过滤的贡献随 nprobe 增大、低收益簇进入探测集而上升。</p>
+    <h3>Kernel、流水和敏感性</h3>
+    <p>FastFloat 相对通用软件浮点把 QPS 提高 2.57–2.75×，两条数据集、全部评测 nprobe 上 Recall@100 最多只动 0.07 个百分点。96 维的 DEEP1B 收益略大，因为重建占扫描时间的比例更高。流水把端到端时间在 DEEP1B / SIFT1B 上分别缩短 29.8% 和 37.2%。Kernel 特化再把 QPS 提高 1.49–1.50×。</p>
+    <p>参数扫描在 DEEP100M、nlist=8192、nprobe=2048 上进行，文中强调这是看趋势，不是绝对性能。增大 δ 会更激进地过滤低收益簇、提高 QPS，测得召回仍高于设定目标。增大 ϵ 则让阈值更不保守，存活者变少、QPS 上升、召回逐渐下降。qb=4 与 qb=8 曲线接近，qb=2 对校准更敏感，默认因此取 qb=4。换 k∈{1,10,100} 时，在双方都能达到的目标上，PIVOT 相对 FAISS-IVF-RaBitQ 为 4.1–10.7×，相对 DRIM-ANN-Rerank 为 2.6–4.9×。DRIM-ANN-Rerank 的召回随 k 变差，k=100 时只到 0.70 这一档，因为 500 槽的过采样余量不够，且不能再加大。</p>
+    <h3>扩展性和高维</h3>
+    <p>图 14 在 DEEP100M 上看 DPU 数和 tasklet 数。吞吐随 DPU 数稳定上升，但是次线性：CPU 侧阶段不随 DPU 扩展，倒排表长度不均也会伤害负载均衡。Tasklet 吞吐大约到 11 条就进入平台——UPMEM 上来自同一 tasklet 的指令间隔 11 个周期，大约 11 条就够填满流水线，再加更多几乎只增加 WRAM 压力。</p>
+    <p>图 15 是 1,024 维 MS MARCO10M。低召回、小 nprobe 时，扫描工作不够摊销固定的 CPU–PIM 准备和传输，PIVOT 会略慢于 FAISS-IVF-RaBitQ；论文把这一段也画出来，并写明实践上更关心高召回。召回和 nprobe 升高后，扫描重新占主导，Recall@100 高于 0.95 时 QPS 达到 CPU 的 4.38×。DRIM-ANN 两个变体的 Recall@100 都低于 0.66：PQ-M=16 对 D=1024 粒度不够；再加大 M 会让查询相关 LUT 变大，和本地 top-k 状态继续争 WRAM。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 落地可能性</h2>
+    <p>和仓库里多数面向 LLM 解码的 PIM 笔记不同，PIVOT 已经在商品 UPMEM 硬件上跑通，数字是墙钟 QPS 和召回，不是系统模拟器里的加速比。对象也不是注意力或 KV 映射，而是 IVF 扫描这一类内存密集、可数据并行的向量检索。如果机房里已经有 UPMEM DIMM，并且检索负载确实落在「大 nprobe、高召回、扫描占主导」的区段，这条「CPU 做全局协调和重排、PIM 做无 LUT、无分布式堆的过滤」路径是可以直接尝试的，不必先等一块新芯片。</p>
+    <p>走到现有向量数据库或 RAG 栈里，还有几件正文没有做、但会卡住部署的事：</p>
+    <ul>
+      <li><strong>已经能在商品 PIM 上跑，并不等于已经接进检索服务。</strong>评测是独立的 Recall@k–QPS 曲线，没有和 RAG 流水线、过滤/更新、多租户查询调度或现成向量数据库集成。引言把 RAG 和向量数据库列为应用背景，实验没有进入这些系统。</li>
+      <li><strong>索引构建和精细码仍在 host。</strong>离线索引按原版 IVF–RaBitQ 走；PIM 只放 1-bit 基码和辅助因子，完整多比特码留在主机内存。部署时 host 侧仍然要扛一份精细表示，PIM 容量约束换成了「基码 + 因子」，不是把整个索引搬进 DIMM。</li>
+      <li><strong>扩展是次线性的，而且受 CPU 侧和倒排表偏斜限制。</strong>DPU 加得再多，粗路由、阈值估计、重排和传输不会自动按比例变快。低召回、小库、小 nprobe 时，准备和传输摊不薄，甚至会慢于同一套 FAISS CPU 路径——高维 MS MARCO10M 的低召回区已经出现这种情况。</li>
+      <li><strong>设计原则写的是面向一类商品 PIM，测量只在 UPMEM 上。</strong>按位运算友好、WRAM 小、核间隔离，这些假设可以迁移，但 FastFloat、11 条 tasklet 填流水、以及 64 KB WRAM 的具体数字都绑在 UPMEM 上。换一种算术更强或局部存储更大的 PIM，权衡会变。</li>
+      <li><strong>没有和 GPU ANNS 比，也没有改图索引。</strong>相关工作明确说 CPU / GPU / FPGA 平台约束不同，不宜直接对比。方法绑定簇式 IVF 扫描，HNSW 一类图遍历不在范围内。校准需要预留查询或抽样库向量，ϵ 和 δ 要按召回目标再调。</li>
+    </ul>
+    <p>更务实的落地点，是把 PIVOT 看成「在已经出货的 UPMEM 上，把 IVF 扫描改成 PIM 原生过滤」的系统工作：高召回、扫描重的时候收益最大，低召回或传输占主导时不要指望摘要里的 18.8×。它不取代 GPU 向量检索，也不自动变成 RAG 加速器。文中没有给出开源仓库链接；DRIM-ANN 的对照用的是对方的开源实现，PIVOT 自身能否复现，预印本没有提供代码地址。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 局限</h2>
+    <ul>
+      <li>只在 UPMEM 上实测；没有其他商品 PIM，也没有定制近存加速器对照。</li>
+      <li>主结果是 IVF–RaBitQ 相对 FAISS 同索引 CPU 路径、以及 WRAM 受限的 IVFPQ PIM 基线；UPVSS、UpANNS 因容量或 WRAM 未进入 1B 对照，也没有 GPU ANNS 数字。</li>
+      <li>DRIM-ANN 系列在高召回、高维上先碰到量化粒度和本地堆容量墙，高召回区的 10.2× 只相对「该基线还能达到的目标」，不能外推成相对任意 PIM-ANNS 的加速。</li>
+      <li>CPU–PIM 扩展次线性；低召回区可能慢于 CPU。参数扫描在 DEEP100M 上进行，作者自己写明只表征趋势。</li>
+      <li>不覆盖图索引、索引更新、过滤条件、以及与向量数据库 / RAG 系统的集成。精细码仍在 host，校准和特化 kernel 属于离线成本（未计入 QPS）。</li>
+      <li>预印本未写会议录用，也未提供 PIVOT 的公开实现链接。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>备注与出处</th></tr></thead>
+      <tbody>
+        <tr><td>相对 CPU 的最佳 QPS</td><td>Recall@100&gt;0.80 时 5.0–5.1×；&gt;0.95 时 14.0–18.8×</td><td>FAISS-IVF-RaBitQ；扫全部 nlist / nprobe 的最佳点；图 7 柱上 DEEP1B 为 14.0×、SIFT1B 为 18.8×；第 9 页、摘要。商品 PIM 硬件实测，不是仿真，也不是几何平均</td></tr>
+        <tr><td>相对先前 PIM 的最佳 QPS</td><td>DEEP1B 最高 10.2×，SIFT1B 最高 4.8×</td><td>仅在 DRIM-ANN-Rerank 能达到的召回目标上；该基线 DEEP1B 达不到 &gt;0.85，SIFT1B 达不到 &gt;0.90；第 9 页、摘要。硬件实测</td></tr>
+        <tr><td>两级过滤去掉的向量</td><td>99.3–99.7%</td><td>相对最初被探测向量；nprobe=128 时 CPU 先去掉 DEEP1B 的 38.3–55.4%、SIFT1B 的 39.1–48.3%；第 VI-C 节、图 8。硬件实测</td></tr>
+        <tr><td>过滤消融（最高共同召回目标）</td><td>去掉 PIM 过滤：QPS −68.9% / −68.2%；两级都关：−77.5% / −79.3%</td><td>DEEP1B / SIFT1B；本地 top-500 替代；图 9、第 VI-C 节</td></tr>
+        <tr><td>无 PIM 侧 top-k 时的输出放大</td><td>最多 7813×</td><td>相对 CPU 全局 top-k 的返回候选数；图 3(a)、第 III-B 节。这是动机实验，不是 PIVOT 的端到端加速</td></tr>
+        <tr><td>WRAM 墙</td><td>PQ LUT 在 M=16 接近 64 KB，M≥32 超出；per-DPU top-k 在 k=1000、per-tasklet 在 k=100 超出</td><td>图 2(b)、图 3(b)、第 III 节。硬件实测</td></tr>
+        <tr><td>FastFloat</td><td>QPS 2.57–2.75×；Recall@100 最多变 0.07 个百分点</td><td>相对 UPMEM 通用软件浮点；第 VI-D 节、图 10。硬件实测</td></tr>
+        <tr><td>CPU–PIM 流水</td><td>端到端时间 −29.8% / −37.2%</td><td>DEEP1B / SIFT1B；第 VI-D 节、图 10</td></tr>
+        <tr><td>配置特化 kernel</td><td>QPS 1.49–1.50×</td><td>相对通用 DPU kernel；第 VI-D 节、图 10</td></tr>
+        <tr><td>不同 k 的最佳 QPS</td><td>vs CPU 4.1–10.7×；vs DRIM-ANN-Rerank 2.6–4.9×</td><td>k∈{1,10,100}，仅双方都达到的目标；k=100 时后者只到 0.70 召回档；图 13、第 VI-E 节。DEEP100M 扫描设定见正文</td></tr>
+        <tr><td>高维 MS MARCO10M</td><td>Recall@100&gt;0.95 时相对 CPU 4.38× QPS</td><td>D=1024，10M 向量；低召回区会略慢于 CPU；DRIM-ANN 变体 Recall@100&lt;0.66；图 15、第 VI-F 节。硬件实测</td></tr>
+        <tr><td>硬件扩展</td><td>吞吐随 DPU 数上升但次线性；tasklet 约 11 条后进入平台</td><td>DEEP100M；同一 tasklet 指令间隔 11 周期；图 14、第 VI-F 节</td></tr>
+        <tr><td>实测平台</td><td>20 条 UPMEM DIMM，2,543 个可用 DPU，400 MHz；双路 Xeon Silver 4216 2.10 GHz，251 GiB DDR4</td><td>第 VI-A 节。默认 batch=1000，k=100，qb=4，ϵ=0.01，δ=0.002</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.27010v1（2026-11-20）。预印本只署香港中文大学，没有会议录用或 camera-ready 声明。QPS、召回、过滤比例与消融数字均来自真实 UPMEM 硬件（20 条 DIMM、2,543 个可用 DPU）上的端到端测量，不是系统仿真。
+  </footer>
+</div>
+</body>
+</html>
