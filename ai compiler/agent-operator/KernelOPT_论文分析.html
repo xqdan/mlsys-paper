@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KernelOPT 论文分析 | 编译产物感知的模型级 kernel 优化</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.DC · v3 2026-11-19</span>
+      <span class="badge">arXiv:2609.30059v3</span>
+      <span class="badge">编译器产物 · 智能体搜索</span>
+      <span class="badge ok">Red Hat · PyTorch 团队实习</span>
+      <span class="badge warn">大加速常混有精度变化</span>
+    </div>
+    <h1>KernelOPT：先看 Inductor 产物里该改哪段，再在整图上决定留不留</h1>
+    <p class="subtitle">面向 <code>torch.compile</code> 生成的 Triton 体和外部库调用做剖析引导搜索，并用模型级正确性与性能门限约束替换。作者把“单 kernel 变快但整模型没有变快”写成了明确的评价问题。</p>
+    <p class="meta">
+      <strong>论文</strong>：Aheli Poddar, Sanskar Prasad, Arindam Samanta, Subha Chakraborty, Vishal Goyal, Rohit Singh Rathaur. <em>KernelOPT: Dispatch-Aware Agentic Search for GPU Kernel Optimization</em>.
+      <a href="https://arxiv.org/abs/2609.30059">arXiv:2609.30059</a>。
+      2026-09-24 首发，2026-11-19 修订为 v3。前四位作者在 Red Hat 的 PyTorch 团队实习期间完成此工作。
+      代码：<a href="https://github.com/TorchedHat/KernelOPT">github.com/TorchedHat/KernelOPT</a>。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#takeaway">一句话结论</a></li>
+      <li><a href="#problem">问题：孤立加速推不到模型</a></li>
+      <li><a href="#method">做法：两条路径和剖析引导搜索</a></li>
+      <li><a href="#verify">四级验证，精度政策并不统一</a></li>
+      <li><a href="#results">主结果：先看分母和精度</a></li>
+      <li><a href="#gap">多 kernel 组合鸿沟</a></li>
+      <li><a href="#deploy">落地可行性</a></li>
+      <li><a href="#numbers">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="takeaway">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">KernelOPT 想解决的不是“再刷高 KernelBench 单题分数”，而是：现代编译器已经同时生成 Triton kernel 和 cuBLAS/cuDNN 一类外部调用，孤立地改其中一段，常常变不成整模型变快。它在 NVIDIA H200 上评了全部 250 道 KernelBench，相对开启 <code>max_autotune</code> 的 <code>torch.compile</code>，L1 / L2 / L3 的几何平均加速分别是 1.40 倍、1.15 倍和 1.07 倍；若只统计超过 1.03 倍的题，则是 2.54 倍（36 题）、1.84 倍（23 题）和 1.37 倍（11 题）。</p>
+    <p>这些数字必须连着作者自己的警告一起读：回退题按 1 倍计入全量几何平均；若干最大加速来自代数改写再叠加降低算术精度；提示词并没有强制保持与基线相同的算术。</p>
+  </section>
+
+  <section class="card" id="problem">
+    <h2>2. 问题：孤立加速推不到模型</h2>
+    <p>PyTorch Inductor 作为 <code>torch.compile</code> 的默认后端，会把生成的 Triton 和外部库调用拼在一起。编译器代码在调度、融合和代数简化上仍有空间，但专家级实现（例如 FlashAttention）成本很高。近期的 LLM 智能体多在生成或改写单个 kernel，缺的是如何在<strong>编译产物</strong>里选目标，以及如何用<strong>模型级</strong>测量决定去留。</p>
+    <p>作者把编译模型写成 <code>M0 = ⟨{k1,…,km}, L⟩</code>：<code>{ki}</code> 是 Triton 子 kernel，<code>L</code> 是外部库调用。在“替换单个 Triton 函数体”这条路上，外部调用先保持不动——这缩小了搜索空间，也放弃了一部分跨边界融合，并不能据此断言库 kernel 已经最优。追踪路径还可能先强制使用 Triton GEMM 模板，再识别剩下的外部调用，因此文中的“dispatch 保持”指的是追踪后产物里还在的调用，不一定是不受约束的编译器原本会选的 dispatch。独立合成路径则可以改写操作组的 dispatch。</p>
+  </section>
+
+  <section class="card" id="method">
+    <h2>3. 做法：两条路径和剖析引导搜索</h2>
+    <p>系统同时支持独立的 Triton / Helion 输入和 PyTorch 模型输入，都走 Nsight Compute 剖析、策略分析和“计划—执行—检查—再剖析”循环。默认的 PyTorch 多 kernel 流程有两条路：</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>独立合成</h4>
+        <p>从追踪到的操作组生成实现，对照原始 eager 模型做验证，通过后再做孤立优化，最后装配。若没有任何实现通过合成验证，才走另一条路。</p>
+      </div>
+      <div class="tile">
+        <h4>完整产物替换</h4>
+        <p>抽出 Inductor 输出，尝试可做的融合，再优化其中合格的 Triton 函数体。模型级检查失败可以触发定向重试。</p>
+      </div>
+    </div>
+    <p>追踪会打开 <code>max-autotune</code>，并在可用时选择 Triton GEMM 和卷积后端，然后识别 <code>async_compile.triton</code> 块和外部调用。分组启发式最多把六个组合并成一组；更大的输入则把模板和外部调用组分开，只合并其他连续组。生成器可以改写一组内的操作，包括 dispatch 和算术。每组最多 <code>K</code> 次代码生成，用种子 0 和 42 的随机输入、在 <code>rtol = atol = 10^{-4}</code> 下对照 eager 模型。若抽不出 Triton kernel，CLI 会写下 <code>torch.compile</code> 回退并在最终计时前退出。</p>
+    <p>智能体结构改自 AccelOpt 的规划器—执行器—总结器，跑在 LangGraph 状态机上。剖析器从 <code>ncu --set full</code> 报告里取吞吐、时长、启动指标和优化规则；策略分析按内存与计算的 Speed-of-Light 吞吐划分档位：任一项超过 80% 就建议先调参数，否则比较两者。对合格的多 kernel 输入，另由 LLM 提出更高层策略。主实验取 <code>K = 4</code>。</p>
+    <p>孤立目标上的搜索是带链标识的束搜索（主实验 <code>T = 5, N = 4, B = 4</code>），从基线 kernel 出发。轮次内的在位更新，在该轮所有候选都有孤立可调用计时时比较这些时间，否则比较 NCU 时长；度量可以跨轮变化。搜索返回的是这些状态更新后的全局最优记录，不是对最终束做一次按整模型运行时间的排序。可选的搜索中再缝合检查会记下模型级正确性，但不改孤立正确性标志。</p>
+    <p>经验记忆是容量有限的 FIFO：加速至少 5%，或变慢到 1.20 倍及以上，才写入；执行或正确性失败记录可以绕过这条门槛。另外还有跨运行的策略跟踪（连续至少 3 次、成功率低于 30% 标为 AVOID），以及作为规划器上下文的基准衍生指南。这些都是建议，不是强制约束，单项效果没有在实验里拆开。</p>
+  </section>
+
+  <section class="card" id="verify">
+    <h2>4. 四级验证，精度政策并不统一</h2>
+    <ol>
+      <li><strong>静态与试跑</strong>：干跑抓住语法和运行时失败。</li>
+      <li><strong>多种子数值检查</strong>：种子 0、42、1337。若提供独立参考路径，按 <code>rtol = atol = 10^{-3}</code> 比较；该参考本身可以是合成出的 Triton，不一定是 eager PyTorch。否则由正确性智能体生成 CPU 参考和测试规格，输出元素超过 100,000 时容差下限为 <code>10^{-3}</code>。合成验证对照原始 eager 模型，容差是 <code>10^{-4}</code>。这些都是有限测试，不是等价证明。</li>
+      <li><strong>模型级正确性</strong>：先尝试 <code>allclose(rtol = atol = 10^{-4})</code>；失败则引入 float64 参考，按 eager 与候选相对双精度误差的比值或幅度规则接受。规则可以接受未通过最初逐元素检查的候选。若无法重建参考输入或候选在其上失败，还可以改用候选自己的输入生成器，只检查输出个数、形状、dtype，并筛非有限或近乎常数的输出。</li>
+      <li><strong>性能门</strong>：完整产物路径上，替换后的模型用子进程隔离的 CUDA event、<code>do_bench</code>（25 ms 预热，100 ms 重复）计时，允许相对当前已装配模型最多变慢 3%（<code>γ = 1.03</code>）。当前模型可能已经包含更早的替换。CLI 还会尝试相对 <code>torch.compile</code> 做最终模型计时，测得加速低于 0.97 倍则回退。</li>
+    </ol>
+    <div class="callout warn">规划器提示会警告不要对 GEMM 操作数放开 TF32 或做 BF16 转换，但运行时对未被归类为归约的 matmul 模板又明确建议 <code>allow_tf32=True</code>。两套指令是冲突的，并不是一条被执行层强制的算术精度政策。是否留下候选，由数值验收说了算。后文涉及改精度的结果，必须按这个前提读。</div>
+  </section>
+
+  <section class="card" id="results">
+    <h2>5. 主结果：先看分母和精度</h2>
+    <p>评测在裸 NVIDIA H200（132 SM）上，搜索后端是经 Google Cloud Vertex AI 调用的 Claude Sonnet 4.6。主基线是对原模型做 <code>torch.compile</code> 并打开 Inductor <code>max_autotune</code>。覆盖 KernelBench 全部 250 题，外加 10 个 Triton 和 10 个 Helion 教程 kernel（共 270）。作者报告总计算开销大约 1,100 个 H200 GPU 小时（L1 约 145 小时 / 1 GPU，L2 约 210 小时 / 2 GPU，L3 约 730 小时 / 最多 8 GPU 并行，单个模型从 6 分钟到 66 小时不等）。</p>
+    <p>终局日志把每题分成三类：保留加速超过 1.03 倍为优化，落在 [0.97, 1.03] 为匹配，验证失败、性能被拒或抽不出 Triton 则标为回退。几何平均里，匹配题用原始记录比值，回退题记 1 倍。</p>
+    <div class="kpi">
+      <div><div class="n">1.40×</div><div class="k">L1 全量相对 compile<br>36 题优化 / 48 匹配 / 16 回退</div></div>
+      <div><div class="n">1.15×</div><div class="k">L2 全量相对 compile<br>23 / 43 / 34</div></div>
+      <div><div class="n">1.07×</div><div class="k">L3 全量相对 compile<br>11 / 4 / 35</div></div>
+      <div><div class="n">1.23×</div><div class="k">250 题全量几何平均<br>70 题超过 1.03×</div></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>集合</th><th>相对 compile（全量）</th><th>相对 compile（仅优化题）</th><th>相对 eager（有计时）</th><th>相对 eager（仅优化题）</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>L1（100）</td><td>1.40×</td><td>2.54×（36 题）</td><td>1.72×</td><td>2.64×</td></tr>
+        <tr><td>L2（100）</td><td>1.15×</td><td>1.84×（23 题）</td><td>1.79×</td><td>2.82×</td></tr>
+        <tr><td>L3（50）</td><td>1.07×</td><td>1.37×（11 题）</td><td>1.56×</td><td>1.69×</td></tr>
+      </tbody>
+    </table>
+    <p>全量相对 eager 的列覆盖 99 / 100 / 39 题（五次停在最终验证，七次在计时前就走了编译器回退）。在两种基线都有计时的题目上，<code>torch.compile</code> 本身相对 eager 的几何平均是 1.22 / 1.56 / 1.43 倍。按回退计入 1 倍后的中位数加速只有 1.01 / 1.00 / 1.00 倍，说明全量几何平均被少数大加速拉高。</p>
+    <p>最大的几个例子里，结构改写和精度变化经常缠在一起：L1-012 把对角矩阵乘法改成行缩放（88.63 倍）；L2-018 简化线性层后的单例归约链（33.11 倍）；下三角 / 上三角乘法（L1-015 20.26 倍、L1-014 14.04 倍）还把矩阵操作数转成了 FP16；L2-064（8.30 倍）和 L2-022（7.18 倍）在融合 epilogue 的同时，源码里明确允许 <code>tl.dot</code> 使用 TF32。</p>
+    <div class="callout warn">70 个优化结果里，有 16 道矩阵乘任务在生成源码中显式使用 FP16/BF16 操作数或允许 TF32；第 17 道 L3-002 没写 <code>tl.dot</code> 的输入精度，交给 Triton 默认值和环境。若只把这 17 题改记为 1 倍、分母仍包括全部题目，L1–L3 几何平均分别降到 1.14 / 1.07 / 1.04 倍，它们贡献了全部 250 题对数加速之和的 57.4%。这不是一次对齐精度的重测。通过数值容差，不等于算术精度相同。去掉至少 10 倍的因子后，三个级别还剩 96 / 99 / 50 题，几何平均为 1.245 / 1.112 / 1.072 倍。</div>
+    <p>回退日志里有 73 次性能回退（L1 15、L2 34、L3 24）、5 次最终验证失败、7 次没有生成 kernel。三个被标为回退的 L1 运行（041、047、049）仍保留了生成的 Triton <code>final model.py</code>；L3-018 和 L3-044 各有不止一份终局报告，作者采用最后一份，并说明这两题保存工件来自哪一次尝试并不清楚。日志里的“被拒候选”和磁盘上保存的产物不一定是同一份。</p>
+  </section>
+
+  <section class="card" id="gap">
+    <h2>6. 多 kernel 组合鸿沟</h2>
+    <p>完整产物路径为 250 题中的 126 题报告了逐 kernel 优化摘要。其中 37 题（29%）至少有一个孤立加速超过 1.03 倍，但终局却是匹配（21 题）或性能回退（16 题）。例如 L2-034 的孤立 kernel 报告 30.75 倍，端到端却是 0.994 倍。</p>
+    <p>Dispatch 开销、布局转换和 launch 配置都可能造成这种落差，但保存下来的计时并没有把这些效应量化出来。作者还指出，用 Amdahl 公式去“解释”丢失的端到端加速并不成立：孤立测量和端到端比较的基线可能不同，也缺少该 kernel 在原模型运行时间中的份额 <code>f</code>。实现上还有两处会让孤立代码和装配代码不一致，且影响未被测量：Inductor 再缝合路径会剥掉 <code>autotune</code> 装饰器，只用列出的第一个配置去改 size hint，并不保留测过的获胜配置；独立装配按 60 字符名字查找，而优化写入目录用的是 30 字符名字，找不到就会退回初始源码。</p>
+  </section>
+
+  <section class="card" id="deploy">
+    <h2>7. 落地可行性</h2>
+    <p>和只在 KernelBench 上刷单 kernel 的工作相比，KernelOPT 更接近“接到 <code>torch.compile</code> 工作流里”的形态：它读 Inductor 产物、保留或改写 dispatch、用模型级门限决定是否交换，并且代码已经公开。若目标是给编译器团队做辅助优化器，这个方向是对的，H200 上约 1,100 GPU 小时也说明它不是交互式的一次性改写工具，而是可批处理的搜索。</p>
+    <p>但现在还不宜把它的标题倍数直接读成“编译器后端稳定快了 1.4 / 1.15 / 1.07 倍”。</p>
+    <ul>
+      <li>中位数几乎是 1 倍，全量几何平均对少数大加速和回退记 1 倍的约定都很敏感。</li>
+      <li>最大收益经常混有代数化简和降低精度；对齐精度后还剩多少，实验没有回答。提示词甚至在 TF32 上自相矛盾。</li>
+      <li>L3 全量只有 1.07 倍，50 题里 35 题回退，更接近“在完整模型上常常什么也留不下来”。</li>
+      <li>评测是固定形状、单一 GPU、单一 LLM，也没有估计题目与模型训练数据的重叠，也没有同等代价下与其他智能体的对照，也没有报告多次运行的稳定性。</li>
+      <li>孤立变快推不到端到端，部分要归咎于测量口径，部分可能要归咎于再缝合和名字截断这类实现缝，后者在生产集成里必须先修。</li>
+    </ul>
+    <div class="callout teal">作者建议的后续也很务实：在统一精度政策下分别测量“合成后、搜索前”和“装配后、搜索后”；把搜索赢家拿到共享输入上独立重测；在相同 GPU 和 token 预算下比较更简单的搜索和其他智能体；对拟替换的 kernel 做模型内剖析，判断局部加速是否够大到能打动模型延迟。这些恰恰是部署前该补的实验。</div>
+  </section>
+
+  <section class="card" id="numbers">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>口径</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>相对 torch.compile 全量</td><td>L1 1.40× / L2 1.15× / L3 1.07× / 全部 1.23×</td><td>回退记 1×；compile 开 max_autotune；H200</td></tr>
+        <tr><td>仅超过 1.03× 的题</td><td>2.54×（36）/ 1.84×（23）/ 1.37×（11）</td><td>同上</td></tr>
+        <tr><td>中位数（回退记 1×）</td><td>1.01× / 1.00× / 1.00×</td><td>L1–L3</td></tr>
+        <tr><td>终局分类</td><td>优化 70，匹配 95，回退 85</td><td>250 题</td></tr>
+        <tr><td>17 道改精度题改记 1× 后</td><td>1.14× / 1.07× / 1.04×</td><td>占全部对数加速之和的 57.4%；非对齐精度重测</td></tr>
+        <tr><td>孤立快、端到端未留下</td><td>126 题摘要中的 37 题（29%）</td><td>例如 L2-034：孤立 30.75×，端到端 0.994×</td></tr>
+        <tr><td>compute 相对 eager</td><td>1.22× / 1.56× / 1.43×</td><td>两种基线都有计时的题目上，compile 自身的加速</td></tr>
+        <tr><td>开销</td><td>约 1,100 H200 GPU 小时</td><td>L1 ~145 h，L2 ~210 h，L3 ~730 h</td></tr>
+        <tr><td>性能门</td><td>γ = 1.03</td><td>允许单次替换最多变慢 3%</td></tr>
+      </tbody>
+    </table>
+    <p>本笔记根据 <a href="https://arxiv.org/abs/2609.30059">arXiv:2609.30059v3</a>（2026-11-19）原文整理，数字均来自论文，未另行复现实验。</p>
+  </section>
+
+  <footer>AI 编译器跟踪笔记 · KernelOPT · 对应 PDF：2609.30059_KernelOPT.pdf</footer>
+</div>
+</body>
+</html>
