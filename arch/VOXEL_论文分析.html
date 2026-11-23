@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voxel 论文分析 | 用编译器感知仿真探索 3D 叠层 AI 芯片的推理效率</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">MICRO 2026</span>
+        <span class="badge">3D 叠层 AI 芯片</span>
+        <span class="badge ok">编译器感知仿真</span>
+        <span class="badge warn">不是 3D-DRAM 硅片实测</span>
+      </div>
+      <h1>Voxel：用编译器感知仿真把 3D 叠层 AI 芯片的效率拆开看</h1>
+      <p class="subtitle">不是又一块 logic-on-DRAM 测试芯片，而是一套能把计算范式、映射和分布式存储绑在一起扫的仿真框架，外加一组针对 LLM 推理的设计空间结论。</p>
+      <p class="meta">
+        <strong>Yiqi Liu</strong>、<strong>Noelle Crawford</strong>、<strong>Michael Wang</strong>（UIUC）；<strong>Jilong Xue</strong>（MICRO 2026 程序标为 Microsoft Research；arXiv 页只给出邮箱）；<strong>Jian Huang</strong>（UIUC）<br />
+        论文：<em>Exploring the Efficiency of 3D-Stacked AI Chip Architecture for LLM Inference with Voxel</em> · MICRO 2026 Session 4C<br />
+        <a href="https://arxiv.org/abs/2604.26821">arXiv:2604.26821</a>（v2，2026-09-12）· 开源仿真器 <a href="https://github.com/yiqiliu2/voxelsim">yiqiliu2/voxelsim</a>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：带宽按面积涨，效率却被分布式拖住</a></li>
+        <li><a href="#s3">3D 叠层 AI 芯片和 Voxel 是什么</a></li>
+        <li><a href="#s4">现有工具的三个缺口</a></li>
+        <li><a href="#s5">做法：接口、事件图，以及四项优化</a></li>
+        <li><a href="#s6">实验怎么做的：IPU 交叉验证，和设计空间扫描</a></li>
+        <li><a href="#s7">结果怎么读</a></li>
+        <li><a href="#s8">功耗、热与可扩展性</a></li>
+        <li><a href="#s9">局限：这些倍数依赖什么假设</a></li>
+        <li><a href="#s10">数字速查</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">把 DRAM bank 用密密麻麻的 TSV 盖在大批 AI 核上，带宽可以随芯片面积一起涨，但存储从此是分布式的：bank 放不齐、核间搬数据、行缓冲冲突，都会把纸面带宽吃掉。Voxel 是一个编译器可定制执行计划的端到端事件驱动仿真器，用来把计算范式、tile/张量映射和底层硬件绑在一起扫。设计空间里最硬的结论是：compute-shift 明显好于 SPMD 和 dataflow；软件感知的 tensor-to-bank 放置，才能把超高带宽用起来；核数不能傻加，要用 core group 把近邻核的 DRAM 访问齐一下。验证做在 Graphcore IPU 仿真器上，校正 DRAM 延迟之后误差为 0.24%–6.8%——这不是 3D-DRAM 硅片实测，不能和仓库里的 Raptor 笔记混读。</p>
+      <div class="kpi">
+        <div><div class="n">1.84×</div><div class="k">三种计算范式之间的性能差距（Takeaway A1；§IV-A）</div></div>
+        <div><div class="n">0.24%–6.8%</div><div class="k">相对「带 DRAM 延迟的 IPU 仿真器」的误差（Fig. 7，§III-D）</div></div>
+        <div><div class="n">80.68%</div><div class="k">软件感知放置相对均匀放置，行冲突开销的平均降幅（Takeaway C2）</div></div>
+        <div><div class="n">58% / 42%</div><div class="k">1024 核、core group=8 时端到端提升：最多 / 平均（Takeaway D2）</div></div>
+      </div>
+      <div class="callout warn">上面四组数字里，只有 0.24%–6.8% 来自与真实芯片仿真器的交叉验证，而且仿真器本身是 IPU 的 SRAM 在扮演「DRAM bank」，再靠 DRAM 仿真器补延迟。1.84×、80.68%、58%/42% 全部来自 Voxel 自己的设计空间扫描，默认配置见 Table III/IV（例如 256 核、12 TB/s、BF16、序列长度 2048）。不要把它们读成某块 3D-DRAM 芯片上的端到端实测。</div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：带宽按面积涨，效率却被分布式拖住</h2>
+      <p>LLM 推理把 AI 芯片的存储墙推得更明显：解码几乎每个 token 都要把权重和不断变长的 KV 再读一遍，算力经常在等带宽。3D 封装给出一条和 2.5D HBM 不一样的路：把 DRAM bank 网格直接叠在逻辑核上方，用高密度 TSV 做垂直总线。TSV 引脚数随芯片面积而不是周长增长，于是存储带宽可以和算力一起扩（§I、§II-A/B）。</p>
+      <p>代价是，这块芯片不再是「所有核共享一块近似均匀的内存」。每个核通过专用 TSV 总线看到的是分布式 bank；核与核之间还要走 NoC。要把峰值带宽打满，就得让尽可能多的 bank 和总线同时忙起来，这直接取决于张量怎么切、怎么放、怎么访问。要把核用满又不要把 NoC 挤死，又取决于计算范式、tile 到核的映射、单核 SRAM、核数和脉动阵列尺寸（§II-C/D）。</p>
+      <p>这些因素是缠在一起的。只加 DRAM 带宽、只加核，或者把现成的 SPMD/dataflow 编译路径原样搬过来，都不一定能把 3D 叠层的纸面优势变成端到端延迟。论文要解决的，是怎么在软硬件两侧把这个设计空间看清楚。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 3D 叠层 AI 芯片和 Voxel 是什么</h2>
+      <p>论文里的「3D AI chip」是一种具体形态（Fig. 1）：底层是一批由 NoC 互连的 AI 核（各带 SRAM scratchpad 和脉动阵列），上面叠一层或多层 DRAM bank。和 H100、TPU 这类 2.5D 封装不同，计算和存储之间是铺满面积的垂直总线，而不是沿中介层边缘走到一排 HBM 堆。</p>
+      <p>Voxel 是为这种形态做的编译器感知端到端仿真框架。编译器通过一套很小的接口写出执行计划，Voxel 据此构造执行事件图，再用事件驱动的方式推进每个核、每个 DRAM bank、NoC 链路和每核 SRAM，并施加热相关约束（§III）。为了跑得动带上千个 operator tile 的 LLM，它会缓存重复的访存模式，并在结构等价的序列之间复用已仿真过的结果；DRAM 通道上相同的访问轨迹还可以合并（Fig. 5）。</p>
+      <p>默认探索点（Table III / IV，须按表读，不是某款产品规格）大致是：软件侧默认 compute-shift、维序（dimension-ordered）tile-to-core 映射、软件感知的 tensor-to-bank 映射；硬件侧默认 2D mesh、总 DRAM 带宽 12 TB/s、256 核、每核 32 宽脉动阵列、core group 大小 8、NoC 链路 16 B/cycle、每核 SRAM 2048 KB；DRAM 8 层 / 192 GB、DRAM 与 AI 核 1.6 GHz、功率密度上限 0.7 W/mm²、精度 BF16、prefill/decode 的 batch 为 1/32、序列长度 2048。</p>
+      <div class="callout teal">和仓库里已有笔记的关系要先说清：<a href="https://github.com/xqdan/mlsys-paper/blob/main/arch/Raptor_论文分析.html">Raptor</a>（ISCA 2026）是 d-Matrix 把加速器逻辑键合在 3D-DRAM 上的早期硅片，测的是存储子系统本身；Voxel 没有这样一块 3D-DRAM 芯片，它提供的是可扫设计空间的仿真器，外加一组架构结论。TOM、八栈近存，以及 <code>arch/pim</code> 下的 Pimba / DCC / PIMphony / PIVOT / Tri-Stack-PIM，走的是近存或 PIM，不是本文这种「AI 核在下、DRAM bank 在上、TSV 按面积铺开」的路径。仓库里的 AccelForge 也是加速器仿真，但对象不是这种分布式叠层 DRAM。同届 MICRO 2026 还有 ATLAS（arXiv 2604.08044），自称面向 3D-DRAM 加速器、并强调与硅片的相关性——本文不分析它，只把它当作并行相关工作记下。</div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 现有工具的三个缺口</h2>
+      <p>论文用 Table I 把已有仿真器对不上号的原因归成三类（§II-E）：</p>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>3D 工具对着 CPU</h4>
+          <p>面向叠层 CPU 核与缓存、通用负载，跑不了大规模 AI 工作负载，也没有张量并行所需的计算范式。</p>
+        </div>
+        <div class="tile">
+          <h4>PIM / NMP 模型太死</h4>
+          <p>分布式存储这一点相近，但通常假定固定的 SPMD，看不出换计算范式、换编译优化会怎样。</p>
+        </div>
+        <div class="tile">
+          <h4>AI 芯片仿真器是 2.5D 内存</h4>
+          <p>多数假定一块近似均匀的全局内存，跟踪不了「核 ↔ 分布式 bank」的交互，也就刻画不了 3D 叠层芯片的性能。</p>
+        </div>
+      </div>
+      <p>于是 Voxel 给自己立了四个目标（§III）：软件可感知（tiling、映射、计算范式要能进结果）、行为要细（单核、单 bank、NoC 都要有粒度）、仿真要快、统计要能被真实 AI 芯片实验交叉验证。作者声称它是「首个」能对带分布式叠层 DRAM 的 3D AI 芯片做快速准确仿真的框架（§III-A）。这句话要当本文自称来读；同届至少还有 ATLAS 走相近问题，笔记不替两篇论文排座次。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 做法：接口、事件图，以及四项优化</h2>
+      <h3>5.1 给编译器的三个原语</h3>
+      <p>执行计划用三个基本函数表达（§III-B）：</p>
+      <ul>
+        <li><code>compute(op_tile, core_id)</code>：哪个 operator tile（MatMul、逐元素，或融合算子）跑在哪个核上；核 SRAM 里没有的输入按需从 DRAM bank 取。</li>
+        <li><code>copy_data(src_tensor, dest_tensor)</code>：张量分片的初始放置，或运行时拷贝 / 预取；目的地可以是某个 bank，也可以是某核 SRAM。</li>
+        <li><code>sync()</code>：屏障。</li>
+      </ul>
+      <p>在此之上还有 <code>allReduce</code> / <code>allGather</code> / <code>broadcast</code> / <code>reduceScatter</code> 等集合通信的复合函数（用多次 <code>copy_data</code> 和本地 <code>compute</code> 拼出来）。融合算子只要把两个算子的输入和计算合在一起即可。Voxel 从这些调用生成执行事件图，再在各硬件部件上推进。</p>
+
+      <h3>5.2 计算范式：把重叠做满</h3>
+      <p>§IV-A 比较了三种代表性范式（Fig. 9）：</p>
+      <ul>
+        <li><strong>SPMD</strong>：算子切成许多独立任务，先算出部分结果，再单独做一次归约。论文按许多现有 SPMD 框架的体同步模型，把计算和归约建成不重叠；归约的 NoC 开销最高可占 SPMD 总时间的 47%，prefill 尤其明显（Fig. 10）。</li>
+        <li><strong>Dataflow</strong>：每个算子只占一部分核，多个算子同时驻留，部分结果在核之间流水传递，下一批算子的数据可以同时从 DRAM 预取。相对 SPMD，prefill 平均快 12.6%。</li>
+        <li><strong>Compute-shift</strong>：整芯片执行当前算子，但把多 tile 共享的张量沿一圈核划分并循环移位。共享张量不必在各核上复制，SRAM 更能用来预取，计算与移位、DRAM 访问更容易重叠。Prefill 上平均比 SPMD 快 47.4%，比 dataflow 快 39.7%，几乎把 NoC 开销藏掉（Fig. 10）。</li>
+      </ul>
+      <p>Takeaway A1 把三种范式之间的差距写成可达 1.84×；A2 的结论是：高效范式要尽量重叠 tile 计算、NoC 通信和 DRAM 访问，三者里 compute-shift 最好。</p>
+
+      <h3>5.3 维序映射：先把跳数压下去</h3>
+      <p>NoC 开销随跳数变。论文比较了 mesh / torus / all-to-all，以及不同的 tile-to-core 映射（§IV-B，Fig. 11）。维序映射能把每次传输的平均跳数压短（论文称可到 ≤2 hops），mesh 上 prefill 平均约快 40%，torus 上平均约快 33%；all-to-all 各核等距，映射不再起作用。NoC-bound 负载的端到端延迟最多可降 39%（Takeaway B1）。映射做好之后，三种拓扑的 NoC 开销都变得不高，于是论文建议用成本更低的 2D mesh 加维序映射，作为接近最优、面积开销最低的组合（Takeaway B2/B3）。Decode 对 NoC 带宽不敏感；prefill 在每链路带宽低于 32 B/cycle 时会变慢（Fig. 15(a)）。</p>
+      <div class="callout navy">NoC 在这里只是 3D 叠层芯片协同设计的一个因子，不是这篇笔记的主题。同届还有专门做大规模 NoC 拥塞管理的 Hermes，不在本页展开。</div>
+
+      <h3>5.4 软件感知的 tensor-to-bank 放置</h3>
+      <p>均匀地把每个张量切到所有 bank 上，在带宽接近传统 2.5D 芯片（文中举例 4 TB/s）时，总线分时还能掩盖单个 bank 的行冲突。但把总带宽加上去、却不按容量同比增加 bank、只靠增加 TSV 总线时，每条总线服务的 bank 变少，行冲突不再容易被藏住，收益在约 10 TB/s 附近打住；16 TB/s 时行冲突开销占到 decode 延迟的 43.35%（Fig. 12(a)，Takeaway C1）。</p>
+      <p>按分配顺序做 bank 交错仍然有假阳性和假阴性。论文改为从执行图检测并发访问：单个或融合算子的全部张量视为并发；相邻两个算子中，前一个的输出和后一个的输入也视为并发。这种软件感知策略在超高带宽下仍把行冲突开销压在 decode 总时间的 14.8% 以内（Fig. 12(a)）。Takeaway C2 写的是：相对均匀放置，行冲突开销平均降低 80.68%。引言里同一件事写成 “up to 80.7%”，措辞不一致，本笔记以更具体的 Takeaway C2 为准，不把 “up to” 和 “average” 混成一句。</p>
+      <p>这个优化主要成全 decode；prefill 是计算受限，DRAM 访问多半藏在计算后面，放置策略带来的好处有限（Fig. 13(a)）。</p>
+
+      <h3>5.5 Core group：加核时把访存齐住</h3>
+      <p>加脉动阵列尺寸或加核，都会带来新的利用率问题（§IV-D）。阵列大于 32×32 之后，tile 与阵列不对齐导致的填充 / 空间利用率下降会让收益迅速变薄（Fig. 15(c)、Fig. 16）。加核则降低 bank-to-core 比，更多核争用同一 bank；NoC 争用还会让各核进度岔开，内存控制器来不及把本可合并的请求凑在一起，行缓冲被来回踢。</p>
+      <p>做法是把物理相邻的核编成 core group，用一个硬件请求跟踪器同步组内的 DRAM 请求：进度明显超前的核，其第 <em>i</em>+1 次访问要等同伴的第 <em>i</em> 次发出之后再下发，避免过早换行（Fig. 14）。Takeaway D2：在 1024 核的配置上，group 大小取 8，端到端性能最多提升 58%，平均 42%。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 实验怎么做的：IPU 交叉验证，和设计空间扫描</h2>
+      <p>证据同样要分成两桶，读的时候必须端稳。</p>
+      <div class="fig">
+        <svg viewBox="0 0 760 236" role="img" aria-label="IPU 交叉验证与 Voxel 设计空间扫描两桶">
+          <rect x="20" y="20" width="350" height="196" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+          <text x="195" y="44" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">交叉验证（§III-D，Fig. 7）</text>
+          <text x="36" y="72" font-family="Segoe UI, sans-serif" font-size="12">• 没有商用 3D AI 芯片，用 IPU Mk2 做仿真器</text>
+          <text x="36" y="94" font-family="Segoe UI, sans-serif" font-size="12">• 1472 核；互连 7.8 TB/s；SRAM 62 TB/s / 896 MB</text>
+          <text x="36" y="116" font-family="Segoe UI, sans-serif" font-size="12">• 960 核当 AI 核；其余 512 核的 SRAM 扮演 bank</text>
+          <text x="36" y="138" font-family="Segoe UI, sans-serif" font-size="12">• 未校正时仿真器平均比 Voxel 快 12.7%</text>
+          <text x="36" y="160" font-family="Segoe UI, sans-serif" font-size="12">• 访存 trace + DRAM 仿真 + TSV 延迟后再跑</text>
+          <text x="36" y="182" font-family="Segoe UI, sans-serif" font-size="12">• 校正后误差 0.24%–6.8%（所评模型）</text>
+          <text x="36" y="204" font-family="Segoe UI, sans-serif" font-size="11" fill="#9a3412">验证的是仿真器一致性，不是 3D-DRAM 硅片</text>
+          <rect x="400" y="20" width="340" height="196" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+          <text x="570" y="44" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">设计空间扫描（§IV，Table III/IV）</text>
+          <text x="416" y="72" font-family="Segoe UI, sans-serif" font-size="12">• 默认 256 核、12 TB/s、2D mesh、compute-shift</text>
+          <text x="416" y="94" font-family="Segoe UI, sans-serif" font-size="12">• 维序映射、软件感知 bank 放置、group=8</text>
+          <text x="416" y="116" font-family="Segoe UI, sans-serif" font-size="12">• DRAM 8 层 / 192 GB，1.6 GHz，0.7 W/mm²</text>
+          <text x="416" y="138" font-family="Segoe UI, sans-serif" font-size="12">• BF16，序列 2048，batch prefill/decode = 1/32</text>
+          <text x="416" y="160" font-family="Segoe UI, sans-serif" font-size="12">• 1.84×、80.68%、58%/42% 全部出自这里</text>
+          <text x="416" y="182" font-family="Segoe UI, sans-serif" font-size="12">• Fig. 21 是接入 LLMServingSim 的用法演示</text>
+          <text x="416" y="204" font-family="Segoe UI, sans-serif" font-size="11" fill="#1e3a5f">扫的是模拟芯片，不是产品实测</text>
+        </svg>
+      </div>
+      <p class="figcap">示意图根据论文 §III-D 与 §IV 的结构重画，不是原文插图。</p>
+      <p><strong>验证桶（§III-D）。</strong> 作者明确说：目前没有商用 3D AI 芯片。他们用 Graphcore IPU Mk2 搭仿真器——该芯片有 1,472 个全互连核、互连总带宽 7.8 TB/s，各核 SRAM 构成分布式存储，合计 62 TB/s、896 MB，可以放下整个 LLM 算子。960 个核当作「AI 核」，剩下 512 个核的 SRAM scratchpad 当作低延迟的分布式「DRAM bank」。未校正时，仿真器结果平均比 Voxel 快 12.7%，因为被用来扮演 DRAM 的 SRAM 无论什么访问模式都能打满带宽。他们随后抽出重复的 transformer block，把核与「bank」之间的访存 trace 送进 DRAM 仿真器，叠上 TSV 传输延迟，再把「模拟 DRAM 时间 − 原来的 SRAM 时间」作为附加延迟插回仿真器。校正之后，所评模型上总时间和 DRAM 访问时间分解与 Voxel 接近，误差 0.24%–6.8%（Fig. 7）。他们还把仿真器 trace 拆成以本地计算为主和以核间搬数为主的时段，分别对照 Voxel 的 <code>compute()</code> 与 <code>copy_data()</code> 事件。</p>
+      <p><strong>扫描桶（§IV）。</strong> 在 Table III/IV 的默认点和扫参网格上，比较计算范式、映射、DRAM 带宽、核数、阵列尺寸、SRAM、能耗等。Llama3-70B 的算子分解见 Fig. 20（prefill 启用 FlashAttention 以减少 DRAM 流量）。Fig. 21 则是把 Voxel 接进集群级仿真器 LLMServingSim、用 ShareGPT 轨迹跑 prefill/decode 分离服务的演示，用来说明 Voxel 可以当服务系统仿真的芯片后端，不是又一次硅片评测。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 结果怎么读</h2>
+      <p>建议按「prefill 还是 decode」分着读。很多优化只在一侧显灵，平均在一起会看错。</p>
+      <h3>计算范式与映射</h3>
+      <p>Prefill 更吃 NoC 和计算重叠，所以范式和映射的差别主要出现在这里：compute-shift 相对 SPMD 平均 47.4%、相对 dataflow 平均 39.7%；维序映射在 mesh 上让 prefill 平均约快 40%。Decode 更吃 DRAM，对 NoC 带宽不敏感。1.84× 是三种范式之间可达的差距，不是对某个 GPU 或 HBM 基线的加速比。</p>
+      <h3>DRAM 带宽与放置</h3>
+      <p>只把总带宽加上去、放置仍用均匀切分，decode 会在约 10 TB/s 附近钝化，16 TB/s 时行冲突就能吃掉 43.35% 的 decode 时间。软件感知放置把同一开销压回 ≤14.8%，Takeaway C2 给出的平均降幅是 80.68%。Prefill 几乎不吃这一套，因为它已经是计算受限。读「带宽扩展」时，要同时看放置策略，否则会把均匀放置下的钝化误当成 3D 封装本身的上限。</p>
+      <h3>核数、阵列与 SRAM</h3>
+      <p>阵列大于 32×32，收益变薄，原因是对齐填充带来的空间利用率下降。傻加核会加重行冲突，甚至可能让端到端变差（Takeaway D1）；加上 8 核一组的跟踪器之后，1024 核配置上最多 58%、平均 42%（Takeaway D2）。Decode 侧，更大的每核 SRAM 有利于加大预取窗口，从而抬高 DRAM 带宽利用率，但到约 8 MB/核就饱和（Takeaway E1）。Prefill 侧，0.5 MB SRAM 时脉动阵列平均利用率已有 67%，每核 SRAM 翻倍只换来平均 3.5% 的延迟改善；扩到 32 倍也只有 16.3%（Takeaway E2）。</p>
+      <h3>算子分解</h3>
+      <p>Llama3-70B 上（Fig. 20）：decode 的 FFN 时间随序列长度和 batch 变化不大，因为被权重加载的带宽限制住了；attention 则会随 KV 变长一起涨。Prefill 的 FFN 和 attention 都会随序列长度和 batch 上升，因为这一侧已经是计算受限。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 功耗、热与可扩展性</h2>
+      <p>§IV-F 看的是「加带宽 / 加核」对能量的影响（Fig. 18、Fig. 19），不是一张实测热像。热在仿真里主要以功率密度上限 0.7 W/mm² 的形式出现（Table IV）。这篇被放在 MICRO 2026 的 “Thermal-Aware 3D-Stacked LLM Accelerators” 分会，但正文并不是 TESSA / CrossSpec 那样的热感知微架构或动态刷新论文；读的时候不要从分会标题推断出一套它没做的热硅片实验。</p>
+      <p>提高 DRAM 带宽会降低 decode 的能量，主要是因为延迟明显下降、静态能量跟着少；TSV 增加带来的静态功耗被写成很小，动态能量也因访问数据量差不多而变化不大。同一操作对 prefill 几乎没有能量收益，因为带宽加了也缩短不了计算受限的执行时间（Takeaway F1）。</p>
+      <p>加核则更可疑。核数从 512 增到 1024，静态功耗随之翻倍：decode 延迟不再改善，prefill 延迟只降 32%，抵不过多出来的静态功耗（§IV-F）。Takeaway F2 的表述是：继续加核，整体能效会下降，对存储受限负载尤其如此。</p>
+      <p>落地时更有用的是第 V 节关于编译器的讨论：现有融合、把每个核当分布式节点做 SPMD 划分、以及面向 SRAM/晶圆级芯片的核间数据映射，大多只需改编就能用在 3D 叠层芯片上；真正比较独特的，是 §IV-C 这种从执行图出发的软件感知 bank 映射。Core group 跟踪器被写成一块「简单硬件逻辑」，要进芯片才有 1024 核上那 42%/58%，不是纯软件能免费拿到的。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 局限：这些倍数依赖什么假设</h2>
+      <ul>
+        <li><strong>没有 3D-DRAM 硅片。</strong> 0.24%–6.8% 是相对「IPU + DRAM 延迟回放」的误差，不是相对某块 logic-on-DRAM 芯片。512 个核的 SRAM 先扮演 bank，再靠 DRAM 仿真器和 TSV 延迟模型去补；这能说明 Voxel 的事件推进和 IPU 上的计算 / 通信对得上，不能等同于已经在 3D-DRAM 工艺上签过字。和 Raptor 的早期硅片、以及 ATLAS 所强调的硅片相关性，证据层级不同。</li>
+        <li><strong>设计空间数字绑在默认点和编译器映射上。</strong> 1.84×、80.68%、58%/42%、SRAM 的 8 MB 饱和点，都是 Table III/IV 设定（BF16、序列 2048、batch 1/32、12 TB/s、256 核为默认等）加上作者实现的映射与范式模型的产物。换编译器、换重叠假设（例如允许 SPMD 的计算与归约重叠），Takeaway 可能改写——论文自己在 §V 也承认这一点。</li>
+        <li><strong>SPMD 基线按「计算与归约不重叠」来建。</strong> 这跟许多体同步框架一致，但会放大 SPMD 的 NoC 开销（最高 47%）。把它读成「所有 SPMD 实现都会差 1.84×」过满。</li>
+        <li><strong>引言和 Takeaway 对 80.7% 的措辞不一致。</strong> 引言写软件感知策略可把性能开销降低 “up to 80.7%”，Takeaway C2 写行冲突开销平均降 80.68%。本笔记采用 C2 的「平均、对象是行冲突开销」。若引用引言句，不要默念成同一个量。</li>
+        <li><strong>热约束很薄。</strong> 0.7 W/mm² 是仿真参数，文中没有像 Raptor Fig. 12 那样给出叠层热阻分解或实测热点。分会名称里的 thermal-aware，主要体现在同场的其他论文。</li>
+        <li><strong>Fig. 21 是接入服务仿真的演示。</strong> ShareGPT 轨迹、连续 batch 和前缀缓存说明 Voxel 能当芯片后端用，不是数据中心里的 3D 叠层芯片实测吞吐。</li>
+        <li><strong>开源仓库要自行核对完整度。</strong> 论文指向 <a href="https://github.com/yiqiliu2/voxelsim">yiqiliu2/voxelsim</a>。笔记不把「将开源」自动读成「已经达到论文实验可复现」；落地前应先看仓库与 artifact 清单。</li>
+      </ul>
+      <div class="callout teal">和 Raptor 对照着读最清楚：两篇都盯着「把存储靠近计算」来缓解 LLM 解码的带宽墙。Raptor 交出测试芯片，回答「这种封装能不能把带宽和 I/O 能耗做成这样」；Voxel 交出仿真器和映射 / 范式 / 同步策略，回答「在分布式 bank 上，怎样才能把纸面带宽用满」。一个提供硅片锚点，一个提供设计空间和编译器接口。Accelforge 回答的是另一类加速器协同设计问题；PIM 笔记回答的是算子下沉到存储工艺之后怎么办。几条线可以并列，不必互相替代。</div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 数字速查</h2>
+      <table>
+        <thead><tr><th>项目</th><th>数字</th><th>对照 / 条件</th></tr></thead>
+        <tbody>
+          <tr><td>计算范式差距</td><td>可达 1.84×（Takeaway A1）</td><td>SPMD / dataflow / compute-shift 三者之间，不是对 GPU 的加速比</td></tr>
+          <tr><td>SPMD 归约 NoC 开销</td><td>最高占 SPMD 总时间的 47%（Fig. 10）</td><td>计算与归约按不重叠建模；prefill 更明显</td></tr>
+          <tr><td>Dataflow vs SPMD</td><td>prefill 平均快 12.6%（§IV-A）</td><td>Fig. 10</td></tr>
+          <tr><td>Compute-shift vs SPMD / dataflow</td><td>prefill 平均快 47.4% / 39.7%（§IV-A）</td><td>几乎把 NoC 开销与计算重叠掉</td></tr>
+          <tr><td>维序映射</td><td>mesh 上 prefill 平均约快 40%；torus 平均约快 33%；NoC-bound 端到端最多 39%（§IV-B）</td><td>all-to-all 对映射不敏感；建议 mesh + 维序</td></tr>
+          <tr><td>NoC 链路带宽</td><td>低于 32 B/cycle 时 prefill 变慢（Fig. 15(a)）</td><td>decode 不敏感；默认链路 16 B/cycle（Table III）</td></tr>
+          <tr><td>均匀放置的行冲突</td><td>约 10 TB/s 附近收益钝化；16 TB/s 时占 decode 延迟 43.35%（Fig. 12(a)）</td><td>Takeaway C1</td></tr>
+          <tr><td>软件感知放置</td><td>超高带宽下开销 ≤14.8% decode 时间；行冲突开销平均降 80.68%（C2）</td><td>引言另写 “up to 80.7%”，以 C2 为准；对 prefill 帮助有限</td></tr>
+          <tr><td>脉动阵列尺寸</td><td>超过 32×32 收益变薄（Fig. 15(c)）</td><td>默认宽度 32；对齐填充导致空间利用率下降</td></tr>
+          <tr><td>Core group</td><td>1024 核、group=8：最多 58%，平均 42%（Takeaway D2）</td><td>默认 group=8；需要硬件请求跟踪器</td></tr>
+          <tr><td>每核 SRAM</td><td>decode 约 8 MB 饱和；prefill 翻倍平均只快 3.5%，扩 32× 仅 16.3%</td><td>0.5 MB 时 prefill 阵列利用率平均 67%（§IV-E）</td></tr>
+          <tr><td>加核的能量</td><td>512→1024 静态功耗翻倍；decode 延迟不变，prefill 只降 32%（§IV-F）</td><td>能效可能下降，存储受限负载更明显</td></tr>
+          <tr><td>交叉验证误差</td><td>校正后 0.24%–6.8%；校正前仿真器平均快 12.7%（Fig. 7）</td><td>IPU Mk2 代理，不是 3D-DRAM 硅片</td></tr>
+          <tr><td>IPU Mk2 仿真器</td><td>1472 核，互连 7.8 TB/s，SRAM 62 TB/s / 896 MB</td><td>960 核当计算，512 核 SRAM 扮演 bank</td></tr>
+          <tr><td>默认探索点</td><td>256 核、12 TB/s、2D mesh、192 GB / 8 层、1.6 GHz、0.7 W/mm²、BF16、seq 2048、batch 1/32</td><td>Table III / IV；是扫参基线，不是产品规格</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      阅读笔记依据 arXiv:2604.26821v2（cs.AR，2026-09-12；MICRO 2026 Session 4C；2026-11-23 读，Asia/Shanghai）。交叉验证数字（12.7%、0.24%–6.8%，以及 IPU Mk2 的 1,472 核 / 7.8 TB/s / 62 TB/s / 896 MB）来自第 III-D 节与 Fig. 7；设计空间数字（1.84×、47.4%、80.68%、43.35%、58%/42%、SRAM 与能量相关结果）来自第 IV 节及相应 Takeaway，默认点以 Table III/IV 为准。本文是阅读笔记，不是译文；文中示意图根据论文结构重画，不是原文插图。按仓库现行规则，本页只提交分析文档，不上传论文 PDF。
+    </footer>
+  </div>
+</body>
+</html>
