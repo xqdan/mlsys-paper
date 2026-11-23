@@ -399,6 +399,42 @@
     ]
   },
   {
+    "id": "lash-pat-2026",
+    "date": "2026-11-17",
+    "type": "论文",
+    "topic": "chiplet",
+    "title": "LASH-PAT: Deadlock-Free Adaptive Shortest-Path Routing for Inter-Chiplet Interconnects",
+    "source": "arXiv:2611.22937",
+    "url": "https://arxiv.org/abs/2611.22937",
+    "summary": "ETH 的 Iff 与 Hoefler 把九种不规则拓扑无死锁路由评到封装内 chiplet 互联（ICI）上，并提出 LASH-PAT：在分层最短路上增加多条最短下一跳，按局部拥塞自适应选择。相对各场景最好基线，吞吐 +21.15%、每包能量 −12.77%，延迟与最低延迟基线相当；相对 SCB 吞吐 +31.92%、每包能量 −16.61%。BookSim2 评估 Mesh/Torus/Folded Torus/HexaMesh/FoldedHexaTorus。这是封装内 ICI，不是 TPU 片间 ICI；文中把 chiplet 内部 NoC 抽象成单个路由器。最坏路由表约 20 Kbit，文中估 7 nm 约 0.001 mm²。",
+    "tags": [
+      "chiplet",
+      "routing",
+      "deadlock",
+      "ETH",
+      "ICI",
+      "wafer-scale"
+    ]
+  },
+  {
+    "id": "pistil-micro-2026",
+    "date": "2026-11",
+    "type": "论文",
+    "topic": "加速器",
+    "title": "Pistil – A Decoupled Pipeline Architecture for Sustained Memory Bandwidth across a 20-Chiplet 2.5D SiP for Edge SLM Inference",
+    "source": "MICRO 2026",
+    "url": "https://sites.harvard.edu/vlsiarch/files/2026/10/adiletta-micro2026-pistil-decoupled-pipeline.pdf",
+    "summary": "Harvard 流片测试的 20-chiplet 2.5D SiP（4 个 Flower，各 1 颗 Pistil + 4 颗 RPC-DRAM，封装 512 MB）。对比表：逻辑工艺 16 nm，4 颗逻辑芯片，SiP 逻辑面积 25 mm²，0.8 V，25–800 MHz。封装内 A/B 链路与出封装 X 链路同属自定义 XLX，最高 600 MB/s、打包 AXI 链路层；800 MHz Energy Summary 中 Die-to-Die Link 为 15.8 pJ/b。Decode 维持峰值存储带宽 98% 以上，5 W 预算内 80–250 tokens/s，相对 Jetson Nano 延迟/每 token 能量最高低 7.6×/7.8×。高封装数仿真中瓶颈转到 chiplet 间集合通信。原型内存接口因物理设计问题未达 800 MHz。X 链路是出封装 scale-up，不要算进封装内网络。",
+    "tags": [
+      "MICRO",
+      "chiplet",
+      "SiP",
+      "Harvard",
+      "SLM",
+      "XLX"
+    ]
+  },
+  {
     "id": "chipsandcheese-dojo-2022",
     "date": "2022-09-01",
     "type": "经验分享",

@@ -102,6 +102,14 @@
   https://github.com/tenstorrent/tt-isa-documentation
   https://raw.githubusercontent.com/tenstorrent/tt-isa-documentation/main/BlackholeA0/NoC/README.md
 
+- **2026-11-17** · 论文 · chiplet · LASH-PAT: Deadlock-Free Adaptive Shortest-Path Routing for Inter-Chiplet Interconnects（arXiv:2611.22937）
+  ETH Zurich 的 Iff 与 Hoefler 针对不规则封装内 chiplet 互联（ICI）做路由：维序路由依赖规则 mesh，新拓扑用不上。他们把数据中心里九种无死锁路由拿到 ICI 上评，发现转弯模型有路径多样性、分层路由保最短路。提出的 LASH-PAT 在分层最短路之上增加多条最短下一跳，并按局部拥塞自适应选择，同时用更细的路径到虚层分配来控制虚层数。相对每种拓扑/流量/指标上最好的基线，吞吐提高 21.15%、每包能量降 12.77%，延迟与最低延迟基线相当；相对吞吐最高的转弯基线 SCB，吞吐高 31.92%、每包能量低 16.61%。用 BookSim2 在 Mesh、Torus、Folded Torus、HexaMesh、FoldedHexaTorus（64 或 61 个路由器）上评估。这是封装内 ICI 路由，文中把每颗 chiplet 内部 NoC 抽象成单个路由器；不要与 TPU 的片间 ICI 或 NVLink/UALink 混为一谈。最坏路由表约 20 Kbit，文中估 7 nm 约 0.001 mm²。本目录另有深度笔记。
+  https://arxiv.org/abs/2611.22937
+
+- **2026-11** · 论文 · 加速器 · Pistil: A Decoupled Pipeline Architecture for Sustained Memory Bandwidth across a 20-Chiplet 2.5D SiP for Edge SLM Inference（MICRO 2026）
+  Harvard 流片并测试的边缘 SLM 推理 SiP：四个 Flower，各含 1 颗 Pistil 计算芯片和 4 颗 RPC-DRAM，共 20 个 chiplet、封装容量 512 MB。对比表写明本工作逻辑工艺 16 nm、4 颗逻辑芯片、SiP 逻辑面积 25 mm²、0.8 V、25–800 MHz。片上把存储、计算和网络流水线解耦；封装内相邻 Pistil 走 A/B 链路，出封装走 X 链路（scale-up，不要和封装内链路混为一谈）。A/B/X 是自定义并行接口 XLX，最高 600 MB/s，链路层为打包的 AXI。文中 800 MHz 的 Energy Summary 给出 Die-to-Die Link 15.8 pJ/b。设计意图是计算芯片紧挨本地 DRAM，Pistil 间只传较小张量。代表稠密 SLM 上 decode 维持峰值存储带宽的 98% 以上，在 5 W 边缘系统功耗和面积预算内达到 80–250 tokens/s，相对 Jetson Nano 延迟和每 token 能量最高分别低 7.6 倍和 7.8 倍。多封装扩展仿真中，高封装数下瓶颈从存储带宽转到 chiplet 间集合通信。注意：流片原型的 RPC-DRAM 接口因物理设计问题未能跑到目标 800 MHz。
+  https://sites.harvard.edu/vlsiarch/files/2026/10/adiletta-micro2026-pistil-decoupled-pipeline.pdf
+
 - **2022-09-01** · 经验分享 · 加速器 · Hot Chips 34 – Tesla’s Dojo Microarchitecture（Chips and Cheese）
   基于 HC34 演讲的独立整理：mesh「每个方向 2×64B 链路」、节点 5 个 64B SRAM 端口、D1 无片上 HBM/PCIe，经 DIP 出系统，die 边延迟约 100 ns。适合与 IEEE Micro 正文对照；数字以演讲原片和正式论文为准，这篇是可读的工程转述。
   https://old.chipsandcheese.com/2022/09/01/hot-chips-34-teslas-dojo-microarchitecture/

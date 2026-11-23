@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LASH-PAT 论文分析 | 不规则 chiplet 互联上既走最短路又做自适应</title>
+  <style>
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv:2611.22937</span>
+      <span class="badge">2026-11-17</span>
+      <span class="badge">封装内 chiplet 互联 · 路由 · 死锁</span>
+      <span class="badge ok">ETH Zurich</span>
+      <span class="badge warn">ICI = Inter-Chiplet Interconnect，不是 TPU 的片间 ICI</span>
+    </div>
+    <h1>LASH-PAT：不规则 chiplet 互联不必在「最短路」和「绕开拥堵」里只选一个</h1>
+    <p class="subtitle">LASH-PAT: Deadlock-Free Adaptive Shortest-Path Routing for Inter-Chiplet Interconnects</p>
+    <p class="meta">
+      <strong>作者：</strong>Patrick Iff、Torsten Hoefler；ETH Zurich<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.22937" target="_blank" rel="noopener">arXiv:2611.22937</a>
+      · <a href="https://arxiv.org/pdf/2611.22937" target="_blank" rel="noopener">PDF</a>
+      · <a href="https://arxiv.org/html/2611.22937v1" target="_blank" rel="noopener">HTML</a>（笔记依据 v1，提交于 2026-11-17）<br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。数字均来自摘要、引言、第 V 节评估和第 VI 节收束，未在原文出现的数不写。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：新的封装内拓扑用不上维序路由</a></li>
+      <li><a href="#s3">权衡：转弯模型 vs 分层路由</a></li>
+      <li><a href="#s4">LASH-PAT 的两个机制</a></li>
+      <li><a href="#s5">实验设置与结果</a></li>
+      <li><a href="#s6">落地意义</a></li>
+      <li><a href="#s7">局限</a></li>
+      <li><a href="#s8">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">2.5D 封装和基于 chiplet 的晶圆级集成让「系统级」互连走进了封装内部，很多新的 inter-chiplet interconnect（论文里简称 ICI）不再是规则 mesh，维序路由因此用不上。ETH 的 Iff 与 Hoefler 把数据中心里九种面向不规则拓扑的无死锁路由搬到这一层来评，看出一个清楚的权衡：转弯模型容易提供路径多样性、从而拉高吞吐；分层路由容易保证最短路、从而压低延迟。他们提出的 LASH-PAT 在分层最短路之上增加多条最短下一跳，并按局部拥塞自适应选择，同时更细地分配路径到虚层。相对「每种拓扑 / 流量 / 指标上表现最好的那条基线」，吞吐提高 21.15%、每包能量降低 12.77%，延迟与最低延迟基线相当；相对吞吐最高的转弯基线 SCB，吞吐高 31.92%、每包能量低 16.61%。这是封装内 ICI 的路由论文，不是机柜级 scale-up；文中把每颗 chiplet 内部 NoC 抽象成单个路由器。</p>
+    <div class="kpi">
+      <div><div class="n">+21.15%</div><div class="k">相对每种场景下最好基线的平均饱和吞吐提升（综合流量）</div></div>
+      <div><div class="n">−12.77%</div><div class="k">同样口径下每包能量的平均下降</div></div>
+      <div><div class="n">+31.92%</div><div class="k">相对吞吐最高的转弯基线 SCB 的平均饱和吞吐提升</div></div>
+      <div><div class="n">≈20 Kbit</div><div class="k">最坏路由表规模；文中估 7 nm 约 0.001 mm²、22 nm 约 0.003 mm²</div></div>
+    </div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：新的封装内拓扑用不上维序路由</h2>
+    <p>论文把背景放在两件同时发生的事上：晶体管微缩变慢之后，2.5D chiplet 集成用来控制成本和提升 modularity，晶圆级集成则想把更多算力留在高带宽的「片上通信域」里；两者合在一起，就是他们说的 chiplet-based wafer-scale integration。对许多机器学习负载，数据搬运是瓶颈，于是封装内 chiplet 之间怎么连、怎么路由，会直接碰到系统性能。</p>
+    <div class="callout navy">
+      先把术语边界划清。本文的 ICI 是 <strong>Inter-Chiplet Interconnect</strong>，指同一封装（含无源基板、有源中介层，以及 chiplet 化的晶圆级集成）里 chiplet 之间的互连。它不是 Google TPU 文档里那种芯片到芯片的 ICI，也不是 NVLink、UALink 这类机柜级 scale-up。本目录收录它，是因为仓库约定「封装内 chiplet 网络可以覆盖」，但不要把它读成片上 mesh 的又一篇维序路由改进。
+    </div>
+    <p>作者指出，2D mesh 长期是 NoC 的默认拓扑，也因此维序路由（dimension-order routing）成了最常用、且容易证明无死锁的方案。但近年来针对 2.5D 系统提出的许多专用 ICI 拓扑，不再保持规则 mesh 结构，维序路由直接不适用。他们跟随 Yin 等人（ISCA 2018）的做法：讨论 ICI 时，把每颗 chiplet 内部的 NoC 抽象成单个路由器。也就是说，这篇评的是 chiplet 之间那一层，不是 tile 之间那一层。</p>
+    <p>假设的网络模型很标准：输入排队路由器、虫孔路由、基于 credit 的流控；消息拆成包，包再拆成 flit；同一消息的不同包可以走不同路径，但一个包内的 flit 沿同一路径且不被其他包的 flit 插队。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 权衡：转弯模型 vs 分层路由</h2>
+    <p>他们评估了九种主要来自数据中心网络、面向不规则拓扑的无死锁路由函数，并按死锁避免机制分成两类：</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>转弯模型（turn-based）</h4>
+        <p>类似 mesh 上的 turn model：禁止某些转弯以打破通道依赖环。通常能提供路径多样性，但不保证走最短路。评估里吞吐较好的 SCB、L-Turn 属于这类。</p>
+      </div>
+      <div class="tile">
+        <h4>分层路由（layered）</h4>
+        <p>用虚层（virtual layers）切断循环依赖。常常能保证最短路，但不一定有路径多样性。LASH、LASH-TOR、DFSSSP、A-LASH 属于这类。</p>
+      </div>
+    </div>
+    <p>论文把这个权衡写得很干脆：路径多样性用来缓解局部拥塞、提高吞吐；最短路用来压延迟。只站在一边，就会在另一边吃亏。LASH-PAT 的目标，就是把分层最短路和路径多样性合在一起。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. LASH-PAT 的两个机制</h2>
+    <p>LASH-PAT 建立在 LASH-TOR 之上，路由分成离线造表和在线转发两段。作者强调两个关键机制：</p>
+    <h3>M1：一张表里放下多条最短下一跳</h3>
+    <p>在路由表里为目的地增加多个下一跳候选，运行时根据局部拥塞在这些最短路径里做自适应选择。目的是让分层路由也享有转弯模型那种「可以绕开堵点」的能力，同时仍然走最短路。</p>
+    <h3>M2：更细地把路径分到虚层</h3>
+    <p>死锁避免采用 Pascual 等人定义的、建立在虚通道（VC）上的通道依赖图（CDG），从而减少达到无死锁最短路所需的层数，也就减少所需 VC。引言把它概括为 finer-grained path-to-layer assignment。</p>
+    <p>离线阶段如果自定义的基础路由配置失败，算法会退回到 fallback 路由，并尝试用更短的路径替换其中一部分。评估里 LASH-PAT 的 fallback 选的是 SCB；主评估配置为 4 层、每层 1 条 VC、额外 3 条路径，代价函数为 All。作为对照，LASH-TOR 通常在 1 层、每层 4 条 VC 时表现最好，评估也按这个配置来比。</p>
+    <div class="callout teal">
+      路由表会变大，这是自适应路径多样性的直接代价。作者认为这对 ICI 可接受：和数据中心动辄成千上万端点不同，他们评估的 64-chiplet 拓扑已经偏多；和面积极紧的片上 NoC 路由器不同，单颗 chiplet 有大得多的硅面积。最坏情况下 LASH-PAT 路由表约 20 Kbit，文中估算在 22 nm 大约 0.003 mm²、在 7 nm 大约 0.001 mm²，相对 chiplet 面积可以忽略。
+    </div>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 实验设置与结果</h2>
+    <p>评估在周期精确的 BookSim2 里进行，实现了九种基线、LASH-PAT 以及自适应选择函数。能量把路由器和通道加在一起：路由器能量来自 Orion3，再按 DeepScaleTool 从 45 nm 缩放到 7 nm；通道能量按每条通道传输的 flit 数 × 通道长度 × 每 flit 每毫米能量。每组实验重复 5 次；延迟报算术平均，吞吐报调和平均，相对性能报几何平均，并用 bootstrap 给出非参数 95% 置信区间。</p>
+    <p>公共参数包括：64-bit flit、4-flit 的包、每条物理通道 4 条 VC、每条 VC 的输入缓冲 8 flit、网络 1 GHz、路由器延迟 4 拍、每个路由器一个端点。通道能量取 0.1 pJ/bit/mm，通道延迟按每 2 mm 一拍（建模每 2 mm 一个寄存器缓冲），收发两侧 PHY 合计再加两拍。负载下延迟的注入率是 0.1 flit/端点/周期。</p>
+    <p>拓扑是既有的和新兴的 ICI：Mesh、Torus、Folded Torus，以及只支持 61 个路由器的 HexaMesh 与 FoldedHexaTorus（其余为 64 个路由器）。正因为 61 对不上 64 个端点的 trace，HexaMesh 和 FoldedHexaTorus 没有进入 trace 实验。</p>
+    <h3>吞吐、延迟与能量</h3>
+    <p>在合成流量下，LASH-PAT 在 20 组「拓扑 × 流量」里的 19 组拿到最高饱和吞吐。屈居第二的经常是 SCB 或 L-Turn——两者都是提供路径多样性的转弯模型，这被作者拿来印证 M1 的动机。Table III 给出相对各基线的平均改进；其中最值得先看的两行是：</p>
+    <ul>
+      <li>相对 SCB（文中称为吞吐最高的转弯基线 / highest-throughput baseline）：饱和吞吐 +31.92%，每包能量 −16.61%，零负载延迟 −1.71%，负载下延迟 −1.28%，trace 平均包延迟 −3.7%。</li>
+      <li>相对「每个场景里该项指标最好的基线」（表中的 Best 行）：饱和吞吐 +21.15%，每包能量 −12.77%，负载下延迟 −1.33%，trace 平均包延迟 −2.56%。零负载延迟是 +0.59%，也就是略差于最低延迟基线，和摘要里「与最低延迟基线相当 / competitive」的表述一致，并不是全面领先。</li>
+    </ul>
+    <p>相对最好的、且在 4 条 VC 下能覆盖全部拓扑的分层基线 LASH-TOR，合成流量的饱和吞吐平均高 105.61%，每包能量低 38.4%。这个倍数很大，说明「只会分层、几乎没有路径多样性」在这些不规则 ICI 上会先把吞吐丢掉；LASH-PAT 的卖点是把这条短板补上，而不是在已经很强的自适应基线上再翻一倍。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 落地意义</h2>
+    <p>对做 AI 芯片或 GPU 封装的人，这篇最有用的不是又一个新拓扑，而是把「拓扑已经不再是 mesh 之后，路由该怎么选」说清楚了。</p>
+    <ul>
+      <li>封装内 chiplet 网络会越来越不像片上 2D mesh。一旦拓扑不规则，维序路由不能直接搬过去，死锁和最短路都要重新设计。</li>
+      <li>只保证最短路、不给多条下一跳，吞吐会先坏掉；只禁止转弯、不保证最短路，延迟和能量又会吃亏。LASH-PAT 用「多条最短路 + 局部拥塞选择」把这两件事放在同一套表里。</li>
+      <li>ICI 路由器的面积账和片上 NoC 不一样。20 Kbit 量级的表在 7 nm 上被作者估成约 0.001 mm²，论证成立的前提是「端点数是几十颗 chiplet，而不是几千个 PE」。如果有人想把同一套表项放到超大 mesh 的每个 PE 路由器里，这篇的面积结论不能直接挪用。</li>
+      <li>同一组作者之前还做过 FoldedHexaTorus 等专用 ICI 拓扑。这篇可以看成配套的路由层：拓扑先做不规则，路由再把死锁、最短路和自适应补齐。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 局限</h2>
+    <ul>
+      <li>全部是 BookSim2 的 flit 级仿真，没有硅上测量，也没有把真实的 die-to-die PHY 电路开销建进路由器微结构。</li>
+      <li>能量是模型：Orion3 从 45 nm 缩放到 7 nm，通道用固定的 0.1 pJ/bit/mm。相对排序有参考价值，绝对值需要和具体工艺、封装通道再校准。</li>
+      <li>每颗 chiplet 内部 NoC 被抽象成单个路由器。真实系统里，片上 NoC 和封装 ICI 的层次、协议转换和端点浓度都会改变拥塞图像。</li>
+      <li>HexaMesh / FoldedHexaTorus 因为 61 个路由器，没有进入 64 端点的 trace 实验；这两类正是「非 mesh」里更有代表性的新拓扑。</li>
+      <li>LASH-TOR 与 LASH-PAT 在部分配置下会动用 fallback 路由。heatmap 里用 † 标注。读结果时要看清，高峰吞吐是不是已经退回到 fallback。</li>
+      <li>文中没有给出某款具体商用 AI 加速器封装的端到端 workload 数字，应用含义需要读者自己对照目标系统的拓扑和流量。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>项目</th><th>数值</th><th>出处与条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>相对 Best 基线的饱和吞吐</td><td>+21.15%</td><td>摘要 / Table III Best 行；对每个拓扑×流量×指标取最好基线后再平均</td></tr>
+        <tr><td>相对 Best 基线的每包能量</td><td>−12.77%</td><td>同上，合成流量</td></tr>
+        <tr><td>相对 Best 基线的零负载延迟</td><td>+0.59%</td><td>Table III；略差于最低延迟基线，摘要称为 comparable</td></tr>
+        <tr><td>相对 Best 基线的负载下延迟</td><td>−1.33%</td><td>Table III；注入率 0.1 flit/端点/周期</td></tr>
+        <tr><td>相对 Best 基线的 trace 平均包延迟</td><td>−2.56%</td><td>Table III；不含 HexaMesh / FoldedHexaTorus</td></tr>
+        <tr><td>相对 SCB 的饱和吞吐 / 每包能量</td><td>+31.92% / −16.61%</td><td>引言与 Table III；SCB 为最高吞吐的转弯基线</td></tr>
+        <tr><td>相对 LASH-TOR 的饱和吞吐 / 每包能量</td><td>+105.61% / −38.4%</td><td>Table III；文中称 LASH-TOR 为 4 VC 下可覆盖全部拓扑的最好分层基线</td></tr>
+        <tr><td>最高吞吐覆盖面</td><td>20 组中的 19 组</td><td>§V-F1，合成流量的拓扑×流量组合</td></tr>
+        <tr><td>评估拓扑</td><td>Mesh / Torus / Folded Torus（64 路由器）；HexaMesh / FoldedHexaTorus（61 路由器）</td><td>§V</td></tr>
+        <tr><td>仿真器与微结构参数</td><td>BookSim2；64-bit flit，4-flit 包，4 VC，每 VC 8-flit 缓冲，1 GHz，路由器 4 拍</td><td>§V-B</td></tr>
+        <tr><td>能量模型</td><td>Orion3（45 nm→7 nm，DeepScaleTool）+ 通道 0.1 pJ/bit/mm；通道延迟 1 拍/2 mm，PHY 再加 2 拍</td><td>§V-B</td></tr>
+        <tr><td>LASH-PAT 主评估配置</td><td>4 层、每层 1 VC、额外 3 条路径、All 代价函数、fallback 为 SCB</td><td>§V-A</td></tr>
+        <tr><td>最坏路由表</td><td>约 20 Kbit；22 nm ≈ 0.003 mm²，7 nm ≈ 0.001 mm²</td><td>结论段与 Fig. 9 讨论</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    笔记写入 mlsys-paper 的 noc/ 目录，依据 arXiv:2611.22937v1。若与原文冲突，以原文为准。
+  </footer>
+
+</div>
+</body>
+</html>
