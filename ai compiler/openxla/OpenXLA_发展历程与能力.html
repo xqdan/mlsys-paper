@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenXLA 与 TorchTPU：发展历程与当前能力综述</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre {
+      background: #f8fafc; border: 1px solid var(--line); padding: 14px 16px;
+      overflow-x: auto; font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 13px; line-height: 1.55; margin: 12px 0 16px;
+    }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    .tl { list-style: none; padding-left: 0; margin: 8px 0 16px; }
+    .tl li {
+      display: grid; grid-template-columns: 148px 1fr; gap: 16px;
+      padding: 12px 0; border-bottom: 1px solid var(--line);
+    }
+    .tl li:last-child { border-bottom: 0; }
+    .tl .when {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--accent); font-weight: 650; padding-top: 2px;
+    }
+    .tl .what { font-size: 15px; }
+    .tl .what p { margin: 0 0 6px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+      .tl li { grid-template-columns: 1fr; gap: 4px; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">技术综述 · 截至 2026-11-23</span>
+        <span class="badge ok">OpenXLA</span>
+        <span class="badge">StableHLO / PJRT / Shardy</span>
+        <span class="badge">XLA Serving · Tokamax · XProf</span>
+        <span class="badge">google-pytorch/torch_tpu</span>
+        <span class="badge">中文笔记</span>
+      </div>
+      <h1>OpenXLA 与 TorchTPU：发展历程与当前能力综述</h1>
+      <p class="subtitle">从 TensorFlow 内的 XLA，到开源编译栈，再到 PyTorch 原生上 TPU：把组织里的仓库、一条编译链路，以及能力边界写清楚。</p>
+      <p class="meta">
+        写作：<strong>2026-11-23</strong>（Asia/Shanghai）· 数据截止同日<br />
+        范围：<a href="https://github.com/openxla">github.com/openxla</a> 全部公开仓库，以及
+        <a href="https://github.com/google-pytorch/torch_tpu">google-pytorch/torch_tpu</a><br />
+        相关已有笔记（本文不重复论文精读与静态代码剖析）：
+        <a href="../torchtpu/TorchTPU_%E8%AE%BA%E6%96%87%E5%88%86%E6%9E%90.html">TorchTPU 论文分析</a> ·
+        <a href="../torchtpu/torch_tpu_analysis.html">TorchTPU 开源代码分析</a> ·
+        <a href="../torchtpu/torch_tpu_npu_porting.html">把新 NPU 接入 TorchTPU</a><br />
+        计划存放目录：<code>ai compiler/openxla/</code>
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#scope">1. 写什么、不写什么</a></li>
+        <li><a href="#stack">2. 这条编译栈怎么拼</a></li>
+        <li><a href="#repos">3. openxla 组织下的仓库</a></li>
+        <li><a href="#timeline">4. 发展历程时间线</a></li>
+        <li><a href="#xla">5. XLA：编译器与后端</a></li>
+        <li><a href="#stablehlo">6. StableHLO：可移植算子层</a></li>
+        <li><a href="#pjrt">7. PJRT：框架与硬件的接口</a></li>
+        <li><a href="#shardy">8. Shardy：切分与并行</a></li>
+        <li><a href="#tokamax">9. Tokamax：自定义 kernel 库</a></li>
+        <li><a href="#xprof">10. XProf：性能分析</a></li>
+        <li><a href="#xse">11. XLA Serving Engine</a></li>
+        <li><a href="#minor">12. 次要仓库与历史分叉</a></li>
+        <li><a href="#torchtpu">13. TorchTPU：当前状态与栈内位置</a></li>
+        <li><a href="#limits">14. 能力边界与未决问题</a></li>
+        <li><a href="#uncertainty">15. 资料里不确定或找不到的地方</a></li>
+        <li><a href="#refs">16. 主要参考</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="scope">
+      <h2>1. 写什么、不写什么</h2>
+      <p class="lead">
+        这是一份面向笔记仓库的中文技术综述，目标有两件：把 <a href="https://github.com/openxla">OpenXLA</a> 组织里真正还在演进的项目按一条编译栈讲清楚；再把 <a href="https://github.com/google-pytorch/torch_tpu">torch_tpu</a> 放到这条栈上，补上「现在能做什么、边界在哪」，而不是再写一遍已经存在的论文精读。
+      </p>
+      <p>
+        时间、引语和能力声明只采用官方博客、项目文档、README、release、论文或可核验的公开仓库元数据。仓库创建时间来自 GitHub <code>created_at</code>（UTC），文中一般记为日历日。星标、issue、最近推送等指标取自 2026-11-23 的公开 API 快照，会随时间变化。
+      </p>
+      <div class="callout teal">
+        本仓库 <code>ai compiler/torchtpu/</code> 里已有三篇笔记：
+        <a href="../torchtpu/TorchTPU_%E8%AE%BA%E6%96%87%E5%88%86%E6%9E%90.html">论文分析</a>
+        解读 2026 年 Google Developers Blog 对 TorchTPU 的设计叙事；
+        <a href="../torchtpu/torch_tpu_analysis.html">开源代码分析</a>
+        基于 <code>v0.2.0</code> / HEAD <code>2092cb8a</code>（2026-10-26）做静态剖析；
+        <a href="../torchtpu/torch_tpu_npu_porting.html">NPU 移植指南</a>
+        讨论如何把自研加速器接到这套 PJRT / StableHLO 接缝上。
+        下文只引用结论，不重复算子表、view decomposition 或移植清单。
+      </div>
+    </section>
+
+    <section class="card" id="stack">
+      <h2>2. 这条编译栈怎么拼</h2>
+      <p>
+        OpenXLA 给自己的定位是「把前端框架和硬件后端之间碎片化的工具打通」。官方网站的原话是：
+        <em>an open ecosystem of performant, portable, and extensible machine learning (ML) infrastructure components that simplify ML development by defragmenting the tools between frontend frameworks and hardware backends</em>（<a href="https://openxla.org/">openxla.org</a>）。
+      </p>
+      <p>
+        落到工程上，可以看成四层契约，外加两块「锦上添花」的配套：
+      </p>
+      <div class="fig">
+        <svg viewBox="0 0 980 430" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
+          <rect x="20" y="20" width="940" height="70" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="490" y="42" text-anchor="middle" font-size="13" fill="#9a3412" font-weight="700">前端框架</text>
+          <text x="490" y="66" text-anchor="middle" font-size="13" fill="#1c1917">JAX · TensorFlow · PyTorch / TorchTPU · PyTorch/XLA · torchax</text>
+
+          <rect x="20" y="110" width="300" height="86" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text x="170" y="138" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">StableHLO</text>
+          <text x="170" y="160" text-anchor="middle" font-size="12" fill="#57534e">可版本化的可移植 IR</text>
+          <text x="170" y="178" text-anchor="middle" font-size="12" fill="#57534e">框架产出，编译器消费</text>
+
+          <rect x="340" y="110" width="300" height="86" rx="6" fill="#f0f4f8" stroke="#93c5fd"/>
+          <text x="490" y="138" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">Shardy / GSPMD</text>
+          <text x="490" y="160" text-anchor="middle" font-size="12" fill="#57534e">切分表示、传播与 SPMD</text>
+          <text x="490" y="178" text-anchor="middle" font-size="12" fill="#57534e">在 IR 上做并行，而不是另起一套</text>
+
+          <rect x="660" y="110" width="300" height="86" rx="6" fill="#faf7f2" stroke="#e7e0d4"/>
+          <text x="810" y="138" text-anchor="middle" font-size="13" font-weight="700" fill="#1c1917">Tokamax 等 kernel</text>
+          <text x="810" y="160" text-anchor="middle" font-size="12" fill="#57534e">Attention / MoE 等手写实现</text>
+          <text x="810" y="178" text-anchor="middle" font-size="12" fill="#57534e">经 custom call / 原生 API 注入</text>
+
+          <rect x="20" y="216" width="620" height="86" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="330" y="244" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">XLA 编译器</text>
+          <text x="330" y="266" text-anchor="middle" font-size="12" fill="#57534e">目标无关优化 → 内部 HLO → 后端融合 / layout / 代码生成</text>
+          <text x="330" y="284" text-anchor="middle" font-size="12" fill="#57534e">CPU · NVIDIA GPU · AMD ROCm（上游）· TPU 等加速器</text>
+
+          <rect x="660" y="216" width="300" height="86" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text x="810" y="244" text-anchor="middle" font-size="13" font-weight="700" fill="#115e59">PJRT（含于 XLA 发行）</text>
+          <text x="810" y="266" text-anchor="middle" font-size="12" fill="#57534e">统一 Device API：编译、缓冲、执行</text>
+          <text x="810" y="284" text-anchor="middle" font-size="12" fill="#57534e">框架加载硬件 plugin</text>
+
+          <rect x="20" y="322" width="460" height="70" rx="6" fill="#f0f4f8" stroke="#93c5fd"/>
+          <text x="250" y="350" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">训练 / 开发运行时</text>
+          <text x="250" y="372" text-anchor="middle" font-size="12" fill="#57534e">eager 或 JIT 经 PJRT 上设备</text>
+
+          <rect x="500" y="322" width="230" height="70" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="615" y="350" text-anchor="middle" font-size="13" font-weight="700" fill="#9a3412">XLA Serving</text>
+          <text x="615" y="372" text-anchor="middle" font-size="12" fill="#57534e">C++ 推理，请求路径无 Python</text>
+
+          <rect x="750" y="322" width="210" height="70" rx="6" fill="#faf7f2" stroke="#e7e0d4"/>
+          <text x="855" y="350" text-anchor="middle" font-size="13" font-weight="700" fill="#1c1917">XProf</text>
+          <text x="855" y="372" text-anchor="middle" font-size="12" fill="#57534e">Trace / 内存 / HLO 图分析</text>
+        </svg>
+      </div>
+      <p class="figcap">图 1 · OpenXLA 栈的分层关系（据官方文档归纳，不是仓库里的一张官方架构图）。</p>
+      <p>
+        一条典型路径是：框架把计算降到 <strong>StableHLO</strong>；如需多设备，就在这层或随后的 HLO 上走 <strong>Shardy</strong>（或历史上的 GSPMD）做切分；<strong>XLA</strong> 做图优化和后端代码生成；框架通过 <strong>PJRT</strong> 把可执行体和缓冲交到具体硬件。需要手写高性能算子时走 <strong>Tokamax</strong> / Pallas；上线非 LLM 长解码类推理时，可以用 <strong>XLA Serving Engine</strong> 把同一份 StableHLO 制品拿到 C++ 运行时；调优则看 <strong>XProf</strong>。
+      </p>
+      <div class="callout navy">
+        TorchTPU 不在 <code>openxla</code> 组织里，但它是这条栈在 PyTorch 侧的一等前端：用 <code>PrivateUse1</code> 把 TPU 暴露成 <code>device="tpu"</code>，把 ATen 语义翻译成 StableHLO，再经 PJRT 调用 XLA / libtpu。它和 PyTorch/XLA 共享的是下层 OpenXLA 组件，而不是同一份前端代码。详见第 13 节与已有笔记。
+      </div>
+    </section>
+
+    <section class="card" id="repos">
+      <h2>3. openxla 组织下的仓库</h2>
+      <p>
+        截至 2026-11-23，<a href="https://github.com/orgs/openxla/repositories">组织仓库列表</a>共有 <strong>10 个公开仓库</strong>。其中 7 个是仍在活跃维护的项目级仓库，1 个是 XLA:GPU 所用的 Triton 分叉，2 个基础配置仓已归档，另有 1 个社区文档仓也已归档。
+      </p>
+      <div class="kpi">
+        <div><div class="n">10</div><div class="k">公开仓库（含归档）</div></div>
+        <div><div class="n">7</div><div class="k">建议作为「主要项目」跟踪</div></div>
+        <div><div class="n">4.6k</div><div class="k">xla 星标（组织内最高）</div></div>
+        <div><div class="n">866</div><div class="k">torch_tpu 星标（组织外）</div></div>
+      </div>
+      <h3>主要项目（应持续跟踪）</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>仓库</th>
+            <th>角色</th>
+            <th>创建</th>
+            <th>最近推送</th>
+            <th>星标 / Issue</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="https://github.com/openxla/xla">openxla/xla</a></td>
+            <td>ML 编译器本体；PJRT 也包含在此发行中</td>
+            <td>2022-08-09</td>
+            <td>2026-11-23</td>
+            <td>4682 / 体量大，持续合入</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/openxla/stablehlo">openxla/stablehlo</a></td>
+            <td>向后兼容的高层算子集，框架与编译器之间的可移植层</td>
+            <td>2022-08-04</td>
+            <td>2026-11-21</td>
+            <td>730 / 活跃</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/openxla/shardy">openxla/shardy</a></td>
+            <td>基于 MLIR 的张量切分系统，融合 GSPMD 与 PartIR</td>
+            <td>2024-06-27</td>
+            <td>2026-11-21</td>
+            <td>223 / 约 91 个未关闭 issue</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/openxla/tokamax">openxla/tokamax</a></td>
+            <td>面向 TPU / GPU 的自定义 kernel 库（Attention、MoE 等）</td>
+            <td>2025-04-25</td>
+            <td>2026-11-22</td>
+            <td>335 / 约 185 个未关闭 issue</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/openxla/xprof">openxla/xprof</a></td>
+            <td>ML 性能分析与可视化（可与 TensorBoard 插件配合）</td>
+            <td>2020-03-10<sup>*</sup></td>
+            <td>2026-11-21</td>
+            <td>601 / 约 603 个未关闭 issue</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/openxla/xla-serving">openxla/xla-serving</a></td>
+            <td>XLA Serving Engine：C++ 推理运行时与模型打包</td>
+            <td>2026-02-12</td>
+            <td>2026-11-21</td>
+            <td>28 / 约 68 个未关闭 issue</td>
+          </tr>
+          <tr>
+            <td>PJRT（无独立仓）</td>
+            <td>统一 Device API，官方页面将其列为生态组件，代码在 <code>openxla/xla</code></td>
+            <td>—</td>
+            <td>随 xla</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <sup>*</sup> <code>xprof</code> 的 GitHub <code>created_at</code> 早于 OpenXLA 组织本身，应是从既有仓库迁入或更名，而非 2020 年就以 OpenXLA 项目启动。迁入的确切公告日期，本稿未核到（见第 15 节）。
+      </p>
+      <h3>可以一笔带过的仓库</h3>
+      <table>
+        <thead>
+          <tr><th>仓库</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="https://github.com/openxla/triton">openxla/triton</a></td>
+            <td>Triton 语言与编译器的 OpenXLA 用途分叉（fork of <code>triton-lang/triton</code>）。创建于 2023-01-19，最近推送 2026-10-06。不是独立产品，而是 XLA:GPU 代码生成路径上的依赖。星标很少（约 18），不要按「主要项目」跟踪，但要知道它的存在。</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/openxla/community">openxla/community</a>（已归档）</td>
+            <td>早期社区会议记录、RFC 等。创建于 2022-08-03，最后一次推送 2024-08-02，现已 archive。其中仍有关键历史文献，例如 2023-01-23 的 PJRT plugin RFC。</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/openxla/.github">openxla/.github</a>、<a href="https://github.com/openxla/.allstar">openxla/.allstar</a>（均已归档）</td>
+            <td>组织级 GitHub / 安全策略配置，无产品内容。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        2023 年 3 月的开源宣布曾把 <strong>IREE</strong> 与 XLA、StableHLO 并列，作为 OpenXLA 项目的一部分。IREE 后来迁出该组织，当前公开仓库列表里已经没有它。它仍是 StableHLO 的重要消费者之一，但不属于本稿按组织仓库统计的「当前主要项目」。详见第 12 节。
+      </div>
+    </section>
+
+    <section class="card" id="timeline">
+      <h2>4. 发展历程时间线</h2>
+      <p>
+        OpenXLA 不是 2022 年凭空出现的编译器，而是把已经在 TensorFlow、JAX 和 Google 生产环境里用了多年的 XLA，从单一框架里拆出来，补上可版本化的 IR 和可插拔运行时，再逐步加上切分、kernel 库和 Serving。
+      </p>
+      <ul class="tl">
+        <li>
+          <div class="when">2017-02 / 03</div>
+          <div class="what">
+            <p>TensorFlow 1.0 发布前后，Google 公开 <strong>XLA（Accelerated Linear Algebra）</strong>。2017-03-06 的 Developers Blog 文章 <a href="https://developers.googleblog.com/2017/03/xla-tensorflow-compiled.html">XLA - TensorFlow, compiled</a> 把它定位为 TensorFlow 的域特定编译器：通过编译子图提升执行速度、降低内存、减少对手工融合自定义算子的依赖，并为新硬件提供相对容易的后端接口。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2017–2022</div>
+          <div class="what">
+            <p>XLA 在 TensorFlow 树内演进，并成为 JAX 的默认编译路径；PyTorch 则通过 PyTorch/XLA 使用它。HLO / 后来的 MHLO 是这一时期的编译器接口。GSPMD 等切分工作也在这条管线中成熟（论文 <a href="https://arxiv.org/abs/2105.04663">arXiv:2105.04663</a>）。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2022-07 / 08</div>
+          <div class="what">
+            <p>TensorFlow 社区出现 <a href="https://discuss.ai.google.dev/t/rfc-establish-sig-openxla/31271">建立 SIG OpenXLA 的 RFC</a>（2022-07-21 发帖，评论截止 07-25）。RFC 合并后 SIG 启动，首次社区会议定在 2022-08-09。GitHub 组织与 <code>openxla/community</code> 随之建立：community 仓创建于 2022-08-03，stablehlo 于 08-04，xla 于 08-09。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2022-10-11</div>
+          <div class="what">
+            <p>Google Cloud Next 上对外宣布 <strong>OpenXLA Project</strong>。Google Cloud 博客 <a href="https://cloud.google.com/blog/products/ai-machine-learning/googles-open-source-momentum-openxla-new-partnerships">Open source collaborations and key partnerships</a> 写道：社区将首先协作演进「正在从 TensorFlow 解耦的 XLA 编译器」以及「使框架更易部署到不同硬件的可移植算子集 StableHLO」。创始成员包括 AMD、Arm、Google、Intel、Meta、NVIDIA 等。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2022 年底</div>
+          <div class="what">
+            <p>据 StableHLO 早期 release 说明，StableHLO「自 2022 年底起已在生产中作为 MHLO/HLO 的编译器接口替代被使用」。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2023-01-23</div>
+          <div class="what">
+            <p><a href="https://github.com/openxla/community/blob/main/rfcs/20230123-pjrt-plugin.md">RFC: OpenXLA PJRT Plugin</a> 提出把 PJRT 作为 OpenXLA 支持的设备插件机制。RFC 曾建议另建 <code>openxla/openxla-pjrt-plugin</code> 仓库；当前组织列表中并无此仓，PJRT 实现位于 <code>openxla/xla</code>。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2023-03-08</div>
+          <div class="what">
+            <p>Google Open Source Blog 宣布 <a href="https://opensource.googleblog.com/2023/03/openxla-is-ready-to-accelerate-and-simplify-ml-development.html">OpenXLA is available now</a>：XLA、StableHLO 和 IREE 仓库开放使用与贡献。联合开发方名单扩大到 Alibaba、AWS、AMD、Anyscale、Apple、Arm、Cerebras、Google、Graphcore、Hugging Face、Intel、Meta、NVIDIA、SiFive 等。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2023-04-03</div>
+          <div class="what">
+            <p>PyTorch 官方博客发表 <a href="https://pytorch.org/blog/pytorch-2-0-xla-path-forward/">PyTorch &amp; OpenXLA: The Path Forward</a>，把 OpenXLA、PyTorch 2.0 与 PyTorch/XLA 2.0 放在同一时间点讨论。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2023-05-08</div>
+          <div class="what">
+            <p><a href="https://opensource.googleblog.com/2023/05/pjrt-simplifying-ml-hardware-and-framework-integration.html">PJRT: Simplifying ML Hardware and Framework Integration</a> 正式把 PJRT 作为 OpenXLA 的一部分开源。文章称 PJRT 是 TensorFlow 与 JAX 的主要接口，对 PyTorch 有完整支持，并且是 Google 内部大多数生产负载的默认运行时路径。Intel 当时已用它为 TensorFlow / JAX 提供 GPU 后端。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2024-01</div>
+          <div class="what">
+            <p>IREE 维护者在 2024-01-14 的公开讨论中宣布 <a href="https://groups.google.com/g/iree-discuss/c/kdFr4CQwEyY">IREE moving out of OpenXLA</a>。此后 IREE 不再作为 openxla 组织下的仓库出现。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2024-04 / 05</div>
+          <div class="what">
+            <p>2024-04-25 举办 OpenXLA Dev Lab；2024-05-09 的 <a href="https://opensource.googleblog.com/2024/05/openxla-dev-lab-2024-building-grouundbreaking-systems-together.html">综述博客</a> 强调 PJRT 集成与 StableHLO 导出 / 量化。2024-05-14 发布 <a href="https://github.com/openxla/stablehlo/releases/tag/v1.0.0">StableHLO v1.0</a>：完整规格、参考解释器、portable artifact 的 <strong>5 年向后兼容 / 2 年向前兼容</strong>。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2024-06-27 起</div>
+          <div class="what">
+            <p><a href="https://github.com/openxla/shardy">openxla/shardy</a> 仓库创建。官方文档称其来自 GSPMD 与 PartIR 团队的合作。JAX 文档后来写明：Shardy 在 JAX 中已始终启用，旧标志 <code>jax_use_shardy_partitioner</code> 已废弃且为空操作（<a href="https://openxla.org/shardy/getting_started_jax">Shardy Guide for JAX Users</a>）。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2024-08</div>
+          <div class="what">
+            <p><code>openxla/community</code> 最后一次推送于 2024-08-02，随后归档。社区治理与 RFC 流程不再以该仓为活文档中心。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2025-04 起 / 2025 秋</div>
+          <div class="what">
+            <p><a href="https://github.com/openxla/tokamax">tokamax</a> 仓库创建于 2025-04-25。JAX/OpenXLA DevLab Fall 2025 上作为「正在构建的高性能自定义 kernel 库」介绍（<a href="https://www.youtube.com/watch?v=AcEN6si_Yrc">演讲录像</a> 发布于 2025-12-16），当时仍称 early preview。官方文档页标注最近更新 2026-10-06。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2025-09-15</div>
+          <div class="what">
+            <p>Google Cloud 博客介绍 <a href="https://cloud.google.com/blog/topics/developers-practitioners/supercharge-ml-performance-on-xpus-with-the-new-xprof-profiler-and-cloud-diagnostics-xprof-library">新的 XProf profiler</a>。XProf 仓库 README 给出 MLSys 2026 引用条目 <em>XProf: An Open, Scalable and Extensible Profiling System for the Modern ML Stack</em>。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2026-03 / 04 / 10</div>
+          <div class="what">
+            <p><a href="https://github.com/google-pytorch/torch_tpu">google-pytorch/torch_tpu</a> 仓库创建于 2026-03-09。2026-04-07，Google Developers Blog 发表 <a href="https://developers.googleblog.com/torchtpu-running-pytorch-natively-on-tpus-at-google-scale/">TorchTPU: Running PyTorch Natively on TPUs at Google Scale</a>（本仓库已有论文分析）。2026-10-20，Google Cloud 与 PyTorch 官方同步宣布开源（<a href="https://cloud.google.com/blog/topics/ai-infrastructure/torchtpu-is-now-open-source-run-native-pytorch-on-tpus">Cloud 博客</a>、<a href="https://pytorch.org/blog/introducing-torchtpu/">PyTorch 博客</a>）。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2026-06-29</div>
+          <div class="what">
+            <p>AMD ROCm 博客 <a href="https://rocm.blogs.amd.com/software-tools-optimization/openxla-jax-rocm/README.html">OpenXLA and JAX - ROCm Support and the State of CI</a> 称：OpenXLA 编译栈现已在上游支持 AMD ROCm，XLA 的 PR 会在真实 Instinct 硬件上与 CUDA 路径并列门禁；<code>pip install "jax[rocm7-local]"</code> 是一等入口。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2026-11-05</div>
+          <div class="what">
+            <p>Google Open Source Blog 宣布 <a href="https://opensource.googleblog.com/2026/11/supercharging-xla-inference-xla-serving-engine.html">XLA Serving Engine（XSE）</a> 开源（Apache 2.0）。仓库本身创建于 2026-02-12。官方称其已在 Google 内部作为生产推理基础设施的一部分，服务超过 600 万 QPS，覆盖 YouTube Shorts、Google Ads、Search 以及 Gemini Omni 的部分通路。</p>
+          </div>
+        </li>
+        <li>
+          <div class="when">2026-11-23（本稿基准日）</div>
+          <div class="what">
+            <p>上述主要仓库均在 11 月下旬仍有推送（<code>openxla/triton</code> 例外，停在 10-06）。TorchTPU 的 PyPI 最新包为 <strong>0.3.0</strong>（2026-11-13 上传）；GitHub 上可见的正式 tag 仍是 <code>v0.2.0</code>。</p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card" id="xla">
+      <h2>5. XLA：编译器与后端</h2>
+      <p>
+        <a href="https://github.com/openxla/xla">openxla/xla</a> 是组织里体量最大、也最核心的仓库。README 的定义是：<em>an open-source machine learning (ML) compiler for GPUs, CPUs, and ML accelerators</em>，输入来自 PyTorch、TensorFlow 和 JAX，为不同硬件生成高性能可执行体（<a href="https://openxla.org/xla">官方文档入口</a>）。普通模型开发者通常不必克隆该仓，而是通过各框架预构建的 XLA 使用它。
+      </p>
+      <h3>IR 与编译流程</h3>
+      <p>
+        据 <a href="https://github.com/openxla/xla/blob/main/docs/architecture.md">XLA architecture</a>，编译器消费 <strong>StableHLO</strong> 程序，经过大致三步：
+      </p>
+      <ol class="steps">
+        <li><strong>目标无关优化</strong>：CSE、与目标无关的融合、缓冲分析等，同时把 StableHLO 转成内部 HLO 方言。</li>
+        <li><strong>后端相关的 HLO 优化</strong>：例如 GPU 后端按 GPU 编程模型做融合、划分 stream，或把模式匹配到优化库调用。</li>
+        <li><strong>目标代码生成</strong>：官方文档写明，随 XLA 提供的 CPU 与 GPU 后端使用 LLVM 做低层 IR、优化和代码生成。GPU 后端经 LLVM NVPTX 支持 NVIDIA GPU；CPU 后端支持多种 CPU ISA。新硬件可通过抽象接口接入（<a href="https://github.com/openxla/xla/blob/main/docs/developing_new_backend.md">Developing a new backend</a>）。</li>
+      </ol>
+      <h3>官方写明的优化目标</h3>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>执行速度</h4>
+          <p>编译短生命期算子以去掉运行时开销，流水线融合以降低访存，对已知形状做更激进的常量传播。</p>
+        </div>
+        <div class="tile">
+          <h4>内存</h4>
+          <p>分析并调度内存使用，去掉大量中间缓冲。与 eager 分配器不同，调度器可以「看见未来」。</p>
+        </div>
+        <div class="tile">
+          <h4>减少自定义算子依赖</h4>
+          <p>让自动融合的低层算子接近手工融合自定义算子的性能。</p>
+        </div>
+        <div class="tile">
+          <h4>可移植性</h4>
+          <p>为新硬件写一个后端，使大量模型无需改写即可运行；而不是为新硬件逐个特化巨型算子。</p>
+        </div>
+      </div>
+      <h3>并行与 GPU 管线中的关键能力</h3>
+      <p>
+        <a href="https://github.com/openxla/xla/blob/main/docs/gpu_architecture.md">XLA:GPU Architecture Overview</a> 把前端到设备的合同写得很清楚：框架把用户程序变成大约 100 个高层算子的 StableHLO，执行时调用 <strong>PJRT</strong> 完成「在指定设备上，用给定 StableHLO 程序填充指定缓冲」。文档中强调的优化包括：
+      </p>
+      <ul>
+        <li><strong>SPMD Partitioner</strong>（历史上以 GSPMD 为主）：消费带切分注解的 HLO，生成可在多主机、多设备上运行的切分 HLO，并试图重叠计算与通信。</li>
+        <li><strong>Layout assignment</strong>：逻辑形状与物理 layout 解耦，为算子选择更优 layout，冲突处插入 copy。</li>
+        <li><strong>Fusion</strong>：文档称之为 XLA「单一最重要的优化」——把多个算子收进一个 fusion，不把中间张量物化到 HBM，一个 fusion 对应一个 GPU kernel。</li>
+        <li><strong>代码生成策略</strong>：库调用（如 NVIDIA 的 cuBLAS、cuDNN、NCCL）、直接生成 LLVM IR，以及把包含 matmul / softmax 等的高级 fusion 降到 TritonIR 再生成 PTX。XLA 维护 <code>openxla/triton</code> 分叉，正是这条路径的配套。</li>
+      </ul>
+      <h3>硬件后端：能核实的范围</h3>
+      <ul>
+        <li><strong>CPU、NVIDIA GPU</strong>：架构文档中的一等、随仓库提供的后端。</li>
+        <li><strong>AMD GPU（ROCm）</strong>：不是「只存在于厂商插件、与上游无关」的状态。2026-06-29 的 AMD 官方技术博客明确写：OpenXLA 栈已在上游跑在 ROCm 上，XLA PR 在真实 Instinct 芯片上与 CUDA 路径并列门禁，并可经 Triton + LLVM-AMDGPU 或 hipBLASLt / MIOpen 等库下降。</li>
+        <li><strong>TPU 及其他 ML 加速器</strong>：产品文档与框架集成（JAX、TorchTPU、XSE）都把 TPU 作为一等目标。需要注意：公开树里 <a href="https://github.com/openxla/xla/tree/main/xla/backends"><code>xla/backends</code></a> 目前可见的目录是 <code>cpu</code>、<code>gpu</code>、<code>interpreter</code>、<code>autotuner</code>、<code>profiler</code>，没有同级的 <code>tpu</code> 目录。TPU 编译与运行时有多少在公开树、多少在闭源 <code>libtpu</code>，公开材料没有一份完整清单（见第 15 节）。</li>
+        <li><strong>其他硬件</strong>：通过实现 PJRT plugin（或历史上的 XLA 后端接口）接入。2023 年的宣布与合作声明提到 AWS Neuron（Trainium / Inferentia）、Graphcore IPU、Cerebras、Intel GPU 等；这些是厂商侧集成，不应理解成 <code>openxla/xla</code> 里都有对等的一等后端目录。</li>
+      </ul>
+      <h3>已知限制（官方口径内）</h3>
+      <p>
+        XLA 长期更擅长<strong>编译期形状已知</strong>的计算。动态形状、尤其是自回归解码里步步变化的 KV cache，会触发重编译——这正是 TorchTPU / 2026 路线图里强调「有界动态性 / 分桶」的原因。GPU 架构文档里也曾写 CUDA graph 提取「仍在进行中，仅部分节点受支持」（该文档会随代码演进，引用时以当时文本为准）。XLA 也不试图单独充当连续批处理的 LLM serving 引擎，那是 vLLM / SGLang 等系统的职责。
+      </p>
+    </section>
+
+    <section class="card" id="stablehlo">
+      <h2>6. StableHLO：可移植算子层</h2>
+      <p>
+        <a href="https://github.com/openxla/stablehlo">StableHLO</a> 的官方定义（<a href="https://openxla.org/stablehlo">openxla.org/stablehlo</a>）：它是面向机器学习高层运算的算子集，<em>essentially, it's a portability layer between different ML frameworks and ML compilers</em>。产出 StableHLO 的框架，可以对接消费 StableHLO 的编译器。目标是在 TensorFlow、JAX、PyTorch 与 XLA、IREE 等之间建立互操作。它基于 MHLO，并补上了序列化与版本化；序列化格式是 MLIR bytecode。
+      </p>
+      <h3>当前主要能力（官方 v1.0 及文档）</h3>
+      <ul>
+        <li><strong>完整规格</strong>：v1.0 发布说明写明约 98 个算子均有规范、verifier 与类型推断；官网当前表述为「约 100 个算子」，并覆盖动态性与量化能力。</li>
+        <li><strong>兼容承诺</strong>：portable artifact 提供 <strong>5 年向后兼容、2 年向前兼容</strong>（新特性除外）。细节与「不在范围内」的事项见 <a href="https://github.com/openxla/stablehlo/blob/main/docs/compatibility.md">compatibility.md</a>。</li>
+        <li><strong>参考解释器</strong>，以及 C++ / Python API、nightly wheel。</li>
+        <li><strong>可扩展性</strong>：composite 与 custom-call，便于实验或表达厂商专用运算。</li>
+        <li><strong>程序变换</strong>：与硬件无关的简化、用具体输入细化动态形状、以及向 linalg / tosa 等上游 MLIR 方言的转换。</li>
+        <li><strong>测试集</strong>：官方提到含动态与量化程序及黄金结果的大规模 testdata，用于厂商集成与兼容性回归。</li>
+        <li>仓库还提供把 StableHLO 程序（含权重元数据）转成 TensorFlow SavedModel 的工具。</li>
+      </ul>
+      <div class="callout teal">
+        兼容保证只覆盖按官方 API 生成的 <strong>portable artifact</strong>，不包括漂亮打印的方言文本，甚至不包括「未经兼容 API 的 SteadyHLO 方言 bytecode」。不在范围内的还有：尚未写入规格的特性、与规格矛盾的实现 bug、跨实现 / 跨版本的数值精度，以及 C/C++/Python 源码级 API 稳定性（文档称源码兼容仍是 aspirational goal）。
+      </div>
+      <p>
+        前端合同上，TensorFlow、JAX、PyTorch（经由 TorchTPU 或 PyTorch/XLA 等路径）都可以导出 StableHLO；消费端至少包括 XLA、IREE，以及 Google AI Edge 的端侧场景。roadmap 曾把「让 StableHLO 取代 MHLO/HLO 成为编译器接口」「把与硬件无关的优化迁到 StableHLO，使非 XLA 的 PJRT plugin 也能受益」列为明确方向。
+      </p>
+    </section>
+
+    <section class="card" id="pjrt">
+      <h2>7. PJRT：框架与硬件的接口</h2>
+      <p>
+        PJRT 没有独立的产品仓库。官网把它列为生态组件，并写明：<em>PJRT is a hardware and framework independent interface for ML compilers and runtimes. It is currently included with the XLA distribution</em>（<a href="https://openxla.org/">openxla.org</a>）。
+      </p>
+      <p>
+        2023-05-08 开源博客给出的长期愿景是：框架（JAX、TensorFlow 等）只调用 PJRT，设备相关实现对框架不透明；每家硬件专注实现 PJRT API，也可以对框架保持不透明。硬件厂商实现 API、打成含编译器与运行时钩子的 plugin 并注册；框架发现并加载一个或多个动态库；之后就可以把工作负载送到目标硬件。API 计划保持向后兼容。
+      </p>
+      <h3>接口里有什么</h3>
+      <p>
+        <a href="https://openxla.org/xla/pjrt/cpp_api_overview">PJRT C++ Device API Overview</a>（文档标注更新于 2025-10-28）描述的核心对象包括：
+      </p>
+      <div class="grid-3">
+        <div class="tile"><h4>PjRtClient</h4><p>框架与设备之间的全部通信与状态，拥有该 plugin 的 devices 与 memory spaces。</p></div>
+        <div class="tile"><h4>PjRtDevice / MemorySpace</h4><p>单设备描述（种类、在设备网格中的位置）以及钉扎 / 未钉扎的内存空间。</p></div>
+        <div class="tile"><h4>PjRtBuffer</h4><p>设备上的数据，可与宿主 <code>xla::Literal</code> 互转，支持外部引用。</p></div>
+        <div class="tile"><h4>Compiler / Executable</h4><p>把输入模块变成可执行体；支持序列化，以及 addressable / sharded / portable 等执行入口。</p></div>
+        <div class="tile"><h4>Futures</h4><p>异步 enqueue，先返回尚未 ready 的 buffer，真正读值时再阻塞。</p></div>
+        <div class="tile"><h4>可选进阶能力</h4><p>自定义 layout、send/recv、host offload、sharding 等，JIT 基本路径可以没有它们。</p></div>
+      </div>
+      <p>
+        对自研芯片来说，PJRT 是官方设计的替换点。本仓库的移植笔记已经据此论证：TorchTPU 把 PyTorch 始终看成 <code>PrivateUse1</code> 设备，但「可以用于任何带 PjRt plugin 的 XLA 设备类型」——只是部分 kernel 仍可能绑定特定物理设备。见 <a href="../torchtpu/torch_tpu_npu_porting.html">把新 NPU 接入 TorchTPU</a>。
+      </p>
+    </section>
+
+    <section class="card" id="shardy">
+      <h2>8. Shardy：切分与并行</h2>
+      <p>
+        <a href="https://github.com/openxla/shardy">Shardy</a> 是「面向所有方言的、基于 MLIR 的张量切分系统」。官方概述（<a href="https://openxla.org/shardy/overview">Overview</a>）写明：它由 GSPMD 与 <a href="https://arxiv.org/abs/2401.11202">PartIR</a> 两个团队合作，吸收两者之长。相对旧路径，文档强调更可预期的用户控制（把 GSPMD 的传播与 PartIR 的增量切分结合起来）、对 reshape 这类容易引入多余通信的算子给出更好的支持，以及更接近 <code>NamedSharding</code> 的轴切分表示，便于阅读和调试。
+      </p>
+      <h3>组件</h3>
+      <ul>
+        <li><strong>Sharding representation</strong>：绑定到某个逻辑 mesh，用轴名描述每个维度如何切分；支持约束、为 reshape 等拆分轴、优先级（增量切分）等。维度可以是 open（允许传播继续切）或 closed（用户指定即为最终切分）。</li>
+        <li><strong>Compiler API 与传播算法</strong>：结合用户优先级、算子优先级和代价模型 / 启发式。</li>
+        <li><strong>SPMD partitioner</strong>：把传播结果降成 SPMD 程序并插入必要的数据搬运与 collective。官方概述的短期方案是复用现有 GSPMD SPMD partitioner，长期计划是新的基于 MLIR 的 partitioner。本稿无法从公开材料确认「长期 MLIR partitioner」在 2026-11 是否已经完全替换前者，故不强作结论。</li>
+      </ul>
+      <h3>与 JAX / 状态声明</h3>
+      <p>
+        JAX 用户指南说，在 Shardy 之前，JAX 把切分指示编码进 StableHLO，再由位于 XLA 管线中段、运行在 HLO 上的 GSPMD 消化；现在 Shardy 在 JAX 中始终启用。切分标注从 GSPMD 那种设备列表形式，变成更接近 <code>PartitionSpec</code> 的 <code>#sdy.sharding&lt;@mesh, [{"data"}, {}]&gt;</code>。
+      </p>
+      <div class="callout">
+        需要同时记下两份官方文本之间的张力：<a href="https://openxla.org/shardy">Shardy 首页</a> 仍写 <em>Shardy is a work in progress. The core dialect and C bindings are fully functional. The python bindings are under development.</em>（该页标注 Last updated 2024-12-03）。仓库 README 还写「Currently we are not accepting contributions directly to the GitHub repository」。与「JAX 中已始终启用」并不必然矛盾——生产路径可以已经接通，而独立仓库的绑定与贡献流程仍在收紧——但读者不应把「WIP」四个字忽略掉。
+      </div>
+    </section>
+
+    <section class="card" id="tokamax">
+      <h2>9. Tokamax：自定义 kernel 库</h2>
+      <p>
+        <a href="https://github.com/openxla/tokamax">Tokamax</a> 是自定义加速器 kernel 库。官方页面（<a href="https://openxla.org/tokamax">openxla.org/tokamax</a>，标注更新 2026-10-06）把它分成两根支柱：面向最新开源模型训练 / 推理的<strong>优化算子组合</strong>，以及 autotuning、低开销 benchmarking、共享 API 下多实现等<strong>基础设施工具</strong>。kernel 通常建在 JAX 与 <a href="https://docs.jax.dev/en/latest/pallas/index.html">Pallas</a> 上，并在 TPU 上提供原生 PyTorch API，以便和 TorchTPU 一起使用。安装入口是 <code>pip install -U tokamax</code>。
+      </p>
+      <p>
+        文档明确提到会针对下一代硬件做主动优化，举例包括 TPU v7 Ironwood、NVIDIA Blackwell 以及即将到来的 TPU v8 系列。Fall 2025 DevLab 介绍时，已提到 MaxText 用其 kernel 在当时新宣布的 Ironwood 上做高性能演示，以及 DeepMind 科学模型在 GPU 侧使用这些 kernel；同时仍称官方正式发布还在路上。到本稿基准日，仓库与文档都已相当具体，<a href="https://openxla.org/tokamax/supported_ops">supported ops</a> 页标注更新于 2026-11-21。
+      </p>
+      <h3>公开算子组合（据 2026-11-21 文档，不穷尽抄表）</h3>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>Attention 变体</h4>
+          <p>Splash Attention、paged / ragged paged attention、标准 FlashAttention、Kimi Delta Attention / Gated DeltaNet，以及面向 DeepSeek-V4 / GLM-5.2 等的一系列 MLA / indexer / top-k / SparseMLA 构件。部分标为 experimental（FlexAttention、MoBA、NSA、RWKV-7、Raven 等）。硬件覆盖以 TPU 为主，部分算子同时支持 GPU。</p>
+        </div>
+        <div class="tile">
+          <h4>MoE 与杂项</h4>
+          <p>grouped matmul（<code>ragged_dot</code>）、token gather / scatter、router top-k，以及若干 fused MoE（部分 experimental）。另有融合的 linear+softmax cross-entropy、mHC、GPU 上的 GLU / normalization、AlphaFold 风格的 triangle multiplication、experimental 的融合 FP8 matmul 等。</p>
+        </div>
+      </div>
+      <p>
+        表格里单独标出了哪些算子提供 <strong>PyTorch TPU API</strong>、哪些有反向。这是它和 TorchTPU 栈最直接的连接点：常见 LLM / MoE 构件可以不手写 kernel，直接走生产就绪的 Tokamax 路径——这一点与 <a href="../torchtpu/torch_tpu_analysis.html">代码分析笔记第 11 节</a> 的分类一致。
+      </p>
+    </section>
+
+    <section class="card" id="xprof">
+      <h2>10. XProf：性能分析</h2>
+      <p>
+        <a href="https://github.com/openxla/xprof">XProf</a> 是面向现代 ML 栈的性能分析工具，官网称其适用于 JAX、TensorFlow 和 PyTorch/XLA，帮助理解并优化 TPU 或 GPU 上的应用（<a href="https://openxla.org/xprof">文档</a>）。安装：<code>pip install xprof</code>，另有 <code>xprof-nightly</code>。也可与 TensorBoard 一起使用。Google Cloud 推荐用 <a href="https://github.com/AI-Hypercomputer/cloud-diagnostics-xprof">xprofiler</a> 在云上收集与查看 profile。
+      </p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>Overview</h4>
+          <p>宿主与全部设备的聚合视图：step time 分解、逐步耗时曲线、运行环境摘要。</p>
+        </div>
+        <div class="tile">
+          <h4>Trace Viewer</h4>
+          <p>时间线：每个 op 的时长、在宿主还是设备上执行、设备间通信。</p>
+        </div>
+        <div class="tile">
+          <h4>Memory Profile</h4>
+          <p>监视模型内存使用。</p>
+        </div>
+        <div class="tile">
+          <h4>Graph Viewer</h4>
+          <p>可视化模型的 HLO 图结构。</p>
+        </div>
+      </div>
+      <p>
+        README 还提到分布式 XProf（多 worker 聚合）以及 Kubernetes 部署指南。截至本稿，GitHub 上最近的正式 release 标签包括 2026-09 的 <code>xprof-v2.23.2</code>。仓库未关闭 issue 数量很多（约 600），其中应同时包含功能请求与历史条目，不宜直接等同于「有 600 个严重缺陷」。
+      </p>
+    </section>
+
+    <section class="card" id="xse">
+      <h2>11. XLA Serving Engine</h2>
+      <p>
+        <a href="https://github.com/openxla/xla-serving">XLA Serving Engine（XSE）</a> 是面向 OpenXLA 生态的 C++ 推理运行时和模型打包工具。官方一句话是：从 JAX（Flax、Keras 3 或普通 <code>jax.jit</code>）或经 <a href="https://github.com/pytorch/xla/tree/master/torchax">torchax</a> 的 PyTorch 导出一次，然后在 CPU、NVIDIA GPU 或 Cloud TPU 上用同一份自包含制品服务，<strong>请求路径上没有 Python</strong>。文档在 <a href="https://xla-serving.readthedocs.io">xla-serving.readthedocs.io</a>。Python 导出包：<code>pip install xla-saved-model</code>。预构建服务镜像发布在 <code>us-docker.pkg.dev/xla-serving-engine/xla-serving/</code>，覆盖 CPU、CUDA 12/13 与 Cloud TPU。
+      </p>
+      <h3>设计要点</h3>
+      <ul>
+        <li>导出走 <code>jax.export</code>，直接捕获 <strong>StableHLO</strong> 与 <a href="https://github.com/google/orbax">Orbax</a> checkpoint，不经过 ONNX 或 TensorFlow 图转换；并声称完整支持自定义 XLA call、Pallas kernel 与多设备切分。</li>
+        <li>独立 C++ 进程处理 gRPC、动态组批、宿主侧预/后处理，以及 PJRT / IFRT 设备执行，避免 GIL 与庞大的 Python 运行时。</li>
+        <li>同一导出目录可携带 <code>cpu</code> / <code>cuda</code> / <code>tpu</code> 的 lowering；可在本地 CPU 上验证，再部署到 GPU 或 TPU 容器。</li>
+        <li>组批、warmup、宿主特征流水线、可选 AOT 可执行体打进制品，而不是散落在一组服务器 flag 里。</li>
+      </ul>
+      <div class="callout teal">
+        官方把适用面写得很具体：推荐 / 排序、视觉与多模态编码器、encoder 风格语言模型，以及<strong>短且固定步数的解码</strong>（例如几个 token 的 beam search）——这些场景里请求延迟和单次查询成本更关键。它<strong>不是</strong>带 paged KV cache 的连续批处理 LLM 引擎。长文本开放生成应使用 vLLM（含 <code>vllm-jax</code> / <code>vllm-torchtpu</code>）或 SGLang（含 <code>sglang-jax</code> / <code>sglang-torchtpu</code>）。
+      </div>
+      <p>
+        2026-11-05 的开源宣布给出一组内部对比数字：短请求上，XSE 达到「所能构建的最好 Python 服务器」吞吐量的 2–5 倍，相对「直白的」Python 服务器达到 8–36 倍，每预测 CPU 时间少 30–70%，内存约为四分之一。这些数字来自官方博客，不是本稿复现的基准。仓库结构上分为导出库 <code>xla_saved_model</code>（含 <code>xsm-cli</code>）、用于进程内校验的 Python runner、宿主预处理库，以及 C++ Interpreter / batch scheduler / gRPC 服务器。
+      </p>
+    </section>
+
+    <section class="card" id="minor">
+      <h2>12. 次要仓库与历史分叉</h2>
+      <h3>openxla/triton</h3>
+      <p>
+        这是给 OpenXLA 使用的 Triton 分叉，不是对外产品。XLA:GPU 文档把 Triton 当作 matmul / softmax 等高级 fusion 的代码生成层；该分叉让 XLA 可以钉住自己需要的 Triton / LLVM 版本。跟踪 XLA:GPU 性能时需要意识到这条依赖，但不必按独立项目做周报。它与上游 <code>triton-lang/triton</code> 的具体分叉差异，本稿未做逐提交对比。
+      </p>
+      <h3>community 与治理</h3>
+      <p>
+        2022–2024 年的 RFC、会议纪要存放在已归档的 <code>openxla/community</code>。当前对外沟通渠道以 <a href="https://groups.google.com/a/openxla.org/g/openxla-discuss/">openxla-discuss</a>、Discord 和 <a href="https://openxla.org/">openxla.org</a> 为主。XLA README 仍提到「在 TensorFlow 治理之下，SIG OpenXLA 的社区空间遵循 TensorFlow 行为准则」——这说明治理叙事还带有从 TensorFlow 拆出时的痕迹。社区文档整体迁到了哪里，公开页面没有给出单一说明。
+      </p>
+      <h3>IREE：曾经在栈内，现在在组织外</h3>
+      <p>
+        2023-03-08 的开源宣布把 IREE 与 XLA、StableHLO 并列。约一年后 IREE 迁出 OpenXLA 组织（维护者 2024-01-14 的公开声明）。StableHLO 文档至今仍把它列为消费者，这是 IR 层的互操作，不再等于「同组织项目」。写 OpenXLA 现状时，不应再把 IREE 算进 openxla 组织的主要仓库，也不应假装这条历史不存在。
+      </p>
+    </section>
+
+    <section class="card" id="torchtpu">
+      <h2>13. TorchTPU：当前状态与栈内位置</h2>
+      <p class="lead">
+        TorchTPU 是 Google（与 Meta 联合推进）的 PyTorch TPU 后端，仓库在 <a href="https://github.com/google-pytorch/torch_tpu">google-pytorch/torch_tpu</a>，用户文档在 <a href="https://torchtpu.readthedocs.io/">torchtpu.readthedocs.io</a>。它不属于 openxla 组织，但深度依赖这条编译栈。设计叙事见 <a href="../torchtpu/TorchTPU_%E8%AE%BA%E6%96%87%E5%88%86%E6%9E%90.html">论文分析</a>；实现细节见 <a href="../torchtpu/torch_tpu_analysis.html">开源代码分析</a>。这里只补<strong>当前公开状态</strong>、<strong>能核实的能力</strong>，以及<strong>和 OpenXLA 的接口关系</strong>。
+      </p>
+
+      <h3>13.1 仓库当前状态（2026-11-23）</h3>
+      <table>
+        <thead><tr><th>项</th><th>公开事实</th></tr></thead>
+        <tbody>
+          <tr><td>组织 / 主页</td><td><code>google-pytorch/torch_tpu</code>，主页 <a href="https://torchtpu.readthedocs.io/">torchtpu.readthedocs.io</a></td></tr>
+          <tr><td>仓库创建</td><td>2026-03-09（GitHub <code>created_at</code>）。代码分析笔记记录公开历史起点为 2026-02-11 的「Start of public TorchTPU history」</td></tr>
+          <tr><td>对外叙述</td><td>2026-04-07 Developers Blog 技术介绍；2026-10-20 Cloud / PyTorch 官方宣布开源</td></tr>
+          <tr><td>GitHub tag / Releases</td><td>可见 tag 为 <code>v0.2.0</code>。GitHub Releases 列表为空</td></tr>
+          <tr><td>PyPI</td><td><a href="https://pypi.org/project/torch-tpu/">torch-tpu 0.3.0</a>，上传于 2026-11-13。安装示例：<code>pip install torch_tpu --extra-index-url https://download.pytorch.org/whl/cpu</code></td></tr>
+          <tr><td>活跃度</td><td>main 在 2026-11-23 仍有推送；约 866 星、101 fork、345 个未关闭 issue</td></tr>
+          <tr><td>当前 README 的 Python 支持</td><td>与 PyTorch Release Compatibility Matrix 对齐，声明支持 <strong>Python 3.11–3.15</strong>（含 free-threaded 的 3.14t / 3.15t；3.15 需要 PyTorch &gt;= 2.15）</td></tr>
+          <tr><td>与已有笔记的差</td><td>代码分析基于 <code>v0.2.0</code> / 2026-10-26 的 HEAD，当时记录的 Python 上界是 3.14 / 3.14t。0.3.0 相对 0.2.0 的功能增量，公开材料中没有找到正式 changelog，故不在此臆测</td></tr>
+        </tbody>
+      </table>
+
+      <h3>13.2 官方 README 列明的能力</h3>
+      <ul>
+        <li>为 TPU 提供 PyTorch ATen kernel 实现。</li>
+        <li>针对 XLA computation 的编译缓存。</li>
+        <li>分布式训练：Data Parallelism、Tensor Parallelism。</li>
+        <li>示例覆盖 Llama、Qwen、ResNet、DLRM、minGPT、UNet 等。</li>
+        <li>与 <code>torch.compile()</code> 集成，用于图模式执行。</li>
+        <li>调试与基准工具。</li>
+      </ul>
+      <p>
+        这些是仓库自己的功能清单，没有夸大成「任意模型、任意并行策略都已生产完美」。更细的执行模型、缓存层级、动态形状规则，以代码分析笔记为准。
+      </p>
+
+      <h3>13.3 它在 OpenXLA 栈里处于哪一层</h3>
+      <p>
+        代码分析笔记的核心判断仍然成立，且与当前 README、移植笔记相互印证：
+      </p>
+      <ul>
+        <li><strong>本质是语义翻译层，不是 kernel 库。</strong> 它把 PyTorch 的命令式、可变、指针语义，映射到 XLA 的声明式、不可变、SSA 世界，并且不修改 PyTorch 源码。设备通过 <code>PrivateUse1</code> dispatch key 改名为 <code>"tpu"</code>。</li>
+        <li><strong>降低目标是 StableHLO，运行时是 PJRT，编译器是 XLA。</strong> 团队刻意少写图优化（分析时 <code>csrc/mlir/passes</code> 只有少量 pass），fusion / tiling 交给 XLA。自定义高性能算子走 Tokamax 或 Pallas（<code>jax_op</code>），而不是在 TorchTPU 里再造一套编译器。</li>
+        <li><strong>不复用 PyTorch/XLA（<code>torch_xla</code>）的代码。</strong> 二者共享的是下层 OpenXLA 组件（XLA、StableHLO、PJRT、libtpu）。官方 FAQ 把三者区分为：PyTorch/XLA 拦截在 C++ ATen 的惰性图并降到 HLO；TorchAX 在 Python 层降到 JAX；TorchTPU 走 PrivateUse1，直接构造 StableHLO，核心路径不依赖 JAX 运行时（Pallas 仅在 trace 时用到）。</li>
+        <li><strong><code>torch.compile(backend="tpu")</code></strong> 复用 Dynamo → AOTAutograd 的前半段，只在生成设备代码时换成 XLA，而不是做一个 Inductor 后端。</li>
+      </ul>
+      <div class="fig">
+        <svg viewBox="0 0 980 260" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
+          <rect x="20" y="20" width="200" height="70" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="120" y="48" text-anchor="middle" font-size="13" font-weight="700">PyTorch 用户代码</text>
+          <text x="120" y="70" text-anchor="middle" font-size="12" fill="#57534e">device="tpu" / compile</text>
+          <rect x="250" y="20" width="230" height="70" rx="6" fill="#f0f4f8" stroke="#93c5fd"/>
+          <text x="365" y="48" text-anchor="middle" font-size="13" font-weight="700">TorchTPU</text>
+          <text x="365" y="70" text-anchor="middle" font-size="12" fill="#57534e">ATen → StableHLO 翻译</text>
+          <rect x="510" y="20" width="210" height="70" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text x="615" y="48" text-anchor="middle" font-size="13" font-weight="700">PJRT + XLA</text>
+          <text x="615" y="70" text-anchor="middle" font-size="12" fill="#57534e">编译、缓存、执行</text>
+          <rect x="750" y="20" width="210" height="70" rx="6" fill="#faf7f2" stroke="#e7e0d4"/>
+          <text x="855" y="48" text-anchor="middle" font-size="13" font-weight="700">TPU（libtpu）</text>
+          <text x="855" y="70" text-anchor="middle" font-size="12" fill="#57534e">ISA 不公开</text>
+          <rect x="250" y="130" width="230" height="70" rx="6" fill="#faf7f2" stroke="#e7e0d4"/>
+          <text x="365" y="158" text-anchor="middle" font-size="13" font-weight="700">Tokamax / Pallas</text>
+          <text x="365" y="180" text-anchor="middle" font-size="12" fill="#57534e">可选自定义 kernel</text>
+          <rect x="510" y="130" width="210" height="70" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="615" y="158" text-anchor="middle" font-size="13" font-weight="700">Shardy / XLA SPMD</text>
+          <text x="615" y="180" text-anchor="middle" font-size="12" fill="#57534e">切分发生在编译器侧</text>
+          <rect x="750" y="130" width="210" height="70" rx="6" fill="#f0f4f8" stroke="#93c5fd"/>
+          <text x="855" y="158" text-anchor="middle" font-size="13" font-weight="700">XProf / XSE 周边</text>
+          <text x="855" y="180" text-anchor="middle" font-size="12" fill="#57534e">分析；Serving 另走 torchax 等</text>
+          <path d="M220 55 H250" stroke="#57534e" stroke-width="1.5" marker-end="none"/>
+          <path d="M480 55 H510" stroke="#57534e" stroke-width="1.5"/>
+          <path d="M720 55 H750" stroke="#57534e" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <p class="figcap">图 2 · TorchTPU 与 OpenXLA 组件的关系：翻译与设备伪装在上，编译与切分在下。</p>
+
+      <h3>13.4 Eager、编译与动态形状（只记边界）</h3>
+      <p>
+        论文分析把产品策略概括为 <strong>Eager First</strong>：先提供与 CUDA 心智模型接近的 eager 体验，再在需要时用 <code>torch.compile</code> 吃到 XLA 的整图优化。三种 eager 模式、以及「形状不是免费的」（例如 head 维度与 TPU 矩阵乘法效率）的讨论，见该笔记，此处不重复。
+      </p>
+      <p>
+        动态形状方面，代码分析笔记依据项目文档指出：XLA 传统上要求编译期形状已知，TorchTPU 用<strong>有界分桶</strong>而不是任意动态形状来吸收 KV cache 增长；存在桶数量上限、对齐约束、与部分 Pallas kernel / 某些 compile 标志不兼容等硬边界。2026 路线图（论文分析第 7 节）把降低动态序列长度 / batch size 触发的重编译、以及标准算子的预编译 TPU kernel 库列为方向。这些是「已知限制」，不是已经消失的问题。
+      </p>
+
+      <h3>13.5 分布式与生态集成</h3>
+      <p>
+        README 确认支持 DP 与 TP。更深的矛盾在代码分析笔记第 10 节：XLA/TPU 通信栈假设 SPMD（各 rank 执行相同 StableHLO，collective 必须匹配），而 PyTorch 允许 MPMD 式分叉。项目用 skinny collectives（默认，在 collective 处切开）、<code>@spmd_safe</code> 融合，以及跨 rank 的 compilation handshake 来折中。通信本身并不另起库，而是降成 <code>stablehlo.all_reduce</code> 等，交给 XLA 做计算-通信重叠。
+      </p>
+      <p>
+        生态上，当前能从公开材料核实的连接包括：
+      </p>
+      <ul>
+        <li>Tokamax 为部分算子提供 PyTorch TPU API，面向 TorchTPU 使用场景。</li>
+        <li>XSE README 把长文本 LLM serving 指向 <code>vllm-torchtpu</code>、<code>sglang-torchtpu</code>；XSE 自己的 PyTorch 导出示例走的是 <code>torchax</code>，不是把 TorchTPU 训练图直接变成 XSE 制品。三条路径不要混为一谈。</li>
+        <li>论文分析提到的 2026 路线图还包括与 Helion DSL、vLLM、TorchTitan 的集成，以及多队列支持。路线图是方向声明，是否已经全部落地，需要看当时仓库与文档，不能把博客里的「计划」写成「已支持」。</li>
+      </ul>
+
+      <h3>13.6 对自研芯片读者的含义</h3>
+      <p>
+        移植笔记的判断可以直接引用：TorchTPU 对某一代 TPU 的硬编码比表面看起来浅，真正的硬件耦合集中在少数接缝，其中 PJRT plugin 是官方替换点；算子层大部分是设备无关的 StableHLO 构造。但 TPU 专有硬件语义、特定 custom call、分布式拓扑假设，以及「能跑不等于同样快」，仍然是真实障碍。若目标是新的 NPU，应先做 StableHLO 兼容性审计，而不是长期维护一个巨大 fork。细节见原文，不在此展开清单。
+      </p>
+    </section>
+
+    <section class="card" id="limits">
+      <h2>14. 能力边界与未决问题</h2>
+      <p>把前面各节里「现在就能用」和「不要误读」的部分收拢如下。</p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>已经相当稳的部分</h4>
+          <p>StableHLO 作为框架↔编译器合同（含多年兼容承诺）；XLA 对 JAX / TensorFlow / PyTorch 前端的生产级编译；PJRT 作为硬件接入面；CPU 与 NVIDIA GPU 一等后端，以及上游 ROCm 路径；JAX 中的 Shardy 切分；XProf 作为通用分析工具。</p>
+        </div>
+        <div class="tile">
+          <h4>仍在快速成形的部分</h4>
+          <p>Tokamax 的算子组合与多硬件覆盖（大量条目仍标 experimental）；XSE 作为 2026-11 刚对外宣布的 Serving 组件；TorchTPU 在开源后的 API 表面与版本节奏（PyPI 已到 0.3.0，正式 GitHub Release 说明却很少）。</p>
+        </div>
+        <div class="tile">
+          <h4>不要期待这条栈单独解决的问题</h4>
+          <p>开放域、连续批处理、paged KV 的长文本 LLM serving（官方把这交给 vLLM / SGLang）；任意动态形状而不重编译；在 CUDA 上「免费」的 view / 原地写入，换到 TPU 上仍有同样的性能语义。</p>
+        </div>
+        <div class="tile">
+          <h4>文档与实现可能不同步之处</h4>
+          <p>Shardy 首页的 WIP 声明 vs JAX「始终启用」；XLA README 仍提及 TensorFlow 治理；IREE 已离开组织但仍出现在 StableHLO 消费者列表。引用时应对着日期读。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="uncertainty">
+      <h2>15. 资料里不确定或找不到的地方</h2>
+      <p>下面这些是本稿明确没有写死、或公开材料不够的点，避免把推断写成事实。</p>
+      <ul>
+        <li><code>openxla/xla</code> 树内 <code>xla/backends</code> 可见 cpu / gpu / interpreter 等目录，没有同级的 tpu 目录。TPU 代码生成与运行时有多少位于公开树、多少位于闭源 libtpu，没有找到官方的完整划分说明。</li>
+        <li>Shardy 的「长期 MLIR-based SPMD partitioner」是否已经完全替换短期沿用的 GSPMD partitioner，公开概述没有给出 2026-11 的明确切换声明。</li>
+        <li>StableHLO 在 2024-05-14 的 v1.0.0 之后，GitHub Releases 未见后续带说明的正式版本；版本以仓库内的 weekly bump 为准。本稿没有再去核对 <code>Version.h</code> 里的当前精确版本号。</li>
+        <li>torch_tpu 的 GitHub Releases 为空，仅有 tag <code>v0.2.0</code>；PyPI 已发布 0.3.0，但没有找到对应的正式 changelog，因此不能核实 0.3.0 相对 0.2.0 增加了哪些能力。已有静态分析笔记也尚未覆盖 2026-10-26 之后约一个月的提交。</li>
+        <li>2023 年 RFC 提议创建的 <code>openxla/openxla-pjrt-plugin</code> 仓库，当前组织列表中不存在。PJRT 现居于 xla 仓库；该独立仓是否曾经建立后又合并，未再追提交历史。</li>
+        <li><code>openxla/community</code> 归档后，RFC 与会议记录的「现行」存放位置，公开站点没有单一入口说明。</li>
+        <li>XProf 仓库 <code>created_at</code> 为 2020-03-10，早于 OpenXLA 组织。它应是迁入或由 TensorFlow Profiler 一线演化而来，但迁入 OpenXLA 组织的准确公告日期未核到。</li>
+        <li><code>openxla/triton</code> 与上游 Triton 的功能差集、以及 XLA:GPU 当前构建是否仍必须对该 fork 而不是上游，本稿未做构建系统级核对。</li>
+        <li>XSE 宣布中的 6M QPS、2–5× / 8–36× 吞吐量等数字来自 Google 官方博客，不是第三方复现，也未给出可公开重跑的完整实验配置。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="refs">
+      <h2>16. 主要参考</h2>
+      <p>按类型列出本文直接依据的入口。文中已给出具体篇目的，这里不重复每一条引用。</p>
+      <h3>官方站点与仓库</h3>
+      <ul>
+        <li><a href="https://openxla.org/">OpenXLA 官网</a> · <a href="https://github.com/openxla">GitHub 组织</a></li>
+        <li><a href="https://github.com/openxla/xla">xla</a> · <a href="https://github.com/openxla/xla/blob/main/docs/architecture.md">architecture.md</a> · <a href="https://github.com/openxla/xla/blob/main/docs/gpu_architecture.md">gpu_architecture.md</a></li>
+        <li><a href="https://github.com/openxla/stablehlo">stablehlo</a> · <a href="https://openxla.org/stablehlo">文档</a> · <a href="https://github.com/openxla/stablehlo/blob/main/docs/compatibility.md">compatibility.md</a> · <a href="https://github.com/openxla/stablehlo/releases/tag/v1.0.0">v1.0.0</a></li>
+        <li><a href="https://openxla.org/xla/pjrt/cpp_api_overview">PJRT C++ API 概述</a> · <a href="https://github.com/openxla/community/blob/main/rfcs/20230123-pjrt-plugin.md">PJRT plugin RFC</a></li>
+        <li><a href="https://github.com/openxla/shardy">shardy</a> · <a href="https://openxla.org/shardy">文档</a> · <a href="https://openxla.org/shardy/getting_started_jax">JAX 指南</a></li>
+        <li><a href="https://github.com/openxla/tokamax">tokamax</a> · <a href="https://openxla.org/tokamax">文档</a> · <a href="https://openxla.org/tokamax/supported_ops">supported ops</a></li>
+        <li><a href="https://github.com/openxla/xprof">xprof</a> · <a href="https://openxla.org/xprof">文档</a></li>
+        <li><a href="https://github.com/openxla/xla-serving">xla-serving</a> · <a href="https://xla-serving.readthedocs.io">文档</a></li>
+        <li><a href="https://github.com/google-pytorch/torch_tpu">torch_tpu</a> · <a href="https://torchtpu.readthedocs.io/">用户指南</a> · <a href="https://pypi.org/project/torch-tpu/">PyPI</a></li>
+      </ul>
+      <h3>关键博客与宣布</h3>
+      <ul>
+        <li>2017-03-06 · <a href="https://developers.googleblog.com/2017/03/xla-tensorflow-compiled.html">XLA - TensorFlow, compiled</a></li>
+        <li>2022-10-11 · <a href="https://cloud.google.com/blog/products/ai-machine-learning/googles-open-source-momentum-openxla-new-partnerships">Google Cloud：OpenXLA Project</a></li>
+        <li>2023-03-08 · <a href="https://opensource.googleblog.com/2023/03/openxla-is-ready-to-accelerate-and-simplify-ml-development.html">OpenXLA is available now</a></li>
+        <li>2023-05-08 · <a href="https://opensource.googleblog.com/2023/05/pjrt-simplifying-ml-hardware-and-framework-integration.html">PJRT 开源介绍</a></li>
+        <li>2023-04-03 · <a href="https://pytorch.org/blog/pytorch-2-0-xla-path-forward/">PyTorch &amp; OpenXLA: The Path Forward</a></li>
+        <li>2024-05-09 · <a href="https://opensource.googleblog.com/2024/05/openxla-dev-lab-2024-building-grouundbreaking-systems-together.html">OpenXLA Dev Lab 2024</a></li>
+        <li>2026-04-07 · <a href="https://developers.googleblog.com/torchtpu-running-pytorch-natively-on-tpus-at-google-scale/">TorchTPU 技术介绍</a></li>
+        <li>2026-06-29 · <a href="https://rocm.blogs.amd.com/software-tools-optimization/openxla-jax-rocm/README.html">AMD：OpenXLA / JAX on ROCm</a></li>
+        <li>2026-10-20 · <a href="https://cloud.google.com/blog/topics/ai-infrastructure/torchtpu-is-now-open-source-run-native-pytorch-on-tpus">TorchTPU 开源宣布</a> · <a href="https://pytorch.org/blog/introducing-torchtpu/">PyTorch 博客</a></li>
+        <li>2026-11-05 · <a href="https://opensource.googleblog.com/2026/11/supercharging-xla-inference-xla-serving-engine.html">XLA Serving Engine 宣布</a></li>
+      </ul>
+      <h3>本仓库已有笔记</h3>
+      <ul>
+        <li><a href="../torchtpu/TorchTPU_%E8%AE%BA%E6%96%87%E5%88%86%E6%9E%90.html">TorchTPU 技术分析（论文 / 博客精读）</a></li>
+        <li><a href="../torchtpu/torch_tpu_analysis.html">TorchTPU 开源代码分析</a>（v0.2.0 / 2026-10-26）</li>
+        <li><a href="../torchtpu/torch_tpu_npu_porting.html">把新 NPU 接入 TorchTPU</a></li>
+      </ul>
+    </section>
+
+    <footer>
+      综述基于 OpenXLA 与 TorchTPU 的公开仓库、官方文档和博客 · 数据截至 2026-11-23（Asia/Shanghai）
+    </footer>
+  </div>
+</body>
+</html>
