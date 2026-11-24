@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AMMA 论文分析 | 用 HBM-PNM 立方替换 GPU 计算芯粒，做低延迟百万上下文注意力</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">MICRO 2026 · Session 8A</span>
+        <span class="badge ok">arXiv:2604.26103v3</span>
+        <span class="badge">内存中心 · 多芯片封装</span>
+        <span class="badge warn">仿真 + H100 实测基线</span>
+      </div>
+      <h1>AMMA：用 HBM-PNM 立方替换 GPU 计算芯粒，做低延迟百万上下文注意力</h1>
+      <p class="subtitle">一篇把「注意力该不该还由 GPU 坐庄」问到底的架构论文。它不是再给 GPU 配一块近存卡，而是把计算芯粒拿掉，让 16 个带逻辑晶的 HBM 立方自己组成注意力处理器。</p>
+      <p class="meta">
+        <strong>Zhongkai Yu、Haotian Ye、Yufei Ding 等</strong>（UCSD、Columbia、Yonsei；NVIDIA、Samsung Semiconductor）<br />
+        论文：<a href="https://arxiv.org/abs/2604.26103">arXiv:2604.26103</a>（v3，2026-10-30）·
+        代码：<a href="https://github.com/zhongkaiyu/AMMA">zhongkaiyu/AMMA</a> ·
+        MICRO 2026 程序 Session 8A（PIM &amp; Near-Memory Long-Context LLM Serving）
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：GPU 坐在注意力中心，但解码并不吃算力</a></li>
+        <li><a href="#s3">AMMA 是什么</a></li>
+        <li><a href="#s4">现有路线的三个缺口</a></li>
+        <li><a href="#s5">做法：微结构、两级并行、重排集合通信</a></li>
+        <li><a href="#s6">实验怎么做的</a></li>
+        <li><a href="#s7">结果怎么读</a></li>
+        <li><a href="#s8">能耗、面积与设计空间</a></li>
+        <li><a href="#s9">局限与落地可行性</a></li>
+        <li><a href="#s10">数字速查</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">AMMA 的核心判断是：长上下文解码注意力是带宽活，不该再由计算密度很高的 GPU 芯粒来扛。它把这些芯粒换成 HBM4 近存立方，在同一封装里用片上 D2D 把 16 个立方连成独立的注意力加速器，再和 LPU（低延迟）或 GPU（高吞吐）做 FFN 拆分。</p>
+      <div class="kpi">
+        <div><div class="n">12.0–16.3×</div><div class="k">Fig. 11，GQA，BS=1，相对单卡 H100 的逐层解码延迟。摘要写成 15.5×</div></div>
+        <div><div class="n">1.8–2.5×</div><div class="k">Fig. 11，相对单卡 Rubin（8 个 HBM4 立方）。对上 Rubin TP2 后，1M 处只剩 1.1×</div></div>
+        <div><div class="n">2.6–3.1×</div><div class="k">Fig. 13，能效相对 Rubin。摘要里相对 H100 的 6.9×，正文没有单独展开</div></div>
+        <div><div class="n">MLA 例外</div><div class="k">标准配置在长序列上可落后 Rubin 最多 2.9×；要靠算力 4 倍的 AMMA-EC 才重新领先 1.8–2.1×</div></div>
+      </div>
+      <div class="callout warn">上面四组数字里，H100 基线来自 8 卡服务器上的 FlashAttention-2 / FlashDecoding 实测；AMMA 本身是 ScaleSim + AstraSim 仿真；Rubin 是把 H100 实测按公开规格外推，并保留实测利用率。15.5× / 6.9× 只出现在摘要（以及 artifact 附录的复述），引用时不要和正文区间、也不要和相对 Rubin 的倍数混成同一组数。封装带宽 Table I 写 44 TB/s（16 × 2.75），正文多处写 40 TB/s、11.9× 于 H100 的 3.35 TB/s，本笔记两处都保留。</div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：GPU 坐在注意力中心，但解码并不吃算力</h2>
+      <p>论文先画了一张很清楚的现状图（Fig. 1(a)）：无论是 MegaScale-Infer / Step-3 这类注意力–FFN 拆分，还是 NVIDIA 下一代把 FFN 卸到 LPU、注意力仍留在 Rubin 上的异构平台，甚至 AttAcc、NeuPIMs 这类把 GEMV 放进存储的学术方案，跨设备通信的中枢仍然是 GPU。</p>
+      <p>这个中枢和负载不匹配。引言用 Rubin 的公开规格说：它按带宽配了 795 FLOPs/byte，而 FP8 的 GQA 注意力只需要 32 FLOPs/byte，算力富裕约 25 倍；两块计算芯粒占封装面积的 67%、设计功耗的 73%，注意力却只用到峰值吞吐的 4%。§III-A 对 H100 跑 Qwen3-235B、batch=1 的剖析更具体：HBM 利用率超过 90%，计算单元低于 5%（文中另一处写「约 5%」）。</p>
+      <p>§III-B 的功耗分解更刺眼。长上下文注意力几乎不吃计算，但测到的平均功耗是 693 W，离 700 W TDP 不到 1%。静态功耗 125 W，HBM 总功耗不到 200 W，大约还有 370 W 被算到 NoC、LLC 和非计算 SM 逻辑上——上下文变长、为了并行会拉起更多 SM，计算单元闲着，周围的数据通路还在烧电。LLC 在 Qwen3-235B、batch=16 时命中率大约 13%，更长序列会掉到 1% 以下，长上下文注意力时却要耗掉 130 W。</p>
+      <p>推理和 agent 工作负载把上下文往百万 token 推之后，这个错配会直接变成用户看得到的延迟。论文的问题因此不是「再给 GPU 加一条近存旁路」，而是：为什么不把计算芯粒换成更多 HBM 立方，并让每个立方自己具备近存计算？</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. AMMA 是什么</h2>
+      <p>AMMA（A Multi-Chiplet Memory-Centric Architecture）是一颗以 HBM-PNM 立方为中心的多芯片封装，专门做长上下文解码注意力。标准配置把 16 个立方排成 4×4 网格，立方之间用邻接 D2D 相连；每个立方是一叠 HBM4 加上一块具备近存计算能力的逻辑晶。它被设计成独立、可编程的注意力加速器，不再把 GPU 当通信中枢，并可以在拆分式服务里把 FFN 交给 LPU 或 GPU。</p>
+      <div class="fig">
+        <svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AMMA 4乘4 HBM-PNM 立方网格示意">
+          <text x="8" y="18" font-size="12" fill="#57534e" font-family="Segoe UI, sans-serif">AMMA 封装（示意，非比例）</text>
+          <g font-family="Segoe UI, sans-serif" font-size="9">
+            <g fill="#0f766e">
+              <rect x="20" y="36" width="36" height="28" rx="3"/><rect x="64" y="36" width="36" height="28" rx="3"/><rect x="108" y="36" width="36" height="28" rx="3"/><rect x="152" y="36" width="36" height="28" rx="3"/>
+              <rect x="20" y="76" width="36" height="28" rx="3"/><rect x="64" y="76" width="36" height="28" rx="3"/><rect x="108" y="76" width="36" height="28" rx="3"/><rect x="152" y="76" width="36" height="28" rx="3"/>
+              <rect x="20" y="116" width="36" height="28" rx="3"/><rect x="64" y="116" width="36" height="28" rx="3"/><rect x="108" y="116" width="36" height="28" rx="3"/><rect x="152" y="116" width="36" height="28" rx="3"/>
+              <rect x="20" y="156" width="36" height="28" rx="3"/><rect x="64" y="156" width="36" height="28" rx="3"/><rect x="108" y="156" width="36" height="28" rx="3"/><rect x="152" y="156" width="36" height="28" rx="3"/>
+            </g>
+            <g stroke="#1e3a5f" stroke-width="1.2" fill="none">
+              <path d="M56 50 H64 M100 50 H108 M144 50 H152"/>
+              <path d="M56 90 H64 M100 90 H108 M144 90 H152"/>
+              <path d="M56 130 H64 M100 130 H108 M144 130 H152"/>
+              <path d="M56 170 H64 M100 170 H108 M144 170 H152"/>
+              <path d="M38 64 V76 M82 64 V76 M126 64 V76 M170 64 V76"/>
+              <path d="M38 104 V116 M82 104 V116 M126 104 V116 M170 104 V116"/>
+              <path d="M38 144 V156 M82 144 V156 M126 144 V156 M170 144 V156"/>
+            </g>
+            <g fill="#fff" text-anchor="middle">
+              <text x="38" y="54">HBM</text><text x="82" y="54">HBM</text><text x="126" y="54">HBM</text><text x="170" y="54">HBM</text>
+              <text x="38" y="94">HBM</text><text x="82" y="94">HBM</text><text x="126" y="94">HBM</text><text x="170" y="94">HBM</text>
+              <text x="38" y="134">HBM</text><text x="82" y="134">HBM</text><text x="126" y="134">HBM</text><text x="170" y="134">HBM</text>
+              <text x="38" y="174">HBM</text><text x="82" y="174">HBM</text><text x="126" y="174">HBM</text><text x="170" y="174">HBM</text>
+            </g>
+            <text x="20" y="206" fill="#57534e">16 个立方 · 邻接 D2D · 无独立 GPU 计算芯粒</text>
+          </g>
+          <g font-family="Segoe UI, sans-serif" font-size="9">
+            <rect x="250" y="36" width="200" height="148" rx="6" fill="none" stroke="#d6d3d1"/>
+            <text x="260" y="54" fill="#57534e">每个立方的逻辑晶</text>
+            <rect x="266" y="68" width="168" height="28" rx="3" fill="#1e3a5f"/>
+            <text x="350" y="86" text-anchor="middle" fill="#fff">12 核 · 每核 8 个 16×16 SA</text>
+            <rect x="266" y="104" width="80" height="28" rx="3" fill="#9a3412"/>
+            <text x="306" y="122" text-anchor="middle" fill="#fff">HBM PHY</text>
+            <rect x="354" y="104" width="80" height="28" rx="3" fill="#0f766e"/>
+            <text x="394" y="122" text-anchor="middle" fill="#fff">4 个 D2D 口</text>
+            <text x="260" y="154" fill="#57534e">无 LLC；两级 crossbar 负责广播和归约</text>
+            <text x="260" y="172" fill="#57534e">标准版：每立方 96 TFLOPS @ 2 GHz</text>
+          </g>
+          <g font-family="Segoe UI, sans-serif" font-size="9">
+            <text x="490" y="54" fill="#57534e">拆分式服务里的位置</text>
+            <rect x="490" y="68" width="90" height="44" rx="4" fill="#0f766e"/>
+            <text x="535" y="88" text-anchor="middle" fill="#fff">AMMA</text>
+            <text x="535" y="104" text-anchor="middle" fill="#ccfbf1">注意力</text>
+            <rect x="610" y="68" width="90" height="44" rx="4" fill="#1e3a5f"/>
+            <text x="655" y="88" text-anchor="middle" fill="#fff">LPU / GPU</text>
+            <text x="655" y="104" text-anchor="middle" fill="#e0f2fe">FFN</text>
+            <path d="M580 90 H610" stroke="#57534e" stroke-width="1.4" marker-end="url(#arr)"/>
+            <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#57534e"/></marker></defs>
+            <text x="490" y="140" fill="#57534e">低延迟走 LPU，高吞吐走 GPU</text>
+            <text x="490" y="158" fill="#57534e">端到端数字对互连很敏感，见第 7、9 节</text>
+          </g>
+        </svg>
+      </div>
+      <p class="figcap">按 §IV 与 Fig. 7 整理的结构示意，尺寸不是按封装面积画的。</p>
+      <p>Table I 给出的标准规格：每立方 96 个 16×16 脉动阵列、2 GHz，合计 1536 TFLOPS（FP8）；每立方带宽 2.75 TB/s，表内封装合计 44 TB/s；TDP 1440 W；封装面积约 1936 mm²。面向 MLA / HCA / CSA 等更吃算力的注意力，另有 AMMA-EC：阵列改成 32×32，算力提到 4 倍（6144 TFLOPS），TDP 1800 W。</p>
+      <p>时机上，论文把宝押在 HBM4 及以后：存储厂开始把基底逻辑晶做到先进工艺（文中写 ≤5 nm），晶体管密度才够支撑「真正吃满立方内部带宽」的微结构，而不只是 DRAM 工艺里塞一点 GEMV。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 现有路线的三个缺口</h2>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>GPU 微结构搬不过来</h4>
+          <p>注意力几乎不复用数据，LLC、寄存器堆和共享内存按「算力远大于带宽、要靠层次存储放大复用」来配，正好反了。AMMA 的功耗预算也远紧于独显，不能照抄 GPU。</p>
+        </div>
+        <div class="tile">
+          <h4>先前 PIM/PNM 仍绕着 GPU 转</h4>
+          <p>AttAcc 一类方案让 GPU 当跨立方中枢。GQA / MLA 把 KV 头压到 16–128 倍之后，只能沿序列做上下文并行，AllReduce 会先在 GPU 上汇聚再跨 GPU 归约。文中按理想 900 ns NVLink、不计 kernel 启动来估，64K 时这段通信已是注意力计算的 1.5 倍；补够算力后可到 24 倍。作者自己的实测是：一次 8 B 传输端到端超过 12,000 ns。</p>
+        </div>
+        <div class="tile">
+          <h4>Bank 级 PIM 算力不够扛 GQA</h4>
+          <p>GQA 靠 KV 头共享把运算强度提高 16–32 倍，原先够用的 DRAM 内 GEMV 会变成算力墙。Fig. 6 显示流量降了 16 倍，总延迟却没有改善。GEMM 级单元对 DRAM 工艺太大，所以要迁到逻辑晶；Duplex 走了这个方向，但约 28 nm 的逻辑晶把设计空间卡死了。</p>
+        </div>
+      </div>
+      <p>封装内部还有第四个工程问题（引言 C2–C4）：16 个立方上如果照搬 TP16，集合通信要穿过整个网格直径，而且通信量会跟序列长度一起涨；集合操作的次数和全局同步也会叠起来；每立方算力和 D2D 带宽还在抢逻辑晶的面积与功耗，需要一起扫。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 做法：微结构、两级并行、重排集合通信</h2>
+
+      <h3>5.1 逻辑晶三条原则</h3>
+      <p><strong>P1：许多小脉动阵列，而不是少数大阵列。</strong>解码注意力的 M 维很小（1–32，由 batch 或 GQA 里每个 KV 头分到的 Q 头数决定），TPU 式 128×128 阵列会让超过 87% 的 PE 空转。标准 AMMA 在每个立方放 96 个 16×16 阵列，总吞吐相当，却能把窄 M 喂满。选脉动阵列而不是向量单元，是因为每个操作数会在 16 个 PE 间复用，SRAM 读带宽需求降 16 倍。</p>
+      <p><strong>P2：没有 LLC。</strong>算力按原始 HBM 带宽来配，就不需要 LLC 来「放大有效带宽」；低延迟解码（B=1–32）里 KV 缓存和请求基本只流过一次，也没什么复用可挖。拿掉 LLC，论文称能收回约 20% 的功耗预算和可观面积，转给计算。</p>
+      <p><strong>P3：两级 crossbar 做共享。</strong>同一份 query 要广播给处理不同 tile 的阵列，部分和也要收集，不能再靠 LLC。本地 crossbar 管 8 个 SA 的一核，全局 crossbar 管 12 核，面积从平坦的 O(N²) 降到 O(N√N)。</p>
+      <p>微结构细节（§IV-B）：每核有 DMA、双缓冲输入、8 个 SA、输出缓冲和向量单元（softmax、线性归一化）。输入缓冲按 200 ns 的 HBM 延迟做双缓冲。每核 SRAM 共 32 KB，每立方 3 MB，16 立方合计 48 MB——文中写比 H100 小 2 倍以上，比 Rubin 小 6 倍以上。数据流选 output-stationary：weight-stationary 喂不饱窄 M；input-stationary 的部分和会随 N 增长，跨 96 个阵列收集是 O(N)。OS 的输出块固定是 16×16，收集开销与序列长度无关。短序列才拆 K，好让每个阵列都有 tile；N 足够大就只拆 N。连续 tiling 让后一 tile 的填充和前一 tile 的排空重叠。例子：N=3072、每阵列 2 个 tile、k=32 时，效率从 52% 升到 67%；n=4 时可到 81%。</p>
+
+      <h3>5.2 两级混合并行</h3>
+      <p>目标是 1–32 个请求的低延迟，不是上万请求的聚合吞吐，所以数据并行帮不上忙；16 个立方必须同时伺候同一个请求。朴素 TP16 会在每个注意力阶段触发 16 路 AllGather / AllReduce，通信穿过网格直径，而且通信量跟序列长度成正比，百万上下文时尤其致命。</p>
+      <p>两级方案（Fig. 9(b)，文中用 4 个 KV 头的 MHA 讲清楚，并声称可推广到 GQA 等）：先按 KV 头数把 16 个立方分成若干组，4 个头就是 4 组、每组 4 个立方，组内排成 2×2 而不是 1×4，以缩短最长跳数。第一级用 TP 把头映射到组，组之间在 QKV 投影和注意力阶段基本不用通信，只在输出投影结束时做一次跨组 AllReduce。第二级在组内沿序列切 KV 缓存（上下文并行）：query 在组内广播，各立方算本地分片，再合并。这样 AllGather / AllReduce 都关在四立方子网格里，并且通信量不再随序列变长。论文强调，训练里常见的 TP+CP，在推理里很少用，因为跨芯片的 NVLink 延迟扛不住单请求服务；AMMA 把 CP 放在同一封装的低延迟 D2D 上，才变得可行。</p>
+
+      <h3>5.3 重排后的集合通信</h3>
+      <p>默认流程在组内先做完整 AllReduce（ReduceScatter + AllGather），让每个立方都拿到完整注意力输出再做投影，然后再跨组 AllReduce。这有两处浪费：随后的跨组集合马上又会把刚聚集的输出打散、再归约；而拆分式服务里，最终结果只需送到那个负责外发的目的立方，不必广播到封装里每一个立方。</p>
+      <p>重排之后（Fig. 10(b)）：组内只做 ReduceScatter，投影权重的二级切分从输出维改到输入维，各立方独立做局部投影；跨组 AllReduce 改成点对点 Reduce 到目的立方。论文称这会去掉两次 AllGather，并把一次 AllReduce 降成 Reduce，同时每立方的计算和存储占用不变。正确性依赖于 softmax 统计量可以像 FlashAttention / Ring Attention 那样做分片合并，而且校正系数与线性的 W<sub>O</sub> 可交换，因而可以「先投影、后归约」；ReduceScatter 做的是带权求和，(m<sub>n</sub>, ℓ<sub>n</sub>) 随输出捎带，不必额外通信。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 实验怎么做的</h2>
+      <p>方法是「单立方仿真 + 多立方仿真 + GPU 实测再外推」。</p>
+      <ul>
+        <li><strong>AMMA 单立方：</strong>ScaleSim 脉动阵列仿真。</li>
+        <li><strong>多立方：</strong>AstraSim，换成 HBM-NMP 规格，并吃进 ScaleSim 的单立方结果。D2D 按 UCIe 3.0 建模为每跳固定 15 ns（适配器 4 ns、PHY 10 ns、信道 1 ns），带宽 1500 GB/s。</li>
+        <li><strong>H100 基线：</strong>8×H100 服务器上实测端到端延迟，内核是已经做了上下文并行的 FlashAttention-2 + FlashDecoding。</li>
+        <li><strong>Rubin 基线：</strong>芯片当时尚未公开可用，用 H100 实测按 Rubin 公开规格外推，并保留实测利用率。</li>
+        <li><strong>NeuPIMs：</strong>为了公平，NPU 按 Rubin、PIM 按 HBM4 缩放。Bank 级 PIM 带宽按文中说法是 HBM 接口的 9 倍（对照段里又出现「比我们高 4.5 倍」），算力仍有限。</li>
+        <li><strong>模型：</strong>Qwen3-235B、Llama4-Maverick（GQA），DeepSeek-V3（MLA），DeepSeek-V4（HCA、CSA）。AMMA 侧建模 QKV 投影、核心注意力和输出投影；端到端则把 MoE/FFN 放到 LPU 上，专家选择用公开轨迹。方法段落还提到用泊松到达、高斯序列长度做连续 batch，但正文没有单独列出这组数字，本笔记不补。</li>
+      </ul>
+      <p>主指标是延迟，另报 Token/J 和功耗。面积与功耗分解（Table II）在 4 nm 逻辑晶上：SRAM 用 CACTI，脉动阵列和 crossbar 用 Yosys，PHY 用开源数据。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 结果怎么读</h2>
+      <h3>GQA：相对 H100 很亮，相对 Rubin 要看怎么比</h3>
+      <p>Fig. 11 把逐层解码延迟都归一化到单卡 H100。GQA 上 AMMA「处处最高」：BS=1 时相对 H100 为 12.0–16.3×，BS=32 时为 13–20×。作者把原因直接写在带宽上——16 个 HBM4 立方对上 H100 的 5 个 HBM3e，正文按 40 TB/s 算，是 H100 3.35 TB/s 的 11.9 倍。</p>
+      <p>对上 Rubin（8 个 HBM4 立方）时，领先稳定在 1.8–2.5×。即便用 Rubin TP2 把聚合带宽对齐，短到中等序列仍有 1.5–2.4×；到 1M token 时只剩 1.1×，因为巨大的 KV 缓存把 Rubin 的跨芯片 NVLink 开销摊薄了。即便如此，Fig. 13 在 1M 处仍给出相对 Rubin TP2 的 2.8× 能效优势。对 NeuPIMs：Qwen3-235B 上 3.4×，Llama4-Maverick 上 1.4×——NeuPIMs 的投影仍依赖 GPU，bank 级 PIM 带宽更高，却被 GQA 的算力墙卡住。</p>
+
+      <h3>MLA：标准 AMMA 会输，要靠 EC</h3>
+      <p>DeepSeek-V3 的 MLA 走向完全不同。4K 时投影为主，AMMA 凭带宽相对 Rubin 快 1.9×；序列变长、注意力占主导之后，Rubin 最多反超 2.9×，因为 MLA 的运算强度大约是 GQA 的 8 倍，标准配置的每立方算力不够。AMMA-EC 把算力提到 4 倍后，重新以 1.8–2.1× 领先 Rubin，而且论文称功耗预算仍更低。</p>
+
+      <h3>端到端取决于 AMMA–LPU 互连，不是只看注意力内核</h3>
+      <p>Fig. 12 把完整解码步拆开：AMMA 做注意力和投影，LPU 做 FFN。标准设定是 2.4 μs 延迟、100 GB/s 的 NIC；「理想」设定是 Groq 风格链路，300 ns、230 GB/s。注意力、投影和 LPU 上的 FFN 都比一体化 GPU 基线便宜，整体约 4–5×；但 AMMA 到 LPU 的激活传输会变成主开销——8K 时大约占该步的 70%，到 1M 才摊到约 13%。换上低开销互连后，理想版本到达 10–11×。这组数字说明：封装内做得再干净，拆分式服务仍可能把延迟还给板间链路。</p>
+
+      <h3>和 3D-DRAM 方案比：不靠更激进的存储</h3>
+      <p>Fig. 15 对照 hybrid-bonding 的 Duplex 和 3D-DRAM 的 Stratum。论文称这两项都依赖更靠前的存储技术，而 AMMA 在 8K 打平，1M 时快 1.3–1.5×，并且用的是 Rubin 已经采用的偏保守 HBM4 参数。这是它「几年内更可落地」的主要论据，不是硅片对硅片的对比。</p>
+
+      <h3>消融：长序列赢在通信，短序列赢在少一次集合</h3>
+      <p>Fig. 17 以封装内 TP16 为底。只上两级混合并行（HP），8K / 256K / 1M 分别为 1.1×、1.4×、1.5×；再加上重排集合（HP_RO）为 1.1×、1.5×、1.6×。相对 TP16 的优势随序列变长，因为 TP16 的通信量跟序列走。HP_RO 对 HP 的额外好处在短序列更明显，因为重排省下的是相对固定的延迟，长序列时会被注意力计算稀释。只看通信，HP_RO 在 8K / 256K / 1M 是 2.7×、17.7×、65.4×，HP 单独是 1.3×、10.0×、36.8×。把同样的 HP_RO 放到「GPU 式多层存储、算力受限」变体上，只有 TP16 的 0.7–0.9×——作者用来说明，收益来自内存中心的微结构，不只是面积或带宽。</p>
+
+      <h3>Batch：吞吐很快饱和，延迟会恶化</h3>
+      <p>Fig. 19 在 Qwen3-235B、序列 64K 上扫 batch。从 1 到 32，系统吞吐从 0.223 升到 0.478 tok/μs（2.14×），延迟却恶化 30 倍。原因写得很干脆：batch 提高了投影的运算强度，但注意力里每条 query 只看自己的 KV 缓存，请求等于串行，输出投影还要等整批。红色曲线在 batch=16 附近已经饱和；GPU 往往要 200–400 的 batch 才吃满算力。Pareto 图上，作者称在可比或更低功耗下，吞吐比 H100 高 14–16×。</p>
+      <p>Fig. 18 的分阶段拆解：BS=1、8K 时，Proj QKV 和 Proj O 合计占 AMMA(HP+RO) 计算时间的 85%，注意力只有 15%；到 128K，注意力在 BS=1 占 60%，BS=4 占 86%。相对 Rubin，文中给出 Proj QKV 1.76×、Proj O 2.57×、注意力 3.89×，并再次使用 40 TB/s 对 22 TB/s 的带宽对比。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 能耗、面积与设计空间</h2>
+      <p>Fig. 16 的等面积吞吐：AMMA 约为 Rubin TP2 的 6–7 倍每单位封装面积，用来支撑「不是靠封装更大」。Fig. 13：能效相对 Rubin 为 2.6–3.1×，相对 Rubin TP2 为 2.8×（1M）到 4.8×（4K）——双卡的静态功耗和 NVLink 在短序列更伤。原因是专用微结构只配了大约 Rubin 10% 的算力，并去掉多余片上 SRAM。功耗曲线上，AMMA 保持在 1500 W 以下，比 Rubin 低 1.4 倍，比 Rubin TP2 低 2.6 倍；Table I 的 TDP 是 1440 W 对 Rubin 的 2200 W。</p>
+      <p>Table II（4 nm，逻辑晶预算约 121 mm²）：标准 AMMA 每立方面积 51.83 mm²、功耗 15.27 W；EC 为 92.43 mm²、21.91 W，都还装得进这块逻辑晶。主要头两项是 PHY + 内存控制器（28.00 mm²、9.00 W）和 MAC 阵列（标准 11.82 mm² / 2.20 W，EC 47.44 mm² / 8.84 W）。这里有一处表间不一致：Table I 脚注写 EC 逻辑晶 30 W/立方（16 立方共 480 W），Table II 合计却是 21.91 W，引用时要标明来源。</p>
+      <p>设计空间（Fig. 20）扫每立方 8–256 TFLOPS、D2D 带宽 0.5–2.5 TB/s。结论偏向「算力比 D2D 带宽更重要」：混合并行和重排已经把跨立方通信压下去；batch 1–32 时 D2D 数据量不大，延迟更多被启动开销卡住，再加带宽收益有限。Fig. 21 则显示，小 batch 下端到端延迟对 D2D 链路延迟非常敏感。Fig. 22 再次确认长序列上 OS 延迟最低。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 局限与落地可行性</h2>
+      <ul>
+        <li><strong>这是架构仿真，不是硅片。</strong>H100 数字有实测锚点，AMMA 没有；Rubin 是外推。利用率被「保持实测比例」这一条钉死，如果 Rubin 上注意力的实际利用率不同于 H100，1.8–2.5× 会跟着动。和 Raptor 那种早期硅片笔记不是同一类证据。</li>
+        <li><strong>摘要倍数和正文倍数要分开引用。</strong>15.5× 落在 Fig. 11 的 12.0–16.3×（BS=1）区间里，还可以对上；6.9× 能耗相对 H100 只出现在摘要和 artifact 复述，正文能效主对照是 Rubin。封装带宽 44 TB/s 与 40 TB/s 并存。EC 逻辑功耗 30 W 与 21.91 W 并存。</li>
+        <li><strong>标准设计是为 GQA 的低运算强度裁的。</strong>MLA 上标准 AMMA 会在长序列输给 Rubin（最多 2.9×）。EC 用 4 倍算力救回来，但「内存中心、少配算力」这条原则在 MLA / HCA / CSA 上并不是无条件成立。</li>
+        <li><strong>拆分式端到端还欠一条够快的板间链路。</strong>标准 NIC 设定下，8K 时 AMMA–LPU 传输约占一步的 70%，整体只有 4–5×；10–11× 属于 300 ns / 230 GB/s 的理想互连。注意力内核再快，也可能把时间还给激活搬运。</li>
+        <li><strong>16 个 HBM4 立方进一颗约 1936 mm² 的封装，是大胆假设。</strong>Table I 里它比 Rubin 的约 2568 mm² 还小，靠的是拿掉两块计算芯粒、把位置让给另外 8 个立方。面积表是「约」，文中没有给出布线、供电、热封和良率的封装级论证。</li>
+        <li><strong>热几乎没有展开。</strong>逻辑晶就在 HBM 叠层底下，MICRO 2026 同一天还有「Thermal-Aware 3D-Stacked LLM Accelerators」专场（Voxel、TESSA、CrossSpec 等）。AMMA 把算力塞进逻辑晶，却没有像那些工作或 Raptor 那样讨论叠层温升和刷新。逻辑晶 15 W 左右看起来不高，但热阻路径仍然存在。</li>
+        <li><strong>D2D 选网格，是为了可制造，也做了取舍。</strong>只连邻居、线短，论文还写「不必做纠错就能换更短延迟」。小 batch 对链路延迟敏感（Fig. 21），可靠性预算被主动收紧，落地时这是要单独评估的点。</li>
+        <li><strong>Batch 行为不适合「靠堆请求喂饱算力」的服务。</strong>batch 到 16 吞吐就饱和，到 32 延迟恶化 30 倍。它明确站在 1–32 的低延迟、低并发一侧；不要把它读成通用高吞吐服务芯片。</li>
+        <li><strong>开源仓库在，完整度要自己核。</strong>论文指向 <a href="https://github.com/zhongkaiyu/AMMA">zhongkaiyu/AMMA</a>。artifact 附录说明，审稿用的快捷脚本把 ScaleSim / AstraSim 换成了分析后端，并用预存的 GPU 剖析，不等同于「论文里那套周期级仿真已可一键复现」。</li>
+      </ul>
+      <div class="callout teal">和已有笔记的分工可以这样看：Raptor 回答「3D-DRAM 上的加速器逻辑能不能出早期硅片」；Voxel 回答「3D 叠层 AI 芯片怎么仿真、怎么映射才能把分布式 bank 用满」；TOM 和八栈近存回答的是另一类近存卸载与分层部署；arch/pim 下的 Pimba、NeuPIMs 路线、Tri-Stack-PIM、PIVOT 等，多半还把 GPU 或主机当作中枢。AMMA 问的是第三句话：解码注意力要不要把 GPU 计算芯粒从封装里拿掉，让 HBM 立方自己成为一等公民。三句话互补，不必互相替代。同场的 NELSSA 走的是 GPU–PNM 异构调度，方向相邻，但不是同一篇设计。</div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 数字速查</h2>
+      <table>
+        <thead><tr><th>项目</th><th>数字</th><th>对照 / 条件</th></tr></thead>
+        <tbody>
+          <tr><td>摘要：注意力延迟 / 能耗</td><td>相对 H100 低 15.5× / 6.9×</td><td>只见于摘要；artifact 写 “up to about”。正文延迟区间见下行</td></tr>
+          <tr><td>Fig. 11 GQA 延迟</td><td>相对单卡 H100：BS=1 为 12.0–16.3×，BS=32 为 13–20×</td><td>Qwen3、Llama4；AMMA 仿真，H100 实测</td></tr>
+          <tr><td>相对 Rubin / Rubin TP2</td><td>1.8–2.5×；对齐带宽后短中序列 1.5–2.4×，1M 处 1.1×</td><td>Rubin 由 H100 实测外推；1M 处能效仍写 2.8× 优于 TP2</td></tr>
+          <tr><td>相对 NeuPIMs</td><td>Qwen3-235B 上 3.4×，Llama4-Maverick 上 1.4×</td><td>基线已缩放到 Rubin + HBM4</td></tr>
+          <tr><td>MLA（DeepSeek-V3）</td><td>4K 时相对 Rubin 1.9×；长序列最多落后 2.9×；EC 再领先 1.8–2.1×</td><td>MLA 运算强度约写为 GQA 的 8 倍</td></tr>
+          <tr><td>端到端（AMMA + LPU）</td><td>标准互连约 4–5×；理想互连 10–11×。8K 时链路约占 70%，1M 约 13%</td><td>标准：2.4 μs、100 GB/s；理想：300 ns、230 GB/s</td></tr>
+          <tr><td>相对 Duplex / Stratum</td><td>8K 打平，1M 快 1.3–1.5×</td><td>仿真对仿真；作者强调 AMMA 用更成熟的 HBM4 参数</td></tr>
+          <tr><td>消融 HP / HP_RO（对 TP16）</td><td>8K/256K/1M：HP 为 1.1/1.4/1.5×，HP_RO 为 1.1/1.5/1.6×</td><td>通信加速 HP_RO 为 2.7/17.7/65.4×</td></tr>
+          <tr><td>Batch（Qwen3-235B，64K）</td><td>1→32：吞吐 0.223→0.478 tok/μs（2.14×），延迟恶化 30×；batch=16 附近饱和</td><td>文称同比功耗下吞吐比 H100 高 14–16×</td></tr>
+          <tr><td>分阶段相对 Rubin</td><td>Proj QKV 1.76×，Proj O 2.57×，注意力 3.89×</td><td>正文按 40 TB/s 对 Rubin 的 22 TB/s</td></tr>
+          <tr><td>封装带宽</td><td>Table I：44 TB/s（16×2.75）；正文：40 TB/s，11.9× 于 H100 的 3.35 TB/s</td><td>Rubin Table I 为 22 TB/s。两处原文并存</td></tr>
+          <tr><td>算力 / TDP / 面积</td><td>标准 1536 TFLOPS、1440 W、约 1936 mm²；EC 6144 TFLOPS、1800 W</td><td>H100：1978 TFLOPS、700 W、约 1516 mm²；Rubin：17500 TFLOPS、2200 W、约 2568 mm²</td></tr>
+          <tr><td>能效与功耗（Fig. 13）</td><td>相对 Rubin 2.6–3.1×；相对 TP2 为 2.8×（1M）–4.8×（4K）；功耗低于 1500 W，比 Rubin 低 1.4×</td><td>文称算力约为 Rubin 的 10%</td></tr>
+          <tr><td>每立方逻辑晶（Table II，4 nm）</td><td>标准 51.83 mm² / 15.27 W；EC 92.43 mm² / 21.91 W</td><td>预算约 121 mm²。Table I 脚注写 EC 为 30 W/立方</td></tr>
+          <tr><td>片上 SRAM</td><td>每核 32 KB，每立方 3 MB，芯片 48 MB</td><td>文称比 H100 小 2 倍以上，比 Rubin 小 6 倍以上</td></tr>
+          <tr><td>D2D</td><td>UCIe 3.0，每跳 15 ns，1500 GB/s</td><td>设计空间还扫了 0.5–2.5 TB/s 与链路延迟</td></tr>
+          <tr><td>H100 剖析（动机）</td><td>计算利用率 &lt;5% / 约 5%；平均 693 W；LLC 命中约 13%，长序列 &lt;1%；LLC 约 130 W</td><td>Qwen3-235B；利用率 batch=1，命中率 batch=16</td></tr>
+          <tr><td>Rubin 引言规格</td><td>795 FLOPs/byte 对 GQA 的 32 FLOPs/byte（约 25× 富裕）；计算芯粒占面积 67%、功耗 73%，注意力用到 4%</td><td>公开规格，不是本文硅片测量</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      阅读笔记依据 arXiv:2604.26103v3（cs.AR，2026-10-30；MICRO 2026 Session 8A；2026-11-24 读，Asia/Shanghai）。Fig. 11–22 与 Table I/II 的对比数字来自仿真（ScaleSim、AstraSim）以及 8×H100 实测再外推的 Rubin；15.5× / 6.9× 只从摘要（及 artifact 复述）录入。未上传论文 PDF。本页是分析笔记，不代表论文作者立场。
+    </footer>
+  </div>
+</body>
+</html>
