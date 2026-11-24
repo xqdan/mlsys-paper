@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weave 论文分析 | 按路由在 MoE megakernel 里做运行时 warp 调度</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    .callout.warn { border-left-color: #ca8a04; background: #fffbeb; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      header.hero, section.card, nav.toc { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv cs.DC · 2026-11-20</span>
+        <span class="badge">arXiv:2611.27765v1</span>
+        <span class="badge ok">上交 / NUS / 复旦 / 阿里 / 上海 TokMach</span>
+        <span class="badge">MoE 推理 megakernel · 运行时 warp 调度</span>
+        <span class="badge">SM103 / SM90 / CDNA3</span>
+        <span class="badge warn">正文写 will open-source soon · 本笔记撰写时未见公开仓库</span>
+      </div>
+      <h1>路由一变，就把 comm 和计算的 warp 比例当场改掉</h1>
+      <p class="subtitle">Weave: Routing-Adaptive Runtime Warp Scheduling for MoE Megakernels</p>
+      <p class="meta">
+        <strong>作者：</strong>Ziyu Huang*（上海交大）、Yangjie Zhou*（新加坡国立大学）、Chenhao Zhu、Hongzhe Yan、Tianwei Qiao、Sicheng He、Zihan Liu、Peng Yu（复旦）、Shulai Zhang、Xingxun Tang、Xinhao Luo、Minyi Guo、Xiu Lin、Yinghao Yu、Guodong Yang、Liping Zhang（阿里巴巴）、Shixuan Sun、Qingyun Chen（上海 TokMach）、Jingwen Leng（上海交大）。* 为共同一作。<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2611.27765" target="_blank" rel="noopener">arXiv:2611.27765</a>
+        · <a href="https://arxiv.org/pdf/2611.27765" target="_blank" rel="noopener">PDF</a>
+        · 许可 CC BY-NC-ND 4.0
+        · arXiv 提交 2026-11-20 15:55 UTC（Asia/Shanghai 23:55）<br />
+        同组前作：<a href="https://arxiv.org/abs/2609.21483" target="_blank" rel="noopener">arXiv:2609.21483v3</a>（2026-09-18 首发，09-25 修订），标题是 <em>Fine-Grained Dynamic SM Scheduling</em>，调度粒度停在 SM。本笔记分析的是 11 月这篇把调度下到 warp 的版本，不混用 9 月文的 4×H100 数字。<br />
+        本文是阅读笔记，不是译文。数字均来自 arXiv:2611.27765v1 正文、图表或摘要。不要把层加速直接读成端到端加速。
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：EP 下负载跟着路由走，静态日程对不上</a></li>
+        <li><a href="#s3">和 9 月前作的关系</a></li>
+        <li><a href="#s4">做法：空间比例、阶段换角色、launch 时联合选策</a></li>
+        <li><a href="#s5">评测：层数字很大，端到端要单独看</a></li>
+        <li><a href="#s6">消融、代价模型与 EPLB</a></li>
+        <li><a href="#s7">和已有笔记的分工</a></li>
+        <li><a href="#s8">落地与局限</a></li>
+        <li><a href="#s9">数字速查</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">Weave 做的不是又一个 MoE 通信库，也不是把整模编译成一颗大核。它假定 MoE 层已经融进一颗 persistent megakernel，然后在这颗核里按本步路由统计，给每张 GPU 当场选择通信 / 计算的 warp 比例，并在层的头、中、尾切换 warp 角色。对照点很明确：MegaMoE 已经把通信和 GEMM 的 warp 放在同一个 SM 上，但比例和角色在编译期就锁死；mKernel 能在运行时改 SM 划分，却把整颗 SM 交给通信，Tensor Core 只好闲着。Weave 要补的就是这一级：运行时、warp 级、而且还要快到不能把调度收益吃掉。</p>
+      <div class="kpi">
+        <div>
+          <div class="n">1.30×</div>
+          <div class="k">8×SM103、EP8、30 个层负载：相对 DeepGEMM-MegaMoE 的几何平均层加速（最高 1.97×；每个负载都更快）</div>
+        </div>
+        <div>
+          <div class="n">1.24×</div>
+          <div class="k">8×SM90、EP8、同一 30 负载：相对 MegaMoE 几何平均（最高 1.72×）。S≥8K 只剩 1.06×，大 batch 上已经接近算力墙</div>
+        </div>
+        <div>
+          <div class="n">1.44×</div>
+          <div class="k">16×CDNA3、两机 EP16、30 负载：相对每负载最快的官方 RCCL+AITER 路径（最高 2.87×；相对两阶段 vLLM 是 1.67×）</div>
+        </div>
+        <div>
+          <div class="n">1.08×</div>
+          <div class="k">8×SM90 端到端 decode（S=128）相对 MegaMoE 的几何平均；prefill（S=16K）只有 1.01×。层加速不能直接当服务加速读</div>
+        </div>
+      </div>
+      <div class="callout">
+        定位要写硬：<strong>MPK / Event Tensor / Fleet</strong> 回答如何把一张图编译或编排成 persistent megakernel；<strong>PDL 重构</strong>回答不做成常驻大核能逼近到哪。<strong>Weave</strong> 站在已经融好的 MoE 层里面，回答通信和计算的硬件资源该怎么按路由重切。它不是通用编译器，评测也基本停在 MoE 层（端到端只给了 8×SM90 相对 MegaMoE 的一张表）。正文写 will open-source soon，本笔记依据 v1 撰写时没有找到公开仓库。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：EP 下负载跟着路由走，静态日程对不上</h2>
+      <p>在 expert parallelism 下，一层 MoE 是：把 token 派到持有被选专家的 GPU（dispatch / pull），在本地做 GEMM0、激活、GEMM1，再把输出散回并做 top-k reduce（scatter + combine）。当代系统已经把这一层融进一颗 persistent megakernel，例如 DeepGEMM 的 MegaMoE。问题出在路由：同一个 token 若在一张目的 GPU 上选了多个专家，输入只需传一次，GEMM 却要按 token–专家对各做一遍。于是每张卡的通信量和计算量会独立地随路由变化，而且层与层、卡与卡都不一样。</p>
+      <p>作者把已有方案放在「空间粒度 × 决策时刻」的格子里（文中图 2）：</p>
+      <ul>
+        <li>不切分：SGLang 一类把算子串在多颗核上，通信和计算很难在 warp 级重叠。</li>
+        <li>编译期按整颗 SM 切开：NanoFlow、DeepEP、FlashMoE。通信 SM 上的 Tensor Core 闲着。</li>
+        <li>运行时仍按整颗 SM 切开：mKernel。粒度细了一档，但通信 SM 的矩阵单元照样闲着。</li>
+        <li>warp 级、但编译期锁死：MegaMoE 让每个 SM 同时住着通信 warp 和计算 warp，矩阵单元都在工作，可是比例和角色不能跟着路由改。</li>
+      </ul>
+      <p>静态日程会在三个阶段留下气泡。作者用 Qwen3.5-397B 在 SM103 上拆 MegaMoE 的 warp-time（总启动 warp 数 × 层时间）：</p>
+      <ul>
+        <li><strong>头部：</strong>GEMM warp 要等输入。S≤1K 时浪费 11.0%–12.7% 的 warp-time，S=20K 仍有 3.7%；头气泡表现为 MMA warp 空等 24.3–36.2 µs。</li>
+        <li><strong>中段：</strong>pull 结束后通信 warp 闲着，同时 epilogue warp 在做 scatter。S≤1K 浪费 15.3%–16.9%，S≥4K 也有 7.9%。把 scatter 交给空闲通信 warp 并不是免费的：S=128 时 epilogue 直写更快，S=20K 时通信 warp 代发更快，静态二选一两边都会输。</li>
+        <li><strong>尾部：</strong>MegaMoE 在 top-k reduce 前加全 GPU 屏障，快卡要等慢卡；屏障之后又只让 epilogue warp 做 reduce，其余 warp 闲着，再浪费 4.1%–6.2%。</li>
+      </ul>
+      <p>三块加起来，S≤1K 浪费 32.8%–34.1% 的 warp-time，4K / 8K / 20K 分别是 25.1%、21.2%、15.8%。带宽侧还有一个观察：SM103 上 pull 带宽跟的是通信 warp 总数，不是它们散在多少个 SM 上——固定 128–512 个通信 warp，每 SM 放 4 到 32 个，带宽相差不到 1%；而 epilogue 写回带宽会随每 SM 的 epilogue warp 数从 4.6 升到 5.6、6.8 TB/s。所以空间问题不是「要不要专 SM」，而是「GPU 范围的通信 warp 总数、以及每 SM 留给 epilogue 的条数」要能按本卡负载微调。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 和 9 月前作的关系</h2>
+      <p>同一组作者在 2026-09-18 先放了 <a href="https://arxiv.org/abs/2609.21483" target="_blank" rel="noopener">arXiv:2609.21483</a>（v3，09-25 修订），标题还是 Weave，但副标题是 Fine-Grained Dynamic SM Scheduling。那篇的核心是：路由一旦完成，本层通信量 / 计算量就已知，于是在 persistent megakernel 里用轻量代价模型，按卡、按层动态划分通信 SM 与计算 SM，并在时间上协调两组 worker。评测是 4×H100 SXM、六个主流 MoE，相对五个基线给出 MoE 层几何平均 2.89×、端到端几何平均 1.33×。作者阵容接近，当时还没有上海 TokMach 的 Qingyun Chen。</p>
+      <p>11 月这篇把粒度从「整颗 SM」推进到「SM + warp」，并显式把 MegaMoE、mKernel 写成对照：只改 SM 划分仍然会让通信 SM 的 Tensor Core 闲着；要同时对准路由、又保持矩阵单元全开，必须在 SM 内部改 warp 比例，并在阶段之间改角色。评测平台也换了：8×SM103、8×SM90（均 EP8），以及两机 16×CDNA3（EP16）。不要把 9 月文的 2.89× 和这篇相对 MegaMoE 的 1.30× 放在同一条轴上——对照集合、硬件和调度粒度都不同。仓库里若以后只收一篇 Weave 笔记，应以 11 月这篇为准，把 9 月文当作前作交待即可。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 做法：空间比例、阶段换角色、launch 时联合选策</h2>
+      <p>系统概览在文中图 5。每张 GPU 在 kernel launch 时，由 CTA 0 读入本卡路由统计和一组校准过的硬件参数，在候选政策里选出一对 <code>(r, s)</code>：<code>r</code> 是空间 warp 比例，<code>s</code> 是中段 scatter 走 epilogue 还是走通信 warp。随后整颗 megakernel 按这个计划执行。</p>
+
+      <h3>空间调度：比例在 warp，矩阵单元保持全开</h3>
+      <p>Weave 不把整颗 SM 划给通信。每个 SM / CU 上，负责 Tensor Core 或 Matrix Core 的控制 warp 始终在；只把其余 warp 在通信（comm）和计算 / epilogue（epi）之间挪。不同架构能选的离散比例不同（文中表 I）：</p>
+      <table>
+        <thead>
+          <tr><th>平台</th><th>每 SM / CU</th><th>精度</th><th>候选 (comm, comp/epi)</th><th>多给通信时主要牺牲什么</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>SM103</td><td>16 warps</td><td>FP8 / FP4</td><td>(4, 8)、(8, 4)</td><td>Epilogue 写回带宽（TMEM 把 MMA 和写回解开了）</td></tr>
+          <tr><td>SM90</td><td>20 warps</td><td>FP8 / BF16</td><td>(2, 16)、(10, 8)</td><td>数学 warp（累加器寄存器和通信共享）</td></tr>
+          <tr><td>CDNA3</td><td>8 waves</td><td>FP8 / BF16</td><td>(0, 8)、(4, 4)</td><td>数学 wave（同样是共享寄存器）</td></tr>
+        </tbody>
+      </table>
+      <p>同一张 GPU 上的不同 SM 可以走不同比例：每个常驻 CTA 用硬件 SM ID 和一个代价模型给出的阈值，在两个 intra-SM 比例里挑一个，从而精细控制整卡通信 warp 数 <code>Nc</code>，又不必为每种全局比例编译一个 kernel 变体。卡与卡之间用点对点队列解耦发送 / 接收 warp 数，每张卡只看自己的路由统计选 <code>r</code>。这是对图 3c 那种「每卡 comm / compute 分布不一样」的直接回应。</p>
+
+      <h3>时间调度：头、中、尾换角色</h3>
+      <p>任务仍按 MegaMoE / MPK / Event Tensor 那一派，用全局队列加 <code>atomicAdd</code> 领取。三个阶段各自处理一种气泡：</p>
+      <ul>
+        <li><strong>头部 all-warp pull。</strong>一开始所有 warp 都去拉远端输入。SM103 上 <code>setmaxnreg</code> 给 TMA/MMA、comm、epi 分别是 72 / 168 / 208 个寄存器，作者按预算各编译一套 pull，寄存器多的 warp 可以把更多 load 留在飞行中、少 spill。拉到预设 token 数之后，TMA、MMA、epi 切回 GEMM，通信 warp 继续把剩余 pull 做完。</li>
+        <li><strong>中段两条 scatter 路径。</strong>Epilogue scatter：epi warp 直接把输出写出去，没有交接开销。Comm scatter：已经空出来的通信 warp 从全局队列领取写好的输出，经 shared memory 发出，同时 GEMM 还在跑。选哪条由代价模型决定，不再编译期锁死。</li>
+        <li><strong>尾部按 token 就绪做 reduce。</strong>不再等全 GPU 屏障。每张卡本地统计每个 token 已到达的专家输出个数，满 k 路就开始 reduce。epi、TMA/MMA、comm 三组 warp 空出来就加入；每个 token 再沿隐藏维 N 切成片，避免只有少量 warp 有活干。</li>
+      </ul>
+
+      <h3>联合代价模型：必须一起选，而且要够便宜</h3>
+      <p>CTA 0 在 launch 时读取本地各专家 token 数 <code>me</code>、合计 <code>M</code>、以及 pull / scatter 计数，给每个候选 <code>(r, s)</code> 打分。链路带宽随通信 warp 数线性涨到峰值 <code>Blink</code> 为止，于是 pull / scatter 时间写成容量除以 <code>min(Blink, N·单 warp 带宽)</code>。计算侧把每个专家的 token 按 tile 高 <code>BM(r)</code> 垫成 <code>Ke(r)</code> 个 tile：权重要按 tile 各载一次，激活按 token–专家对计。主循环时间取 HBM 与 Tensor / Matrix Core 的较大者。</p>
+      <p>架构差异写进了公式。SM103 有 TMEM，MMA 和 epilogue 写回可以重叠，计算时间取 <code>max(Tmma, Tepi)</code>；SM90 和 CDNA3 共享寄存器，两者串行相加，而且更大的 <code>Nc</code> 会逼小 <code>BM(r)</code>，tile 数上升、峰值算力下降。两条时间政策是：</p>
+      <ul>
+        <li>Epi scatter：<code>T = max(Tpull(Nc), Tcomp(r) + Tscat(Ne))</code>，pull 和计算重叠，scatter 走 epi warp。</li>
+        <li>Comm scatter：<code>T = max(Tpull(Nc) + Tscat(Nc), Tcomp(r) + Thoff)</code>，通信 warp 先 pull 再 scatter，并付一次交接开销 <code>Thoff</code>。</li>
+      </ul>
+      <p>CTA 0 在设备上取 arg min。因为只扫本地专家和少数候选，开销几乎与 S 无关：SM103 中位 3.65 µs（3.58–4.29），SM90 中位 1.86 µs（1.86–1.92），CDNA3 中位 3.00 µs（3.00–3.36）。相对端到端，SM103 上测到 −0.08 µs（成对 ±1.3%），SM90 上中位多 0.6 µs（约 0.1%）。</p>
+
+      <h3>实现要点</h3>
+      <p>NVIDIA 侧是 CUDA C++，AMD 侧是 HIP C++。SM103 上 4 个 warp 固定做 TMA、MMA 和调度，其余在 (4, 8) 与 (8, 4) 之间按 SM 混搭；SM90 是一个 producer warpgroup（2 TMA + 2 comm）配 4 个 math/comm warpgroup，两边都用 <code>setmaxnreg</code>。CDNA3 的 reduce 用 FP32，CU 走 (4, 4) 或 (0, 8)，两机 EP16 上节点间走 GDA RDMA、节点内走 xGMI。另外三项是文中称为标准的优化：通信 warp 经寄存器把远端 token 拉进 HBM、不走 shared memory，以便给 GEMM 多级缓冲留空间；工作列表优先本地 token，给远端 pull 藏启动延迟；每个专家可在 <code>{32, 64, 128, 256}</code> 里自选块高，尽量大、同时少 padding。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 评测：层数字很大，端到端要单独看</h2>
+      <h3>设置与口径</h3>
+      <p>平台是 8×SM103（148 SM，2032 MHz，CUDA 13.2，EP8，NVLink）、8×SM90（78 SM，1830 MHz，CUDA 13.3，EP8），以及两机 16×CDNA3（每卡 80 CU，节点内 8 卡 xGMI，EP16，ROCm 7.2.0）。负载是表 III 六个 MoE 层：Qwen3.8-2.4T、MiniMax-M3、Qwen3.5-397B / 122B / 35B、DeepSeek-V4-Flash。路由来自真实 ShareGPT，权重和激活是 <code>randn</code>（SM103 用 FP8/NVFP4，SM90 与 CDNA3 用 FP8）。S = batch × sequence length，从 decode 扫到 prefill。数字是 warmup 之后最慢那张卡的中位时延。</p>
+      <p>基线要按平台分开读。SM103：DeepGEMM-MegaMoE（SM100，commit bdea79976f，deep_gemm 2.6.1）、FlashInfer、SGLang（DeepEP+DeepGEMM）、把五颗 DeepEP/DeepGEMM 核放进一张 CUDA Graph 并开 PDL 的 Graph+PDL，以及作者在 SM103 上重做的 mKernel、FlashMoE（tcgen05/TMA）、NanoFlow（双流 NCCL/DeepGEMM nanobatch）。SM90：FP8 MegaMoE（nv_dev b64107f2）和 FlashInfer v0.6.8。CDNA3：两条官方 RCCL+AITER fused_moe 路径——一阶段 ASM（AITER-1stage，五模型验证过，MiniMax-M3 未过 FP64 检查）和两阶段 CK（即 vLLM 路径）。文中写 SGLang+MORI 超过了这套集群 64 MiB 的 RDMA NIC MR 上限，所以没有列入。</p>
+
+      <h3>层性能：三块平台，走势并不一样</h3>
+      <p>图 7 每块平台 6 个模型 × 5 个 token 数，共 30 个负载。SM103 上 Weave 相对 MegaMoE 每个负载都更快，范围 1.05–1.97×，几何平均 1.30×；相对 FlashInfer 几何平均 1.40×；相对「该负载最快基线」几何平均 1.22×。加速随 S 变大：小 S 更偏 HBM / 延迟，静态 epilogue scatter 往往够用；S≥8K 的 12 个负载上，MegaMoE 卡在 epilogue scatter，Weave 用通信 warp 在 GEMM 底下把 scatter 流出去，几何平均 1.55×（1.18–1.97×）。相对其他基线的几何平均是：SGLang 4.28×、mKernel 3.26×、FlashMoE 3.62×、NanoFlow 5.00×、Graph+PDL 2.30×（1.82–3.00×）。关掉 PDL 平均只改 −0.5%：CUDA Graph 和 PDL 主要藏 launch 和 prologue，跨 stream 重叠也只能按 SM 切，通信 SM 上的计算仍然浪费。</p>
+      <p>SM90 的曲线倒过来。相对 MegaMoE 几何平均 1.24×（1.01–1.72×）：S≤128 为 1.37×，S=1K 为 1.38×，S≥8K 只剩 1.06×。作者给的解释是算力 / NVLink 比：SM90 是 0.92 TFLOPS per GB/s，SM103 是 12.6。大 batch 上 SM103 吃的是 NVLink，所以 warp 级重叠还有 1.55×；SM90 已经算力受限，MegaMoE 的 Tensor Core 利用率可到 85.0%，再切比例空间不大。小 S 上 Tensor Core 没吃满，去掉头尾气泡才拿到 1.37–1.38×。相对 FlashInfer 几何平均 1.95×，相对最快基线 1.21×。</p>
+      <p>CDNA3（EP16）上对照的是官方多核路径，不是 MegaMoE。相对每负载最快官方基线几何平均 1.44×（最高 2.87×）：S≤128 为 1.91×，1K 为 1.20×，S≥8K 仍有 1.19×（最高 1.50×）。相对 AITER-1stage（25 个通过验证的格子）几何平均 1.43×，相对两阶段 vLLM 是 1.67×。这里的增益有很大一块来自「把 dispatch、fused_moe、combine 融进一颗核，并让节点间 GDA RDMA 和节点内 xGMI 与 8-wave GEMM、协同尾 reduce 重叠」——和 NVIDIA 上「已经是 megakernel 的 MegaMoE 再改日程」不是同一件事。</p>
+
+      <h3>端到端：只有 8×SM90 一张表</h3>
+      <p>表 IV 是 8×SM90 上相对 MegaMoE 的端到端时延（ms）。Decode（S=128，4K 上下文）五个模型从 1.40/0.86/0.65/0.91/0.90 ms 降到 1.28/0.81/0.60/0.81/0.87 ms，加速 1.09 / 1.07 / 1.08 / 1.12 / 1.04×，几何平均 1.08×。Prefill（S=16K）是 19.84→19.76、5.60→5.49、4.05→3.99、9.31→9.36、10.11→10.10，加速 1.00 / 1.02 / 1.02 / 1.00 / 1.00×，几何平均 1.01×。MiniMax-M3 的 prefill 从 9.31 ms 落到 9.36 ms，文中仍标 1.00×，实际上略慢。Decode 增益更大，是因为 MoE 占 decode 时延的 59%–75%；prefill 里 attention 占 40%–67%，而且 SM90 Tensor Core 已经饱和。文中没有给出 8×SM103 或 16×CDNA3 的端到端表，层上的 1.30× / 1.44× 不能外推成服务吞吐。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 消融、代价模型与 EPLB</h2>
+      <p>表 V 每块平台 48 个负载（12 个 S≤128，18 个 1K–4K，18 个 S≥8K），和前面图 7 的 30 个负载不是同一集合，几何平均也会略有差别。逐步关掉空间比例（−S）、再关掉时间重叠和尾 reduce（−S−T）、再关掉代价模型（−S−T−C）后，全集合几何平均单调下降：SM103 从 1.301× 到 1.192×、1.010×、0.996×；SM90 从 1.162× 到 1.137×、1.053×、0.947×；CDNA3 从 1.309× 到 1.166×、1.033×、0.848×。读含义时按平台分开：</p>
+      <ul>
+        <li>SM103：时间切换在 S≤128 把 0.915× 拉回 1.076×（去头尾气泡），在 S≥8K 把 1.185× 拉到 1.416×（通信 warp 做 scatter）；空间微调在 S≥8K 再加 15.7%。</li>
+        <li>SM90：小 / 中 S 的增益主要来自时间调度；S≥8K 若再去掉代价模型，会掉到 0.836×，静态默认值跑不过 MegaMoE。</li>
+        <li>CDNA3：空间、时间、选策三块在所有 S 上都有贡献；S≥8K 从静态默认的 0.638× 拉到完整 Weave 的 1.176×。</li>
+      </ul>
+      <p>代价模型准不准，作者用穷举 oracle 衡量。SM103 上离线选定的固定配置相对 MegaMoE 是 1.301×，oracle 是 1.332×，平均选策误差 2.6%（几何平均 2.4%），48 个里 38 个完全命中。SM90 上固定选择达到 oracle 的 99.5%（1.164× vs 1.170×），32/48 完全命中，41/48 误差在 1% 以内；核内在线选择是 99.3%（1.162×）。也就是说，这套线性加 max 的模型在作者的离散候选里够用，并不是在预测任意连续配置的绝对时延。</p>
+      <p>和第 5 节的专家均衡是正交的。EPLB 用冗余专家把 token 在 GPU 之间摊平，Weave 在单卡内部按 comm / compute 需求切 warp。24 个负载（6 模型 × S∈{128, 1K, 4K, 16K}）上，32 个冗余专家把 max/mean 不均衡从 1.37 降到 1.27，但给 Weave 平均加了 12.9% 时延。相对「原始路由的 MegaMoE」：只用 Weave 是 1.274×（24/24 都更快），Weave+EPLB 是 1.128×（17/24 更快）。小 / 中 S 上复制专家会把每专家 token 数 <code>me</code> 削薄，tile padding 和重复载权变重，MegaMoE+EPLB 甚至掉到 0.986×；到 S=16K padding 被摊掉，Weave+EPLB 相对 MegaMoE 是 1.52×，仍低于不加 EPLB 的 1.65×。结论不是「不要 EPLB」，而是：均衡跨卡负载和调度卡内 warp 解决的是两件不同的事，叠在一起不会自动变快。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 和已有笔记的分工</h2>
+      <ul>
+        <li><strong>MPK / Event Tensor / Mirage / Fleet：</strong>编译器或任务抽象，目标是把一般张量程序（含通信）降成一颗或一层 megakernel。Weave 假定 MoE 层已经是一颗手写 / 特化的 persistent 核，贡献在核内的硬件资源日程，不提供新的 IR，也不做整模自动 mega-kernelize。</li>
+        <li><strong>PDL 重构 Megakernel：</strong>把一颗手写大核拆回普通核，再用 PDL 追吞吐。Weave 在 SM103 上相对 Graph+PDL 仍有 2.30× 几何平均，作者的解释是 PDL / CUDA Graph 只藏 launch，跨核重叠到不了 warp 级。两篇可以对照着读：PDL 说明「常驻」本身不是全部收益；Weave 说明在已经常驻、而且要把通信和 GEMM 叠在同一 SM 时，还缺运行时 warp 日程。</li>
+        <li><strong>One Megakernel is Not Enough：</strong>讨论融合边界该切在哪。Weave 不讨论要不要把 attention 和 MoE 融进同一颗核，它的对象就是单独的 MoE 层。</li>
+        <li><strong>Mixture-of-Kittens（尚未成篇）：</strong>训练侧、面向 NVL72 的 MoE megakernel，关键设计是按算子选 push / pull、重组算通重叠、去掉 CPU–GPU 同步。Weave 是推理侧、按路由做 warp 级资源划分。两篇都会写到 dispatch / combine，但机制不同；以后写 MoK 时不要把 Weave 的日程公式再抄一遍，也不要把 MoK 的生产训练数字安到这篇上。</li>
+      </ul>
+      <div class="callout teal">
+        相关工作里还点了 Comet、Triton-distributed、FlashMoE、UniEP、DeepEP：它们在融合核里做细粒度算通重叠，但线程块或 SM 划分仍是编译期静态的。mKernel 能改 SM 数，却仍把整颗 SM 交给通信。Warp 特化本身不是新事物（CUTLASS、FlashAttention-3、ThunderKittens，以及若干编译器自动 warp specialization）；MegaMoE 已经把通信和 GEMM warp 放在同一 SM。Weave 自称的差别是：在分布式 MoE 里，用设备上的代价模型，在运行时同时做空间比例和时间角色切换。
+      </div>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 落地与局限</h2>
+      <p>先说能落地的部分。设计是完整的：CUDA / HIP 实现路径、三种架构的离散设计空间、launch 时微秒级代价模型、以及和 EPLB 的关系都写清楚了。对照实现也落到了具体 commit（DeepGEMM bdea79976f、MegaMoE nv_dev b64107f2），层评测覆盖了 NVIDIA 两代和 AMD CDNA3 两机 EP16，这比只在单代 GPU 上讲「我们融得更快」要有用。对已经在用 MegaMoE 或准备在 AMD 上把 RCCL+AITER 换成融合层的团队，这篇的可迁移判断是：运行时 warp 比例、头尾角色切换、以及「scatter 交给谁」应当跟路由走，而不是再锁进编译期常量。</p>
+      <p>不能假装容易搬。正文写 will open-source soon，本笔记撰写时检索 GitHub 和论文页，没有找到对应仓库，因而无法核对实现细节或复现数字。实现高度绑定架构：SM103 依赖 TMEM 和 <code>setmaxnreg</code> 的三档寄存器预算，SM90 / CDNA3 的公式完全不同，CDNA3 还绑了 GDA RDMA 与 xGMI。换一家 GPU，离散比例、带宽模型和交接开销都得重标定。代价模型只在「每卡两三个候选」里做 arg min，不是通用调度编译器。</p>
+      <p>评测边界同样要写进结论。层实验用真实路由，但权重和激活是随机数，不涉及数值正确性之外的模型质量；端到端只在 8×SM90 相对 MegaMoE 给了五个模型，decode 几何平均 1.08×、prefill 基本持平，其中 MiniMax-M3 prefill 还略慢。没有 vLLM / SGLang 的端到端对照，也没有 SM103、CDNA3 的端到端表。CDNA3 上很大一块加速来自「多核路径 → 融合核」，和 NVIDIA 上「融合核 → 更好的 warp 日程」要分开引用。作者自己写的局限只有一句：还没在非 GPU 加速器上评，那些器件的计算核和 DMA 层级与 GPU warp / wavefront 不同。此外，Weave 只管 MoE 层，不管 attention、KV cache 或整模常驻；S 很大且平台已经算力受限时，相对 MegaMoE 的空间本来就小。</p>
+      <div class="callout navy">
+        若只保留一句：MoE megakernel 里真正难的往往不是「再融一次」，而是路由把每张卡的通信 / 计算比拉歪之后，还能不能在 warp 级把日程改过来，并且改得足够便宜。Weave 把这件事做成了 launch 时的一次 2–4 µs 选择；代码公开之前，它首先是一份设计论据，还不是一份可直接合入的实现。
+      </div>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 数字速查</h2>
+      <table>
+        <thead>
+          <tr><th>项目</th><th>数字</th><th>条件与对照</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>SM103 层加速 vs MegaMoE</td><td>1.30× 几何平均，最高 1.97×（1.05–1.97×）</td><td>8×SM103，EP8，图 7 的 30 个负载；每个都更快。S≥8K 的 12 个负载几何平均 1.55×</td></tr>
+          <tr><td>SM103 vs 其他层基线</td><td>FlashInfer 1.40×；最快基线 1.22×；SGLang 4.28×；mKernel 3.26×；FlashMoE 3.62×；NanoFlow 5.00×；Graph+PDL 2.30×</td><td>均为 30 负载几何平均。关 PDL 平均 −0.5%</td></tr>
+          <tr><td>SM90 层加速 vs MegaMoE</td><td>1.24× 几何平均，最高 1.72×</td><td>8×SM90，EP8，30 负载。S≤128 / 1K / ≥8K 分别为 1.37× / 1.38× / 1.06×。相对 FlashInfer 1.95×，相对最快基线 1.21×</td></tr>
+          <tr><td>CDNA3 层加速</td><td>相对最快官方基线 1.44×（最高 2.87×）；vs AITER-1stage 1.43×；vs vLLM 1.67×</td><td>16×CDNA3，两机 EP16，30 负载。S≤128 / 1K / ≥8K 为 1.91× / 1.20× / 1.19×。AITER-1stage 在 MiniMax-M3 未过 FP64 检查，该对照用 25 格</td></tr>
+          <tr><td>8×SM90 端到端</td><td>decode 几何平均 1.08×（1.04–1.12×）；prefill 1.01×（最高 1.02×）</td><td>表 IV，相对 MegaMoE。Decode S=128、4K 上下文；prefill S=16K。MiniMax-M3 prefill 9.31→9.36 ms，标 1.00×</td></tr>
+          <tr><td>MegaMoE 气泡（warp-time）</td><td>S≤1K 浪费 32.8%–34.1%；4K / 8K / 20K 为 25.1% / 21.2% / 15.8%</td><td>SM103，Qwen3.5-397B。头 11.0%–12.7%（S≤1K）/ 3.7%（20K）；中 15.3%–16.9% / 7.9%；尾 4.1%–6.2%</td></tr>
+          <tr><td>代价模型开销</td><td>SM103 中位 3.65 µs；SM90 1.86 µs；CDNA3 3.00 µs</td><td>与 S 无关（S=32–20K）。端到端：SM103 −0.08 µs；SM90 +0.6 µs（0.1%）</td></tr>
+          <tr><td>代价模型 vs oracle</td><td>SM103：1.301× vs 1.332×，平均误差 2.6%，38/48 命中；SM90 固定 99.5%，在线 99.3%</td><td>表 V 的 48 负载，不是图 7 的 30 负载</td></tr>
+          <tr><td>消融（表 V 全集合）</td><td>SM103 1.301→1.192→1.010→0.996；SM90 1.162→1.137→1.053→0.947；CDNA3 1.309→1.166→1.033→0.848</td><td>完整 → −S → −S−T → −S−T−C。SM90 在 S≥8K 去掉代价模型后 0.836×</td></tr>
+          <tr><td>与 EPLB 叠用</td><td>不均衡 1.37→1.27；Weave 平均变慢 12.9%；1.274×（无 EPLB）/ 1.128×（有 EPLB）</td><td>SM103，24 负载，32 个冗余专家。对照是原始路由的 MegaMoE。S=16K 时 Weave+EPLB 1.52×，不加 EPLB 是 1.65×</td></tr>
+          <tr><td>算力 / NVLink 比</td><td>SM90 0.92 TFLOPS per GB/s；SM103 12.6</td><td>作者用来解释为何 SM90 大 batch 增益小、SM103 大 batch 增益大</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      阅读笔记依据 arXiv:2611.27765v1（提交 2026-11-20 15:55 UTC，Asia/Shanghai 23:55）。倍数与百分数以论文摘要、图 3、图 7、表 I、表 IV、表 V、第 IV–V 节为准；前作关系依据 arXiv:2609.21483v3，不混用其 4×H100 数字。同目录：
+      <a href="EventTensor_论文分析.html">Event Tensor</a> ·
+      <a href="Fleet_论文分析.html">Fleet</a> ·
+      <a href="MPK_论文分析.html">MPK</a> ·
+      <a href="Mirage_论文分析.html">Mirage</a> ·
+      <a href="PDL重构Megakernel_论文分析.html">PDL 重构 Megakernel</a>
+    </footer>
+  </div>
+</body>
+</html>

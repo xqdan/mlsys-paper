@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>One Megakernel is Not Enough 论文分析 | 切分边界</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --accent-soft: #fed7aa;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 18px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .eq {
+      background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px 16px; margin: 12px 0 16px;
+      overflow-x: auto; font-family: "Cambria Math", "Times New Roman", serif; text-align: center;
+      font-size: 15.5px; line-height: 1.7;
+    }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 26px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.15;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 22px 0 6px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 18px 14px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 20px; line-height: 1.55;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps li {
+      position: relative; padding: 10px 12px 10px 48px; margin-bottom: 8px;
+      background: #faf7f2; border: 1px solid var(--line);
+    }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 12px; top: 12px; width: 24px; height: 24px;
+      border-radius: 50%; background: var(--navy); color: #fff;
+      font: 700 12px/24px "Segoe UI", sans-serif; text-align: center;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 20px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">arXiv cs.PF · 2026-10-26</span>
+        <span class="badge">arXiv:2610.35336v1</span>
+        <span class="badge ok">NVIDIA 班加罗尔 / 海得拉巴 / 浦那</span>
+        <span class="badge">切分规划，不是新编译器</span>
+        <span class="badge warn">实现未公开 · 仅 H100 NVL</span>
+      </div>
+      <h1>流式推理里，问题不是要不要融，是切在哪</h1>
+      <p class="subtitle">One Megakernel is Not Enough: Predicting Where to Cut for Streaming Inference</p>
+      <p class="meta">
+        <strong>作者：</strong>Aditya Chatterjee、Anand Joseph X M、Sanjay Singh Chauhan（均署 NVIDIA）<br />
+        <strong>原文：</strong><a href="https://arxiv.org/abs/2610.35336" target="_blank" rel="noopener">arXiv:2610.35336</a>
+        · <a href="https://arxiv.org/pdf/2610.35336" target="_blank" rel="noopener">PDF</a>
+        · 截至 v1，论文与 arXiv 页面均未给出实现或 artifact 链接<br />
+        本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。数字均来自 arXiv:2610.35336v1 正文、图表或 arXiv 摘要页。
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：融到什么程度、边界留在哪</a></li>
+        <li><a href="#s3">做法：用 profile 选切分，不必端到端穷举</a></li>
+        <li><a href="#s4">和 PDL、MPK、Event Tensor、Fleet 的差别</a></li>
+        <li><a href="#s5">模型给出的四条规则</a></li>
+        <li><a href="#s6">评测：分模型看，别把局部数字说成通论</a></li>
+        <li><a href="#s7">融合该走多远：四类模型</a></li>
+        <li><a href="#s8">落地与局限</a></li>
+        <li><a href="#s9">和已有笔记的分工</a></li>
+        <li><a href="#s10">数字速查</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">这篇补的是现有 megakernel 笔记都没写成主题的那一问：融合边界该切在哪里，一颗整模大核何时反而更慢。它不是新的 persistent-kernel 编译器，而是一套边界规划器：用常规图 profile、独立算子基准和实现合约，给候选打一个确定性的「首包」分数，不必把每个组合端到端跑一遍。在作者实现并过合格验的验证池里，13 个模型–batch 组合全部选中了实测最快的设计；最好的答案从来不是一颗整模 megakernel，而是两到四颗专用核，或完全退回常规图。</p>
+      <div class="kpi">
+        <div>
+          <div class="n">13/13</div>
+          <div class="k">规划器选中验证池里的实测最快设计（H100 NVL；不是全部 81 个候选都实测）</div>
+        </div>
+        <div>
+          <div class="n">4.05×</div>
+          <div class="k">NH-TTS、batch 32、H100 NVL：三核动态 88/44 相对 TensorRT 常规图的 engine-level mean batch-p95 TTFA</div>
+        </div>
+        <div>
+          <div class="n">−21.4%</div>
+          <div class="k">同上设置，相对整模单核的 mean batch-p95 首包时延（图 2：35.985 ms vs 45.776 ms）</div>
+        </div>
+        <div>
+          <div class="n">+28.0%</div>
+          <div class="k">同上设置，相对整模单核的吞吐 RTFx（269.430 vs 210.533）；相对常规图是 +19.7%。单核的 RTFx 反而低于常规图</div>
+        </div>
+      </div>
+      <div class="callout">
+        定位要写硬：<strong>Mirage / MPK / Event Tensor / Fleet</strong> 回答「给定一块区域，如何写成或编译成一颗（或一层）persistent megakernel」；<strong>PDL 重构</strong>回答「不做成常驻大核，能逼近到什么程度」。这篇回答的是前一步：这块区域该有多大、该在哪切开、要不要和别的核共享 GPU。作者自己的相关工作一句是：已有系统「为给定区域构造快速 megakernel；我们决定这些区域应该是哪些」。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：融到什么程度、边界留在哪</h2>
+      <p>流式推理里，只要实时因子 RTFx 大于 1，用户能感觉到的等待主要由首包决定：TTS 是 Time to First Audio（TTFA），LLM 是 Time to First Token（TTFT）。作者关心的是：在尽量大的 batch 上，把 TTFA / TTFT 压到可接受范围。</p>
+      <p>Megakernel 在文中的定义很明确：把多个算子融进一颗 persistent kernel，thread block 常驻 GPU，算子之间交接而不回到 host。现有设计通常只把 LLM 的 decode 做成 megakernel，prefill 留给常规执行，或干脆不讨论。MPK 在小 batch 解码上相对 vLLM / SGLang 报过最多 1.7× 的 per-token 时延下降。问题是，流式 TTS 不是「prefill 一次 + decode 循环」这么两段。</p>
+      <p>以文中的 NH-TTS（即将发布的自回归 TTS，backbone 是 Nemotron-H）为例，一次请求要跑：</p>
+      <ul>
+        <li>Prefill，每请求一次；</li>
+        <li>自回归 producer：每步一次 Nemotron-H backbone，再对每个 codebook 跑一遍 local transformer，产出一帧声学码；</li>
+        <li>Consumer：codec 按 chunk 把帧解成 PCM。</li>
+      </ul>
+      <p>这些阶段的速率、张量形状、thread-block 几何都不同。每一刀决定三件事：哪些阶段共用一次 launch 配置、thread block 被占用多久、阶段之间怎么分享 GPU。切错的代价不是抽象的：对 NH-TTS 和 Qwen3-TTS，次优布局比最优慢 3% 到 29%。NH-TTS 的搜索空间有 81 个候选，穷举实现再计时不便宜。</p>
+      <div class="callout warn">
+        作者反对的「惯例」有两种：小 batch 上用一颗整模 monolith megakernel；或者只把模型的某一段做成 megakernel，其余仍走常规图。他们的结论是：最好的配置是<strong>多颗 megakernel、且不和常规图混叠</strong>，或者<strong>完全走常规图</strong>。在评测过的 13 个组合里，最优从来不是一颗整模单核。图 1 里「常规图 prefill + 一颗大核」的 hybrid 布局直接标了 Not reported，没有实测数字可引。
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. 做法：用 profile 选切分，不必端到端穷举</h2>
+      <p>规划器的输入是「模型 + 已有运行时实现」，不是一张空白的算子图再从头生成 CUDA。它用三类证据：常规图 profile、独立算子或一步基准，以及源码声明的实现合约（几何、存储、编译入口成员、同步）。输出是：把模型划成哪些连续区域、每个区域用常规图还是 megakernel、区域之间如何分享 GPU。候选的分数是确定性的首包分数，只用来排序，不是在预测时延分布或 p95 本身。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 920 168" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="规划器三级图：rGraph 到 tGraph 服务表再到 evGraph 首包分数">
+          <rect x="8" y="28" width="200" height="88" rx="6" fill="#fffdf8" stroke="#1e3a5f" stroke-width="1.4"/>
+          <text x="108" y="64" text-anchor="middle" font-size="15" font-family="Georgia, serif" fill="#1c1917">rGraph</text>
+          <text x="108" y="86" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">阶段分组 + 枚举 cover</text>
+          <polygon points="216,72 238,72 238,64 262,80 238,96 238,88 216,88" fill="#9a3412"/>
+          <rect x="270" y="28" width="200" height="88" rx="6" fill="#fffdf8" stroke="#1e3a5f" stroke-width="1.4"/>
+          <text x="370" y="64" text-anchor="middle" font-size="15" font-family="Georgia, serif" fill="#1c1917">tGraph / 服务表</text>
+          <text x="370" y="86" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">按后端与 CTA 预算估时</text>
+          <polygon points="478,72 500,72 500,64 524,80 500,96 500,88 478,88" fill="#9a3412"/>
+          <rect x="532" y="28" width="200" height="88" rx="6" fill="#fffdf8" stroke="#1e3a5f" stroke-width="1.4"/>
+          <text x="632" y="64" text-anchor="middle" font-size="15" font-family="Georgia, serif" fill="#1c1917">evGraph</text>
+          <text x="632" y="86" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">模拟到首包可发布</text>
+          <polygon points="740,72 762,72 762,64 786,80 762,96 762,88 740,88" fill="#9a3412"/>
+          <rect x="794" y="28" width="118" height="88" rx="6" fill="#fff7ed" stroke="#9a3412" stroke-width="1.4"/>
+          <text x="853" y="64" text-anchor="middle" font-size="15" font-family="Georgia, serif" fill="#9a3412">Tpub</text>
+          <text x="853" y="86" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">排序，不校绝对时延</text>
+        </svg>
+      </div>
+      <p class="figcap">图示重画规划器的三层图。计时证据只来自常规图和独立基准，不对候选组合做端到端测量。</p>
+
+      <h3>切分规则：cover 与三种分享策略</h3>
+      <p>先把模型收成区域图 rGraph。节点是三类 group：Admission（每请求一次，如 prefill）、Producer（每生成步一次）、Consumer（每输出 chunk 一次）。边是数据、状态和发布依赖。一个 <em>region</em> 是一段连续 group，由一个后端执行：要么常规图（一算子一 kernel），要么一颗 persistent megakernel。一个 <em>cover</em> 是对固定顺序 group 的划分，并给每个 region 指定后端。过滤实现支持之前，n 个 group 有 <code>2 · 3<sup>n−1</sup></code> 种 cover。</p>
+      <p>再配执行策略，决定区域怎么分享 GPU：</p>
+      <ul>
+        <li><strong>Serial：</strong>区域轮流占用整卡。</li>
+        <li><strong>Fixed split：</strong>producer 与 consumer 全程共驻，CTA 预算为 X 和 Y。</li>
+        <li><strong>Dynamic split：</strong>在 consumer 输入就绪前，producer 占用整卡；就绪后 producer 用 X 个 CTA，consumer 用 Y 个。</li>
+      </ul>
+      <p>策略必须是实现支持的 launch 配置，只挂到适用的 cover 上。文中的 overlap 要求 producer 各 group 合成一颗 megakernel，consumer 也必须是 megakernel；dynamic split 还要求它们是两次分开的 launch。没有匹配服务成本证据的候选直接排除；模拟死锁的视为不可行。并列最低分全部保留，不用验证集实测来打破平局。</p>
+      <p>NH-TTS 露出四个有序 group：P（prefill）、B（Nemotron-H backbone）、L（local transformer）、C（codec）。四个 group 给出 54 个 serial cover；fixed split 适用于 6 个 cover，dynamic split 只适用于其中 producer / consumer 分开 launch 的 3 个。三种 CTA 预算对再加 27 个候选，合计 81。流式日程用三个参数刻画：延迟 d 步（产出暂不发出）、首个 chunk 的 c<sub>1</sub> 步、以及判断流是否继续的 lookahead l 步。首个 consumer chunk 在第 <code>r = d + c<sub>1</sub></code> 步后才具备资格；producer 要跑到 <code>h = d + c<sub>1</sub> + l</code>。在所评估的策略里，第一次发布要同时等解码完的首个 chunk，以及再多一步 generation。</p>
+
+      <h3>用 profile 做选择：tGraph 填服务表</h3>
+      <p>每个 group 建一张 tile 图 tGraph（文中引用 Welder，不是把 MPK 的编译 IR 原样搬过来）。支持的输出 tile 成为 task，带着计算、权重与激活负载、写回和 staging 存储；边记录 tile 之间的张量依赖，原来的 kernel 屏障另存为一组边。没有 tile 分解的算子按不透明 task 处理，缩预算时用 CTA-wave 近似：网格有 g 个 CTA、预算为 W 时，计算时间按 <code>⌈g/W⌉ / ⌈g/132⌉</code> 缩放——132 是 H100 NVL 的 SM 数，并假设各 wave 成本相同。</p>
+      <p>tile 调度是事件驱动的 list scheduler，工作者池大小等于 CTA 预算 W。两种 megakernel 机制作用在这张表上：去掉屏障边，让下一 kernel 已就绪的 tile 填空闲 worker；以及 weight prefetch，让正在计算的 worker 预取即将到来的 tile 权重。结果是一张服务表：每个 group 在每种后端、每种 CTA 预算下的一次执行时间，记为 <code>S[g, β, W; κ]</code>。上下文 κ 包括线程数、block 几何、调用与存储策略、编译入口成员和同步要求。同一 group、同一后端、同一 CTA 预算，包进不同实现时成本可以不同。计时记录只在键完全匹配时复用；规划器不从常规图时间去「猜」任意融合入口的编译行为。</p>
+
+      <h3>运行时如何执行：evGraph 模拟到首包</h3>
+      <p>每个候选降到一张事件图 evGraph，延伸到第一次可发布。常规区域保留其算子 launch；megakernel launch 在其全部 task 结束前一直占着 CTA 配额，包括这些 task 在等依赖的时间。Dynamic split 在第 r 步结束「整卡 producer」那次 launch，随后改成预算 X、Y 的两次 launch。节点时长来自服务表。发布条件写成</p>
+      <div class="eq">T<sub>pub</sub> = max(F<sub>chunk1</sub>, F<sub>producer h</sub>)</div>
+      <p>其中 F 是模拟完成时间。共驻 launch 只通过 Algorithm 1 的联合模拟交互：争 CTA，并按共享带宽以 <code>min(1, B<sub>mem</sub> / Q<sub>tot</sub>)</code> 降速。规划器<strong>不用</strong>实测的共跑时间。</p>
+      <p>文中用一个示意数字说明切分为何能赢。假设 chunk 在 20 ms 就绪；剩余 producer / codec 串行要 4 / 6 ms，在 88/44 分裂下要 6 / 8 ms；串行与 overlap 的切换成本分别是 0.1 / 0.2 ms，且先不计带宽争用。分数是 20+4+6+0.1 = 30.1 ms，对上 20+max(6, 8)+0.2 = 28.2 ms。各自变慢了，overlap 仍然更早发布。</p>
+      <p>在 NH-TTS、batch 32 上，规划器选出的是 <code>P / (B+L) / C</code>：prefill、融合后的 backbone+local transformer、codec 各一颗 megakernel，producer / consumer 做动态分裂，CTA 为 88/44。这就是图 3 标成 Optimal performance 的那张布局；整模 monolith 被标成 Not optimal。</p>
+
+      <div class="fig">
+        <svg viewBox="0 0 860 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NH-TTS 在 batch 32 上选出的三颗 megakernel">
+          <text x="430" y="22" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#57534e">NH-TTS · H100 NVL · batch 32 · 规划器选出的三核布局</text>
+          <rect x="30" y="48" width="180" height="70" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+          <text x="120" y="78" text-anchor="middle" font-size="15" font-family="Georgia, serif" fill="#1c1917">Prefill MK</text>
+          <text x="120" y="100" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">× 1 次</text>
+          <rect x="280" y="48" width="230" height="70" rx="8" fill="#fff7ed" stroke="#9a3412" stroke-width="1.5"/>
+          <text x="395" y="78" text-anchor="middle" font-size="15" font-family="Georgia, serif" fill="#1c1917">Stage 0 MK · 88 CTA</text>
+          <text x="395" y="100" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">Backbone + Local × N · × M 次</text>
+          <rect x="580" y="48" width="230" height="70" rx="8" fill="#fff7ed" stroke="#9a3412" stroke-width="1.5"/>
+          <text x="695" y="78" text-anchor="middle" font-size="15" font-family="Georgia, serif" fill="#1c1917">Stage 1 MK · 44 CTA</text>
+          <text x="695" y="100" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">Codec consumer</text>
+          <line x1="210" y1="83" x2="280" y2="83" stroke="#1e3a5f" stroke-width="1.4"/>
+          <polygon points="272,77 280,83 272,89" fill="#1e3a5f"/>
+          <line x1="510" y1="83" x2="580" y2="83" stroke="#1e3a5f" stroke-width="1.4"/>
+          <polygon points="572,77 580,83 572,89" fill="#1e3a5f"/>
+          <text x="430" y="152" text-anchor="middle" font-size="12.5" font-family="Segoe UI, sans-serif" fill="#57534e">动态分裂：consumer 就绪前 producer 占整卡，之后 88 / 44 共驻。图 2 测得 mean batch-p95 首包 35.985 ms。</text>
+          <text x="430" y="174" text-anchor="middle" font-size="12.5" font-family="Segoe UI, sans-serif" fill="#57534e">图 4：同一三核布局在 batch 64 上改选 80 / 52，不是 88 / 44。</text>
+        </svg>
+      </div>
+      <p class="figcap">按论文图 3 重画的 NH-TTS batch 32 选出布局。CTA 分裂随 batch 会变，不能把 88/44 当成该模型的固定答案。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 和 PDL、MPK、Event Tensor、Fleet 的差别</h2>
+      <p>这篇几乎不发明新的 kernel 写法。它假设区域内的常规图或 megakernel 实现已经存在，只在「支持的组合」里做选择。和同目录几篇笔记的差别，要按机制说，不要说成同一条流水线的下一步。</p>
+      <table>
+        <thead>
+          <tr><th>对照</th><th>对方在做什么</th><th>这篇怎么不同</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>CUDA PDL</td>
+            <td>Programmatic Dependent Launch 让后一个 kernel 在前一个尚未完全结束时就开始，用 launch 重叠逼近「常驻」效果。PDL 笔记的主题是：不必融成一颗 persistent megakernel。</td>
+            <td>文中的 megakernel 仍是 persistent kernel：block 常驻，不回到 host。它讨论的「切」是两次 launch 之间的真边界，用来换几何、释放被占用的 CTA、支付 dispatch 成本。正文引用了 CUDA graphs 降 host launch，把 kernel 边界写成屏障，但<strong>没有评估 PDL</strong>。若边界本身可被 PDL 重叠，规划器给「一切」标的成本会变；这是这篇没做的实验。</td>
+          </tr>
+          <tr>
+            <td>MPK 的 tGraph</td>
+            <td>MPK 把张量程序编成一张 task 图，再放进一颗 persistent mega-kernel，由去中心事件运行时调度。</td>
+            <td>这里的 tGraph 引用的是 Welder：用来给一个 group 在给定后端和 CTA 预算下估服务时间，填服务表，并不把整模型编译进一颗核。evGraph 在服务表之上模拟「多颗核 + 流式发布依赖」。MPK 是「如何 mega-kernelize 给定区域」；这篇是「区域该怎么切」。作者把 MPK 和 Event Tensor 放在相关工作里，用的就是这句分工。</td>
+          </tr>
+          <tr>
+            <td>Event Tensor</td>
+            <td>把 event 做成带符号 shape 的张量 IR，一张图覆盖动态 batch 和数据依赖控制流（如 MoE 路由）。</td>
+            <td>这里的 evGraph 是候选布局的<strong>模拟图</strong>，不是可编译的 IR。动态性的处理是按离散 batch 分别规划（评测里每个模型只看几个固定 batch），没有符号 shape，也没有一张图走完动态路由。</td>
+          </tr>
+          <tr>
+            <td>Fleet</td>
+            <td>在 MPK 运行时上加 Chiplet-task，把调度对齐到多 die 的私有 L2。</td>
+            <td>这篇完全是单卡 H100 NVL（132 SM，94 GB HBM3）。正文和引用都没有讨论 chiplet 或多 die。Fleet 不在参考文献里；对照是笔记之间的分工，不是论文自己做的比较。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>相关工作还点了手写 Llama-1B / Llama-70B megakernel、Ada-MK、TileRT、FlashMoE：都是「给定区域之后把核写快」。Rammer、VersaPipe 也做边界或流水段选择，但作者强调自己的目标是<strong>对首包敏感的组合</strong>，证据停在常规图和算子级测量。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 模型给出的四条规则</h2>
+      <p>第 V 节用 tile / event 图解释，为什么「更快的核」或「少一切」并不自动等于更快的管线。</p>
+      <div class="grid-2">
+        <div class="tile">
+          <h4>1. 更快的核可以让整条管线更慢</h4>
+          <p>Launch 合约从准入到收尾一直占着 CTA。共驻者只通过模拟交互。NH-TTS 上，producer megakernel 用 88 个 CTA 而不是 80 个，单独快 2.2%；但和常规 codec 并排时，整对慢 30.3%，因为 codec 少了 8 个 CTA。换成 codec megakernel，整对反而快 2.0%。规划器不用实测共跑时间，这条要靠模拟打出来。</p>
+        </div>
+        <div class="tile">
+          <h4>2. 共驻代价取决于对方的实现</h4>
+          <p>Persistent launch 在结束前不放 CTA。表 II 是 NH-TTS 的 Stage 0 × Stage 1 四格时延（对照图 3）：两边都是 megakernel 为 0.991 ms，Stage 0 为 MK、Stage 1 为 TensorRT 为 1.290 ms，反过来 1.216 ms，两边都是 TensorRT 为 9.760 ms。作者据此写道：常规 codec 在 producer megakernel 旁边慢 7.57×，codec megakernel 只慢 1.23×。同一套分配，干扰可以差一个数量级。混用常规图和 megakernel，不是免费的折中。</p>
+        </div>
+        <div class="tile">
+          <h4>3. 合约固定时，串行切可以是中性的</h4>
+          <p>排除 dispatch、并固定实现与资源合约后，插入串行边界不改变所建模的 device 日程。NH-TTS 全部由 megakernel 构成的八种划分，都预测成 37.067 ms TTFA p95。实测上，monolith 和只在 prefill 处切开的两核设计，实现与 CTA 分裂相同，各 batch 相差不超过 0.5%。monolith 比串行三核慢，原因不是「多了一刀」，而是它全程用 512-thread block；三核设计的 Stage 0 用 256-thread block。差距来自特化，不是边界本身。</p>
+        </div>
+        <div class="tile">
+          <h4>4. 固定成本决定常规图何时赢</h4>
+          <p>Megakernel 的 launch、host 协议、内部同步和跨算子 cache 驻留是按步付的固定成本，不随它省下的工作一起缩小。大 batch 上，常规图把这类开销摊到更多计算里。一旦领先小于固定成本，常规图更早发布。Qwen3-TTS 的四区 megakernel 领先从 batch 16 的 15.9 ms 降到 batch 64 的 0.65 ms，而固定成本仍在 0.7–1.1 ms，所以 batch 48 和 64 常规图获胜。NH-TTS 的领先随 batch 增大，所测 batch 上常规图从未赢过。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 评测：分模型看，别把局部数字说成通论</h2>
+      <h3>设置与口径</h3>
+      <p>全部结果来自单卡 NVIDIA H100 NVL：132 SM，94 GB HBM3，峰值带宽 3.9 TB/s；CUDA 13.2，驱动 595.84。每个设计独占一张 GPU、独立进程。设计之间共用权重、算子精度、输入夹具、生成上限、确定性解码和发布规则。计时前对照未融合参考做正确性检查：生成的 token 或 code 索引、发布前提必须完全一致，浮点输出的相对 L2 误差不得超过 10<sup>−2</sup>。失败的设计只报告、不进入计时。合格设计在匹配的 GPU block 内做平衡随机序测量。每进程丢掉两个 warmup cohort。</p>
+      <p>规划器用独立开发集固定打分规则和候选生成策略；评估用的 batch 与输入夹具不进入开发。服务记录、预测分数和平局规则在端到端计时前冻结。验证结果不用来改模型。作者写过「artifact 记录了 checkpoint 哈希、软件版本、文本/上下文长度和 (d, c<sub>1</sub>, l)」，但 v1 没有给出获取地址。</p>
+      <table>
+        <thead>
+          <tr><th>模型</th><th>常规基线</th><th>首包指标</th><th>Batch</th><th>重复与汇总</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>NH-TTS</td>
+            <td>TensorRT-LLM + CUDA graphs，外加 TensorRT engine</td>
+            <td>engine 发布点的 TTFA</td>
+            <td>1、32、64</td>
+            <td>主实验：36 个 batch 上「逐批请求 p95」再取均值</td>
+          </tr>
+          <tr>
+            <td>Qwen3-TTS</td>
+            <td>PyTorch，经 vLLM、FlashAttention-3、torch.compile 与 CUDA graphs</td>
+            <td><strong>host 侧</strong> TTFA（和 NH-TTS 的 engine 点不是同一口径）</td>
+            <td>1、16、32、48、64</td>
+            <td>每次 run 对三个 cohort 级 first-PCM 时间取 p95；B1/B48/B64 平均 3 进程共 9 个 run-p95，B16/B32 平均 4 进程共 12 个</td>
+          </tr>
+          <tr>
+            <td>Llama 3.2 1B</td>
+            <td>PyTorch SDPA（FlashAttention），打成一张 CUDA graph</td>
+            <td>TTFT；prompt 固定 496 token</td>
+            <td>1、2、16、32、48</td>
+            <td>每进程 30 次重复取 p95，再对 3 个进程取算术平均</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>比值的置信区间用 20,000 次 bootstrap：NH-TTS 与 Qwen3-TTS 的 B16/B32 是 4 个匹配 GPU block，Qwen3-TTS 的 B1/B48/B64 是 9 个匹配的 process/run 单元，设计之间成对重采样。收集规划器输入只需分钟级：跨四个 batch，kernel 基准在 NH-TTS 上花 4.6 GPU-分钟，Qwen3-TTS 上花 15.9 GPU-分钟。</p>
+      <div class="callout warn">
+        验证池是「能够实现并通过正确性检查的设计」，不是 81 个候选的全集。规划器给 NH-TTS 全部 81 个候选打分，但只有池内设计被端到端测量。13/13 只说明在这些池里选对了实测最快者，<strong>不构成对未测组合的最优性，也不能外推到其他 GPU 架构</strong>。这是作者自己写下的限制。
+      </div>
+
+      <h3>NH-TTS：三颗专用核同时赢时延和吞吐</h3>
+      <p>这是主案例，也是唯一同时给出 TTFA 和 RTFx 柱状图的模型。图 1 在 H100 NVL、batch 32 上列出六种代表布局的 mean batch-p95 首包时延：</p>
+      <table>
+        <thead>
+          <tr><th>布局</th><th>切法</th><th>Mean batch-p95 首包</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Conventional（0 MK）</td><td>Prefill / Backbone / Local×N / Codec 走 CUDA graphs</td><td>145.89 ms</td></tr>
+          <tr><td>1 MK monolith</td><td>整模一颗核</td><td>45.78 ms</td></tr>
+          <tr><td>Hybrid</td><td>Prefill 走常规图，其余一颗核</td><td>Not reported</td></tr>
+          <tr><td>2 MKs</td><td>只在 prefill 处切开</td><td>45.97 ms（与 monolith 相差不到 0.5%）</td></tr>
+          <tr><td>3 MKs（实测最好）</td><td>P / (B+L) / C，动态 overlap 88/44</td><td>35.99 ms</td></tr>
+          <tr><td>4 MKs</td><td>四个阶段各一颗核</td><td>38.38 ms</td></tr>
+        </tbody>
+      </table>
+      <p>图 2 把同一设置的三核设计拿来和常规图、monolith 比，柱上标的更细：TTFA 为 145.892 / 45.776 / 35.985 ms，RTFx 为 225.017 / 210.533 / 269.430。由此得到摘要里的几句：相对 monolith，mean batch-p95 TTFA 低 21.4%，吞吐高 28.0%；相对 TensorRT 常规图，engine-level mean batch-p95 TTFA 为 4.05×，吞吐高 19.7%。必须一起读的细节是：<strong>整模单核的 RTFx（210.533）低于常规图（225.017）</strong>。一颗大核在这个点上用时延换掉了吞吐；三核布局把两边都拿回来。</p>
+      <p>这个排序在其他 batch 上仍然成立。作者给出的首包时间：batch 64 为 47.4 ms，对 monolith 61.0 ms、常规图 221.5 ms；batch 1 为 27.5 ms，对 32.7 ms 和 73.0 ms。图 4 还显示，同一套三核切分在 batch 64 上改选 80/52 的 CTA 分裂，次优是 2 MK，差距 28.60%——和引言「次优慢 3% 到 29%」的上沿对得上。batch 32 上次优是 4 MK dynamic，差距 6.67%；batch 1 上次优是 1 MK，差距 19.30%。规划器在三核布局内部也对了资源策略：batch 32 上 80/52 比 88/44 慢 1.0%；batch 64 上三核串行比 overlap 慢 4.2%。</p>
+
+      <h3>Qwen3-TTS：小 batch 四核，大 batch 退回常规图</h3>
+      <p>五个 batch 里，规划器与实测一致：batch 1 / 16 / 32 选四颗 megakernel，batch 48 / 64 选常规图。图 4 上相对次优的差距是 8.10%、10.20%、10.10%、4.20%、3.20%。正文补充了 95% 区间：batch 1 上两核比四核慢 8.1%（7.8–8.3%）；batch 48 和 64 上四核比常规图慢 4.2%（3.1–4.9%）和 3.2%（3.0–3.4%）。这里没有 NH-TTS 那种「切完又同时赢吞吐」的柱状图，不要把 4.05× 或 +28% 借到 Qwen 上。口径也不同：Qwen 的 TTFA 在 host 侧计量。</p>
+
+      <h3>Llama 3.2 1B：TTFT 上始终是两核，不是一颗合体核</h3>
+      <p>五个 batch（1、2、16、32、48）全部选「prefill、decode 各一颗 megakernel」，次优都是把两段打成一颗。图 4 把五次差距画成 7.8%–14.9% 的区间。即便目标只是 first-token latency，合体入口也会因为寄存器溢到 local memory，让每一层 prefill 变慢——规划器的一步基准里，batch 1 为 316 μs 对 276 μs，大约慢 15%。所以这里的「切」首先是为了保住 prefill 的实现合约，不是在 TTFT 路径上叠 decode。</p>
+      <p>文中把 Llama 写成：对 first-token latency 是 megakernel-stable，对 inter-token latency 是 megakernel-receding。图 4 与表 III 的评测指标是 TTFT，ITL 没有另给一张表。后半句是分类上的判断，不要当成已经画出的 ITL 加速数字。</p>
+
+      <h3>规划器准的是名次，不是绝对时间</h3>
+      <p>冻结后的规划器在 13/13 个留出的模型–batch 组合上唯一选中了实测最快设计。它给设计排序，并不校准绝对时延。常规设计因为分数来自一次实测 run，落在验证的 5% 以内；NH-TTS 的一核、两核设计共用同一套 persistent 实现，也在 5% 以内；三核设计共用另一套实现，被高估 6% 到 22%——被选中的 batch 32 设计预测 42.52 ms，实测 35.99 ms。Llama-1B 最多被高估 11%；Qwen3-TTS 的四核设计在 batch 48 和 64 被低估 1.1 到 1.5 ms。绝对误差在，名次仍然对。</p>
+      <p>消融把这一点说得更窄。服务成本和候选池相同：完整规划器 13/13；把事件服务与 dispatch 做加性求和，或去掉 overlap、按固定拓扑串行化，都是 11/13，最大 regret 为 4.50%（regret = 所选设计的实测时延 / 池内实测最低时延 − 1；平局预测不算唯一命中，并取其成员中最差的 regret）。两次失手都在 NH-TTS 的 batch 32 / 64，更简单的选择器挑了串行，完整规划器靠 chunk 就绪、CTA 分配和并发完成才选对 overlap。作者的定位是：事件模拟的收益集中在对 overlap 敏感的决策上；执行是串行时，实现相关的部件成本就够用。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 融合该走多远：四类模型</h2>
+      <p>第 VII 节把「融到何处」写成一笔按步支付的固定成本 F，对上该区域相对常规 kernel 省下的 S(b)。CUDA graph 已经去掉的 launch / host dispatch 与 b 无关；不再落内存的中间流量随 b 增长；一份编译日程和逐个调过的 kernel 之间的服务差，可以随 tile 填满和 wave 数变大、变小，甚至变号。区域在 <code>S(b) &gt; F</code> 时才划算。F 固定、S(b) 会动，所以最佳融合范围随 batch 走，而且不同模型方向不同。</p>
+      <table>
+        <thead>
+          <tr><th></th><th>大 batch 仍然划算</th><th>大 batch 不再划算</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>小 batch 划算</th>
+            <td><strong>Megakernel-stable</strong>（已观察到）：NH-TTS；Llama-1B 的 first-token latency</td>
+            <td><strong>Megakernel-receding</strong>（已观察到）：Qwen3-TTS；Llama-1B 的 inter-token latency</td>
+          </tr>
+          <tr>
+            <th>小 batch 不划算</th>
+            <td><strong>Megakernel-advancing</strong>（只是预测）：常规成本被与工作量成正比的流量主导，或被可被 persistent 日程重叠的串行计算 / 内存 / 通信主导</td>
+            <td><strong>Megakernel-averse</strong>（只是预测）：区域已经 compute-bound，例如大模型 prefill</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>一个模型要被算作 stable，文中给了三条：对目标路径上的时间占大头（TTFT 的路径只有 prefill，所以 Llama 在 TTFT 上 stable、在 decode 上 receding）；能形成连续区域，且在每个被看的 batch 上节省都超过固定成本——稳定的核若一个个夹在别的核中间，付不起周围那些切；以及不会把收益输给共驻的常规部分，即第 2 条规则。单独看未必值得做成 megakernel 的区域，共驻时仍可能受益，作者用 Nemotron 上的实验说明这一点。</p>
+      <div class="callout teal">
+        融合可以停在两个极端之间的任何地方：常规图，或整模 monolith。作者的答复是：答案从「多颗 megakernel」到「每阶段成千上万个常规 kernel」都有可能，取决于架构、batch 和优化目标。值得保留的边界，是跨越它的成本低于它所保护的特化与发布控制。advancing / averse 两类在本文评测里<strong>没有观察到</strong>，不要当成已经证实的分类结果。
+      </div>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 落地与局限</h2>
+      <ul>
+        <li><strong>实现未公开。</strong>截至 arXiv:2610.35336v1（2026-10-26），论文、arXiv 摘要页和 HTML 版都没有代码、模型或 artifact 链接。正文只说 artifact 记录了哈希与软件版本。规划器依赖「源码声明的实现合约」和已经存在的 megakernel / 常规图实现；没有这些实现，这套方法不能从一张 PyTorch 图凭空切出可跑的核。</li>
+        <li><strong>硬件只有 H100 NVL。</strong>作者明确写了：13/13 不能外推到其他 GPU 架构。CTA-wave 近似里的 132、寄存器上限「每 SM 驻留线程分到的寄存器，最多 255」，都钉在这张卡的模型上。</li>
+        <li><strong>模型范围很窄。</strong>一个尚未公开发布的 Nemotron-H TTS、Qwen3-TTS、Llama 3.2 1B。没有更大的稠密 LLM，没有 MoE serving，没有多卡。NH-TTS 是主数字来源，也是唯一同时报 TTFA 与 RTFx 的案例。</li>
+        <li><strong>和生产 serving 的差距。</strong>测量是独占 GPU、固定夹具、确定性解码、按给定 batch 跑完，不是在线到达的连续批，也没有调度器在真实 trace 上的排队与抢占。NH-TTS 的 TTFA 在 engine 发布点计量，Qwen 在 host 侧计量，两者不能直接横比。Llama 只报了 496-token prompt 上的 TTFT。</li>
+        <li><strong>选择范围是验证池，不是设计空间全集。</strong>hybrid 布局在图 1 标 Not reported。未实现或未通过相对 L2 ≤ 10<sup>−2</sup> 检查的设计不进入计时。规划器可能在未测候选里打出更低的 T<sub>pub</sub>，但那不是这篇能证实的「最优」。</li>
+        <li><strong>分数是排序代理。</strong>三核设计绝对时延可被高估 6% 到 22%。把它当成性能模型去报「预计 TTFA」会偏。它可靠的是：在冻结规则下，池内名次对了。</li>
+        <li><strong>两类模型分类仍是假说。</strong>megakernel-advancing 与 averse 没有实例。文末提出的两个后续问题也还没有答：stable 架构是否在同等精度下计算性能全面更好；软件调度能否避免常规图与 megakernel 共驻时的干扰。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 和已有笔记的分工</h2>
+      <p>同目录五篇笔记加上这篇，可以压成六句，不要互相替代。</p>
+      <ul>
+        <li><a href="Mirage_论文分析.html">Mirage</a>：为单个 task 搜索并生成 CUDA。</li>
+        <li><a href="MPK_论文分析.html">MPK</a>：把 task 图编译进一颗 persistent mega-kernel，并给出运行时。</li>
+        <li><a href="EventTensor_论文分析.html">Event Tensor</a>：把 event 升成带符号 shape 的张量 IR，一张图覆盖动态 batch 与 MoE 路由。</li>
+        <li><a href="Fleet_论文分析.html">Fleet</a>：在 MPK 运行时上加入 Chiplet-task，把调度对齐到多 die 的私有 L2。</li>
+        <li><a href="PDL重构Megakernel_论文分析.html">PDL 重构 Megakernel</a>：不把模型融成常驻大核，用 PDL 重叠依赖 launch，看能逼近一颗 megakernel 到什么程度。</li>
+        <li><strong>本篇：</strong>在已经有常规图和 megakernel 实现的前提下，决定切几刀、切在哪、要不要共驻。它引用 MPK 与 Event Tensor，但不依赖、也不评估 Fleet 或 PDL。</li>
+      </ul>
+      <div class="callout navy">
+        若只保留一句：前面几篇把「一颗核」写快或逼近「一颗核」；这篇说明「一颗」常常不是正确的粒度，而且这个粒度可以在不做端到端穷举的情况下，用常规图和算子基准预测出来——至少在 H100 NVL、三个模型、已实现的验证池里是这样。
+      </div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 数字速查</h2>
+      <table>
+        <thead>
+          <tr><th>项目</th><th>数字</th><th>条件与对照</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>规划器命中</td><td>13/13</td><td>NH-TTS / Qwen3-TTS / Llama 3.2 1B，共 13 个模型–batch；H100 NVL；验证池内实测最快者。不覆盖未测候选，不外推其他 GPU</td></tr>
+          <tr><td>NH-TTS B32 TTFA</td><td>35.985 / 45.776 / 145.892 ms</td><td>三核动态 88/44 vs monolith vs TensorRT 常规图；engine-level mean batch-p95。即 −21.4% 与 4.05×</td></tr>
+          <tr><td>NH-TTS B32 RTFx</td><td>269.430 / 210.533 / 225.017</td><td>同上三方。相对 monolith +28.0%，相对常规图 +19.7%。monolith 低于常规图</td></tr>
+          <tr><td>图 1 其余布局（B32）</td><td>2 MK 45.97 ms；4 MK 38.38 ms；hybrid 未报告</td><td>同一口径的 mean batch-p95 首包</td></tr>
+          <tr><td>NH-TTS 其他 batch 首包</td><td>B1：27.5 / 32.7 / 73.0 ms；B64：47.4 / 61.0 / 221.5 ms</td><td>三核 vs 一核 vs 常规。B64 选出的 CTA 是 80/52，次优 2 MK，差距 28.60%</td></tr>
+          <tr><td>NH-TTS 策略边距</td><td>80/52 慢 1.0%；串行慢 4.2%</td><td>前者对 88/44、B32；后者对 overlap、B64</td></tr>
+          <tr><td>Qwen3-TTS 切分</td><td>B1–32 为 4 MK，B48–64 为常规图</td><td>次优差距 8.10 / 10.20 / 10.10 / 4.20 / 3.20%。host 侧 TTFA，不是 engine 口径</td></tr>
+          <tr><td>Qwen3 固定成本 vs 领先</td><td>领先 15.9 ms → 0.65 ms；固定成本 0.7–1.1 ms</td><td>四区 megakernel，B16 到 B64，故大 batch 常规图获胜</td></tr>
+          <tr><td>Llama 3.2 1B</td><td>五 batch 均 2 MK，次优 1 MK，差距 7.8%–14.9%</td><td>TTFT，prompt 496 token。合体入口在 B1 一步基准中 316 vs 276 μs</td></tr>
+          <tr><td>绝对时延误差</td><td>三核高估 6–22%（42.52 vs 35.99 ms）；Llama 高估最多 11%；Qwen 四核在 B48/B64 低估 1.1–1.5 ms</td><td>名次仍然全对。加性分数 / 去 overlap 各 11/13，最大 regret 4.50%</td></tr>
+          <tr><td>搜索与剖析成本</td><td>81 个 NH-TTS 候选；剖析 4.6 / 15.9 GPU-分钟</td><td>后者为 NH-TTS / Qwen3-TTS，各跨四个 batch。只对池内设计做端到端计时</td></tr>
+          <tr><td>正确性门坎</td><td>索引完全一致；相对 L2 ≤ 10<sup>−2</sup></td><td>失败设计排除出计时池</td></tr>
+          <tr><td>干扰例（表 II / 规则 1）</td><td>四格 0.991 / 1.290 / 1.216 / 9.760 ms；88 vs 80 CTA 单独快 2.2%、与常规 codec 并排慢 30.3%</td><td>NH-TTS，H100 NVL。作者把表 II 概括为常规 codec 共驻慢 7.57×、codec megakernel 慢 1.23×</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      阅读笔记依据 arXiv:2610.35336v1（2026-10-26）。倍数与百分数以论文图 1、图 2、图 4、表 II–IV 及第 III、VI、VII 节为准；arXiv 摘要页中的 4.05×、21.4%、28%、19.7% 已与图 2 柱值核对。同目录：
+      <a href="EventTensor_论文分析.html">Event Tensor</a> ·
+      <a href="Fleet_论文分析.html">Fleet</a> ·
+      <a href="MPK_论文分析.html">MPK</a> ·
+      <a href="Mirage_论文分析.html">Mirage</a> ·
+      <a href="PDL重构Megakernel_论文分析.html">PDL 重构 Megakernel</a>
+    </footer>
+  </div>
+</body>
+</html>
