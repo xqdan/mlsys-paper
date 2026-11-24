@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tenon 论文分析 | 可重定向的 PIM 统一编译框架</title>
+  <style>
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">HPCA 2027</span>
+      <span class="badge">arXiv:2611.25636v1</span>
+      <span class="badge">存算一体 · PIM 编译器</span>
+      <span class="badge ok">Cornell × HKUST</span>
+      <span class="badge warn">GSI 是物理卡实测；Samsung / AiM / UPMEM / AttAcc 是仿真</span>
+    </div>
+    <h1>Tenon：把工作负载、PIM 目标和代价拆开，用同一套布局代数少搬数据</h1>
+    <p class="subtitle">Tenon: A Unified Programming Framework for Retargetable PIM Compilation</p>
+    <p class="meta">
+      <strong>作者：</strong>Niansong Zhang、Shiran Guo、Zhiru Zhang；康奈尔大学（Shiran Guo 所属香港科技大学，工作完成于其在康奈尔的实习）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.25636" target="_blank" rel="noopener">arXiv:2611.25636</a>
+      · <a href="https://arxiv.org/pdf/2611.25636" target="_blank" rel="noopener">PDF</a>（笔记依据 v1，2026-11-19）
+      · 会议：HPCA 2027
+      · 文中未给出开源仓库<br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。仓库里已有 <a href="../pim/DCC_论文分析.html">DCC</a> 和 <a href="../pim/PIMphony_论文分析.html">PIMphony</a> 的笔记；Tenon 在 AttAcc 上直接对照 DCC，并把 PIMphony 的 token 划分写成可搜索的布局。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：栈是碎的，布局却是一等约束</a></li>
+      <li><a href="#s3">做法：三套语言加 F<sub>2</sub> 最小搬移布局</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">和已有 DCC、PIMphony 笔记的关系</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">商业 PIM 已经覆盖近 bank SIMD（Samsung HBM-PIM）、bank 级 GDDR 加速器（SK Hynix AiM）、可编程 DRAM 核（UPMEM）和 bit 级 SRAM 向量处理器（GSI），但各家编程模型和数据布局约定互不通用。Tenon 的判断是：这些后端虽然 ISA 不同，却共享一个更强的不变量——计算单元只直接够到自己绑死的存储分区，布局因此既决定合法性，也决定要搬多少数据。它把工作负载、编译目标和代价写成三套可替换的 Python 接口，推广 GPU 编译器里的 <code>F<sub>2</sub></code> 线性布局代数，自动构造搬移最少的合法布局，再交给各后端的 lowering。五个商业后端上，它达到或超过各家的厂商、专家或编译器基线，几何平均加速最高 1.20×，单核最高 3.65×。在学术 HBM-PIM 后端 AttAcc 上，Tenon 编译的 GPT-13B 解码在全部三个 batch-4 配置里比 DCC 快 1.2–1.3%。这个端到端数字来自 Ramulator2-AttAcc 仿真再叠加 DCC 的分析 GPU roofline，不是硅片墙钟。</p>
+    <div class="kpi">
+      <div><div class="n">1.20× / 3.65×</div><div class="k">商业后端相对最快基线：几何平均最高 / 单核最高（UPMEM 仿真）</div></div>
+      <div><div class="n">1.013×</div><div class="k">物理 Gemini-I 上相对专家 Phoenix 内核的几何平均</div></div>
+      <div><div class="n">1.2–1.3%</div><div class="k">AttAcc 仿真里 GPT-13B 解码相对 DCC，batch 4</div></div>
+      <div><div class="n">398 / 326</div><div class="k">500 个 AttAcc 实例上撞上参考最优时序：Tenon / DCC</div></div>
+    </div>
+    <div class="callout warn">读这些倍数时先看评测平台。GSI Gemini-I（Leda-E）和 Gemini-II（Leda-E2）是物理卡上的设备周期；Samsung 走 PIMSimulator，AiM 走基于 Ramulator2 的时序模型，UPMEM 走 uPIMulator，AttAcc 走 Ramulator2-AttAcc 加分析 GPU roofline。不同后端的工作负载集合和计时边界也不一样，论文明确说比较只在同一后端内部成立。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：栈是碎的，布局却是一等约束</h2>
+    <p>PIM 正在从原型走向可部署的异构系统：访存密集的层，包括 batched LLM 推理，适合交给近存设备。论文对照的商业形态包括 Samsung HBM-PIM 的近 bank SIMD、SK Hynix AiM 的 bank 级 GDDR6 处理器、UPMEM 的可编程 DRAM 核，以及 GSI 的 compute-in-SRAM 向量处理器。它们的指令、存储层次、并行度和主机接口都不一样。</p>
+    <p>编程栈仍然是碎的。程序员面对的东西从 PCU 操作码流、AiM 的 ISR 命令轨迹，到 UPMEM 的每 DPU C 内核，再到 GSI 的设备 C / 张量库，各写各的。CINM 用 MLIR 跨过一批 compute-in-memory / compute-near-memory 目标，但设备方言和 lowering 仍然是按后端分的。要在多个 PIM 上评估同一个内核，还得重复做映射和优化。</p>
+    <p>第二个难点是数据布局。把元素分到哪个 bank、要不要复制操作数、向量寄存器里怎么排，先前工作报告过数量级的性能差：例如 PIMnast 的 GEMV 相对宿主 SoC 有 6.86×，OptiPIM 相对一种 HBM-PIM 映射启发式有 72.8×，GSI 上的二进制矩阵乘有 18.9×。原因很硬：一个 PIM 计算单元只能直接访问自己的存储分区，布局同时决定了“谁能算”和“要不要显式搬家”。现有 PIM 编译器多用设备相关的地址公式和专家调度来编码这些决定，缺一个跨架构的公共表示。</p>
+    <p>论文认为，一般张量加速器要把循环顺序、多层 tiling、空间 dataflow、分配、路由和流水线分开协调；PIM 反而有更强的共性：计算和一块静态可识别的存储分区绑在一起，跨分区访问通常很贵，甚至必须经过主机。于是计算映射和数据布局收成一个受约束的放置与搬移问题。</p>
+    <div class="fig">
+      <svg viewBox="0 0 860 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PIM 计算只够到本地分区">
+        <rect x="20" y="30" width="180" height="140" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="110" y="55" text-anchor="middle" font-size="13">近 bank SIMD</text>
+        <text x="110" y="80" text-anchor="middle" font-size="12" fill="#57534e">Samsung HBM-PIM</text>
+        <text x="110" y="120" text-anchor="middle" font-size="12">PIM unit ↔ 本地 bank</text>
+        <rect x="230" y="30" width="180" height="140" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="320" y="55" text-anchor="middle" font-size="13">Bank 级加速器</text>
+        <text x="320" y="80" text-anchor="middle" font-size="12" fill="#57534e">SK Hynix AiM</text>
+        <text x="320" y="120" text-anchor="middle" font-size="12">命令轨迹 + GB 中转</text>
+        <rect x="440" y="30" width="180" height="140" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="530" y="55" text-anchor="middle" font-size="13">可编程 DRAM 核</text>
+        <text x="530" y="80" text-anchor="middle" font-size="12" fill="#57534e">UPMEM DPU</text>
+        <text x="530" y="120" text-anchor="middle" font-size="12">无 DPU 到 DPU 通路</text>
+        <rect x="650" y="30" width="190" height="140" fill="#faf7f2" stroke="#a8a29e"/>
+        <text x="745" y="55" text-anchor="middle" font-size="13">SRAM 向量处理器</text>
+        <text x="745" y="80" text-anchor="middle" font-size="12" fill="#57534e">GSI Gemini-I/II</text>
+        <text x="745" y="120" text-anchor="middle" font-size="12">布局决定跨 lane 代价</text>
+        <text x="430" y="200" text-anchor="middle" font-size="13" fill="#57534e">共性：计算只直接够到绑定的存储分区，非本地操作数要显式搬家</text>
+      </svg>
+    </div>
+    <p class="figcap">图 1（示意）：论文对照的四类商业 PIM。ISA 不同，但“所有权即合法性”是同一类约束。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：三套语言加 F<sub>2</sub> 最小搬移布局</h2>
+    <p>Tenon 提供三套很小的 Python 接口，用来构造编译器 IR：目标语言描述这台 PIM 能做什么，工作负载语言描述要算什么，代价语言描述生成出来的实现有多贵。编译时再把逻辑工作网格映射到物理目标网格，并插入合法的数据搬移。</p>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>目标语言</h4>
+        <p><code>@tn.unit</code> 描述嵌套的计算/存储轴；<code>tn.mem</code> / <code>tn.reg</code> 声明单元拥有的存储；<code>tn.op</code> 和 <code>tn.move</code> 声明本地运算与显式搬移路径。</p>
+      </div>
+      <div class="tile">
+        <h4>工作负载语言</h4>
+        <p><code>@tn.work</code> 在逻辑工作网格的每个点上跑同一段计算体。一份工作负载描述可以对着不同目标编译。</p>
+      </div>
+      <div class="tile">
+        <h4>代价语言</h4>
+        <p><code>@tn.rule</code> 把物理事件映射成延迟和资源占用。换成另一套代价程序，就可以改变调度排序，而不必改工作负载。</p>
+      </div>
+    </div>
+    <h3>布局为什么能写成代数</h3>
+    <p>规模为 2<sup>d</sup> 的规则轴只需要 <code>d</code> 个比特来定位。线性布局用二元矩阵 <code>M</code> 把物理坐标比特映射到逻辑张量下标比特，算术在 <code>GF(2)</code> 上进行：加法是 XOR，乘法是 AND。bank 交错、tile 切分和操作数复制都可以写成同一张图；代数检查负责覆盖和冲突。和 GPU 上的 swizzle 不同，PIM 布局还指明“哪个绑定的计算单元拥有这个操作数”，因此也决定了哪些运算和搬移是合法的。这条契约会一直带到 packing、lowering 和代价评估，不再为每个设备单独写地址公式。</p>
+    <p>论文用两个具体例子把布局选择说清楚。Samsung HBM-PIM 上做 <code>y = Wx</code> 时，沿 <code>k</code> 切 <code>W</code> 会在每个单元留下部分和、又没有单元间数据通路来合并；沿 <code>m</code> 切则可以在本地做完每个输出，但要复制 <code>x</code>。复制代价随 <code>k</code> 涨，归约代价随 <code>m</code> 涨，所以高矩阵和宽矩阵的偏好是反的。GSI Gemini-I 上则是“沿 <code>m</code> 切、在 lane 间做很贵的组归约”和“沿 <code>k</code> 切、留下空 lane”之间的权衡：代价程序在 <code>m = 256</code> 时把前者排在后者前面 128×，到 <code>m</code> 等于 lane 数时只剩 1.4×。</p>
+    <h3>最小搬移布局怎么找</h3>
+    <p>编译器在满足运算、容量、对齐和连续性约束的合法布局里，最小化搬移代价。输入为复制付费，输出为合并部分和付费；所有布局都要付的公共搬移被省略。四个比特的一一映射已经有 20,160 种，穷举不现实。Tenon 先搜索“局部性链”：代价只取决于哪些迭代共享一个单元，而不是迭代在单元内的具体位置；在四个比特、三层各一比特的计算层次上，候选从 20,160 收到 315 条链。找到候选后再生成完整布局，并用代价程序在并列方案里做最终选择。</p>
+    <div class="callout teal">自动布局不是无条件的。拆开浮点归约会改变舍入顺序，必须显式允许重排部分和；如果要求严格按源程序顺序归约，优化只能在这个约束满足之后再做。非 2 的幂次轴要先 pad 再加 mask，论文也提醒：假设“所有坐标都活跃”的代价公式，不能直接拿 pad 后的结果当合法下界。</div>
+    <p>调度搜索复用同一套流程：枚举、合法性检查、代码生成、代价评估。<code>tn.compile</code> 完成映射和排序。新后端仍要自己写代码生成、调用约定和运行时，Tenon 不生成、也不在后端之间共享这些部分。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <p>论文在六个 PIM 目标上做评测：五个商业后端，加上 AttAcc。加速比是基线延迟或周期除以 Tenon 的对应测量。工作负载套件和计时边界按后端不同，只做组内比较。</p>
+    <table>
+      <thead>
+        <tr><th>后端</th><th>基线</th><th>执行平台</th><th>配置要点</th><th>报告指标</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Samsung HBM-PIM</td><td>官方 PIMSimulator 上的 GEMV</td><td>PIMSimulator（仿真）</td><td>64 个独立伪通道；每通道 16 bank、8 个 PIM block；FP16</td><td>放置、执行和读回周期</td></tr>
+        <tr><td>SK Hynix AiM</td><td>CENT 专家轨迹</td><td>基于 Ramulator2 的 AiM 仿真器</td><td>32 个 GDDR6 通道，每通道 16 bank</td><td>全局存储系统周期</td></tr>
+        <tr><td>UPMEM</td><td>ATiM、SimplePIM、CINM</td><td>uPIMulator（仿真）</td><td>1 个 DPU，12 个 tasklet，建模时钟 350 MHz</td><td>建模的 DPU 内核延迟</td></tr>
+        <tr><td>GSI Gemini-I</td><td>专家优化的 Phoenix 基准</td><td>物理 Leda-E 卡</td><td>4 个 APUC，500 MHz；96 Mbit L1；48 Mbit compute-in-memory SRAM</td><td>实卡剖析的设备周期中位数</td></tr>
+        <tr><td>GSI Gemini-II</td><td>GTML 厂商库</td><td>物理 Leda-E2 卡</td><td>4 个向量核；96 MiB L1；6 MiB 关联计算 SRAM；PCIe Gen4 ×16</td><td>实卡剖析的设备周期</td></tr>
+        <tr><td>AttAcc</td><td>DCC</td><td>Ramulator2-AttAcc + 分析 A100 roofline</td><td>A100 + 5 个 HBM3 PIM 设备；每设备 16 个 pCH，每 pCH 64 bank；FP16</td><td>PIM 内核延迟；GPT-13B 解码加速</td></tr>
+      </tbody>
+    </table>
+    <p>数值正确性方面，同一份 4096×256 的 FP16 GEMV 源和对舍入敏感的输入，在物理 Gemini-I 和 Samsung PIMSimulator 上，只要乘加都按源顺序舍入到 FP16，就能对上全部 4,096 个参考输出。重新组合加法会改变结果，因此必须显式允许。Samsung 的保序回退路径目前还没有代价建模和布局搜索。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <h3>商业后端上的内核性能</h3>
+    <ul>
+      <li><strong>Samsung HBM-PIM（仿真）。</strong>Tenon 的 <code>GENERIC_REDUCE</code> lowering 重建了标准 GEMV 命令序列，与厂商路径完全一致。该对照允许重排部分和，计时包括放置、执行和读回。</li>
+      <li><strong>SK Hynix AiM（仿真）。</strong>相对 CENT 专家轨迹，注意力在上下文长度 128 / 4,096 时分别快 1.30× / 1.68×。Softmax 和 FFN 两边延迟相同，所以映射后的整个 PIM block 在长度 4,096 时只快到 1.09×，全表几何平均 1.10×。这些轨迹提供时序对照，但省略了操作数值、列地址和累加器分配。</li>
+      <li><strong>UPMEM（仿真）。</strong>图 7 的 16 个内核上 Tenon 全部最快，相对最快可运行基线的几何平均是 1.20×。收益集中在搬移更重的 GEVA、histogram 和 k-means（1.70–3.65×）；稠密矩阵核与最快基线相差不超过 2%。在 1–32 个仿真 DPU 上做主机侧划分时，固定 391×65 GEMV 的最慢 DPU 延迟从 1,149,430 降到 38,484 周期，但这些是设备侧数字，不含主机传输和合并开销。</li>
+      <li><strong>GSI Gemini-I（物理卡）。</strong>五个 Phoenix 内核上相对专家实现的几何平均是 1.013×，工作负载描述代码量明显更少（例如 MatMul 从 333 行降到 33 行）。这是专家级对齐，不是大幅度超越。</li>
+      <li><strong>GSI Gemini-II（物理卡）。</strong>计的是流水线运行中的周期中位数，按 20 个 batch 摊销，并且排除数据传输。最大收益是 GESUMMV 的 1.67×，来自两个矩阵向量乘带来的图级布局、融合和驻留选择；更接近单条厂商调用的内核只有 1.07–1.12×。引言里对 Gemini-II 的几何平均是 1.19×。</li>
+    </ul>
+    <h3>布局搜索和 AttAcc 上的 LLM 解码</h3>
+    <p>在共同的代码生成、算术和计时下，68 个映射、六个 GEMV 的直接对照里，Tenon 赢 1 次、平 4 次、输 1 次，相对重训后的 DCC 几何平均 1.007×。五个 DCC 选择和训练集聚焦，论文自己限制了对未见工作负载的推论。</p>
+    <p>500 个 AttAcc 实例包括 batch 1 和 4 的 QKV / 输出投影 GEMV，以及每个 batch 248 种形状的注意力打分。Tenon 在 398 个实例上撞上参考仿真器的最好时序，DCC 是 326 个；直接对比是 123 胜、316 平、61 负，全部落在注意力上。这些失败里，相对 DCC 的中位变慢是 7.1%，相对参考最好时序是 9.4%。注意力参考搜索用“代价模型高估有上界”的假设提前停止，所以这些“最好时序”并不是被证明的全局最优。</p>
+    <p>GPT-13B 解码延迟把 Ramulator2-AttAcc 的 PIM 时序和 DCC 的分析 GPU roofline 拼在一起，并且排除 prefill。两个编译器都把 QKV / 输出投影、注意力和 softmax 放在 PIM 上，其余算子在 GPU 上，差别只在 PIM tiling。FFN 并行和按头流水（包括 softmax）是建模出来的，不是测到的并发执行。六个配置里，batch 1 的加速比精确到两位小数与 DCC 相同（其中 Tenon 有一次很小的落后）；batch 4 上 Tenon 把延迟降低 1.2–1.3%。收益主要来自 QKV：在 batch 4、128 个输入 token、2,048 个输出 token 时，QKV 延迟从 1.2799 ms 降到 1.2332 ms，总延迟从 3.9933 ms 降到 3.9431 ms。两边的 FFN 和其他阶段代价相同，所以应用层收益被卡住了。</p>
+    <div class="callout navy">不要把“相对 DCC 快 1.2–1.3%”读成新的端到端系统突破。它说明在同一套 AttAcc 仿真和同一份 GPU roofline 里，换一套解析 tiling 选择器可以略优于 DCC 的 XGBoost 预测器，而且省掉大约 6 小时的离线训练扫描；500 个内核的工作负载描述少 66% 行，编译快 2.2×（24 s 对 53 s）。真正拉开差距的，仍是商业后端上那套可重定向的布局和 lowering。</div>
+    <h3>代价校准和虚拟后端</h3>
+    <p>在 Gemini-I 的概念验证里，论文用 Codex 工具和 GPT-5 系列模型，从 15 个物理组件微基准拟合代价，再组合去预测三个未用于校准的 record-frequency 内核形状，把平均绝对延迟误差从 10.67% 降到 1.29%。把拟合后的程序复用到另外八个 record-frequency 和八个 histogram 方案（每类 64 次物理启动、不再拟合），误差分别从 7.41% 降到 1.23%、从 25.92% 降到 0.41%。这是代价接口的可校准性，不是端到端自动调优系统。</p>
+    <p>虚拟后端只编译、估计代价，不调用设备运行时。对 Llama2-7B 的三个 FFN 投影，论文同时扫 AiM 的行载荷和 Global Buffer：单独加大任何一边都不会改善延迟，两边一起加倍时，预测加速 1.30×、仿真加速 1.27×；四倍则是 1.547× 和 1.482×。引言把这个拐点写在 4 KB Global Buffer。这些都是未流片变体，并且假设更大的 tile 能使用更宽行的前缀；收益以这些架构和时序假设为条件。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 和已有 DCC、PIMphony 笔记的关系</h2>
+    <p>仓库里的 DCC 笔记已经把“Host 和 PIM 要的布局是反的、不能先调计算再补重排”讲清楚了。Tenon 不是再做一个只面向 AttAcc / HBM-PIM 的数据中心编译器，而是把同一类问题做成可重定向的框架：一份工作负载对着 Samsung、AiM、UPMEM、两代 GSI 和 AttAcc 编，布局用公共代数表示，代价程序可以换。和 DCC 的直接交锋集中在 AttAcc 仿真上，端到端差距只有百分之一点几，内核选择互有胜负。</p>
+    <p>Tenon 也把 PIMphony 的 token 划分写成“通道放置加部分结果归约”。在 8 个仿真通道上，对 1/2/4/8 路划分搜索，九个测量最小值里命中七个（最大差距 2.63%）；对一个头、4,096 个 token，比只按头放置改进 1.071×。这九个负载覆盖 1/8/32 个头和 128/512/4,096 个上下文 token，头维度 128。计时包括打分、全局 softmax、value 求和、主机阶段和归约，链路按 32 GB/s、固定延迟为零；输入已驻留，cache append、投影和 PIMphony 的其他优化都不在对照里。它验证的是“已有 PIM 系统里的划分能被写成 Tenon 布局”，不是复现整篇 PIMphony。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>落地的有利条件比较具体。第一，GSI 两代卡是物理设备上的周期，Gemini-I 达到专家内核的 1.013× 几何平均，说明这套布局和 lowering 至少在 SRAM-CIM 向量机上不是只会仿真讲故事。第二，程序员写的工作负载描述明显更短，AttAcc 上还少了 DCC 那约 6 小时的预测器训练。第三，目标加代价程序可以当虚拟后端，在没有仿真器或硬件时先探结构，例如 AiM 的 Global Buffer 拐点。第四，可执行的代价程序给了一次用语言型号拟合组件代价的接口，Gemini-I 上误差下降是测到的。</p>
+    <p>要把它接到生产编译栈，缺口同样清楚。可移植性只共享工作负载 / 目标 / 代价接口和部分搜索基础设施，不共享调度代码、ABI 或运行时；新的数据格式仍要写代码生成和启动代码。原型没有通用的分配和 spilling，装不进寄存器的值不能自动换出。不支持的运算只能回退到设备或主机。加权搬移还可能在代价排序前剪掉运行时其实更快的布局——论文在 Gemini-I 的 tile 64 对 tile 256 上给出过 3.845% 的反例。文中也没有公布开源仓库，复现和对接要另做。</p>
+    <div class="callout">若只关心 LLM 解码，Tenon 今天最有用的不是那 1.2–1.3%，而是：同一套描述能编到多类 PIM 上，并且在 AttAcc 上可以和 DCC 并排放进同一套仿真协议里比较。若关心商业 PIM 软件栈，更值得看 UPMEM 和 Gemini-II 上那些靠布局去掉搬移、保住驻留的内核，以及 AiM 上注意力相对 CENT 专家轨迹的加速。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li>解析模型仍需验证。AttAcc 的选择是和参考 Ramulator2-AttAcc 时序比的；注意力参考搜索用模型误差上界提前停止。Gemini-I 只在两个工作负载家族上验证了物理点预测，不足以证明更广泛的调度排序能力。</li>
+      <li>AiM 结构探索假设命令时序固定，不能据此声称硅片性能、面积、功耗或时序收敛。</li>
+      <li>非 2 的幂次形状依赖 padding 和 mask；用恰好可表示的整数输入做的测试，不能证明任意浮点输入下的等价性。</li>
+      <li>UPMEM 的多 DPU 扩展数字排除了主机传输和合并；Gemini-II 的对照排除了数据传输。读加速比时要顺着计时边界走。</li>
+      <li>和 DCC 的部分 GEMV 对照里，有些 DCC 选择与训练集聚焦；端到端收益被两边相同的 FFN 和其他阶段限制住了。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>出处和条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>商业后端几何平均 / 单核最高</td><td>最高 1.20× / 3.65×</td><td>摘要；1.20× 是 UPMEM 16 核相对最快基线，3.65× 同属 UPMEM 仿真</td></tr>
+        <tr><td>UPMEM / Gemini-II / AiM 几何平均</td><td>1.20× / 1.19× / 1.10×</td><td>引言，相对各后端最好基线</td></tr>
+        <tr><td>Samsung GEMV</td><td>与厂商路径一致</td><td>PIMSimulator，允许重排部分和</td></tr>
+        <tr><td>AiM 注意力 128 / 4096</td><td>1.30× / 1.68×</td><td>相对 CENT 专家轨迹；Softmax/FFN 为 1.00×</td></tr>
+        <tr><td>Gemini-I 物理卡</td><td>几何平均 1.013×</td><td>五个 Phoenix 内核，设备周期中位数</td></tr>
+        <tr><td>Gemini-II 最大核</td><td>GESUMMV 1.67×；其余 1.07–1.12×</td><td>物理卡，排除数据传输</td></tr>
+        <tr><td>AttAcc 参考最优</td><td>398 / 500 vs DCC 326 / 500</td><td>123 胜、316 平、61 负，失败全在注意力</td></tr>
+        <tr><td>GPT-13B 解码相对 DCC</td><td>batch 4 快 1.2–1.3%；batch 1 打平</td><td>Ramulator2-AttAcc + 分析 GPU roofline，不含 prefill</td></tr>
+        <tr><td>QKV 一例</td><td>1.2799 → 1.2332 ms；总计 3.9933 → 3.9431 ms</td><td>batch 4，L<sub>in</sub>=128，L<sub>out</sub>=2048</td></tr>
+        <tr><td>工作负载代码 / 编译</td><td>少 66% 行；快 2.2×（24 s / 53 s）</td><td>500 个 AttAcc 实例，同一机器和候选调度</td></tr>
+        <tr><td>DCC 离线训练</td><td>约 6 小时 / 目标</td><td>Tenon 的解析选择器无需这一步</td></tr>
+        <tr><td>Gemini-I 代价校准</td><td>10.67% → 1.29%</td><td>15 个组件微基准，三个未参与校准的形状</td></tr>
+        <tr><td>AiM 虚拟后端</td><td>加倍 1.30× 预测 / 1.27× 仿真；四倍 1.547× / 1.482×</td><td>行载荷与 Global Buffer 一起扩大；未流片变体</td></tr>
+        <tr><td>PIMphony 式 token 划分</td><td>9 个最小值命中 7 个；一例 1.071×</td><td>8 通道仿真，不含 PIMphony 其他优化</td></tr>
+      </tbody>
+    </table>
+    <p>笔记整理于 2026-11-24（Asia/Shanghai），依据 arXiv:2611.25636v1。</p>
+  </section>
+
+  <footer>阅读笔记 · Tenon / HPCA 2027 · 不替代原文</footer>
+</div>
+</body>
+</html>
