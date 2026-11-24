@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RoCoKV 论文分析 | 推理模型的 KV 压缩怎么真正加速 vLLM</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.CL · 2026-11-19</span>
+      <span class="badge">arXiv:2611.25433v1</span>
+      <span class="badge">LLM 推理 · KV cache 压缩</span>
+      <span class="badge ok">接到 vLLM 的 drop-in 插件</span>
+      <span class="badge warn">代码声明录用后公开，目前还没有仓库</span>
+    </div>
+    <h1>RoCoKV：让推理模型的 KV 压缩真正加速 vLLM</h1>
+    <p class="subtitle">RoCoKV: Accelerating LLM Inference Serving through Uncertainty and Redundancy Aware KV Cache Compression</p>
+    <p class="meta">
+      <strong>作者：</strong>Payman Behnam、Elaheh Sobhani（共同一作）等；通讯作者 Alexey Tumanov。单位以 Georgia Institute of Technology 为主，作者当时所在还包括 Intel，以及在佐治亚理工完成此项工作的 Amazon Annapurna Labs、Google 人员。<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.25433" target="_blank" rel="noopener">arXiv:2611.25433</a>
+      · <a href="https://arxiv.org/pdf/2611.25433" target="_blank" rel="noopener">PDF</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：高注意力不等于有用</a></li>
+      <li><a href="#s3">两个观察</a></li>
+      <li><a href="#s4">现有方法差在哪</a></li>
+      <li><a href="#s5">两个机制</a></li>
+      <li><a href="#s6">怎么接到 vLLM</a></li>
+      <li><a href="#s7">实验怎么做的</a></li>
+      <li><a href="#s8">结果怎么读</a></li>
+      <li><a href="#s9">落地可行性</a></li>
+      <li><a href="#s10">局限</a></li>
+      <li><a href="#s11">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">推理模型的成本往往不在 prompt，而在很长的思维链。这些轨迹里有大量循环、自我验证和纠错，token 不一定有用，但注意力分数仍然可以很高。RoCoKV 在 RocketKV 的稀疏注意力之上加了两件事：按模型此刻的把握动态调整保留多少 KV，以及用最近上下文的摘要把重复内容的分数压下去。更关键的是工程侧——三阶段融合的 CUDA 解码 kernel，以 <code>platform_plugins</code> 插件接到 vLLM，不改引擎内部，保留 paged KV 布局和 CUDA Graph，压缩省下来的带宽才变成端到端加速。</p>
+    <div class="kpi">
+      <div><div class="n">1.27× / 1.38×</div><div class="k">A40 上 R1-Llama-8B、AIME25：相对 Full-KV 的时延加速与吞吐</div></div>
+      <div><div class="n">1.43× / 1.45×</div><div class="k">同一设置、长合成负载上的时延加速与吞吐</div></div>
+      <div><div class="n">0.94×</div><div class="k">对照的 R-KV 在同一 vLLM 路径上时延反而慢于 Full-KV</div></div>
+      <div><div class="n">7.5 / 5.0 pp</div><div class="k">最大评测预算下，两模型 AIME25 相对 Full-KV 仍落下的精度</div></div>
+    </div>
+    <div class="callout warn">摘要里的「吞吐高 38% / 45%」就是 Table 1 的 1.38× 和 1.45×，不是另一组实验。效率数字只在 A40、DeepSeek-R1-Distill-Llama-8B、token budget 512 上给出；AIME25 batch=16，合成负载 batch=6。精度实验覆盖两个 7B/8B 蒸馏推理模型，不是 32B 或满血 R1。论文写明代码「录用后公开」，截至 v1 还没有仓库。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：高注意力不等于有用</h2>
+    <p>对普通 LLM，KV 压缩常常可以靠输入上下文判断哪些 token 重要。推理模型不一样：时延、显存和吞吐的大头往往是生成出来的长思维链，而不是 prompt。这些生成 token 里有很多来自过度思考、循环、自我验证和纠错，缓存里因此堆着不少低价值内容。</p>
+    <p>麻烦在于，它们在时间上或语义上靠近真正有用的步骤，注意力分数照样可以很高。按注意力裁剪，容易把「看起来重要、其实重复」的 token 留下，把后面还用得着的中间步骤挤掉。裁错了会打断思维链、诱发重复循环，或者把稍后才用得上的证据丢掉。</p>
+    <p>另一层缺口是系统。很多压缩工作只报告算法层面的 cache 缩小或精度，没有接到生产推理引擎里。压缩本身要打分、驱逐、管内存，这些开销会把省下来的 KV 吃回去。论文引用 Wei 等人（2025）的测量：H2O 在张量并行下，prefill / decode 吞吐只剩 FP16 基线的 0.58× 和 0.69×。R-KV 这类方法在他们后来的 vLLM 实现里，AIME25 时延也是 Full-KV 的 0.94×，是变慢而不是变快。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 两个观察</h2>
+    <p>RoCoKV 建立在 RocketKV 之上。RocketKV 把 key 按 page 分组，只用一部分 query 维度做近似 top-k。作者在 DeepSeek-R1-Distill-Llama-8B、AIME25、KV budget 128、采样温度 0.6 上，用下一步分布的归一化熵衡量「这一步有多没把握」，再按十分位观察近似选择的后果。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>观察 1：同样的近似误差，没把握时更伤</h4>
+        <p>各十分位里，RocketKV 大约保住精确 top-k 注意力质量的 60%（58.87%–62.39%），key 重叠大约 19%（18.13%–20.38%），误差幅度本身差不多。真正分叉的是后果：模型很有把握时，分布集中，选错几个 key 往往改不了下一个 token；犹豫时几个候选概率接近，同样的误差就能把后续推理带偏。同一预算下，把 RocketKV 的近似选择换成精确 top-k，AIME25 精度从 0% 升到 16.67%。不确定度可以直接用上一步的输出分布估计，不必再做一次前向。</p>
+      </div>
+      <div class="tile">
+        <h4>观察 2：生成越长，越容易答错</h4>
+        <p>这和 R-KV、SkipKV 等近期工作一致：推理模型会写出大量冗余、不推进结论的 CoT token，压缩有空间。但识别这些 token 必须便宜，不能在每一步对整个 cache 做两两相似度。作者后面用「最近窗口的质心」近似冗余，就是冲着这一点。</p>
+      </div>
+    </div>
+    <div class="callout teal">政策很直接：没把握时多留上下文，有把握时剪得更狠；同时少把注意力预算分给重复内容。反向做会明显变差，第 8 节的消融里可以看到。</div>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 现有方法差在哪</h2>
+    <p>解码阶段的 KV 压缩大致分成两类。永久驱逐（H2O、SnapKV）能同时减存储和带宽，但删掉的 token 回不来，精度往往掉得明显。Query-aware 选择（Quest、SparQ）按当前 query 挑 token，对精度更友好，通常不减少总存储。RocketKV 走混合路线：prefill 之后做粗粒度永久驱逐，解码时再用混合稀疏注意力做动态选择，存储和带宽都能压，固定预算下精度也还过得去。</p>
+    <p>作者认为 RocketKV 还是把所有 token 一视同仁，只看近似注意力，没有对着长思维链的特点来分配预算。面向推理模型的后续工作各补一块：R-KV 用注意力重要性加上基于 key 的全局两两冗余来打分；RaaS 用 LRU 风格保住阶段性「里程碑」token，并保留全部 prefill token；SkipKV 在句子级驱逐语义重复，再加激活引导抑制重复生成。这些方法仍然有两个共同问题：冗余计算可能很贵，以及算法收益不一定能在 vLLM 里变成端到端加速。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 两个机制</h2>
+    <h3>5.1 不确定性引导的自适应剪枝</h3>
+    <p>第 <em>t</em> 步用下一步采样分布 <em>p<sub>t</sub></em> 的归一化熵当不确定度，再做时间平滑得到 <em>ū<sub>t</sub></em>。两个阈值 <em>τ</em><sub>low</sub>、<em>τ</em><sub>high</sub> 把它线性映射成松弛系数 <em>α<sub>t</sub></em>∈[0,1]：有把握时 <em>α</em> 接近 0，没把握时接近 1。然后在硬剪枝和松剪枝两套参数之间插值：</p>
+    <p style="text-align:center;font-family:Georgia,serif;"><em>k<sub>t</sub></em> = (1−<em>α<sub>t−1</sub></em>) <em>k</em><sub>hard</sub> + <em>α<sub>t−1</sub></em> <em>k</em><sub>relax</sub>，&nbsp;&nbsp;<em>ρ<sub>t</sub></em> = (1−<em>α<sub>t−1</sub></em>) <em>ρ</em><sub>hard</sub> + <em>α<sub>t−1</sub></em> <em>ρ</em><sub>relax</sub></p>
+    <p>其中 <em>k</em> 是这一步用于精确注意力的 top-k 预算，<em>ρ</em> 是 RocketKV 侧的压缩比。默认相对基准取 <em>k</em><sub>hard</sub>=0.9<em>k</em><sub>base</sub>、<em>k</em><sub>relax</sub>=1.3<em>k</em><sub>base</sub>，<em>ρ</em><sub>hard</sub>=1.5<em>ρ</em><sub>base</sub>、<em>ρ</em><sub>relax</sub>=0.9<em>ρ</em><sub>base</sub>，<em>ρ</em><sub>base</sub>=1。<em>k</em><sub>base</sub> 在 {32, 64, 128, 256} 里取。用的是上一步的 <em>α</em>，不必为了估计把握再跑一遍模型。</p>
+
+    <h3>5.2 冗余感知的 token 打分</h3>
+    <p>R-KV 对整个 KV cache 做 token 两两余弦相似度，再和注意力重要性相加，cache 一长就贵。RoCoKV 只用最近 <em>w</em> 个已缓存、且已单位化的 key 做质心 <em>μ̂<sub>t</sub></em>，每个历史 token 只算一次和这个质心的余弦相似度，得到冗余分 <em>r<sub>t,i</sub></em>。最新的那个 token 强制 <em>r</em>=0，免得把正在用的局部上下文也惩罚掉。</p>
+    <p>近似注意力分数 <em>s̄<sub>t,i</sub></em>（非负）再乘上 (1−<em>λ</em> <em>r<sub>t,i</sub></em>)。因为两项都在 [0,1] 里，这一步只会降低或保持重复 token 的选择分数，不会把它抬上去。质心是最近窗口的紧凑摘要，不必维护全局相似矩阵。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 怎么接到 vLLM</h2>
+    <p>集成走 vLLM 的标准插件机制 <code>platform_plugins</code>，注册自定义 attention backend，只接管 decode——长思维链里 KV 流量正是在这里占主导。调度器、分配器和 paged KV 布局都不动。作者明确写了：不修改任何 vLLM 内部实现。</p>
+    <div class="fig" aria-hidden="true">
+      <svg viewBox="0 0 980 250" width="980" height="250" xmlns="http://www.w3.org/2000/svg">
+        <rect x="10" y="70" width="220" height="110" rx="8" fill="#fffdf8" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="120" y="100" text-anchor="middle" font-size="15" font-family="Segoe UI, sans-serif" fill="#1e3a5f" font-weight="700">Phase A</text>
+        <text x="120" y="124" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">扫一遍 paged KV</text>
+        <text x="120" y="144" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">近似分数 + 冗余分</text>
+        <text x="120" y="164" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">s̃ = s̄(1−λr)</text>
+        <path d="M230 125 H290" stroke="#9a3412" stroke-width="2" fill="none"/>
+        <polygon points="290,119 304,125 290,131" fill="#9a3412"/>
+        <rect x="304" y="70" width="220" height="110" rx="8" fill="#fffdf8" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="414" y="100" text-anchor="middle" font-size="15" font-family="Segoe UI, sans-serif" fill="#1e3a5f" font-weight="700">Phase B</text>
+        <text x="414" y="124" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">只读分数行做 top-k</text>
+        <text x="414" y="144" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">不再读 KV cache</text>
+        <text x="414" y="164" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">选出 k<sub>t</sub> 个位置</text>
+        <path d="M524 125 H584" stroke="#9a3412" stroke-width="2" fill="none"/>
+        <polygon points="584,119 598,125 584,131" fill="#9a3412"/>
+        <rect x="598" y="70" width="220" height="110" rx="8" fill="#fffdf8" stroke="#0f766e" stroke-width="1.5"/>
+        <text x="708" y="100" text-anchor="middle" font-size="15" font-family="Segoe UI, sans-serif" fill="#0f766e" font-weight="700">Phase C</text>
+        <text x="708" y="124" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">只对入选 token</text>
+        <text x="708" y="144" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">做精确稀疏注意力</text>
+        <text x="708" y="164" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">代价随 k<sub>t</sub> 而不是全长</text>
+        <rect x="838" y="70" width="132" height="110" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+        <text x="904" y="112" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#115e59" font-weight="700">一张</text>
+        <text x="904" y="134" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#115e59" font-weight="700">CUDA Graph</text>
+        <text x="904" y="156" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">k<sub>t</sub> 只在 device 上</text>
+        <text x="490" y="36" text-anchor="middle" font-size="14" font-family="Segoe UI, sans-serif" fill="#1c1917">上一步输出分布 → 不确定度 ū → 本步预算 k<sub>t</sub>、ρ<sub>t</sub>（无额外前向、无 CPU 回读）</text>
+      </svg>
+    </div>
+    <p class="figcap">图 1｜三阶段 decode 流水线示意。根据论文第 2.4 节与附录 C 重画，不是原文插图。</p>
+    <p>三个阶段尽量在一次端到端流水线里走完，避免额外整遍扫描 KV，也避免 CPU 来回协调：</p>
+    <ul>
+      <li><strong>Phase A</strong> 流式扫 cache：算每个 token 对最近窗口质心的余弦相似度，以及用于近似选择的分数，再乘上冗余因子。作者还试了 NHD（vLLM 默认的 page-token-head-dim 布局）和 KT（把 key 转置以便按 hidden 维减流量）两种 kernel，长序列时 KT 更划算，因为 Phase A 要看的 token 远多于最终预算，减 KV 流量是主导因素。</li>
+      <li><strong>Phase B</strong> 只读 Phase A 写出的 fp32 分数行做 top-k，不再碰 KV。动态 shape 下常规 top-k 容易破坏 CUDA Graph，他们用片上 bucket 近似 top-k，再在 block 内排序。选中的下标会按 token 位置重排，好让 Phase C 访问同一 page 时合并访存。</li>
+      <li><strong>Phase C</strong> 只对入选的 <em>k<sub>t</sub></em> 个位置做精确注意力，在线 softmax、分块累加，不物化完整注意力矩阵，代价随 <em>k<sub>t</sub></em> 走。</li>
+    </ul>
+    <p>每条请求的 <em>k<sub>t</sub></em>、<em>ρ<sub>t</sub></em> 每步都在变。如果每步在 CPU 上解析这些值，CUDA Graph 就断了。做法是把 <em>k<sub>t</sub></em> 做成 device tensor，kernel 自己读；解码期间 CPU 不回读任何 tensor。Phase A 还按请求长度做 split-KV：把一条请求的 cache 切成多段，用不同 thread block 算部分结果再归约，并按工作量给更长的请求分更多 CTA。切分方案在 CUDA Graph 之外、由 attention metadata builder 每步算一次（微秒级），grid 大小只跟 batch 有关，图可以按 batch size 捕获后反复重放。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 实验怎么做的</h2>
+    <p>模型是 DeepSeek-R1-Distill-Llama-8B 和 DeepSeek-R1-Distill-Qwen-7B（文中简称 R1-Llama-8B、R1-Qwen-7B）。下游任务是 GSM8K、MATH500、AIME25 三个数学推理基准。最大新 token：GSM8K 为 2048，AIME25 和 MATH500 为 16384。精度按 pass@1，对 8 次正确与否取平均，设置与 TriAttention 等相关工作对齐。对照是 Full-KV，以及作者在同一仓库里复现的 RocketKV、RaaS、R-KV、SkipKV。</p>
+    <p>精度曲线扫了一系列 KV token 预算。对 RoCoKV，这个预算表示注意力模块里 top-k 的平均访存，不是「cache 里只存这么多 token」的另一种说法，读图时要对齐这个口径。效率实验在 NVIDIA A40 上跑 R1-Llama-8B，budget 512：AIME25 用 batch 16，合成负载用 batch 6。合成负载是给一个 prompt，然后一直采样到设定生成长度，用来看更长上下文下稀疏注意力和 vLLM 集成的吞吐，不是新的精度基准。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 结果怎么读</h2>
+    <p>精度上，RoCoKV 在各预算下普遍是压缩方法里最高的一档，并在紧预算时拉开差距。GSM8K 上，最小预算时其他方法掉得更狠，它还能相对稳住。MATH500 需要更长推理，优势更明显：在 R1-Llama-8B 预算 74、R1-Qwen-7B 预算 83 时，论文写明相对 RocketKV 分别高出 46% 以上和 65% 以上（原文是 more than +46% / +65%，未给出该预算下双方的绝对精度，这里按原文保留，不自行换算成百分点）。更难的 AIME25 上，多数压缩方法在紧预算下掉得厉害；平均 token 预算 328 / 325 时，两模型精度分别是 20.83% 和 25.83%，仍高于其他压缩基线。最大评测预算下到 23.75% 和 35.00%，相对 Full-KV 的缺口收窄到 7.5 和 5.0 个百分点——更接近，但不是无损。</p>
+    <p>效率是这篇更想证明的事。Table 1 在 A40、R1-Llama-8B 上把三者都接到 vLLM 里比：</p>
+    <table>
+      <thead>
+        <tr><th>方法</th><th>时延（秒，越低越好）</th><th>吞吐（tok/s，越高越好）</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Full-KV（AIME25）</td><td>196.2（1.00×）</td><td>247.3（1.00×）</td></tr>
+        <tr><td>Full-KV（合成）</td><td>864.9（1.00×）</td><td>115.0（1.00×）</td></tr>
+        <tr><td>R-KV</td><td>208.7（0.94×，变慢）</td><td>276.9（1.12×）</td></tr>
+        <tr><td>RoCoKV（AIME25）</td><td>154.5（1.27×）</td><td>341.3（1.38×）</td></tr>
+        <tr><td>RoCoKV（合成）</td><td>604.8（1.43×）</td><td>166.7（1.45×）</td></tr>
+      </tbody>
+    </table>
+    <p>R-KV 吞吐略增，但时延慢于 Full-KV，正好呼应引言：算法上的 KV 缩小，不必等于服务时延下降。RoCoKV 用同一套三阶段融合 kernel，才把稀疏注意力变成 1.27×–1.43× 的端到端时延加速。</p>
+    <p>消融在 token budget 128、pass@1 上拆开两个组件，并加了一组把剪枝方向反过来的 Reverse：</p>
+    <table>
+      <thead>
+        <tr><th>模型 / 数据</th><th>RoCoKV</th><th>只用不确定度</th><th>只用冗余</th><th>反向剪枝</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>R1-Llama-8B / AIME25</td><td>14.58</td><td>10.00</td><td>0.00</td><td>1.25</td></tr>
+        <tr><td>R1-Qwen-7B / AIME25</td><td>18.75</td><td>11.25</td><td>0.00</td><td>0.00</td></tr>
+        <tr><td>R1-Llama-8B / GSM8K</td><td>78.54</td><td>72.02</td><td>59.36</td><td>51.40</td></tr>
+        <tr><td>R1-Qwen-7B / GSM8K</td><td>72.86</td><td>68.92</td><td>33.66</td><td>31.01</td></tr>
+        <tr><td>R1-Llama-8B / MATH500</td><td>64.60</td><td>57.40</td><td>4.60</td><td>3.40</td></tr>
+        <tr><td>R1-Qwen-7B / MATH500</td><td>80.00</td><td>78.40</td><td>9.20</td><td>5.80</td></tr>
+      </tbody>
+    </table>
+    <p>两个组件单独用都不如合在一起；只做冗余、或把「没把握多留、有把握多剪」反过来，在 AIME25 和 MATH500 上几乎垮掉。阈值 <em>τ</em>、惩罚系数 <em>λ</em> 和窗口 <em>w</em> 也敏感，论文用表格扫过，默认组合需要一起看，不是任意一套都能复现头条数字。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 落地可行性</h2>
+    <p>和仓库里已有笔记的关系先说清楚：BitDecoding 问的是低比特 KV 能不能有效算；DQ 问的是 Prefill 和 Decode 要不要用不同量化；这篇问的是推理模型长解码轨迹里，按不确定度和局部冗余做稀疏注意力，能不能在 vLLM 里变成真实加速。它不替代前两篇，对象是 decode 阶段的 KV 选择与驱逐，不是权重量化。</p>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>相对好落地的点</h4>
+        <p>走官方插件接口，不改 vLLM 内核，保留 paged KV 和 CUDA Graph。自适应预算放在 device 上，避免每步 CPU 同步。冗余只对最近窗口质心做一次余弦，比 R-KV 的全局两两相似度便宜。对照里 R-KV 在 vLLM 中时延回退，说明他们把「接到引擎里还能否加速」当成了必须回答的问题。</p>
+      </div>
+      <div class="tile">
+        <h4>现在还缺什么</h4>
+        <p>代码写明录用后才公开，v1 没有仓库、没有现成插件包。效率数字只在 A40 和 8B 蒸馏模型上给出，没有 H100 / B200、没有更大模型和更高并发的同口径表。接 SGLang 被明确留作未来工作。</p>
+      </div>
+      <div class="tile">
+        <h4>上手时要注意</h4>
+        <p>它站在 RocketKV 的混合稀疏注意力上，不是从 Full-KV 直接打一个补丁就能得到同样曲线。超参（阈值、λ、窗口、k/ρ 的硬松两档）会影响紧预算精度，反向策略会把结果打崩。压缩不是无损：AIME25 在最大评测预算下仍落后 Full-KV 5–7.5 个百分点。</p>
+      </div>
+    </div>
+    <div class="callout teal">若只是评估思路，现在就可以按第 5、6 节在自有 vLLM 插件里复现三阶段流水线；若要作为生产开关，需要等代码发布，并在目标卡、目标模型和真实并发下重测时延与精度，不能直接沿用 A40 + 8B 的 1.27×。</div>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 局限：这些倍数依赖什么假设</h2>
+    <ul>
+      <li><strong>硬件和模型很窄。</strong>端到端加速来自 A40 上的 R1-Llama-8B。附录把 Hopper 的 Tensor Memory Accelerator、更激进的 kernel 与调度优化都列为后续工作，不能外推成「在 B200 集群上也是 1.27×」。</li>
+      <li><strong>任务是数学推理。</strong>GSM8K / MATH500 / AIME25 不能代表代码 agent、多轮工具调用或超长上下文服务。效率里的合成负载只用来拉长生成，不是新的正确率测试。</li>
+      <li><strong>精度有代价。</strong>即使是压缩方法里较好的一档，AIME25 在最大预算下仍比 Full-KV 低 7.5 和 5.0 个百分点。紧预算时绝对精度更低（budget 128 上两模型只有 14.58% 和 18.75%）。</li>
+      <li><strong>超参仍然在。</strong>作者自己在局限里写：依赖不确定度阈值和冗余系数；实验里还算稳定，但减少或取消这些依赖会更好部署。</li>
+      <li><strong>框架覆盖有限。</strong>目前是 vLLM 插件。接 SGLang 留作未来工作。</li>
+      <li><strong>代码未发布。</strong>脚注写「We release the source code upon the acceptance of the paper.」在仓库出现之前，第三方只能按论文和附录 C 的 kernel 描述重写。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s11">
+    <h2>11. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字或事实</th><th>口径</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>论文</td><td>arXiv:2611.25433v1，2026-11-19，cs.CL</td><td>预印本；文中未声明已录用会议</td></tr>
+        <tr><td>AIME25 时延 / 吞吐</td><td>154.5 s（1.27×），341.3 tok/s（1.38×）</td><td>A40，R1-Llama-8B，budget 512，batch 16，相对 Full-KV 196.2 s / 247.3 tok/s</td></tr>
+        <tr><td>合成负载时延 / 吞吐</td><td>604.8 s（1.43×），166.7 tok/s（1.45×）</td><td>同一卡和模型，budget 512，batch 6，相对 Full-KV 864.9 s / 115.0 tok/s</td></tr>
+        <tr><td>R-KV 对照</td><td>时延 208.7 s（0.94×），吞吐 276.9 tok/s（1.12×）</td><td>同一 vLLM 路径；时延慢于 Full-KV</td></tr>
+        <tr><td>MATH500 紧预算</td><td>相对 RocketKV 高出 46% 以上（Llama，预算 74）、65% 以上（Qwen，预算 83）</td><td>论文第 3.2 节原文为 more than +46% / +65%；未给出该点的绝对精度，不换算成百分点</td></tr>
+        <tr><td>AIME25 中等 / 最大预算</td><td>20.83% / 25.83%（预算约 328 / 325）；23.75% / 35.00%（最大预算，缺口 7.5 / 5.0 pp）</td><td>R1-Llama-8B / R1-Qwen-7B，相对 Full-KV</td></tr>
+        <tr><td>近似选择的代价</td><td>同一预算下精确 top-k 把 AIME25 从 0% 提到 16.67%</td><td>观察 1，R1-Llama-8B，budget 128</td></tr>
+        <tr><td>默认剪枝档位</td><td><em>k</em><sub>hard</sub>=0.9<em>k</em><sub>base</sub>，<em>k</em><sub>relax</sub>=1.3<em>k</em><sub>base</sub>，<em>ρ</em><sub>hard</sub>=1.5，<em>ρ</em><sub>relax</sub>=0.9</td><td><em>k</em><sub>base</sub>∈{32,64,128,256}</td></tr>
+        <tr><td>集成方式</td><td>vLLM <code>platform_plugins</code> + 三阶段 CUDA kernel，保留 paged KV 与 CUDA Graph</td><td>不修改 vLLM 内部；SGLang 未做</td></tr>
+        <tr><td>代码</td><td>声明录用后公开</td><td>v1 无链接</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.25433v1（2026-11-19）全文。时延和吞吐来自摘要与 Table 1；精度曲线与缺口来自第 3.2 节；消融来自 Table 2；机制与 vLLM 集成来自第 2 节及附录 C、D。AIME25 相对 Full-KV 仍有精度缺口，以及代码尚未发布，在第 1、9、10 节单独写出。
+  </footer>
+</div>
+</body>
+</html>

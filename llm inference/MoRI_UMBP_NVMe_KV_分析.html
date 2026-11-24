@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MoRI UMBP 分析 | 跳过 DRAM 层，把 Agentic KV Cache 放到 NVMe</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    pre {
+      font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px;
+      background: #f5f0e6; border: 1px solid var(--line); padding: 12px 14px;
+      overflow-x: auto; line-height: 1.55; margin: 12px 0 16px;
+    }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">vLLM Blog · 2026-11-23</span>
+      <span class="badge warn">开源系统进展，不是同行评审论文</span>
+      <span class="badge">LLM 推理 · Agentic KV 池</span>
+      <span class="badge ok">AMD and Embedded LLM</span>
+      <span class="badge ok">vLLM + MoRI UMBP，实测 MI355X</span>
+      <span class="badge warn">多数是单次运行；部分改动尚未合入上游</span>
+    </div>
+    <h1>MoRI UMBP：跳过 DRAM 层，把 Agentic KV Cache 放到 NVMe</h1>
+    <p class="subtitle">Skip the DRAM Tier: MoRI UMBP Runs the Agentic KV Cache on NVMe</p>
+    <p class="meta">
+      <strong>署名：</strong>AMD and Embedded LLM<br />
+      <strong>原文：</strong><a href="https://vllm-project.github.io/2026/11/23/skip-the-dram-tier.html" target="_blank" rel="noopener">vLLM Blog，2026-11-23</a>
+      （页面时间为 2026-11-23T00:00:00+00:00，即 Asia/Shanghai 当天 08:00）<br />
+      本文是阅读笔记，不是译文。这是官方博客与开源系统进展，不是同行评审论文。图是根据原文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：Agent 会话把 DRAM 也撑满了</a></li>
+      <li><a href="#s3">UMBP 怎么做</a></li>
+      <li><a href="#s4">同容量对比怎么读</a></li>
+      <li><a href="#s5">为什么 NVMe 跟得上</a></li>
+      <li><a href="#s6">留存、成本与磨损</a></li>
+      <li><a href="#s7">三条工程教训</a></li>
+      <li><a href="#s8">落地可行性、限制与路线图</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">Agent 流量的大头是多轮长前缀。GPU 显存不够之后，下一层通常是主机 DRAM，但 DRAM 也会被写满：这篇博客里，Kimi-K3 每小时往池子里写 2.3–4.6 TB KV，1.8 TB 的 DRAM 池只能留下大约 23–47 分钟。作者在 AMD Instinct MI355X 上用 MoRI 的 UMBP（unified memory and bandwidth pool）做了一次对照——同样 1.8 TB 的 KV 池，一份全在 DRAM，一份把容量放到本地 NVMe，DRAM 只做写缓冲和读暂存。在 vLLM 上，Kimi-K3 的同容量吞吐差被压到 1% 以内。NVMe 买到的不是更快的介质，而是更便宜的留存时间；代价是每个 GPU 算出来的 KV 块都会写盘，盘在磨损，分布式扩展还在路线图上。</p>
+    <div class="kpi">
+      <div><div class="n">≤1%</div><div class="k">Kimi-K3、1.8 TB 对 1.8 TB，48 / 70 / 96 会话，两组机器上的吞吐差（带 64 GB 写缓冲）</div></div>
+      <div><div class="n">−0.6%</div><div class="k">更长前缀的 kvlab、70 会话、无写缓冲：8,110 vs 8,162 tok/s/GPU</div></div>
+      <div><div class="n">约 $59k / $76k</div><div class="k">按标价算，能装一天 KV 的盘 vs 只能留 31 分钟的 1.8 TB DRAM 池</div></div>
+      <div><div class="n">约 5.5 个月</div><div class="k">1.8 TB 测试池落在两块 1 DWPD 的 3.84 TB 盘上、96 会话写满一天时的额定寿命</div></div>
+    </div>
+    <div class="callout warn">「同容量吞吐差在 1% 以内」对得上附录主表里 Kimi-K3 / AgentX、两边都填满并开始驱逐、且保留 64 GB 写缓冲的六次对比（+0.3% / +0.8% / −0.2%，以及另一对机器上的 +0.4% / +0.5% / +0.9%）。它不包括：96 会话去掉写缓冲后的 −6.7%，以及「尚未加入 checkpoint 改动」的旧 kvlab 序列（70 会话时 NVMe 落后 13.5%，作者标明已被后面的行取代）。DeepSeek-V4-Pro 正文写的是「三次对比都在 1.2% 以内」，其中两次池子从未写满，测的是加载而不是容量。多数结果是单次运行。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：Agent 会话把 DRAM 也撑满了</h2>
+    <p>在 AgentX 回放真实 Claude Code 会话时，中位 turn 有 142K 个输入 token，其中超过 96% 是服务器已经见过的前缀。命中意味着 prefill 节点只需处理增量；一旦未命中，整段前缀要重算，既烧 GPU 时间，也拖长首 token。作者在 vLLM 上对 Kimi-K3 做了 42 次运行：KV cache 命中率每提高 1 个百分点击中的 prompt token（例如从 95% 到 96%），大约换来 10% 的吞吐（Figure 3）。</p>
+    <p>命中的前提是：下一 turn 到来时，前缀还在某层内存里。几十个会话同时开着，GPU 显存先满，host DRAM 是常见的下一层。但 DRAM 也会满。Kimi-K3 在他们的运行里每小时向池子写入 2.3–4.6 TB KV；标价约 $76,000 的 1.8 TB DRAM 池，只能留下最近 23–47 分钟的数据。文章引用了 Oracle Cloud Infrastructure 的 Dennis Kennetz：agent 工作负载会把会话开在几分钟到几小时，KV 很快超出 GPU 和主机 DRAM。</p>
+    <p>DeepSeek 已经在用 SSD 存 agent KV。DeepInfer 的部署说明写了大约三天的 agent 留存，以及每 GPU 约 14.4 TB SSD。这篇工作明确说，它从 DeepInfer 借用的是「把 KV 放在 SSD 上」这个想法，以及后面会在 vLLM 上验证的两项技术：按层加载（layer-wise loading）和 bounded replay。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. UMBP 怎么做</h2>
+    <p>vLLM 把最近 prompt 的 KV 放在 GPU 的 prefix cache 里，显存满了就按 LRU 丢掉块，会话回来就得重算。KV 池把这些块放到更大的地方——host DRAM 或本地 NVMe。Prefill 引擎把算出来的每个 KV 块写入池；以后某次 turn 发现前缀不在 GPU 里，就从池里加载，而不是重算。文中的 KV cache 命中率同时计入 GPU 和池：它是「prompt token 的 KV 来自 GPU 或池」的比例。</p>
+    <p>UMBP 是 AMD 开源库 MoRI 里的 KV cache 池，按 key 存块，并决定块住在哪、满了驱逐谁。vLLM 在 AMD GPU 上已经用 MoRI 把 KV 从 prefill 节点送到 decode 节点；UMBP 也支撑了 Kimi 在 AMD Instinct GPU 上的 agent 服务，由 AMD 与 Moonshot AI 共同设计。测试里它作为独立的 server 进程跑在 vLLM prefill 引擎旁边，经 KV connector <code>UMBPStoreConnector</code> 通信。</p>
+    <div class="fig">
+      <svg viewBox="0 0 860 250" role="img" aria-label="DRAM 池与 NVMe 池">
+        <rect x="16" y="16" width="400" height="218" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="216" y="42" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">1.8 TB DRAM 池</text>
+        <rect x="46" y="62" width="340" height="70" rx="4" fill="#ffedd5" stroke="#c2410c"/>
+        <text x="216" y="92" text-anchor="middle" font-size="13">全部 KV 块住在主机内存</text>
+        <text x="216" y="114" text-anchor="middle" font-size="12" fill="#57534e">满了按 LRU 驱逐</text>
+        <text x="216" y="168" text-anchor="middle" font-size="12" fill="#57534e">成本跟「持有多少 TB」走</text>
+        <text x="216" y="194" text-anchor="middle" font-size="12" fill="#9a3412">约 $76,000 只能留约 31 分钟</text>
+        <rect x="444" y="16" width="400" height="218" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="644" y="42" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">1.8 TB NVMe 池</text>
+        <rect x="474" y="62" width="340" height="48" rx="4" fill="#ccfbf1" stroke="#0f766e"/>
+        <text x="644" y="82" text-anchor="middle" font-size="12">DRAM 只做 64 GB 写缓冲 + 16 GiB 读暂存</text>
+        <text x="644" y="102" text-anchor="middle" font-size="12" fill="#57534e">约 80 GB，不到池容量的 5%</text>
+        <rect x="474" y="122" width="340" height="48" rx="4" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="644" y="142" text-anchor="middle" font-size="13">1.8 TB KV 在两块本地 NVMe 上</text>
+        <text x="644" y="162" text-anchor="middle" font-size="12" fill="#57534e">direct I/O + io_uring，不用页缓存冒充 DRAM</text>
+        <text x="644" y="194" text-anchor="middle" font-size="12" fill="#0f766e">成本跟「每天写多少 TB」走</text>
+        <text x="644" y="216" text-anchor="middle" font-size="12" fill="#0f766e">能装一天的盘，标价约 $59,000</text>
+      </svg>
+    </div>
+    <p class="figcap">根据原文 Figure 2 与成本段重画的示意，不是原文插图。31 分钟对应 96 会话下的写入速率。</p>
+    <p>对照的两份池都是 1.8 TB。DRAM 池把每块都放在主机内存，满了驱逐最久未用的 KV。NVMe 池里，新 KV 先进入大多时候为 64 GB 的 DRAM 写缓冲，缓冲满了再落到两块本地盘；命中仍在缓冲里的块从 DRAM 加载，命中盘上的块先读进 16 GiB 暂存，再拷到 GPU。盘是每节点两块 Micron 7450 PRO 3.84 TB（型号 MTFDKCC3T8TFR），额定约 1 DWPD，各自格式化为 ext4，没有 RAID。UMBP 把 KV 放在这些文件系统上的 segment file 里，用 direct I/O 经 <code>io_uring</code> 读取，Linux 页缓存不会把一次读变成 DRAM 命中。没有 NVMe-oF，也没有共享或网络文件系统；池若跨两个节点，由 UMBP 自己经 RDMA 搬块。Figure 3 和 Figure 5 里还有许多「盘前面再放一层更大 DRAM」的运行，作者称之为 DRAM + NVMe 池，那不是「跳过 DRAM 层」的主对比。</p>
+    <p>主模型是 Kimi-K3：93 层里 69 层是线性注意力（KDA），只保留固定大小的运行状态；24 层是 MLA，为每个 token 保留压缩 KV。所以池里既有 KV 块，也有 KDA 状态的 checkpoint，供后续 turn 在 prompt 中途恢复。DeepSeek-V4-Pro 和 DeepSeek-V4.1-Flash 提供补充数据，完整数字在附录：前者重复 DRAM vs NVMe 并测量加载时间，后者用 DRAM 池验证滑窗层的一项技术，<strong>没有在 NVMe 上跑</strong>。</p>
+    <p>Kimi-K3 与 DeepSeek-V4-Pro 都按 1P1D 部署在 16 块 MI355X 上：TP8 prefill + TP8 decode。Prefill 经 RDMA 把每个请求的 KV 送到 decode；多数测试里池也托管在 prefill 节点。Kimi-K3 还在两侧使用 DCP8，decode 按 AgentX CI 配方开了 DSpark 推测解码（4 个 draft token，合成接受长度 3.36）。两个节点各有两颗 AMD EPYC 9575F（64 核）和 3 TB DRAM，系统是 Linux 6.8。全部运行使用 FP8 KV。负载由 AIPerf 按记录时间回放：AgentX 是 SemiAnalysis 录的 393 个 Claude Code 会话；kvlab 是 WEKA 从 2026-09-05 到 2026-10-14 录的约 3,200 个自身 agent 会话（转换后 3,164 个会话、325,755 个请求），回放请求的中位 prompt 为 165K、P90 为 306K，比 AgentX 的 142K 更长。负载定义为同时回放的会话数。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 同容量对比怎么读</h2>
+    <h3>4.1 带写缓冲的主对比：差在 1% 以内</h3>
+    <p>Figure 1 的三次负载（48 / 70 / 96 会话）各回放 AgentX 一小时，两种池在同一机器、同一镜像和设置下背靠背跑，并且两边都填满、开始驱逐。吞吐按 AgentX 的口径，计入全部 16 卡的输入和输出 token，也包括被缓存的 prompt token，再除以 GPU 数。附录主表如下。</p>
+    <table>
+      <thead><tr><th>机器与负载</th><th>DRAM tok/s/GPU</th><th>NVMe tok/s/GPU</th><th>相对差</th><th>命中率 DRAM / NVMe</th><th>TTFT p50（s）</th><th>TTFT p90（s）</th></tr></thead>
+      <tbody>
+        <tr><td>第一组 · 48 会话</td><td>12,240</td><td>12,275</td><td>+0.3%</td><td>96.62% / 96.67%</td><td>1.57 / 1.57</td><td>7.92 / 7.15</td></tr>
+        <tr><td>第一组 · 70 会话</td><td>13,380</td><td>13,492</td><td>+0.8%</td><td>95.57% / 95.65%</td><td>5.19 / 4.89</td><td>23.40 / 21.26</td></tr>
+        <tr><td>第一组 · 96 会话</td><td>13,313</td><td>13,284</td><td>−0.2%</td><td>94.50% / 94.48%</td><td>24.95 / 24.39</td><td>62.57 / 56.33</td></tr>
+        <tr><td>另一对机器 · 48</td><td>12,387</td><td>12,440</td><td>+0.4%</td><td>96.63% / 96.68%</td><td>1.61 / 1.63</td><td>7.63 / 7.38</td></tr>
+        <tr><td>另一对机器 · 70</td><td>13,639</td><td>13,710</td><td>+0.5%</td><td>95.61% / 95.69%</td><td>4.73 / 4.80</td><td>22.23 / 20.83</td></tr>
+        <tr><td>另一对机器 · 96</td><td>13,182</td><td>13,304</td><td>+0.9%</td><td>94.44% / 94.47%</td><td>23.63 / 24.38</td><td>73.11 / 55.89</td></tr>
+      </tbody>
+    </table>
+    <p>命中率最多相差 0.08 个百分点击中的 prompt token。P50 TTFT 在 48 和 70 会话时相差不超过 0.3 s，96 会话不超过 0.8 s；96 会话时请求已经等了大约 24 s。第一组实验「每个负载换了一对机器」；重复组用同一对机器跑完三个负载。同一配置在同一对机器上的重复差异是 0.3%–0.45%。第二组里 NVMe 分别领先 0.4%、0.5%、0.9%，仍在 1% 以内。</p>
+    <p>这些运行还大量依赖 GPU 显存：三种负载下 GPU 分别服务了 96%、90%、79% 的 prompt token，池只服务了 1%、5%、16%。盘每小时写入 2.3–3.5 TB，是读取量的 17、3.8 和 1.5 倍；读取峰值 2.3 TB/小时，约 0.64 GB/s。换句话说，主对比并不是「大多数 KV 都从盘上来」。作者在 Limits 里自己写了这一点。</p>
+
+    <h3>4.2 去掉写缓冲：70 会话站得住，96 会话不行</h3>
+    <p>64 GB 写缓冲按 Figure 1 的写入速率只装着最近一两分钟的新 KV，而且只服务了池读取的 0.6%–1.6%。作者把缓冲降到 UMBP 策略允许的最小值 4 MiB，容量仍然全部在盘上：</p>
+    <table>
+      <thead><tr><th>设置</th><th>DRAM</th><th>NVMe 无写缓冲</th><th>相对差</th><th>命中率</th><th>TTFT p50 / p90（s）</th></tr></thead>
+      <tbody>
+        <tr><td>70 会话（与主表同一 DRAM 跑次）</td><td>13,380；95.57%</td><td>13,847；95.79%</td><td>+3.5%</td><td>见左</td><td>5.19 / 23.40 vs 5.53 / 19.18</td></tr>
+        <tr><td>另一对机器 · 70</td><td>13,730；95.64%</td><td>14,078；95.83%</td><td>+2.5%</td><td>见左</td><td>4.73 / 21.36 vs 4.27 / 16.08</td></tr>
+        <tr><td>另一对机器 · 96</td><td>13,296；94.43%</td><td>12,403；94.00%</td><td>−6.7%</td><td>见左</td><td>24.60 / 67.20 vs 23.38 / 94.56</td></tr>
+        <tr><td>kvlab · 70，更长前缀</td><td>8,162；91.60%</td><td>8,110；91.89%</td><td>−0.6%</td><td>见左</td><td>92.6 / 149.1 vs 88.8 / 156.9</td></tr>
+      </tbody>
+    </table>
+    <p>70 会话时，两对机器上都可以去掉写缓冲，吞吐甚至略高于 DRAM；长前缀的 kvlab 对比同样无缓冲，NVMe 只落后 0.6%，命中率还高 0.29 个百分点，P50 TTFT 更好（88.8 vs 92.6 s），P90 更差（156.9 vs 149.1 s）。kvlab 跑在共享集群上，同一配置的跑次间大约 ±2.5%，单次 −0.6% 其实落在噪声附近。</p>
+    <p>96 会话时写缓冲就重要了。这时池大约服务 15% 的 prompt token，盘每小时写 3.2 TB；去掉缓冲后命中率低了 0.43 个百分点（按 Figure 3 的拟合大约值 4% 吞吐），请求在 prefill 上排得更久，吞吐低了 6.7%，P90 TTFT 从 67.20 s 升到 94.56 s。作者的建议很明确：重负载下保留 64 GB 缓冲。以上各行都是单次运行。</p>
+
+    <h3>4.3 DeepSeek-V4-Pro：1.2% 里有两次池子没写满</h3>
+    <p>附录三次对比都在 kvlab 上：约每节点 2 TB 的同容量池、32 会话，NVMe +0.1%；4 TB DRAM / 2.8 TB NVMe、32 会话 +1.0%；同样不对称容量、64 会话 +1.2%。后两次池子从未填满，作者标明这是在测加载而不是容量。命中率都写「within 0.1%」；若干 TTFT p50 在表中为「–」，原文未给出。把「1.2%」读成「同容量、已写满、高池命中率下的主结论」会过满。DeepSeek-V4-Pro 的对比在 64 会话停住，而 Limits 写它在超过 64 会话后池会服务 64%–86% 的 prompt token，DRAM 池读取峰值接近 27 GB/s——那正是作者还没拿 NVMe 去对的区域。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 为什么 NVMe 跟得上</h2>
+    <p>从 NVMe 读比从 DRAM 读慢。作者给出三条没有打到吞吐上的理由。</p>
+    <p><strong>吞吐跟命中率走，同样大小、同样驱逐规则的池几乎留下同一批 KV。</strong> 96% 命中时 prefill 只需算 4% 的 prompt token，95% 时要算 5%，同样流量下 prefill 工作量多 25%。Kimi-K3、AgentX、70 会话的 42 次运行里（DRAM、NVMe、以及两者兼有，不同容量和设置），命中率单独解释了吞吐方差的 96%；去掉那个 0.9 TB 池的点后是 92%。每多 1 个百分点击中的 prompt token，大约值 1,280 tok/s/GPU。两边用同一套驱逐：最冷的 KV 先走，checkpoint 比 KV 老得更快。AgentX 上六次 Kimi-K3 同容量对比，命中率最多差 0.08 个百分点——但这已经花了下面第一条教训里对 NVMe 释放空间的修复。</p>
+    <p><strong>一次命中的价值远大于一次加载的时差。</strong> MoRI 指南里的单请求测试、128K 前缀：DRAM 命中后 0.45 s 出首 token，NVMe 命中 0.84 s，重算 7.7 s。这是 Kimi-K2.6、跑在 SGLang 上、八块盘且其中六块在第二台上的数字，不是主文的 Kimi-K3 / vLLM 配置。没有排队时，NVMe 大约给一次命中加 0.4 s，一次未命中大约加 7 s。</p>
+    <p><strong>加载可以藏在等待 prefill 槽的时间里。</strong> vLLM 的 KV connector API 允许异步加载：调度器把请求挡住直到 KV 到达，同时继续调度别人。UMBP 的 connector 也异步做查找。繁忙引擎上请求本来就要在 prefill 队列里等，加载往往塞得进这段等待。DeepSeek-V4-Pro、64 会话时，一次加载 DRAM 用 0.80 s、NVMe 用 0.85 s，并且大约提前 2 s 在 prefill 开始前完成。作者写得很清楚：这段重叠来自 vLLM 的 connector API；他们在 SGLang 上跑 NVMe 池时，需要一个<strong>尚未上游</strong>的额外补丁才能得到同样的重叠。</p>
+    <p>DeepInfer 的按层加载是另一条路：在前向过程中把 KV 一层层拷进 GPU。他们在 vLLM 里为带 NVMe 池的 Kimi-K3 实现了它。空闲引擎上，单次池命中能快 14%–55%（一次测试里 0.91 s 对 1.32 s）；但在负载下，各会话数的平均 TTFT 和 prefill 吞吐都与异步加载相当。附录表也支持这句话：16 / 32 / 70 会话，以及把 GPU cache 缩到 8.2 / 5.7 / 4.5 GiB、让 42%–65% 的请求从池加载的几行，两边都几乎持平。加载的那个请求更早开始，同一 batch 里的其他请求会等掉这部分时间。按层加载并不是这篇工作战胜 DRAM 的原因。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 留存、成本与磨损</h2>
+    <p>NVMe 真正买到的是留存。池子一小于会话需求，吞吐会塌。Figure 5 在 kvlab 上增大会话数：仅 GPU 时，命中率从 32 会话的 90% 降到 48 会话的 41%，吞吐下降 80%。1.0 TB DRAM 池在 32 会话之后开始掉，到 70 会话时吞吐少了 81%，中位 TTFT 达到 743 s。跨两节点盘的 4.6 TB NVMe 池在所跑的每个负载上把命中率保持在 92.7%–95.8%；70 会话时 8,813 tok/s/GPU，是 1.0 TB DRAM 的 5.1 倍，命中率 93% 对 52%。作者立刻把介质和容量拆开：另一次运行里，1.8 TB DRAM 在 70 会话仍有 91% 命中率；1.0 TB DRAM 加 1.8 TB NVMe 的分层池，在共有的每个负载上与 4.6 TB NVMe 相差不超过 3%。掉得急，是因为一次未命中会制造更多未命中：重算堵住 prefill，队列变长，会话两次 turn 之间等得更久，KV 必须在池里活得更长。</p>
+    <p>一个池能留住 KV 的时间，大约是容量除以写入速率。按每小时 2.3–4.6 TB 写，1.8 TB 的池为 Kimi-K3 留下 23–47 分钟：AgentX 上 70 会话约 36 分钟，96 会话约 31 分钟。用 AgentX 记录时间跑一个 LRU 池模型（Figure 6）：留 36 分钟比永不驱逐大约多错过 1% 的 prompt token；一小时是 0.7%，三小时是 0.3%。把池从 1.8 TB 扩到 3.0 TB，模型预测多命中 0.34 个百分点，实测 0.32。</p>
+    <p>成本账用的是 DatacenterDisk 在 2026-11-13 的中位标价：服务器 DDR5 约 $42/GB（精确列出为 $42.15/GB），企业级 SSD 约 $666/TB（$666.04/TB）。DRAM 池按持有量付钱，每 TB 约 $42,000。NVMe 按写入磨损付钱：一块额定 1 DWPD 的盘五年写 1,825 次，每写 1 TB 大约消耗 $0.36 的盘（$666 ÷ 1,825）。Kimi-K3 在 96 会话、AgentX 上每小时写 3.5 TB，即每天 83 TB。1.8 TB 测试池落在两块 3.84 TB、1 DWPD 的盘上，这对盘大约承受 11 次盘写入/天，按额定寿命大约 5.5 个月就会用完。作者计划用分布式版本把这些写分散到更多 SSD 上。若按 1 DWPD 配备能吃下 83 TB/天 的盘，总容量就是 83 TB，也就刚好能留一天。因此在一天以内，把 NVMe 池做大并不额外增加这笔盘的成本；DRAM 每多 1 TB 就要多约 $42,000。</p>
+    <p>按这个算法，1.8 TB、写坏就换的 NVMe 池，和留一天的 83 TB 池，五年成本相同，大约 $59,000，其中约 $3,400 是 64 GB 写缓冲加 16 GiB 暂存。1.8 TB DRAM 约 $76,000；要留一天的 DRAM 池大约 $3.5 million。留存低于约 24 分钟（按这个写入速率是 1.4 TB）时，DRAM 反而是更便宜的池。作者把「一天对 31 分钟」接上 Figure 6 和 Figure 3：大约少 1 个百分点的未命中，按拟合值约 10% 吞吐——并立刻声明，这是两条拟合的串联，留存模型只在 36 分钟到 1 小时之间对过，吞吐拟合来自 70 会话运行。成本也只是标价算术，假设五年天天满载，不含电、机柜和装盘的服务器。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 三条工程教训</h2>
+    <p>介质不是唯一变量。UMBP 默认 4 GiB 的 segment file 时，Kimi-K3、AgentX、70 会话上 NVMe 比 DRAM 慢 12.8%；改小文件后缺口才补上。另外两项改动提高命中率，与介质无关，是在 DRAM 和 DRAM+NVMe 池上测的。三次测量各自一套设置，收益不能加总。</p>
+    <ul>
+      <li><strong>用小的 segment file 释放 NVMe 空间。</strong> UMBP 在盘上只追加，驱逐一块并不会立刻腾出空间，要等整个文件被删除。为了腾地方，它挑选活块最少、最近最少使用的文件，并把里面还活着的块一并赶走。4 GiB 默认文件会把仍在用的 KV 和旁边的旧数据一起扔掉。改成 256 MiB——这是这组对比里唯一改动的设置——把 70 会话的命中率从 94.45% 提到 95.65%，TTFT p90 从 63.0 s 降到 21.3 s，吞吐从 11,672 提到 13,492 tok/s/GPU，即 +15.6%，NVMe 从落后 DRAM 12.8% 变成领先 0.8%。代价是更多打开的文件。老版本若未合并 MoRI #967（2026-11-17），盘会静默地继续用 4 GiB 文件、校验和与同步写。</li>
+      <li><strong>告诉池子 GPU 还在服务哪些 KV（touch）。</strong> GPU 自己命中的热前缀，池看不见读取，会把它们当成最冷的先驱逐；等 GPU 稍后丢掉这块，池里的副本已经没了。加上 touch 后，vLLM 的 connector 把每次 GPU 前缀命中报告给池（MoRI #779 与 <code>charxwu/vllm-upstream#19</code>）。Kimi-K3、70 会话、DRAM+NVMe 上，两次测试分别加了 2.1% 和 3.9% 吞吐，TTFT p99 从 70–77 s 降到 35–43 s。Figure 1 的两份池都开了 touch，并且用会刷新盘上副本的版本（MoRI #882）。</li>
+      <li><strong>给混合模型更密的 checkpoint，并处理滑窗。</strong> 默认 vLLM 只在每个 prompt 末尾留一个 checkpoint，两条 prompt 只共享前半段时，分叉点没有 checkpoint，只能重算。加上每 7,168 token 一个 checkpoint（<code>--prefix-cache-retention-interval 7168</code>），在 kvlab、8 会话、DRAM 池上把命中率从 91.4% 提到 95.6%，吞吐从 5,113 提到 6,791 tok/s/GPU（+33%）。即使按默认间距，checkpoint 也超过 Kimi-K3 在 AgentX 上 NVMe 写入的一半。后续 turn 已经从某个 checkpoint 恢复并走远之后，connector 可以把它标成已被替换，UMBP 在它离开 DRAM 时丢掉、不再写入 NVMe：1.8 TB DRAM 垫在盘前时，70 会话的 NVMe 写入从 2.26 降到 1.05 TB/小时（−53%），命中率不变，但吞吐低了 1.0%，TTFT p99 从 38 s 升到 62 s。小写缓冲前面，更少的 checkpoint 能在落盘前被替换。Figure 1 的运行一个都没丢。滑窗是同一类问题：DeepSeek-V4.1-Flash 的窗口只有 128 token，DeepInfer 的 bounded replay 不保留窗口 checkpoint，命中时用最后 128 个 token 重建窗口；在 DRAM 池、288 会话、kvlab 上，吞吐是每 2K token 打一次窗口 checkpoint 的 2.2 倍（53,011 到 115,834 tok/s/GPU），每 prompt token 的池字节从 1,626 降到 396。DeepSeek-V4-Pro 加窗口 checkpoint 后，命中率 78.4%→89.9%，吞吐 +76%（5,298→9,326 tok/s/GPU；kvlab、64 会话、20 分钟测量）。这两项滑窗/窗口结果都不是 NVMe 主对比。</li>
+    </ul>
+    <div class="callout teal">附录里还有一组「尚未加入 checkpoint 改动」的 kvlab 旧序列，作者标明在 70 会话上已被后面的行取代：8 / 16 / 32 / 70 会话时，NVMe 相对 DRAM 为 −3.2%、−1.2%、−5.3%、<strong>−13.5%</strong>。若只读 TL;DR 的 1%，会看不到：没有这些工程改动，同容量的 NVMe 并不是自然就跟得上。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 落地可行性、限制与路线图</h2>
+    <p>这是可以上手试的开源系统进展，不是一篇把数字封进实验环境的论文。主路径已经进了 vLLM：<code>UMBPStoreConnector</code> 合入 main，十个一组的 PR 从 #61789 起，于 2026-11-13 结束。Prefill 把它和负责 RDMA 送 KV 的 <code>MoRIIOConnector</code> 一起放进 KV transfer 配置，decode 只保留 MoRI IO 的 consumer。池进程用 <code>policy.json</code> 声明盘和容量，把 64 GB 写缓冲放在盘前，<code>offload_trigger</code> 为 <code>on_evict</code>，<code>promote_trigger</code> 为 <code>never</code>（命中盘就从盘读，不提升回 DRAM）。关键旋钮包括 <code>UMBP_SSD_SEGMENT_SIZE=268435456</code>（256 MiB 文件）。文章写了可复现的命令行，也写了怎么按写入速率、目标留存和 DWPD 给自己的流量估池子。</p>
+    <p>但「能跑」和「按博客数字上线」之间，还有几道硬门槛。</p>
+    <ul>
+      <li><strong>硬件前提很窄。</strong> 全部运行都在 MI355X + 本地 NVMe 上。Kimi-K3 每 token 大约只有 14 KB KV（24 层 MLA，每层 FP8 576 字节），DeepSeek-V4-Pro 约 5.5 KB（FP8）或 9.9 KB（BF16），均不含 checkpoint。稠密、无 MLA 的模型每 token 要大许多倍，盘带宽也要按这个倍数涨。没有 NVMe-oF，跨节点靠 UMBP 自己的 RDMA。最大实测 NVMe 池是 4.6 TB、跨两节点；「留一天」的 83 TB 池只是算术。</li>
+      <li><strong>耐久是第一约束，分布式是他们的答案。</strong> GPU 算出的每一块 KV 都会写盘，不管以后有没有人读。两块 1 DWPD 的盘在 96 会话满载下大约 5.5 个月写尽额定寿命。路线图是把这些写摊到更多 SSD 上。在一天留存以内，盘的采购成本主要由写入量决定，不由容量决定——这是博客最有行动含义的判断，但它依赖 1 DWPD、标价和五年满载这些假设。</li>
+      <li><strong>主对比的池命中率其实不高。</strong> AgentX 同容量运行里，池最多只服务 16% 的 prompt token。作者承认还没有在「池服务大多数 token」的区域拿 NVMe 对 DRAM。轻负载、没有队列可藏时，一次 128K 前缀的 NVMe 加载会把大约 0.4 s 直接加到 TTFT 上。</li>
+      <li><strong>上游尚未收齐，默认设置会静默回退。</strong> touch 的 connector 侧、异步 lookup 的等待、混合模型前缀恢复，仍在 <code>charxwu/vllm-upstream#19</code>（开放）。UMBP 的驱逐类别、<code>UMBP_TRANSITION_WORKERS</code>、kvlab 上更密的 checkpoint 与 KDA 一次写多个 checkpoint 的 kernel，都还要后续 PR。每个 AgentX 镜像带着仍开放的 vllm#59966（只影响 decode 速度），DeepSeek-V4-Pro 需要仍开放的 #63002。生产若打开校验和，指南测到校验占一次读取时间的 51%–67%；博客对比关了 CRC，并用 relaxed durability。评测数字不能直接当成「默认、校验打开、完全上游」的数字。</li>
+      <li><strong>可复现性要按附录读。</strong> 多数结果是单次运行。Figure 5 与附录最后四行用了 vLLM <code>0.33.0rc1.dev1065+g083fbac02</code>；最后四行的 DRAM 与 NVMe 跑在相差一个修复的 MoRI 构建上，其中 8 会话 DRAM 每节点只有 2.0 TB DRAM；DeepSeek-V4-Pro「约 2 TB/节点」那行与其他 DeepSeek 行不在同一构建。第一组无写缓冲行和主表 70 会话共用一次 DRAM 跑，而且两块盘的容量切分略有不同（374+1,426 GB 对 485+1,313 GB）。</li>
+      <li><strong>和 DeepSeek / DeepInfer 的关系是引用，不是复现其部署。</strong> 他们借用了「KV 放 SSD」以及 layer-wise loading、bounded replay，并在 vLLM 上验证了后两项。DeepSeek 写的是每 GPU 约 14.4 TB、三天留存；这里最大的盘池是 4.6 TB，三天留存没有实测。SGLang 路径上，KV 加载重叠还需要非上游补丁（TianDi101/sglang 的 <code>umbp-ci48-cp-prefetch</code> 分支，commit 031f5ce3）。</li>
+    </ul>
+    <div class="callout navy">和 TideCache 对照：TideCache 做的是超级芯片上混合模型 GPU 显存内部的透明切分与按层驻留，引擎是 SGLang，硬件是 NVIDIA GB300 / GH200。UMBP 做的是 GPU 之外用本地 NVMe 代替大 DRAM 池来留住 agent 前缀，引擎是 vLLM，硬件是 MI355X。两者都服务混合模型的长会话，但一个管 HBM 布局，一个管容量层介质，数字不能横比。</div>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照对象</th></tr></thead>
+      <tbody>
+        <tr><td>同容量主对比（AgentX，有写缓冲）</td><td>吞吐差在 +0.3% 到 +0.9% 与 −0.2% 之间</td><td>1.8 TB vs 1.8 TB，48 / 70 / 96 会话，两组机器；命中率差 ≤0.08 pp</td></tr>
+        <tr><td>无写缓冲 · 70 会话</td><td>+3.5% / +2.5%</td><td>两对机器，AgentX；单次运行</td></tr>
+        <tr><td>无写缓冲 · 96 会话</td><td>−6.7%（命中率 94.43%→94.00%）</td><td>池约服务 15% prompt token，写入 3.2 TB/小时</td></tr>
+        <tr><td>kvlab 长前缀 · 70 会话</td><td>8,110 vs 8,162（−0.6%）</td><td>无写缓冲；命中率 91.89% / 91.60%；集群跑次间约 ±2.5%</td></tr>
+        <tr><td>DeepSeek-V4-Pro</td><td>+0.1% / +1.0% / +1.2%</td><td>后两次容量不对等且从未写满；对比止于 64 会话</td></tr>
+        <tr><td>命中率与吞吐</td><td>R²=0.96（去掉 0.9 TB 点后 0.92）；+1 pp ≈ +1,280 tok/s/GPU，约 +10%</td><td>42 次 Kimi-K3、70 会话、AgentX</td></tr>
+        <tr><td>池 vs GPU 的服务比例</td><td>GPU 96% / 90% / 79%；池 1% / 5% / 16%</td><td>AgentX 48 / 70 / 96；写入 2.3–3.5 TB/小时，读峰值约 0.64 GB/s</td></tr>
+        <tr><td>1.8 TB 池的留存</td><td>23–47 分钟；70 会话约 36 分钟，96 会话约 31 分钟</td><td>写入 2.3–4.6 TB/小时</td></tr>
+        <tr><td>更大池的容量收益</td><td>4.6 TB NVMe 在 70 会话 8,813 tok/s/GPU，为 1.0 TB DRAM 的 5.1×；命中率 93% 对 52%</td><td>kvlab。1.8 TB DRAM 仍有 91% 命中；1.0+1.8 分层池与 4.6 TB 差 ≤3%</td></tr>
+        <tr><td>标价成本</td><td>一天留存的盘约 $59,000；1.8 TB DRAM 约 $76,000；一天 DRAM 约 $350 万</td><td>2026-11-13 DatacenterDisk 中位标价；交叉点约 24 分钟 / 1.4 TB</td></tr>
+        <tr><td>磨损</td><td>96 会话每天约 83 TB 写；两块 1 DWPD 盘约 11 次盘写入/天，额定约 5.5 个月</td><td>测试池 1.8 TB，盘是两块 3.84 TB</td></tr>
+        <tr><td>默认 4 GiB 文件的缺口</td><td>落后 DRAM 12.8%；改为 256 MiB 后吞吐 11,672→13,492（+15.6%）</td><td>Kimi-K3，70 会话，AgentX</td></tr>
+        <tr><td>单请求加载（MoRI 指南）</td><td>0.45 / 0.84 / 7.7 s</td><td>DRAM 命中 / NVMe 命中 / 重算；Kimi-K2.6 + SGLang，不是主配置</td></tr>
+        <tr><td>繁忙时的加载</td><td>0.80 s DRAM，0.85 s NVMe，约提前 2 s 结束</td><td>DeepSeek-V4-Pro，64 会话</td></tr>
+        <tr><td>每 token KV</td><td>Kimi-K3 约 14 KB；V4-Pro 约 5.5 KB（FP8）/ 9.9 KB（BF16）</td><td>不含 checkpoint；全部运行 FP8 KV</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 vLLM Blog《Skip the DRAM Tier: MoRI UMBP Runs the Agentic KV Cache on NVMe》（页面时间 2026-11-23T00:00:00+00:00，即 Asia/Shanghai 2026-11-23 08:00）全文及附录。同容量倍数与附录主表交叉核对；无写缓冲、长前缀、DeepSeek、按层加载和尚未合入的改动在第 1、4、7、8 节单独写出。这是官方博客，不是同行评审论文。
+  </footer>
+</div>
+</body>
+</html>
