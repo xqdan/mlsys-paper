@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arknife 论文分析 | 用统一布局代数做可重定向张量核编译</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.PL · 2026-11-10</span>
+      <span class="badge">arXiv:2611.13741v1</span>
+      <span class="badge">AI 编译器 · 布局代数</span>
+      <span class="badge ok">北京大学 / 无限智源</span>
+      <span class="badge warn">不规则 / 数据相关访问不在模型内</span>
+    </div>
+    <h1>Arknife：把指令看得见的布局当成指令语义，而不是写在程序里的参数</h1>
+    <p class="subtitle">用与厂商 ISA 脱钩的约束式布局代数，在 x86、Hexagon 和 NVIDIA A100 上做可重定向编译。相对 oneDNN 几何平均 2.17×，相对 QNN 3.78×，相对 MISAAL 分别为 5.08× 和 4.53×；A100 上 TF32 GEMM 达到 cuBLAS 的 97%，八组 FP16 MHA 相对未融合 PyTorch 的几何平均为 5.04×。</p>
+    <p class="meta">
+      <strong>论文</strong>：Likai Ma, Renze Chen, Tianqi Li, Yuhao Luo, Youwei Xiao, Size Zheng, Xiuhong Li, Yun Liang. <em>Retargetable Compilation for Tensor Kernels via a Unified Layout Abstraction</em>.
+      <a href="https://arxiv.org/abs/2611.13741">arXiv:2611.13741</a>。
+      提交于 2026-11-10。作者来自北京大学，Xiuhong Li 单位为无限智源（Infinigence-AI）。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#takeaway">一句话结论</a></li>
+      <li><a href="#problem">问题：布局是指令接口的一部分，却没有跨后端的统一模型</a></li>
+      <li><a href="#algebra">约束式布局代数</a></li>
+      <li><a href="#compiler">编译流程：绑定、修补、e-graph、全局求解</a></li>
+      <li><a href="#results">三个后端上的主结果</a></li>
+      <li><a href="#why">快在哪里：少做标量化的布局搬运</a></li>
+      <li><a href="#deploy">落地可行性</a></li>
+      <li><a href="#numbers">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="takeaway">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">Arknife 是一篇经典的可重定向张量编译器工作，不走大模型写核这条路。它要补的缺口是：现有系统要么把布局写进程序或调度，换后端就要重推；要么只在局部修补布局冲突；要么像 CuTe / Linear Layouts 那样在<strong>已知布局之间</strong>推导变换，而且代数往往绑在某一类目标上。Arknife 把指令对操作数的布局要求写成一等语义，用同一套约束代数在全图上求解布局，冲突则插入目标提供的 repair（搬运、转置、广播、类型转换等）。重定向时复用代数和求解器，只重新描述新目标的指令及其操作数要求。</p>
+    <p>在双路 Xeon Gold 6348（AVX-512/VNNI）上，相对 oneDNN 3.7.1 几何平均 2.17×（矩阵类 1.91×，标量类 2.55×），相对 MISAAL 和 Hydride 分别为 5.08× 和 5.13×。在 Snapdragon SM8650 的 Hexagon 上，相对 QNN 2.28.0 几何平均 3.78×，相对 MISAAL 和 Hydride 分别为 4.53× 和 4.58×。在 A100 80GB PCIe 上，八组 FP16 MHA 相对未融合 PyTorch 的几何平均为 5.04×（同表里 FlashAttention 4.83×、Triton 4.56×、TileLang 3.53×），TF32 GEMM 达到 cuBLAS 的 97%，并分别达到 Triton 和 TileLang 的 2.20× 与 1.16×。</p>
+  </section>
+
+  <section class="card" id="problem">
+    <h2>2. 问题：布局是指令接口的一部分，却没有跨后端的统一模型</h2>
+    <p>Tensor core MMA、AVX-512 VNNI、Hexagon HMX 这类指令，除了算术语义，还规定操作数住在哪一级存储、维如何组织、元素如何铺到并行单元上。作者称之为<strong>指令可见布局</strong>：它往往细于整轴的行主序 / 列主序。文中 Hexagon HMX 消费一个 32×32 FP16 tile 的顺序从最内到最外是：每一对里的两行、一个 block 的 32 列、16 个行对，再加归约轴上的下一个 block。HMX 的 tile-buffer 填充按这个顺序走，别的排列不是“更慢”，而是非法操作数。</p>
+    <p>Hexagon 上 DMA、HVX 和 HMX 跨越三种内存空间，边界必须显式做布局转换；ISA 里有十几种专门用于此的原语（<code>vshuff</code>、<code>vdeal</code>、<code>vpack</code>、<code>vunpack</code>、<code>vcombine</code> 等）。作者把以转换为目的的指令叫做 repair。只检查算术等价，仍可能选出正确指令、却走出错误或 repair 过重的数据路径。GPU 上也一样：GEMM 的 MMA 累加片段和 epilogue 需要的行主序视图之间，必须有一次转换；FlashAttention-2 的 Ampere 实现把这次转换写在手里。</p>
+    <p>三类现有做法都没有给出跨后端的统一模型。TensorIR / TIRx 一类 DSL 把布局写在调度或类型里，换目标就要重推，选错布局会直接算错。MISAAL 一类综合系统把布局决策收进编译器，但冲突在局部修补，可能留下一次全局选布局就能消掉的转换。CuTe 和 Linear Layouts 在已知布局之间推导变换，在 GPU block 内可以靠 shared memory 往返把任意布局转换成另一种、代价有界；可重定向编译器没有这种常数——Hexagon 上 VTCM 与寄存器之间的排列，如果没有对等代价的原语，退路是按字节的标量搬运，文中给出的仿真数字是每 128 字节 70–504 周期，而寄存器内只有 3.5。</p>
+  </section>
+
+  <section class="card" id="algebra">
+    <h2>3. 约束式布局代数</h2>
+    <p>目标被建模为 T = (L, M, I, R)：并行层级、内存空间、指令模板，以及作为子集的 repair 指令。硬件坐标空间 H 是各并行层级坐标和各内存空间局部地址的笛卡尔积。张量布局是从逻辑空间到 H 的单射；操作数要求则只约束 H 的一部分分量，其余自由。代数把轴因子化，使约束可分、可在全图求解。</p>
+    <p>关键命题是：一个张量被多个生产者 / 消费者使用时，把各操作数要求嵌回张量因子后取并，就得到该张量布局必须满足的<strong>最小边界约束</strong>。相容性与使用集合的访问顺序无关，并随使用集合单调增长。不规则域和数据相关的访问关系被明确排除在模型之外。不改变指令边界所需视图的跨轴优化（例如为避免 bank conflict 做的 shared-memory XOR swizzle）留给布局求解之后的后端，且必须保持已求解的边界映射。</p>
+  </section>
+
+  <section class="card" id="compiler">
+    <h2>4. 编译流程：绑定、修补、e-graph、全局求解</h2>
+    <p>输入是张量程序和目标描述，输出是针对该目标特化的可执行 kernel。先做指令绑定：为每个程序操作考虑候选指令，检查其操作数要求能否直接满足或通过目标提供的 repair 满足，并选择累计约束仍可满足、且由这些要求所诱导的 repair 代价最低的候选。若一个张量的各次使用仍冲突，就插入相应 repair，使结果图上每个指令边界都布局可行。随后用 e-graph 重写消去冗余转换。全局求解器用二元 ILP（PySCIPOpt 6.0.0，后端 SCIP 10.0.0）为剩余约束指定具体布局。最后在保持指令边界轴到硬件映射的前提下做 lowering 和代码生成：空间分块、时间循环补全、内存规划，以及按指令回调发射代码。repair 节点的发射方式与计算指令相同。</p>
+    <p>实现是 Python 编译器框架。目标也用 Python 描述：硬件描述声明并行层级、内存空间、容量和通信通道；指令描述声明操作数语义、布局属性、资源效应和代码生成回调。作者写到，现有后端里硬件层次描述是数十行量级，每条支持的指令不到十行，同一目标上的所有 kernel 共享这些描述，与具体调度无关。</p>
+  </section>
+
+  <section class="card" id="results">
+    <h2>5. 三个后端上的主结果</h2>
+    <p>x86 实验在双路 Xeon Gold 6348（112 线程，AVX-512/VNNI）上，对照 oneDNN 3.7.1、Halide、Hydride 和 MISAAL。与 oneDNN 的比较两边都用 16 线程，测稳态单次调用延迟，权重两侧都预先准备。Halide 使用随 Hydride 分发的调度，没有再调。九个工作负载上，Arknife 相对 oneDNN 几何平均 2.17×，矩阵类 1.91×，标量类 2.55×。矩阵上的优势在小形状最大，因为 oneDNN 的单次调用开销更明显，到最大形状则接近持平。两边都以 AVX-512 VNNI 为目标；Arknife 把 MatMul 绑到 <code>vpdpbusd</code>，把 K 按每 32 位 lane 一组四个打包。相对 MISAAL 和 Hydride 的几何平均加速是 5.08× 和 5.13×。</p>
+    <p>Hexagon 使用 SDK 6.0.0.0 和 Hexagon tools 8.7.08，厂商基线是 QAIRT + QNN 2.28.0，设备为 Snapdragon SM8650。十一个算子上相对 QNN 几何平均 3.78×。Transpose 为 5.96×：全局求解记录每个 64×64 FP16 tile 的轴对应，lowering 用向量加载、寄存器内 <code>vshuff</code> 网络和向量存储完成排列，没有标量化。Int8 GEMM 上双方都走 HMX 及其指令可见布局，Arknife 与成熟的厂商路径基本持平（测试配置上 1.08×），说明 headline 的 3.78× 被 Transpose 一类算子拉高，不能读成“矩阵单位全面超过 QNN”。端到端上，基于 Qwen3-0.6B、单 batch、单步 decode、没有额外的跨算子融合时，序列从 1024 增到 8192，Arknife 达到 QNN 吞吐的 0.87×、1.07×、2.34× 和 2.77×。</p>
+    <p>A100 80GB PCIe 上，FP16 MHA 对照未融合 PyTorch、Triton 3.2 官方融合 attention 教程的前向改编（按序列长度和头维自动调优）、TileLang v0.1.13 官方 BSHD 示例的 128×128 tile，以及官方 FlashAttention 库。八组配置上，Arknife 相对未融合 PyTorch 的几何平均为 5.04×，同组里 FlashAttention 4.83×、Triton 4.56×、TileLang 3.53×。主要来源是把两次矩阵乘和在线 softmax 融进一个分块核，避免物化 attention 矩阵和中间 launch。Arknife 使用 swizzle 的 shared-memory tile、异步拷贝、ldmatrix 和 MMA，满足张量核 fragment 布局，而不用手写指定。以手写算子/kernel 行数（去空行和注释，不含共享基础设施和基准代码）做粗代理时，Arknife 用 68 行达到该组最高几何平均加速，其余实现是 117–650 行。TF32 GEMM 达到 cuBLAS 的 97%，并分别达到 Triton 和 TileLang 的 2.20× 与 1.16×。需要注意：MHA 的参照是未融合 PyTorch，不是“超过官方 FlashAttention 很多”；5.04× 对 4.83× 只是略高。</p>
+  </section>
+
+  <section class="card" id="why">
+    <h2>6. 快在哪里：少做标量化的布局搬运</h2>
+    <p>作者把动态布局指令分成 Move（在内存或寄存器空间之间搬值）和 Convert（改变 lane、轴、tile、并行分布或元素表示）；同时做访存和转换的算作 Convert。标量化比例指一次执行只碰一个元素的布局指令（如 <code>vpinsrw</code>、按字节访存、标量移位）。在量化 x86 MatMul+Bias+ReLU（M=N=K=256）上，Hydride 的布局指令里 91.3% 是标量化的，布局指令总量约为 Arknife 的 17.1 倍；Hexagon 量化 Add（M=N=1024）上，这个倍数是 85.8×。Arknife 在这些设置里的标量化比例是 0%。这解释了为什么相对 Hydride / MISAAL 的加速远大于相对 already vectorized 的厂商库。</p>
+    <p>编译开销方面，文中给出若干中位时间（五次运行）：Hexagon HMX GEMM 的轴映射 228.5 ms、ILP 求解 44.7 ms；Transpose 为 56.1 / 6.5 ms；Decode 最高，为 1862.1 / 296.1 ms。对离线生成 kernel 可以接受，若要放进交互式调优循环，Decode 这种图结构的两秒级编译就需要单独评估。</p>
+  </section>
+
+  <section class="card" id="deploy">
+    <h2>7. 落地可行性</h2>
+    <p>作为可重定向张量编译器，Arknife 的工程故事比很多“再做一个 GPU DSL”完整：同一套代数覆盖 CPU 向量扩展、Hexagon 这种布局转换昂贵的 NPU，以及 A100 的 ldmatrix–MMA 路径；重定向成本按作者的描述主要是写指令描述，而不是重做代数。A100 上 TF32 GEMM 贴近 cuBLAS、MHA 略高于官方 FlashAttention（相对未融合 PyTorch），说明这套全局布局求解至少在评测形状上没有明显把性能留在桌上。</p>
+    <p>要把它当成生产编译器的布局层，还差几步，而且有些限制是模型里写明的。</p>
+    <ul>
+      <li><strong>模型覆盖不到动态不规则访问。</strong>不规则域和数据相关访问关系被排除。变长、ragged、按运行时索引聚集的 kernel 不在当前求解范围内。</li>
+      <li><strong>headline 加速要按对照物分开读。</strong>x86 的 2.17× 在大形状上会收束到与 oneDNN 持平；Hexagon 的 3.78× 含 Transpose 的 5.96×，Int8 GEMM 只有 1.08×。Qwen3-0.6B decode 在短序列上甚至是 0.87×。不能把几何平均直接当成“全面超过厂商库”。</li>
+      <li><strong>指令描述仍然要专家来写。</strong>“每条指令不到十行、硬件描述数十行”降低了重定向的代数成本，但正确写出 VNNI 打包、HMX tile 顺序、MMA fragment 映射，本身就是难点。论文没有给出第四个后端从零接入的人天数字。</li>
+      <li><strong>swizzle 等不影响指令边界视图的优化仍在求解之后。</strong>银行冲突、pipeline 软件流水这类问题没有被布局代数自动解决。</li>
+      <li><strong>和智能体写核是两条线。</strong>Arknife 不生成算法，只在给定张量程序和目标描述后选定指令与布局。它更接近仓库里 TorchTPU / OpenXLA 那一类编译器笔记，而不是 CompoundingKernel 那一类搜核智能体；两边可以互补，但不能互相替代。</li>
+    </ul>
+    <div class="callout">对仓库读者的建议：优先看它的布局代数和“最小边界约束”这一招，以及 Hexagon 这种转换代价不对称的后端——这正是 CuTe 风格“已知布局之间做变换”不太够用的地方。数字上，先记住 GEMM 近 cuBLAS、MHA 略高于官方 FlashAttention（相对未融合 PyTorch），再记住厂商库对照里的平均加速会被个别算子和形状拉动。</div>
+  </section>
+
+  <section class="card" id="numbers">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>口径</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>x86 vs oneDNN</td><td>几何平均 2.17×（矩阵 1.91×，标量 2.55×）</td><td>9 个工作负载；16 线程；大形状接近持平</td></tr>
+        <tr><td>x86 vs 可重定向编译器</td><td>MISAAL 5.08×，Hydride 5.13×</td><td>几何平均</td></tr>
+        <tr><td>Hexagon vs QNN</td><td>几何平均 3.78×；Transpose 5.96×；Int8 GEMM 1.08×</td><td>11 个算子；SM8650，QNN 2.28.0</td></tr>
+        <tr><td>Hexagon vs 可重定向编译器</td><td>MISAAL 4.53×，Hydride 4.58×</td><td>几何平均；与 x86 一样是 Figure 8 的九个工作负载</td></tr>
+        <tr><td>Qwen3-0.6B decode vs QNN</td><td>0.87× / 1.07× / 2.34× / 2.77×</td><td>序列 1024 到 8192；单 batch、单步、无额外融合</td></tr>
+        <tr><td>A100 FP16 MHA</td><td>相对未融合 PyTorch 几何平均 5.04×</td><td>八组配置；同组：FA 4.83×，Triton 4.56×，TileLang 3.53×；Arknife 手写 68 行 vs 其余 117–650 行</td></tr>
+        <tr><td>A100 TF32 GEMM</td><td>cuBLAS 的 97%；Triton 的 2.20×，TileLang 的 1.16×</td><td>A100 80GB PCIe</td></tr>
+        <tr><td>布局指令数量</td><td>Hydride 为 Arknife 的 17.1× / 85.8×</td><td>x86 量化 MatMul+Bias+ReLU；Hexagon 量化 Add。Hydride 标量化占 91.3%，Arknife 为 0%</td></tr>
+        <tr><td>编译时间（中位）</td><td>HMX GEMM 228.5+44.7 ms；Decode 1862+296 ms</td><td>轴映射 + ILP；五次运行</td></tr>
+        <tr><td>重定向描述规模</td><td>硬件描述数十行，每条指令不到十行</td><td>同一目标上的 kernel 共享</td></tr>
+      </tbody>
+    </table>
+    <p>本笔记根据 <a href="https://arxiv.org/abs/2611.13741">arXiv:2611.13741v1</a> 原文整理，数字均来自论文，未另行复现实验。</p>
+  </section>
+
+  <footer>AI 编译器跟踪笔记 · Arknife · 2026-11-24 · 原文：arXiv:2611.13741v1</footer>
+</div>
+</body>
+</html>

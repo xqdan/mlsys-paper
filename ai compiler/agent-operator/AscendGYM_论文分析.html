@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AscendGYM 论文分析 | 用真实负载和 STS 衡量昇腾 kernel 优化</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.AI · 2026-11-13 / v2 2026-11-20</span>
+      <span class="badge">arXiv:2611.17621v2</span>
+      <span class="badge">算子优化基准 · 智能体</span>
+      <span class="badge ok">SLAI / 深圳环区研究所</span>
+      <span class="badge warn">本报告只评了 Batch 1 的 17 题</span>
+    </div>
+    <h1>AscendGYM：给定已经正确的昇腾实现，智能体还能不能在预算内再快一点</h1>
+    <p class="subtitle">48 个来自真实训练/推理负载的 kernel、三档难度；本技术报告只系统评了 Batch 1 的 17 题。约 70% 的模型–工具组合几何平均加速不到 1.2×。STS 把最终加速和“改进来得有多晚”写进同一个分数。</p>
+    <p class="meta">
+      <strong>论文</strong>：AI Training Platform Team, Shenzhen Loop Area Institute. <em>AscendGYM: A Cost-Aware Kernel Optimization Benchmark for Real-World Workloads on Ascend NPUs</em>.
+      <a href="https://arxiv.org/abs/2611.17621">arXiv:2611.17621v2</a>。
+      首版提交于 2026-11-13，本笔记依据 2026-11-20 的 v2。
+      联系人董方力（lidongfang@hit.edu.cn）、胡佰田（baotianhu@slai.edu.cn）。
+      代码：<a href="https://github.com/SLAI-AITP/AscendGYM">SLAI-AITP/AscendGYM</a>。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#takeaway">一句话结论</a></li>
+      <li><a href="#problem">问题：生成榜回答不了“再优化已有实现”</a></li>
+      <li><a href="#tasks">任务怎么从真实负载里抽出来</a></li>
+      <li><a href="#forge">AscendForge 与评测协议</a></li>
+      <li><a href="#metrics">STS 和其他口径</a></li>
+      <li><a href="#results">Batch 1 的主结果怎么读</a></li>
+      <li><a href="#deploy">落地可行性</a></li>
+      <li><a href="#numbers">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="takeaway">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">这不是又一个从 PyTorch 定义冷启动生成 Triton 或 CUDA 的榜，而是针对昇腾 NPU 的<strong>已有实现再优化</strong>基准：每个任务都给出可运行的初始源码，以及从真实训练/推理负载里取出的形状、类型和计算参数。初始套件有 48 个 kernel、分三档难度，但文中系统评估只覆盖 Batch 1 的 17 题。作者报告，约 70% 的被评模型–工具组合几何平均加速低于 1.2×；最大单题加速大约 3.29×（<code>fused_gdn_gating</code>），13 道题上各组合的中位加速仍低于 1.1×。</p>
+    <p>和昨日仓库里已有的 CompoundingKernel、KernelOPT、DRTriton 相比，它把问题从“会不会写核”换成了“面对已经能用的昇腾 C 实现，在真实形状和明确预算下还能不能榨出可复用的改进”，并用 Speedup–Token Score（STS）把成本和来得晚的改进一起算进去。</p>
+  </section>
+
+  <section class="card" id="problem">
+    <h2>2. 问题：生成榜回答不了“再优化已有实现”</h2>
+    <p>KernelBench 评的是按给定 PyTorch 工作负载生成高效 kernel；NPUKernelBench 和 CANN Bench 把类似的生成评测延伸到了昇腾，看编译、正确性和性能。作者要问的是另一件更接近工程现场的事：<strong>已经有一份正确实现时，某个智能体能否在可接受预算内、对目标负载再把它加快，并且保持正确</strong>。</p>
+    <p>同一 kernel 在不同输入配置下，优化重点可以完全不同。例如 attention 在 prefill 和 decoding 处理的数据规模不同，组织计算的方式也会变。FlashInfer-Bench 已经用真实推理轨迹说明了输入配置和应用场景的关系。昇腾上还要协调 host 与 device 的编译、在 NPU 上执行和计时。只报最终加速，分不清“几次就找到改进”和“搜了很久才碰上”。</p>
+  </section>
+
+  <section class="card" id="tasks">
+    <h2>3. 任务怎么从真实负载里抽出来</h2>
+    <p>AscendGYM 把任务分成三批、难度递增：Batch 1 偏基本 kernel 的访存优化，Batch 2 是归一化、量化这类多步计算，Batch 3 针对复杂 attention 和融合（含稀疏 attention）。本报告评的是 Batch 1 的 17 题；Batch 2（17 个）和 Batch 3（14 个）声明留给后续更新。</p>
+    <p>任务来自在 MindSpeed-LLM、vLLM-Ascend 等框架上做的 profiling，优先抽对负载影响大的瓶颈核。每个测试用例保留部署上下文：目标模型、执行阶段、硬件与并行配置，以及由此得到的张量形状、数据类型和计算参数。被评任务的源码来自 CANN 的 ops-nn、ops-transformer 和 vLLM Ascend；任务包会写明源码版本、测试输入和数值比较规则。基线是任务包随附的初始昇腾 C 实现，在评测环境里测得的延迟作为参照，所有加速都相对这份初始实现。</p>
+    <div class="callout navy">文中的例子是 AddRMSNorm：取自 Qwen3-0.6B 推理前向的 residual 加法加 RMS 归一化，prefill、无量化、eager、单卡、TP 1、BF16、batch 1、序列长度 32；branch 输出和 residual 形状都是 [32, 1024]，归一化权重 [1024]。该负载下每次前向调用 56 次，占总计算时间 8.77%，进入累计耗时前五。</div>
+    <p>每个任务提供基线源码、描述输入输出形状的模板元数据、测试输入，以及由对应 CPU 实现生成的参考输出，用来做数值检查和隔离的 kernel 计时。</p>
+  </section>
+
+  <section class="card" id="forge">
+    <h2>4. AscendForge 与评测协议</h2>
+    <p>内置沙箱 AscendForge 建在 SandboxFusion 之上，加上 host 侧注册、device 侧 kernel、目标 SoC 和自定义 kernel 包之间的依赖适配，负责候选编译、Python 接口绑定、正确性检查和性能测量。它分成执行与构建、资源编排、开发反馈、部署运维四层，支持 Ascend C 和 Python NPU 后端，并适配 CANN 算子仓库、自定义 kernel 构建模板和 vLLM Ascend 一类工程。客户端打包源码和测试驱动，调度代理按设备数量、SoC 类型和工作组选 worker；测试驱动先验证正确性再采集性能。编译失败、数值失败和性能回退是分开回报的。</p>
+    <p>模型–工具组合评测用 Claude Code、Codex CLI 和 OpenCode，模型包括 Claude Opus 5、GPT-5.6 Terra、GLM-5.3、Qwen3.5-122B-A10B、Qwen3.6-35B-A3B 和 DeepSeek-V4-Flash。模型评测则固定 Default 工具（文中也称 AuraKernel），在固定工作流下评 GPT-5.6 Luna，并比较 cold、warm、no lessons、code only 四种配置。</p>
+    <p>每次模型–工具组合运行最多 80 次候选评估，提示里有“探索约 50 个实质不同方案”的软目标；失败提交计入预算，基线测量不计。搜索本身没有硬性的总 token 或墙钟上限。搜索结束后，最终实现再做 5 次额外性能测试，不消耗搜索预算，也不反馈给后续优化。正确性按各任务预定测试脚本和数值误差准则；只有通过全部检查的实现才算有效结果。计时协议是 8 轮执行、3 轮预热，对其余轮次的 device 侧 kernel 时间取算术平均，用 msprof 采集。硬件是昇腾 910C（运行时标识 Ascend910_9392），单次评估占用一张 NPU；软件栈包括 CANN 9.0.1、torch_npu 2.10.0.post2、ccec / Clang 15.0.5，设备栈记录日期为 2026-10-21。</p>
+  </section>
+
+  <section class="card" id="metrics">
+    <h2>5. STS 和其他口径</h2>
+    <p>STS 在给定 token 预算 <code>B<sub>max</sub></code> 下，同时看最终加速和每次改进发生时已经花了多少 token：</p>
+    <p>STS = 100 log<sub>2</sub> S<sub>n</sub> − 50 Σ<sub>k</sub> (B<sub>k</sub> / B<sub>max</sub>) Δg<sub>k</sub>，其中 Δg<sub>k</sub> = log<sub>2</sub> S<sub>k</sub> − log<sub>2</sub> S<sub>k−1</sub>。S<sub>k</sub> 是第 k 次评估之后、通过正确性验证的最好加速；找不到改进时保留参照实现，所以 S<sub>0</sub> = 1 且 S<sub>k</sub> ≥ 1。第一项奖励最终加速，第二项惩罚来得晚的改进。没有改进时 STS = 0。文中把每任务预算分成 10M、20M、50M 三档，分别称为紧张、适中和宽松。</p>
+    <p>此外还有 Cost-to-Gain（CTG）：相对某个检查点再提高 1%、5% 或 10% 加速所需的额外 token，达不到记为 +∞；以及 KernelBench 风格的 GM Speedup 和 fast<sub>p</sub>、累计/平均 token、交互轮次、墙钟时间，还有候选通过率和任务通过率。找不到改进时性能指标会保留初始实现，所以必须和任务通过率一起读：通过率高只说明写出了正确候选，不说明真的变快了。</p>
+  </section>
+
+  <section class="card" id="results">
+    <h2>6. Batch 1 的主结果怎么读</h2>
+    <p>约 70% 的被评模型–工具组合几何平均加速低于 1.2×。作者据此认为，在一大片已有实现上取得可观改进仍然困难。不同预算下的 STS 轨迹也不一样：例如 Opus 5 配 Claude Code 和 OpenCode 在 10M token 时 STS 相近，预算加大后 Claude Code 的性能项继续涨，OpenCode 的额外收益更有限。只看搜完全程后的最终加速，会丢掉“在更紧的预算里已经能拿到什么”。</p>
+    <p>CTG 说明“单次改进更便宜”和“覆盖的题目更多”不必同时成立。在 50M token、10% 增益目标下，Opus 5 配 OpenCode 与 Claude Code 在已达成题目上的中位成本分别是 3.8M 和 6.6M token，但前者只在题目子集上达到目标（+10% 为 13/17），后者覆盖全部 17 题。因为达成集合不同，更低的条件中位数不能直接说“同一批题上更省”。</p>
+    <p>Claude Code / Opus 5 和 Codex / GPT-5.6 都让全部 17 题加速，但分别有 7 题和 3 题超过 2×。GPT-5.6 配三种工具都能通过全部任务，几何平均加速却差很多：配 Codex 约 1.69×，配 Claude Code 约 1.05×。正确候选并不能保证可观加速。</p>
+    <p>任务级上，最好的观察加速大约 3.29×（<code>fused_gdn_gating</code>），<code>moe_gating_top_k</code> 只有 1.17×；13 道题上，各支持组合的中位加速仍低于 1.1×。选中的 kernel 可以有明显收益，但多数题–配置组合的改进仍然有限。</p>
+    <p>模型评测里，GPT-5.6 Luna 的 warm 配置在三档预算下 STS 都最高：10M 时性能项已超过 cold，成本扣减更小；预算加到 50M 后 cold 能追回一部分，但 warm 仍更高。code only 在三档预算上都优于 no lessons，两者都低于完整的 cold。Default 配置本身也会改变结果。warm 对 CANN 任务会从其他 kernel 导入 5 条策略经验，但不会继承 cold 已经改过的代码或搜索检查点。</p>
+  </section>
+
+  <section class="card" id="deploy">
+    <h2>7. 落地可行性</h2>
+    <p>如果你已经在用昇腾 910C，并且关心的是“智能体改 CANN / vLLM-Ascend 里现成的昇腾 C 还能不能再快一点”，这套基准比 KernelBench 更贴现场：形状来自真实负载，沙箱按 host/device 的实际构建路径走，还把 token 成本写进分数。代码已公开。</p>
+    <p>要把它当成可以日常决策或直接指导 NVIDIA 侧搜核的通用标尺，现在还早。</p>
+    <ul>
+      <li><strong>评测覆盖不完整。</strong>48 题里只系统报告了 Batch 1 的 17 题，归一化、量化和复杂 attention 还在“后续更新”。不能把 17 题上的 1.2× 结论外推到更难的融合核。</li>
+      <li><strong>加速口径是相对初始昇腾 C，不是相对硬件上限或官方库峰值。</strong>和 SOL-ExecBench 那种对照 <code>t_sol</code> 的读法不同，1.2× 可能离装置上限还很远，也可能已经接近这份初始实现所能改出的空间。文中没有给出与手写极限或官方调优库的对照。</li>
+      <li><strong>平台绑定紧。</strong>计时在 910C + CANN 9.0.1 + torch_npu 上完成。没有 910C 集群就无法复现；结果也不能直接搬到 CUDA / ROCm。</li>
+      <li><strong>预算不小。</strong>STS 分析用到每任务 10M–50M token；搜索最多 80 次候选评估，且搜索阶段没有硬性墙钟上限。复制这张表，先要有能排队编译和上卡计时的昇腾评测服务，而不只是多买 API 额度。</li>
+      <li><strong>STS 是新指标。</strong>公式清楚，也确实能分开“终局加速”和“改进来得晚”，但社区还没有统一采用；横向对比时仍应同时看 GM、fast<sub>p</sub> 和通过率。</li>
+    </ul>
+    <div class="callout">对仓库读者的建议：把它读成“昇腾侧、面向已有实现的、带成本的优化基准”，而不是又一份 KernelBench 的 NPU 移植，更不是可以 <code>pip install</code> 进生产编译器的新后端。和同目录里已有的 CompoundingKernel 等生成/搜索工作是互补的：那些论文在 NVIDIA 上从零搜核，这篇问的是昇腾上还能不能改得更快。</div>
+  </section>
+
+  <section class="card" id="numbers">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>口径</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>任务规模</td><td>48 个 kernel，三档难度</td><td>Batch 1/2/3 为 17 / 17 / 14；本报告只评 Batch 1</td></tr>
+        <tr><td>整体难度</td><td>约 70% 组合 GM &lt; 1.2×</td><td>模型–工具组合，相对初始昇腾 C</td></tr>
+        <tr><td>全覆盖但仍分化</td><td>17/17 题都加速；7 题 vs 3 题 &gt; 2×</td><td>Claude Code / Opus 5 与 Codex / GPT-5.6</td></tr>
+        <tr><td>同模型不同工具</td><td>约 1.69× vs 约 1.05×</td><td>GPT-5.6 配 Codex vs 配 Claude Code；三种工具都能通过全部任务</td></tr>
+        <tr><td>+10% CTG（50M 预算）</td><td>中位 3.8M vs 6.6M token；13/17 vs 17/17</td><td>Opus 5 配 OpenCode vs Claude Code；达成集合不同</td></tr>
+        <tr><td>单题两端</td><td>约 3.29× vs 1.17×；13 题中位 &lt; 1.1×</td><td><code>fused_gdn_gating</code> 与 <code>moe_gating_top_k</code></td></tr>
+        <tr><td>STS 预算分档</td><td>10M / 20M / 50M token</td><td>紧张 / 适中 / 宽松</td></tr>
+        <tr><td>搜索预算</td><td>最多 80 次候选评估，软目标 50 个方案</td><td>失败计入；结束后另做 5 次计时</td></tr>
+        <tr><td>计时</td><td>8 轮，3 轮预热，其余取平均</td><td>msprof，device 侧 kernel 时间</td></tr>
+        <tr><td>硬件软件</td><td>昇腾 910C，CANN 9.0.1</td><td>torch_npu 2.10.0.post2；设备栈记录于 2026-10-21</td></tr>
+      </tbody>
+    </table>
+    <p>本笔记根据 <a href="https://arxiv.org/abs/2611.17621">arXiv:2611.17621v2</a> 原文整理，数字均来自论文，未另行复现实验。</p>
+  </section>
+
+  <footer>AI 编译器跟踪笔记 · AscendGYM · 2026-11-24 · 原文：arXiv:2611.17621v2</footer>
+</div>
+</body>
+</html>

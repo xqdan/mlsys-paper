@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KernelArmor 论文分析 | 在显式契约下为 CUDA 建立内存和线程安全</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.OS · 2026-11-11</span>
+      <span class="badge">arXiv:2611.18754v1</span>
+      <span class="badge">算子生成 · 形式化验证</span>
+      <span class="badge ok">NVIDIA / Stanford</span>
+      <span class="badge warn">得证要读契约；跨 kernel 竞态不在范围内</span>
+    </div>
+    <h1>KernelArmor：测试通过的 CUDA，仍可能在未测到的输入上不安全</h1>
+    <p class="subtitle">用大模型写注解、用扩展后的 VerCors 做 SMT 验证。740 个实例、1,370 个生产级 CUDA kernel 上，11.4% 在给定契约下得证，78.6% 报告带反例的潜在缺陷，10% 无法判定。放进优化回路后，77 条轨迹都能交出已验证的 kernel，几何平均速度是无约束臂的 0.99 倍。</p>
+    <p class="meta">
+      <strong>论文</strong>：Bodhisatwa Chatterjee, Mohamed Tarek Ibn Zaid, Sana Damani, Siva Kumar Sastry Hari, Christos Kozyrakis. <em>KernelArmor: End-to-End Agentic System for Establishing Memory and Thread Safety for CUDA</em>.
+      <a href="https://arxiv.org/abs/2611.18754">arXiv:2611.18754</a>。
+      提交于 2026-11-11。通信作者 Bodhisatwa Chatterjee（NVIDIA，bchatterjee@nvidia.com）。作者单位为 NVIDIA 与 Stanford。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#takeaway">一句话结论</a></li>
+      <li><a href="#problem">问题：动态工具看不到的输入，形式化工具又吃不下现代 CUDA</a></li>
+      <li><a href="#method">做法：注解智能体 + 完整性护栏 + 扩展 VerCors</a></li>
+      <li><a href="#corpus">740 个实例上的验证结果</a></li>
+      <li><a href="#compare">和现有内存 / 竞态工具比什么</a></li>
+      <li><a href="#loop">放进智能体优化回路</a></li>
+      <li><a href="#deploy">落地可行性</a></li>
+      <li><a href="#numbers">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="takeaway">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">KernelArmor 要解决的不是“再写出更快的核”，而是让已经写出来、甚至已经通过测试的 CUDA，在显式契约下获得内存安全和线程安全的证明。它用大模型生成前置条件、后置条件、循环不变式和同步注解，再用扩展后的 VerCors（经 Viper/Silicon 落到 Z3）检查；注解被剥掉之后，源码必须与预处理基线逐字节一致。在 740 个实例（1,370 个 kernel）上，它完全建立安全性质的有 84 个（11.4%），报告潜在发现的有 582 个（78.6%），无法判定 74 个（10%）。每个潜在缺陷都带回能触发它的反例。把验证门放进优化回路后，11 道 KernelBench 题、每题 7 条独立轨迹（共 77 条）全部得到已验证 kernel，几何平均加速是无约束臂的 0.99 倍。</p>
+  </section>
+
+  <section class="card" id="problem">
+    <h2>2. 问题：动态工具看不到的输入，形式化工具又吃不下现代 CUDA</h2>
+    <p>智能体已经能大规模写和改 CUDA，但测试覆盖取决于用过的输入。Compute Sanitizer 一类动态工具可以抓住执行中见到的越界和共享内存冲突，却不能对未跑到的路径给出“没有这类错误”的结论。形式化验证可以覆盖模型允许的全部行为，可是给优化过的 CUDA 写规格、不变式和证明注解成本很高，SMT 证明也不稳定。</p>
+    <p>现有 GPU 验证器往往只支持 CUDA 的一个小子集。专家或智能体写的快路径会用到 warp shuffle、<code>cp.async</code>、内联 PTX、张量核指令。验证器若建模不了这些，就只能拒掉最快的核，或干脆不查。把验证器放进优化回路时，还需要能指到源码里失败的安全义务，并分清三种该采取不同动作的情况：像是缺陷、应当修；证明没完成；以及构造超出了验证器模型。</p>
+    <div class="callout navy">文中的动机例子包括：<code>cache_position = [0,0]</code>、<code>batch = 1</code>、<code>seq_len = max_seq_len = 2</code> 时，不同 block 里对应线程会撞上同一处打包 BF16 cache 项，构成全局内存竞态；以及逻辑视图越界但访问仍落在更大已初始化分配内时，只做分配级边界检查的工具发现不了。</div>
+  </section>
+
+  <section class="card" id="method">
+    <h2>3. 做法：注解智能体 + 完整性护栏 + 扩展 VerCors</h2>
+    <p>流程是：先预处理 CUDA（报告不支持的构造，规范化语法，把支持的内联 PTX 访存降成带显式安全契约的调用）；再由注解智能体根据 VerCors 验证手册做 in-context 学习，提出契约、不变式和同步注解，并在有 host 代码时提取 launch 元数据；剥掉注解注释后与预处理基线做逐字节比对，防止模型在“写注解”时改程序；最后交给 VerCors 检查。失败则用诊断修注解，再过完整性护栏。回路最多 K 轮，结局是三种之一：verified（所需检查都通过）、potential bug（有被验证过的安全证据支持该项发现）、否则 inconclusive。</p>
+    <p>对 VerCors 的 CUDA 前端、内存模型和同步语义做了扩展，覆盖的能力包括：模板与编译期常量特化；<code>cp.async</code> 的未完成拷贝资源（错配 wait 或过早消费会失败）；按 <code>__syncwarp(mask)</code> 限制在参与 lane 内的权限转移；由 launch 字节数推导动态共享内存边界，并把被修改或取地址的参数建成线程局部副本；保留指针算术的字节偏移（BF16 走 1 步是 2 字节，<code>uint4*</code> 走 1 步是 16 字节）；把打包访问降成标量访问但保留对齐要求；检查 block barrier 的参与和所有权转移；以及为支持的 cuBLAS / cuBLASLt / CUTLASS / WMMA / PTX 操作提供类型化安全契约。当前版本假定外部库实现本身是正确的。作者还改了 Silicon 的权限选择与谓词匹配。</p>
+    <p>实现上，扩展后的 VerCors 从源码构建，工作流用 NeMo Agent Toolkit 编排，净增约 20.6 KLOC（不含测试），支持 CUDA 13.1。评测里的注解生成和精化全部使用 GPT-6 Astra。验证跑在一台 16 核 Xeon Gold 6444Y、247 GiB 内存的 Ubuntu 服务器上，这是 CPU 侧证明，不是在 GPU 上跑 kernel。</p>
+  </section>
+
+  <section class="card" id="corpus">
+    <h2>4. 740 个实例上的验证结果</h2>
+    <p>“实例”指一道基准工作负载的一份实现，包含相应 host 代码，并可能有多个 CUDA kernel。三个套件是：SOL-ExecBench 的 64 个实例（46 道题、235 个 kernel）；一份 Optimized CUDA Suite，28 个生产级实现（70 个 kernel），覆盖 attention、归一化、卷积和矩阵运算；以及 KernelBench 的 648 个生成实例（1,065 个 kernel）。</p>
+    <table>
+      <thead>
+        <tr><th>套件</th><th>实例</th><th>得证</th><th>潜在缺陷</th><th>无法判定</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>SOL-ExecBench（L1 / L2 / Quant / FlashInfer）</td><td>64（25 / 20 / 3 / 16）</td><td>11（6 / 2 / 1 / 2）</td><td>39（14 / 14 / 1 / 10）</td><td>14（5 / 4 / 1 / 4）</td></tr>
+        <tr><td>Optimized CUDA</td><td>28</td><td>25</td><td>3</td><td>0</td></tr>
+        <tr><td>KernelBench</td><td>648</td><td>48</td><td>540</td><td>60</td></tr>
+        <tr><td>合计</td><td>740</td><td>84（11.4%）</td><td>582（78.6%）</td><td>74（10.0%）</td></tr>
+      </tbody>
+    </table>
+    <p>生产级手工/优化套件上得证比例很高（25/28），潜在缺陷主要集中在智能体生成的 KernelBench 上。作者写到，这些潜在缺陷也出现在相对简单的工作负载里（82% 在 activation 类）。整数溢出（311，占 53.4%）和未对齐访问（175，占 30.1%）合起来占主要发现的 83.5%，其余是空指针、非法指针构造和内存竞态。一个典型模式是：包装器接受的输入范围，宽于优化实现对齐或 32 位索引算术所假定的范围。例如 MaxPool2D 里 <code>b * C + c</code> 在提升到 64 位之前按 32 位求值，作者给出能溢出的配置 <code>b = 65536, C = 32768, c = 0</code>。矩阵和融合 GEMM 占 KernelBench 无法判定结果的 75%，作者将其部分归到库建模的限制。KernelBench 平均轮次高于 SOL-ExecBench（每实例 5.35 对 3.92），主要被 60 个用尽 12 轮修复预算仍未证明的案例拉高。</p>
+    <p>手册消融只做了随机 6 例、每例 16 轮：有手册 3/6 得证，无手册 2/6；两边都能过的两例里，去掉手册后轮次从 6 增到 12、从 7 增到 8。样本量很小，只能说明手册有帮助，不足以单独支撑“手册是正确性的关键”这种强结论。</p>
+  </section>
+
+  <section class="card" id="compare">
+    <h2>5. 和现有内存 / 竞态工具比什么</h2>
+    <p>在 cuCatch 的内存安全基准上，KernelArmor 报告 56/56（100%）检出；文中引用的对比数字是 Compute Sanitizer 20/56（35.7%）、GMOD 8/56、GPUShield 24/56、cuCatch 40/56（71.4%），后三列部分来自已发表数字。作者还写到，Compute Sanitizer 会漏掉非相邻缓冲区溢出，cuCatch 仍会漏掉分配内越界；KernelArmor 还发现套件中一处使潜在越界变得不可达的问题。</p>
+    <p>在 cuHadron 竞态基准上，必须把范围读清楚。<strong>范围内</strong>指同一次 kernel launch 内的线程之间（含该 kernel 发出的异步拷贝）：KernelArmor 为 14/14，SuperCollider 13/14，Compute Sanitizer 9/14，iGUARD 1/14。<strong>范围外</strong>是另一 kernel、host 发起的拷贝、另一块 GPU 或 CPU：KernelArmor 对这类竞态是 0/9，但在其中 3 个测试里另外标出了有符号整数溢出；SuperCollider 是 7/9。全套 23 个有竞态测试上，KernelArmor 的覆盖是 14/23（61%，另加 3 个非竞态内存问题），四种无竞态对照上没有误报（0/4）。和动态工具比，它做的是静态分析，不靠跑起来观察竞态，但也因此吃不到跨 launch / 跨设备的交互。ProofWright 在作者扩展后的语料上对 1,370 个 kernel 的支持率为 0%，因为超出了其验证范围。</p>
+  </section>
+
+  <section class="card" id="loop">
+    <h2>6. 放进智能体优化回路</h2>
+    <p>回路设定是：Claude Opus 4.8 把 PyTorch 算子换成 CUDA 并优化 8 轮。11 道 KernelBench 题，每题每臂 7 条从零开始的独立轨迹，共 77 条，每条 6 小时预算。Kernel 跑在 NVIDIA A40（48 GB，驱动 590.48.01，CUDA 13.1），时钟锁定 1410 MHz。无约束臂保留最快的正确核；门控臂里，每个将要成为新最优的正确候选必须先通过 KernelArmor，智能体收到失败义务和源码位置、无法完成证明、或不支持构造的说明。门控提示要求核在 host 包装器接受的每个输入上都安全。用回路内计时挑选每条轨迹的最好核，再在单独的基准运行中报告相对 PyTorch 参照的加速。</p>
+    <p>77 条轨迹上门控臂的几何平均加速是无约束臂的 0.99 倍，且每个被接受的门控核都已验证。无约束臂最终核被验证通过的只有 12/77 条，集中在 ReLU、GELU 和一条 Gemm+GroupNorm+Hardtanh。事后过滤行不通：对无约束臂的产物再做验证，只有 31/77 条还留得下一个核，而且常常是偏早、偏慢的版本——cumsum 是 0.16×，LayerNorm 是 1.74×，而在回路里分别到了 8.3× 量级。文中观察到的修复（64 位或有界的上取整除法、未对齐 <code>float4</code> 视图的标量回退、输入输出重叠检查）没有测到可感知的速度损失。一个具体例子是：一个 6.4× 的 Gemm+GroupNorm+Hardtanh 核因 <code>B * G</code> 在 <code>B = 227</code> 时发生有符号整数溢出被拒，下一轮仍保持基于 cuBLAS 的设计并通过验证。</p>
+    <p>门控不是免费的。77 条里有 13 条曾拒绝过比最终核还快 1% 以上的候选：7 条是 inconclusive，4 条是潜在缺陷，2 条是不支持的库配置。单次 KernelArmor 运行的中位时间是若干分钟；门控轨迹中位数有 1.45 小时花在 KernelArmor 上，最多 5.3 小时。341 次验证运行中：243 次得证，63 次潜在缺陷，28 次无法判定，5 次不支持，2 次出错。平均成本按 GPT-6 Astra 标准 API 定价估算，约为每实例 29 万 token / 3.58 美元，每 kernel 18.3 万 token / 2.26 美元。</p>
+  </section>
+
+  <section class="card" id="deploy">
+    <h2>7. 落地可行性</h2>
+    <p>如果你已经在用智能体搜 CUDA，并且担心“基准形状上测过、换个更大或未对齐的输入就炸”，KernelArmor 是目前公开文献里少有的、真正把门放进优化回路、还能几乎保住速度的系统。生产级 28 个实例里 25 个得证，也说明它不是只能在玩具核上工作。cuCatch 全中、范围内 cuHadron 全中，对动态工具做了有意义的补充。</p>
+    <p>要把它当成发布前的必过闸门，仍有几条硬限制，作者的口径本身也比较克制。</p>
+    <ul>
+      <li><strong>得证是有条件的。</strong>表里的 Verified 带星号，含义是在给定的 kernel / 库前置条件下成立。库契约假定外部实现正确；安全保证随着建模假设走，不是对真实 GPU 上全部行为的无条件证明，更不包含数值等价。</li>
+      <li><strong>大量“潜在缺陷”是包装器输入空间上的溢出和对齐问题，不一定会在基准形状上触发。</strong>582 个发现带反例，但优化回路一节写得很清楚：其中一些在基准形状上根本不会触发，测试那些形状暴露不了它们。把 78.6% 读成“八成已发布的核都是现场必现的 bug”会过激；更准确的说法是：许多快路径对包装器声称接受的输入并不安全。</li>
+      <li><strong>范围外的竞态查不到。</strong>跨 kernel、host 异步拷贝、多 GPU、CPU–GPU 统一内存上的竞态是 0/9。需要这类覆盖时，仍要靠 SuperCollider 一类动态工具。</li>
+      <li><strong>无法判定会挡住更快的核。</strong>13 条轨迹里有 7 条是因为 inconclusive 拒掉了更快候选。矩阵 / 融合 GEMM 占 KernelBench 无法判定的 75%。证明失败不等于程序有错。</li>
+      <li><strong>成本和工具链不轻。</strong>中位每个门控轨迹 1.45 小时花在验证上；还依赖扩展后的 VerCors、CUDA 13.1 和 GPT-6 Astra。手册消融只有 6 例。论文给出了 VerCors 上游仓库，但未在摘要里提供一个可直接 <code>pip install</code> 的 KernelArmor 发行。</li>
+    </ul>
+    <div class="callout">对仓库读者的建议：把它读成“搜核回路里的安全门 + 现代 CUDA 子集上的分离逻辑验证”，而不是功能正确性证明，也不是可以替代 Compute Sanitizer 做全集覆盖的动态检测。和同目录里 CompoundingKernel 等“把测量做可靠”的工作是同一条线上的互补：一边防奖励黑客和计时偏差，一边防测试覆盖之外的内存 / 并发洞。</div>
+  </section>
+
+  <section class="card" id="numbers">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>口径</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>语料</td><td>740 实例，1,370 个 kernel</td><td>SOL-ExecBench 64 + Optimized CUDA 28 + KernelBench 648</td></tr>
+        <tr><td>总体结局</td><td>84 得证 / 582 潜在缺陷 / 74 无法判定</td><td>11.4% / 78.6% / 10.0%；得证带给定前置条件</td></tr>
+        <tr><td>生产级套件</td><td>25/28 得证，3 个潜在缺陷</td><td>Optimized CUDA</td></tr>
+        <tr><td>主要缺陷类型</td><td>溢出 311（53.4%），未对齐 175（30.1%）</td><td>占 582 个主要发现的 83.5%</td></tr>
+        <tr><td>cuCatch 内存安全</td><td>56/56（100%）</td><td>对照 cuCatch 40/56、Sanitizer 20/56（部分为引用数字）</td></tr>
+        <tr><td>cuHadron 范围内竞态</td><td>14/14</td><td>范围外 0/9（另标出 3 个溢出）；全集 14/23</td></tr>
+        <tr><td>优化回路</td><td>77/77 条轨迹得到已验证核；速度 0.99×</td><td>相对无约束臂几何平均；无约束臂仅 12/77 最终核得证</td></tr>
+        <tr><td>事后过滤</td><td>31/77 仍留有核，且往往更慢</td><td>cumsum 0.16×，LayerNorm 1.74×，对回路内约 8.3×</td></tr>
+        <tr><td>验证开销</td><td>中位每条门控轨迹 1.45 小时（最多 5.3 小时）</td><td>341 次运行：243 / 63 / 28 / 5 / 2</td></tr>
+        <tr><td>估算 API 成本</td><td>约 $3.58 / 实例，$2.26 / kernel</td><td>GPT-6 Astra 标准定价；约 29 万 / 18.3 万 token</td></tr>
+        <tr><td>实现规模</td><td>约 20.6 KLOC 净增，CUDA 13.1</td><td>注解模型为 GPT-6 Astra；回路实验用 Claude Opus 4.8、A40</td></tr>
+      </tbody>
+    </table>
+    <p>本笔记根据 <a href="https://arxiv.org/abs/2611.18754">arXiv:2611.18754v1</a> 原文整理，数字均来自论文，未另行复现实验。</p>
+  </section>
+
+  <footer>AI 编译器跟踪笔记 · KernelArmor · 2026-11-24 · 原文：arXiv:2611.18754v1</footer>
+</div>
+</body>
+</html>
