@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TideCache 论文分析 | 在超级芯片上透明管理混合模型的异构 Cache</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.DC · 2026-11-19</span>
+      <span class="badge">arXiv:2611.26619v1</span>
+      <span class="badge">LLM 推理 · 混合架构 Cache</span>
+      <span class="badge ok">MIT × ETH Zurich × UCSD</span>
+      <span class="badge ok">做在 SGLang 上，实测 GB300 / GH200</span>
+      <span class="badge warn">未见代码仓库；两个大模型只用了部分层</span>
+    </div>
+    <h1>TideCache：让混合模型的异构 Cache 透明地共享 HBM，并按层流式加载</h1>
+    <p class="subtitle">TideCache: Efficient Hybrid LLM Serving with Transparent Cache Management and Layer-Wise Streaming</p>
+    <p class="meta">
+      <strong>作者：</strong>Jinbin Luo、Xiaozhe Yao、Shang Yang、Zhijian Liu、Song Han、Qinghao Hu。单位为 Massachusetts Institute of Technology、ETH Zurich、University of California, San Diego。<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.26619" target="_blank" rel="noopener">arXiv:2611.26619</a>
+      · <a href="https://arxiv.org/pdf/2611.26619" target="_blank" rel="noopener">PDF</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：异构 Cache 抢同一块 HBM</a></li>
+      <li><a href="#s3">两个机会</a></li>
+      <li><a href="#s4">三个组件</a></li>
+      <li><a href="#s5">怎么接到 SGLang</a></li>
+      <li><a href="#s6">实验怎么做的</a></li>
+      <li><a href="#s7">结果怎么读</a></li>
+      <li><a href="#s8">落地可行性</a></li>
+      <li><a href="#s9">局限：这些倍数依赖什么假设</a></li>
+      <li><a href="#s10">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">混合架构已经是开源权重模型的主流：每隔几层才有一次全局注意力，其余是滑窗或循环层。这两类层的 Cache 一个跟上下文一起涨，一个按请求固定，却挤在同一块 GPU 显存里。TideCache 做在 SGLang 上，不改注意力后端和 CUDA Graph 的地址接口，用三个组件把这件事管起来：Transparent Cache Pool 在固定虚地址背后重分物理页；Cache Streamer 利用有界状态层的计算空隙，把下一层全局注意力的历史前缀流进跨层共享的 GPU 槽；Request Scheduler 决定请求走常驻还是流式，并在入队失败时触发扩容。新生成的 KV 始终留在 GPU。对照是调过分割比的 SGLang + HiCache。</p>
+    <div class="kpi">
+      <div><div class="n">2.04× / 1.44×</div><div class="k">GH200 / GB300 上相对 SGLang + HiCache（Tuned）最多完成的 agent turns</div></div>
+      <div><div class="n">20–59%</div><div class="k">七个配置上整体 P50 per-token latency 的下降幅度</div></div>
+      <div><div class="n">1.40–3.05×</div><div class="k">agent 会话的 P50 TTFT 改善</div></div>
+      <div><div class="n">≤6.3%</div><div class="k">同等 batch 下 decode-step 相对 HiCache 的额外时延</div></div>
+    </div>
+    <div class="callout warn">摘要里的三个倍数就是 Figure 9 相对「SGLang w/ HiCache (Tuned)」的范围，不是另一组实验。20–59% 的时延下降，对应的是柱上 1.26–2.43× 的 P50 per-token 加速（即 1−1/加速比）。2.04× turns 来自 GH200 上的 GPT-OSS-120B；同一张图里，GB300 上 Qwen3.8-2.4T 的 turns/s 只有 1.08×，P50 TTFT 才是范围下沿的 1.40×。Kimi K3 和 Qwen3.8-2.4T 分别只用了前 48 和 36 层以装进 HBM。论文未给出代码仓库。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：异构 Cache 抢同一块 HBM</h2>
+    <p>Kimi K3、Ring-2.6、GLM-5.3-Flash、Qwen3.8、GPT-OSS 这类模型，把全局注意力层（full、DSA、QSA 或 MLA / GQA）稀疏地插在有界状态层之间。全局层的 KV 随上下文增长；滑窗、Gated DeltaNet、Kimi Delta Attention、Lightning linear attention 等有界状态层按请求占用固定大小。论文把后者统称为 bounded-state layers，并把三类数据都叫做 cache component：global-KV、window KV 和 recurrent state。</p>
+    <p>一个具体量级：Ring-2.6-1T 在 TP4、BF16 cache 下，67K 上下文的全局 KV 大约每 GPU 0.72 GiB，而一个循环状态槽只有 35 MiB。评测用的 SGLang 配置为每个在跑请求预留 5 个状态槽（175 MiB，即 0.17 GiB），与上下文长度无关。聊天、数据标注偏向高并发、状态槽先见底；编码 agent、文档分析偏向长上下文，全局 KV 先见底。论文强调，这是需求模式，不是固定的应用分类，单靠应用标签判断不了谁在限制容量。</p>
+    <p>现有系统的两条路都只覆盖了一半。静态分割会让一个池用满、另一个闲置。SGLang 的 Unified Memory Pool 和 vLLM 的 Hybrid KV Cache Manager 能动态共享，但往往要把池的布局或分组暴露给注意力后端、页表或 KV 传输连接器。另一条路是卸载：HiCache 在两个 turn 之间把可复用前缀放到 host，下一 turn 再整段还原，但还原后的前缀在整个 turn 期间都占着 GPU；HiSparse、FlexGen、Pie 等则没有对准混合模型「只有全局层需要随上下文增长的历史 KV」这一访问规律。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 两个机会</h2>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>机会 1：分割闲置</h4>
+        <p>在 SGLang 默认分割（state : global-KV = 0.9）下，Ring-2.6-1T 单卡的状态池把并发上限钉在 61，即使全局 KV 大部分空着；反过来，每请求 64K token 时全局 KV 只装得下 17 个请求，状态池又大量闲置。换分割只是移动这两条边界，不能增加 GPU 的总 cache 预算。混合负载下需求还会随到达率漂移，为一种配比调好的分割会变成另一种配比的瓶颈。</p>
+      </div>
+      <div class="tile">
+        <h4>机会 2：Decode 期间闲着的 CPU–GPU 链路</h4>
+        <p>HiCache 在 turn 之间用 host：下一 turn 入队前把前缀整段还原，随后一直常驻。Decode 占了 turn 的大部分时间，这时 host-to-device 链路几乎空着。论文测到一块 GB300 GPU 读 pinned host memory 为 211 GB/s；按 Section 5 的负载，Ring-2.6-1T 一个 57 ms 的 decode step 按这个带宽大约能搬 12 GB。混合模型只有全局注意力层读历史前缀：Ring-2.6 的两层全局注意力之间有 7 层有界状态计算，正好用来搬下一层、丢掉上一层。</p>
+      </div>
+    </div>
+    <p>Table 1 给出这条链路的世代变化：A100 上 PCIe 4.0 ×16 为 64 GB/s，H100 的 PCIe 5.0 ×16 为 128 GB/s，GH200 / GB300 的 NVLink-C2C 为 900 GB/s（相对 A100 的 14×），VR300 为 1,800 GB/s。注释写明：PCIe 数字是每 GPU 一条 ×16，NVLink-C2C 是每个 Grace 超级芯片一条接口，GB300 超级芯片上由两块 GPU 共享。TideCache 的设计假设就建立在这条高带宽链路上，而不是普通 PCIe 服务器。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 三个组件</h2>
+    <p>三个组件共用一个约束：每个 cache 组件的虚地址保持固定。注意力后端、页表、CUDA Graph 和 HiCache 仍按原来的方式寻址；TideCache 只改变某个地址背后的物理页，以及某一步里这个地址上出现的是哪一段 host 行。</p>
+    <div class="fig">
+      <svg viewBox="0 0 860 230" role="img" aria-label="TideCache 三个组件">
+        <rect x="16" y="18" width="250" height="194" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="141" y="46" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">Request Scheduler</text>
+        <text x="141" y="76" text-anchor="middle" font-size="12">看队头请求的状态槽、</text>
+        <text x="141" y="98" text-anchor="middle" font-size="12">未缓存 KV 和 host 前缀</text>
+        <text x="141" y="128" text-anchor="middle" font-size="12" fill="#57534e">常驻 / 流式 / 跳过</text>
+        <text x="141" y="154" text-anchor="middle" font-size="12" fill="#57534e">或通知 TCP 扩容</text>
+        <text x="141" y="186" text-anchor="middle" font-size="12" fill="#9a3412">Algorithm 1</text>
+        <rect x="305" y="18" width="250" height="194" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="430" y="46" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">Transparent Cache Pool</text>
+        <text x="430" y="76" text-anchor="middle" font-size="12">2 MiB 页的物理 arena</text>
+        <text x="430" y="98" text-anchor="middle" font-size="12">子池虚地址不变</text>
+        <text x="430" y="128" text-anchor="middle" font-size="12" fill="#57534e">空闲页 → 闲置行 → 冷前缀</text>
+        <text x="430" y="154" text-anchor="middle" font-size="12" fill="#57534e">每 8 步至多一次搬移</text>
+        <text x="430" y="186" text-anchor="middle" font-size="12" fill="#0f766e">CUDA 虚拟内存 API</text>
+        <rect x="594" y="18" width="250" height="194" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="719" y="46" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">Cache Streamer</text>
+        <text x="719" y="76" text-anchor="middle" font-size="12">L 层虚范围别名到 M=2 槽</text>
+        <text x="719" y="98" text-anchor="middle" font-size="12">只流式历史前缀</text>
+        <text x="719" y="128" text-anchor="middle" font-size="12" fill="#57534e">双缓冲与有界层计算重叠</text>
+        <text x="719" y="154" text-anchor="middle" font-size="12" fill="#57534e">Graph-Compatible Handshake</text>
+        <text x="719" y="186" text-anchor="middle" font-size="12" fill="#1e3a5f">生成 KV 始终常驻</text>
+      </svg>
+    </div>
+    <p class="figcap">根据第 4 节结构重画的示意，不是原文插图。</p>
+
+    <h3>4.1 Transparent Cache Pool</h3>
+    <p>每个 cache 组件是一个子池：虚地址范围预先留得比任何物理份额都大，张量铺在整段预留上，分配器只用已经映射了物理页的行。扩容是把 arena 里的页映射进接收方的虚范围；缩容是取消映射当前没有活跃请求使用的页。活数据不搬，虚地址不变，行号仍按 SGLang 的 index 寻址。</p>
+    <p>物理 arena 一次用 CUDA 虚拟内存 API 按 2 MiB 页分配。重平衡以 E = 8 次 forward 为一个 epoch，同时最多一次搬移在途：调度线程规划接收方、数量和捐出方，并把捐出行从分配器空闲表里摘掉（在用的行不动）；step fence 等到 park 之前发出的 forward 全部结束；工作线程再调用 <code>cuMemUnmap</code> / <code>cuMemMap</code> / <code>cuMemSetAccess</code>。这些驱动调用不等 GPU，只碰当前 batch 不会用到的内存，forward 可以继续。每个 epoch 先 all-reduce 一个 busy flag，保证各 rank 在同一次 forward 之前应用同一次搬移、组成相同的 batch。</p>
+    <p>策略是失败驱动。队头请求因某个子池不够而进不去时，该子池成为接收方，页按回收成本从低到高取：(1) 尚未分给任何子池的空闲页；(2) 其他子池未使用行上的闲置容量；(3) 超过 τ 秒未访问的冷前缀。用尽一层才进入下一层。若不必驱逐，扩容规模按等待队列长度放大（上限为 k），避免一次多 epoch 搬移只放进一个请求；若必须驱逐，则只按队头请求的需要扩，以免丢掉过多缓存。热前缀不用来捐页。入队失败之前，TCP 也可以在其他子池的闲置或冷缓存里先小步扩张快空的子池。τ 和 k 的数值，原文未给出。</p>
+
+    <h3>4.2 Cache Streamer</h3>
+    <p>不能把每个请求的全部上下文在每一步都搬一遍。论文用 GPT-OSS-120B 的消融做反例：GH200 上 29 个请求、每条 8K 上下文，BF16 全局 KV 在 18 层上共 8.76 GB；按 400 GB/s 整批搬运要 21.9 ms，超过了选择性流式时测到的 19.7 ms decode step。所以 Streamer 只对流式子集工作，其余请求保持常驻。</p>
+    <p>全局 KV 子池被分成常驻区和流式区，但仍走原来的逐层张量接口。常驻区每层有独立物理页，由 TCP 管理，放无需流式的前缀，以及<strong>所有</strong>请求新生成的 KV。只有已经在 host 上的历史前缀才被流式搬运；生成 KV 在 turn 结束时由 HiCache 备份。启动时，L 个全局注意力层的流式虚范围被映射到 M = 2 个物理槽，第 ℓ 层用槽 (ℓ−1) mod M。一条流式前缀在 GPU 上只占满层足迹的 M/L；槽的容量按公式 (1) 在启动时定好，别名映射运行中不变。双缓冲用一条 H2D 流填一个槽、GPU 读另一个槽，有界状态计算和全局注意力一起用来隐藏传输。</p>
+    <p>难点是：被流式的前缀，其 host 地址、目的行和长度每一步都可能变，而 CUDA Graph 捕获的是固定操作和依赖。论文比较了三种做法：Graph Segmentation 能做选择性拷贝，但反复启动 graph、在 host 上协调，容易露出提交气泡；Fixed-Range Transfer 把固定 host 范围的拷贝编进完整 decode graph，发射开销低，却会搬走未激活行和未用容量，浪费链路。他们采用 Graph-Compatible Handshake：回放前把本批流式前缀排进连续槽行、更新页表、把相邻 host 行合并成拷贝 run（只改元数据，不再做一次 KV 中转），再用 <code>cudaMemcpyBatchAsync</code> 在 H2D 流上直接从 host cache 拷进槽。槽的占用用两个持久 flag（Free / Ready）在拷贝流和图内小 kernel 之间握手，每个辅助 kernel 只用一个 warp，并编进同一张 decode graph。Host 先提交每个槽的第一次传输，启动完整 graph，再提交其余传输——地址和长度可以变，graph 节点和 flag 地址保持固定。</p>
+    <p>有效容量受每步能藏住的传输量约束。公式 (1) 给出隐藏上界 C 和相对增益 r = C(1−M/L)/D，D 是同样 GPU 预算下全常驻池的行数。GPT-OSS-120B 消融里，L = 18，b = 2 KiB，M = 2，D = 147,648；用 T = 13.16 ms、BW = 400 GB/s、η = 0.9 标定，得到 C ≈ 128.5K、约 77% 的容量增益。配置上是 126,976 行流式加上 133,056 行常驻，按页对齐后为 260,032 tokens，即原来的 1.76×。这是聚合带宽上界，各层仍需赶上自己的 deadline。多出来的容量只服务 host 上的历史前缀，新生成 KV 仍然常驻。</p>
+
+    <h3>4.3 Request Scheduler</h3>
+    <p>调度器只看 SGLang 等待队列的队头。对请求 r，它考虑状态槽 n<sub>s</sub>、未缓存的全局 KV 行 n<sub>f</sub>，以及 host 已缓存前缀长度 h。常驻 turn 占用 n<sub>f</sub>+h 行常驻区；流式 turn 把 n<sub>f</sub> 行留在常驻区、用 h 行流式槽，每层每步传输 h·b 字节，且流式行总数不得超过 C。Algorithm 1 的顺序是：状态槽不够就扩状态子池并返回；若前缀足够长（h ≥ h<sub>min</sub>）且常驻区在压力下放不下这条前缀，则能进槽就按流式入队，槽已满但 h 仍不超过 C 就跳过该请求、让需要其他资源的请求先走；否则尝试常驻入队，常驻区也不够就扩全局 KV 子池。Pressure 用各 rank 都能观察到的计数滑动平均，把等待请求的需求、N 个在跑请求在平均输出长度上的 decode 增长，以及这一 turn 期间的到达量加在一起。h<sub>min</sub> 的数值，原文未给出。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 怎么接到 SGLang</h2>
+    <p>TideCache 加了大约 9K 行，主要在一个 memory-pool 包里，替换的是内存池层，radix cache 和 HiCache 都继承下来。它支持 multi-head、latent 和 sparse-indexed 的全局注意力，以及滑窗 cache 与循环状态，同时保留注意力后端和 CUDA Graph runner。引言和实现部分都写了「without model-specific kernel changes」。这不是说数据路径上零新增：Streamer 在 graph 里加了单 warp 的握手 kernel，并在回放前改页表、提交动态拷贝。改的是槽位协调，不是注意力 kernel 本身，也不是 cache 的虚地址布局。</p>
+    <p>这一点是相对 UMP 和 vLLM Hybrid KV Cache Manager 的核心主张。Table 2 的勾叉是：三者都有 Dynamic Sharing；Copy-Free Repartitioning 上 UMP 为叉、后两者为勾；Transparency 和 Streaming Compatibility 只有 TideCache 为勾。脚注写明，对照代码审计于 SGLang revision <code>25ce8063</code>（也是评测基线）和 vLLM revision <code>94a29d3</code>。在这一版 SGLang 里，UMP 默认关闭，需要 <code>--enable-unified-memory</code>；它从一块原始 <code>uint8</code> buffer 的两端分配全局 KV 和有界状态，按 page envelope 打包，回收碎片时可能拷贝活数据并更新地址映射，而且<strong>拒绝 HiCache 和 LMCache</strong>——host 池不会初始化，host offload 也缺少 logical-to-physical 槽翻译。vLLM 的管理器按统一页大小在 cache group 之间共享、不必搬活块，但 KV-transfer connector 需要实现 <code>SupportsHMA</code>。TCP 把重分割限制在物理页映射上，因此可以一边动态切分，一边继续用原来的逐层张量和 HiCache，并原生支持流式区的别名映射。</p>
+    <div class="callout teal">「不改后端接口」和「不用改 SGLang 就能用」不是一回事。系统是写进 SGLang 的，约 9K 行；论文没有把 TideCache 接到 vLLM，也没有给出仓库或上游 PR。</div>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验怎么做的</h2>
+    <p>评测在两种 NVIDIA CPU–GPU 超级芯片上，共七个模型/平台配置（Table 3）。GB300 节点是四块 288 GB HBM3e 的 GB300 GPU（NVLink 互连），两颗 72 核 Grace CPU、960 GB LPDDR5X；每块 GPU 经 NVLink-C2C 读 host 的实测值为 211 GB/s。四卡并发读时每卡 182–192 GB/s。GH200 是一颗 72 核 Grace（480 GB LPDDR5X）配一块 96 GB HBM3 的 H100。SGLang 的 memory fraction 保持常规部署取值（0.80–0.95）。</p>
+    <table>
+      <thead><tr><th>模型</th><th>混合结构</th><th>TP</th><th>平台</th><th>需要一起读的设定</th></tr></thead>
+      <tbody>
+        <tr><td>Kimi K3（48L）</td><td>MLA : KDA = 1 : 3</td><td>4</td><td>GB300</td><td>只用前 48 层以装进 HBM</td></tr>
+        <tr><td>Ring-2.6-1T</td><td>MLA : LA = 1 : 7</td><td>4</td><td>GB300</td><td>完整配置，原文未写截层</td></tr>
+        <tr><td>GLM-5.3-Flash</td><td>DSA : KDA = 11 : 34</td><td>1</td><td>GB300</td><td>同模型在 GH200 上是 TP4</td></tr>
+        <tr><td>Qwen3.8-2.4T（36L）</td><td>GQA : GDN = 1 : 3</td><td>4</td><td>GB300</td><td>只用前 36 层</td></tr>
+        <tr><td>GLM-5.3-Flash</td><td>DSA : KDA = 11 : 34</td><td>4</td><td>GH200</td><td>96 GB HBM，比 GB300 更紧</td></tr>
+        <tr><td>Qwen3.8-27B</td><td>GQA : GDN = 1 : 3</td><td>1</td><td>GH200</td><td>也用于负载切换实验</td></tr>
+        <tr><td>GPT-OSS-120B</td><td>GQA : SWA = 1 : 1</td><td>1</td><td>GH200</td><td>开销与容量消融用 8K 上下文</td></tr>
+      </tbody>
+    </table>
+    <p>负载是 ShareGPT 与 SemiAnalysis 发布的多轮 Claude Code traces 的合成混合。前者平均 896–1152 个输入 token、703 个输出 token，开环泊松到达；后者上下文 40K–110K token、8–28 个 turn，闭环回放，保留工具间隔并把输出喂给后续 turn。两条来源共用一个 FCFS 队列，不向调度器提供应用标签或优先级。配置标记为「req/s × sessions」。预热在 GB300 上是 360 s，在 GH200 上至少 600 s；测量窗 600 s，负载切换实验为 900 s。</p>
+    <p>指标要按定义读。Turns/s 是窗内完成的 agent 会话 turn 数除以窗长，只描述 agent。P50 per-token latency 是窗内<strong>提交的全部请求</strong>（含聊天类）上，端到端时延除以实际输出 token 数的中位数。P50 TTFT 只统计会话请求从提交到首 token。两种时延都包含 prefill 和排队，并计入测量窗结束后、属于该提交队列的完成。</p>
+    <p>主对比的两个基线都使用各自「测过的最好分割比」。主实验每个配置只取一个负载点，条件是会话前缀已经超出常驻全局 KV 容量，也就是显存已经被撑住的场景。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 结果怎么读</h2>
+    <h3>7.1 摘要倍数来自 Figure 9，跨度很大</h3>
+    <p>没有 HiCache 时，反复 prefilling 前缀会占满 GPU、拖住后续请求。HiCache 避免了大部分重算，但还原后的前缀在整个 turn 里常驻，并发会话数仍然被卡住。TideCache 的主张是：把全局注意力层之间的 GPU 行复用掉，把腾出来的 HBM 交给状态槽和其他请求。下表是 Figure 9 柱上的标注，全部归一化到 SGLang w/ HiCache (Tuned)，越高越好。</p>
+    <table>
+      <thead><tr><th>平台</th><th>模型</th><th>P50 latency/token</th><th>Turns/s</th><th>Agent P50 TTFT</th></tr></thead>
+      <tbody>
+        <tr><td>GH200</td><td>GLM-5.3-Flash</td><td>2.43×</td><td>1.82×</td><td>3.05×</td></tr>
+        <tr><td>GH200</td><td>Qwen3.8-27B</td><td>1.78×</td><td>1.31×</td><td>2.16×</td></tr>
+        <tr><td>GH200</td><td>GPT-OSS-120B</td><td>2.29×</td><td>2.04×</td><td>3.01×</td></tr>
+        <tr><td>GB300</td><td>Kimi K3（48L）</td><td>1.42×</td><td>1.40×</td><td>2.83×</td></tr>
+        <tr><td>GB300</td><td>Ring-2.6-1T</td><td>1.26×</td><td>1.44×</td><td>2.34×</td></tr>
+        <tr><td>GB300</td><td>GLM-5.3-Flash</td><td>1.54×</td><td>1.21×</td><td>1.50×</td></tr>
+        <tr><td>GB300</td><td>Qwen3.8-2.4T（36L）</td><td>1.30×</td><td>1.08×</td><td>1.40×</td></tr>
+      </tbody>
+    </table>
+    <p>三个摘要数字都能对上：turns 的上沿是 GH200 上 GPT-OSS-120B 的 2.04×，GB300 上沿是 Ring-2.6-1T 的 1.44×，论文自己把这个差别解释为「HBM 留给全局 KV 越少，容量收益越大」。P50 per-token 加速从 1.26× 到 2.43×，换算成下降幅度就是 20–59%。TTFT 从 1.40× 到 3.05×。站得住的读法是：这是内存压力场景下、相对已经调过分割的 HiCache 的端到端收益，不是「任意负载都快一倍」。</p>
+    <p>跨度本身也是结果。Qwen3.8-2.4T 在四卡 GB300、288 GB HBM3e 上 turns 只多 8%，是七个点里最弱的；同一配置 TTFT 仍有 1.40×，说明收益更多走在排队和首 token，而不是完成更多 turn。GH200 上三个点的 turns 和 TTFT 都明显更大，和「96 GB HBM 更紧」的解释一致。不要用 2.04× 代表 GB300，也不要用 1.08× 否定 TTFT 侧的改善。</p>
+    <p>同一张图里，未开 HiCache 的 SGLang（Tuned）大多只有 HiCache 的 0.3–0.6×。HiCache 已经做了大部分「避免重算」的工作；TideCache 多出来的是常驻前缀所占用的 GPU 容量。</p>
+
+    <h3>7.2 负载切换：TCP 和 Streamer 可以分开看</h3>
+    <p>Figure 10 在 GH200 上跑 Qwen3.8-27B，900 s 预热后再测 900 s，三个 300 s 阶段把独立请求到达率从 0.05 升到 1.6 req/s 再降回 0.05。爆发前后有十个 agent worker 回放十个会话，爆发期间新的 agent turn 暂停、在途请求继续跑。静态基线固定 state : global-KV = 1.0；两个 TideCache 变体从 0.6 起步、在线调整。</p>
+    <p>四个系统完成的 agent turns 分别是 57、115、174、183（SGLang、SGLang w/ HiCache、TideCache 无流式、完整 TideCache）。相对 HiCache，完整系统多完成 59% 的 turn，整体 P50 per-token latency 从 63.4 ms 降到 39.3 ms（38%），agent P50 TTFT 从 25.70 s 降到 5.68 s（78%）。引言里那句「切换负载上多 59% turns、TTFT 降 78%」就是这个实验，不是 Figure 9 的七配置范围。</p>
+    <p>时间线比倍数更有说服力。爆发期间 TCP 把有界状态分配从约 5.6 GiB 扩到 17.6 GiB，爆发结束后回到约 6.0 GiB，大约一半的 GPU cache 预算换了主人。静态基线打到原生的 32 个在跑上限；HiCache 的爆发队列峰值是 74，TideCache 是 15。相对无流式变体，加 Streamer 只把完成 turn 从 174 提到 183，但把 agent P50 TTFT 从 8.13 s 降到 5.68 s（再降 30%）。也就是说，这块实验里 TCP 贡献了大部分吞吐，Streamer 更多写在会话的等待时间上。</p>
+
+    <h3>7.3 消融</h3>
+    <p>单独看 TCP 时，关闭 host 缓存和按层流式，只和固定分割以及 UMP 比。因为评测所用修订里 UMP 还接不上 HiCache，这个对比是 GPU-only。Kimi K3 的大/小固定比约 1.3 / 0.26，GLM-5.3-Flash 约 2.8 / 0.85；TCP 每模型从一个起点在线适应。六个点上，它达到更好的那个固定分割的 96.3–113.6% turns/s，不必按混合比再调。Figure 11 柱上 TideCache 标注约为 0.98 / 1.14 / 1.02（Kimi，负载 0.5×14、1.0×10、1.5×6）和 0.96 / 1.01 / 1.01（GLM，0.5×40、1.0×16、2.0×8）；正文区间与柱上四舍五入不完全一致，应以正文 96.3–113.6% 为准。Kimi 上它与 UMP 持平，turns/s 高 0–3.7%。GLM 的 DSA 后端不被 UMP revision <code>25ce8063</code> 支持，图上为 N/A；TCP 能用已有布局跑起来。这更像「在不改接口的前提下追上 UMP」，而不是全面超过 UMP。</p>
+    <p>Figure 12 把 Kimi K3 的分割比从 2 扫到 6，对应 Figure 9 里基线的调参。SGLang w/ HiCache 在比 3 时达到 67 个完成 turn，这是主对比采用的设置；其他测试比是 44–59。TideCache 从比 3 起步，完成 94 个 turn，比最好的基线还高 40%，该起点上整体 P50 per-token latency 低 29.5%。调基线的固定分割填不上这个缺口。</p>
+    <p>开销测在 GPT-OSS-120B / GH200、8K 上下文、相同 GPU cache 预算和 SWA : global-KV 分割上，包含传输提交、页表更新和 CUDA Graph 协调，每个 batch 三次运行取中位 decode 吞吐。双方都能维持的 batch 下，TideCache 的 decode-step 时间相对 HiCache 是 −1.1% 到 +6.3%。换来的是有效全局 KV 从 148K 提到 260K tokens，最大可维持 batch 从 16 提到 29，峰值 decode 吞吐从 1.19K 提到 1.47K tokens/s，即 24%。6.3% 的步进开销可以被更大的 batch 盖住，前提是链路和计算能把流式传输藏住——这正是公式 (1) 的适用条件。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 落地可行性</h2>
+    <p>这是一篇系统论文，而且已经做进真实引擎、在 GB300 和 GH200 上端到端跑完七个配置，不是仿真。贡献里「透明重分割 + 按层流式」这一组合是站得住的：UMP 在同一修订里接不上 HiCache，TideCache 同时做了动态切分、HiCache 继承和流式别名；切换负载实验里，物理页归属真的随着到达模式来回移动。想在超级芯片上服务混合模型，这是比「再调一个固定分割比」更完整的一条路。</p>
+    <p>落地最先卡住的不是算法，而是硬件与软件边界。</p>
+    <ul>
+      <li><strong>硬件前提是 NVLink-C2C 级的 CPU–GPU 链路。</strong> 标定和反例都按数百 GB/s 来算（GPT-OSS 用 400 GB/s；GB300 单卡实测读 host 211 GB/s）。普通 PCIe 服务器不在评测里。Table 1 里 H100 的 128 GB/s 已经比 C2C 低一个量级，论文没有给出 PCIe-only 的数字。</li>
+      <li><strong>实现绑在 SGLang 和 NVIDIA CUDA 虚拟内存 / Graph 路径上。</strong> 约 9K 行主要是内存池；搬页走 <code>cuMemMap</code> 一类驱动 API，选择性拷贝走 <code>cudaMemcpyBatchAsync</code>。没有 vLLM 实现，没有公开仓库，也没有上游合并说明。要复现或接入自有分支，目前只能按论文重做。</li>
+      <li><strong>它继承 HiCache，并不取代分层缓存。</strong> 流式的是已经在 host 上的历史前缀；新生成 KV 仍然常驻，turn 结束再备份。超长生成、host 上没有可复用前缀的冷请求，不会走 Streamer 的容量扩张。</li>
+      <li><strong>调度参数没有给默认值。</strong> 冷前缀阈值 τ、无驱逐时的队列放大上限 k、值得流式的最短前缀 h<sub>min</sub>，原文都只作为符号出现。生产里这些会直接影响「会不会把还要用的前缀丢掉」和「会不会过度流式」。</li>
+      <li><strong>多卡一致性靠每 epoch 一次 all-reduce。</strong> 设计考虑了 TP 下各 rank 同步应用同一次搬移，评测也包含 TP4。更复杂的 PD 分离、跨节点池，原文未讨论。</li>
+    </ul>
+    <div class="callout navy">和同一目录里 MoRI UMBP 那篇笔记对照：TideCache 解决的是混合模型在超级芯片 <em>GPU 显存内部</em> 的切分与按层驻留；UMBP 解决的是 agent 前缀在 <em>GPU 之外</em> 用 NVMe 代替大 DRAM 池。二者都碰到「历史 KV 放哪、何时搬回来」，但硬件、引擎和评测负载并不相同，不宜直接比倍数。</div>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 局限：这些倍数依赖什么假设</h2>
+    <p>论文没有独立的 Limitations 节，限制要从实验设置和机制里读。</p>
+    <ul>
+      <li><strong>主实验是内存压力下的单负载点。</strong> Figure 9 每个配置只选了「会话前缀已经超出常驻全局 KV」的一个点。容量不紧张时，Streamer 不该是瓶颈，收益应更接近第 5.3 节那个最多 6.3% 的步进开销。</li>
+      <li><strong>两个大模型被截了层。</strong> Kimi K3 用前 48 层，Qwen3.8-2.4T 用前 36 层，目的是装进 HBM、保留每层的 cache 几何。完整深度下，全局层数量 L、每步要搬的字节和有界层提供的重叠窗口都会变，不能把 48L / 36L 的倍数直接说成满模型结果。</li>
+      <li><strong>负载是 ShareGPT 与 Claude Code traces 的合成混合，而且 FCFS、无优先级。</strong> 这能体现「两种需求抢同一块显存」，但不是生产调度器，也不是单一真实流量。Turns/s 和 TTFT 只统计 agent 会话，P50 per-token 才覆盖整个混合。</li>
+      <li><strong>生成 KV 常驻是硬约束。</strong> 有效容量扩张只作用于 host 历史前缀。输出很长、或前缀并不在 host 上时，常驻区仍按 token 增长。论文没有单独报告超长 decode 把常驻区重新撑满之后的行为。</li>
+      <li><strong>基线调参被认真做了，但 UMP 没能进入端到端主对比。</strong> Figure 12 说明把 HiCache 的分割比调到最好也追不上。主对比因此是「TideCache vs 调过的 HiCache」，不是「vs 也带动态共享和 HiCache 的 UMP」——后者在该修订里根本接不上。</li>
+      <li><strong>没有质量指标，也没有非 NVIDIA 平台。</strong> 精确搬运不应改数值结果，论文也未报告准确性。AMD 或其他超级芯片、以及 PCIe 机器，原文未给出。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 数字速查</h2>
+    <table>
+      <thead><tr><th>项目</th><th>数字</th><th>对照对象</th></tr></thead>
+      <tbody>
+        <tr><td>Agent turns</td><td>最多 2.04×（GH200）、1.44×（GB300）</td><td>SGLang w/ HiCache (Tuned)。分别为 GPT-OSS-120B 与 Ring-2.6-1T</td></tr>
+        <tr><td>整体 P50 per-token latency</td><td>降 20–59%（加速 1.26–2.43×）</td><td>七个配置的 Figure 9a；下沿是 Ring-2.6-1T，上沿是 GH200 上 GLM-5.3-Flash</td></tr>
+        <tr><td>Agent P50 TTFT</td><td>1.40–3.05×</td><td>下沿 Qwen3.8-2.4T / GB300，上沿 GLM-5.3-Flash / GH200</td></tr>
+        <tr><td>GB300 上最弱 turns</td><td>1.08×</td><td>Qwen3.8-2.4T（36L），同配置 TTFT 仍为 1.40×</td></tr>
+        <tr><td>切换负载（Qwen3.8-27B / GH200）</td><td>turns 57 / 115 / 174 / 183；P50 时延 63.4→39.3 ms；TTFT 25.70→5.68 s</td><td>SGLang / HiCache / 无流式 / 完整系统。相对 HiCache：+59% turns，时延 −38%，TTFT −78%</td></tr>
+        <tr><td>状态池扩缩</td><td>约 5.6 → 17.6 → 6.0 GiB</td><td>同一实验；HiCache 爆发队列峰值 74，TideCache 为 15</td></tr>
+        <tr><td>TCP 单独</td><td>更好固定分割的 96.3–113.6%；Kimi 上比 UMP 高 0–3.7%</td><td>关闭 host 缓存与流式；GLM 的 UMP 为 N/A</td></tr>
+        <tr><td>分割比敏感（Kimi K3）</td><td>HiCache 最好 67 turns（比 3），其他 44–59；TideCache 94 turns（+40%），P50 时延低 29.5%</td><td>从比 3 起步</td></tr>
+        <tr><td>Decode 开销</td><td>步进 −1.1% 到 +6.3%；容量 148K→260K；batch 16→29；峰值 1.19K→1.47K tok/s（+24%）</td><td>GPT-OSS-120B / GH200，8K 上下文</td></tr>
+        <tr><td>流式容量公式实例</td><td>C≈128.5K，约 77% 增益；配置后 1.76×（260,032 tokens）</td><td>L=18，b=2 KiB，M=2，T=13.16 ms，BW=400 GB/s，η=0.9</td></tr>
+        <tr><td>链路带宽</td><td>GB300 单卡读 host 211 GB/s；四卡并发每卡 182–192 GB/s</td><td>Table 1 的 C2C 标称 900 GB/s 是超级芯片接口，两卡共享</td></tr>
+        <tr><td>实现规模</td><td>约 9K 行，主要在 memory-pool 包；页 2 MiB；epoch = 8 步</td><td>基线 SGLang 25ce8063。未见仓库</td></tr>
+        <tr><td>未给出的默认值</td><td>τ、k、h<sub>min</sub></td><td>原文只作为符号出现</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.26619v1（2026-11-19，cs.DC）全文。摘要倍数与第 5.2 节、Figure 9 柱上标注交叉核对；切换负载来自 Figure 10 与正文绝对量；消融来自第 5.3 节。Kimi K3 / Qwen3.8-2.4T 的截层、单负载点设定，以及未见代码仓库，在第 1、8、9 节单独写出。
+  </footer>
+</div>
+</body>
+</html>
