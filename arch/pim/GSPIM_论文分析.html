@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GSPIM 论文分析 | 面向 4DGS 的多态近存加速</title>
+  <style>
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">HPCA 2027</span>
+      <span class="badge">arXiv:2611.04804v5</span>
+      <span class="badge">近存计算 · 4DGS</span>
+      <span class="badge ok">中科院计算所 × 中国科学院大学 × 睿芯中科</span>
+      <span class="badge warn">端到端性能是校准仿真；附加电路是 1z DRAM 物理实现，不是整机硅片实测</span>
+    </div>
+    <h1>GSPIM：在近存侧先做时域筛选，再按时间窗口复用属性和深度顺序</h1>
+    <p class="subtitle">GSPIM: A Temporal-Locality-Aware 4D Gaussian Splatting Accelerator with Polymorphic PIM and Multi-Frame Rendering Dataflow</p>
+    <p class="meta">
+      <strong>作者：</strong>Zirui Ma、Zhihua Fan、Haibin Wu、Dongrui Fan、Xiaochun Ye、Wenming Li；中国科学院计算技术研究所、中国科学院大学、睿芯中科（Ricore IC Technologies）。通讯作者为 Zhihua Fan、Wenming Li。<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.04804" target="_blank" rel="noopener">arXiv:2611.04804</a>
+      · <a href="https://arxiv.org/pdf/2611.04804" target="_blank" rel="noopener">PDF</a>（笔记依据 v5，2026-11-20；v1 为 2026-11-04）
+      · 会议：HPCA 2027
+      · 开源仿真器：<a href="https://github.com/MAdrid1011/GSPIM" target="_blank" rel="noopener">MAdrid1011/GSPIM</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：时域过滤太晚，帧间还不复用</a></li>
+      <li><a href="#s3">做法：多态近存、多帧数据流、混合调度</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">落地可能性</a></li>
+      <li><a href="#s7">局限</a></li>
+      <li><a href="#s8">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">边缘设备上的 4D Gaussian Splatting 被两件事拖住：时域过滤发生在完整记录已经从 LPDDR5 读进来之后，73.3%–86.8% 的传输随后用不上；相邻帧的活跃集和深度关系高度重叠，按帧孤立执行又会在工作集超过片上缓存时反复装同一批属性。GSPIM 在 bank 侧用一套可编程的多态近存（PPIM）按不同 4DGS 表示做本地活跃判定，再经层次化压缩互连（HCF）把有效数据排成连续块，GPU 才去读完整属性。时间窗口内复用活跃属性和稳定的深度顺序，混合调度让近存准备和下一次 GPU 渲染重叠。评测平台是校准到 Jetson AGX Orin 64 GB 的 GPU–PIM 模型，近存电路用 Chisel 写、在 1z DRAM 工艺上做了综合与布局布线。三个 4DGS 方法和六个动态场景上，相对充分优化的逐帧 GPU 基线，几何平均加速 5.36×、系统能效 4.99×；场景级 PSNR 最多差 0.006 dB。这些吞吐和能效不是一块已封装的 PIM 内存条在 Orin 上量到的墙钟时间。附加电路在 32 个 die 上的物理面积是 18.7172 mm<sup>2</sup>，有功能耗 3.8363 W。</p>
+    <div class="kpi">
+      <div><div class="n">5.36× / 4.99×</div><div class="k">相对优化逐帧 GPU：几何平均加速 / 系统能效</div></div>
+      <div><div class="n">2.40× / 2.08×</div><div class="k">仅软件多帧数据流的加速 / 能效（不含近存硬件）</div></div>
+      <div><div class="n">0.006 dB</div><div class="k">场景级 PSNR 与 Orin 基线的最大差；SSIM 最多 0.0001</div></div>
+      <div><div class="n">18.7172 mm<sup>2</sup> / 3.8363 W</div><div class="k">32 个 1z DRAM die 上附加电路的物理面积 / 有功能耗</div></div>
+    </div>
+    <div class="callout warn">面积和功耗来自 1z DRAM 外围逻辑库的综合与布局布线，并用 Icepak 做了热分析；端到端帧时间和系统能效则来自 Ramulator 2.0 加上校准过的 Orin 模型：GPU 阶段时间是实测重放，PIM 时间和刷新是仿真。读 5.36× 时，要把“软件多帧数据流已经有 2.40×”和“近存筛选、压缩与重叠又拉了一截”分开。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：时域过滤太晚，帧间还不复用</h2>
+    <p>4DGS 在 3D Gaussian Splatting 上加入时间维，用来做动态场景的新视角合成，服务自由视点视频、移动 XR 和边缘上的自治系统。论文覆盖的三类显式表示——显式 4D 分布、关键帧插值和锚点绑定——都会先根据每条记录的时域字段判断是否活跃，再加载几何和外观去做逐帧渲染。</p>
+    <p>边缘 GPU 通常和 CPU、多媒体引擎共享 LPDDR，带宽和片上缓存都紧。论文在 Jetson AGX Orin 上拆基线后看到两个访问问题：</p>
+    <ul>
+      <li><strong>过滤发生在加载之后。</strong>时域判定只需要少量本地字段，却控制着大得多的属性是否该被访问。GPU 侧先把完整记录搬进来再过滤，会让 73.3%–86.8% 的 LPDDR5 传输在后续计算里用不上。时域过滤占基线执行时间的 52.4%–63.3%，排序和光栅化合计 26.5%–34.8%，算术强度都落在相应 roofline 脊点之下，过滤最低。</li>
+      <li><strong>按帧孤立执行，浪费帧间重叠。</strong>相邻帧的活跃集和深度关系高度重叠，但逐帧路径会反复装共享属性，工作集一旦超过片上缓存就更明显。现有专用加速器会利用空间或帧间相关性，却没有把共享源属性组织成多帧 batch。</li>
+    </ul>
+    <p>近存计算适合这类“先用很小的本地字段做决定，再决定要不要搬完整属性”的模式。GSPIM 把决定和压缩留在 bank 侧，把渲染仍留给 GPU。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：多态近存、多帧数据流、混合调度</h2>
+    <div class="fig">
+      <svg viewBox="0 0 900 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GSPIM 流水示意">
+        <rect x="15" y="40" width="160" height="110" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="95" y="75" text-anchor="middle" font-size="13">PPIM</text>
+        <text x="95" y="100" text-anchor="middle" font-size="12" fill="#57534e">按表示编程</text>
+        <text x="95" y="120" text-anchor="middle" font-size="12" fill="#57534e">本地时域筛选</text>
+        <rect x="200" y="40" width="160" height="110" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="280" y="75" text-anchor="middle" font-size="13">HCF 压缩</text>
+        <text x="280" y="100" text-anchor="middle" font-size="12" fill="#57534e">bank / die 级</text>
+        <text x="280" y="120" text-anchor="middle" font-size="12" fill="#57534e">连续打包有效数据</text>
+        <rect x="385" y="40" width="160" height="110" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="465" y="75" text-anchor="middle" font-size="13">多帧生成</text>
+        <text x="465" y="100" text-anchor="middle" font-size="12" fill="#57534e">深度稳定性分类</text>
+        <text x="465" y="120" text-anchor="middle" font-size="12" fill="#57534e">稳定集复用排序</text>
+        <rect x="570" y="40" width="160" height="110" fill="#faf7f2" stroke="#a8a29e"/>
+        <text x="650" y="75" text-anchor="middle" font-size="13">L2 尺寸 batch</text>
+        <text x="650" y="100" text-anchor="middle" font-size="12" fill="#57534e">共享属性复用</text>
+        <text x="650" y="120" text-anchor="middle" font-size="12" fill="#57534e">只对不稳定元排序</text>
+        <rect x="755" y="40" width="130" height="110" fill="#ffedd5" stroke="#c2410c"/>
+        <text x="820" y="75" text-anchor="middle" font-size="13">GPU 渲染</text>
+        <text x="820" y="100" text-anchor="middle" font-size="12" fill="#57534e">与下一窗</text>
+        <text x="820" y="120" text-anchor="middle" font-size="12" fill="#57534e">近存准备重叠</text>
+        <path d="M175 95 L200 95" stroke="#1c1917" marker-end="none"/>
+        <path d="M360 95 L385 95" stroke="#1c1917"/>
+        <path d="M545 95 L570 95" stroke="#1c1917"/>
+        <path d="M730 95 L755 95" stroke="#1c1917"/>
+      </svg>
+    </div>
+    <p class="figcap">图 1（示意）：近存先筛选和压缩，GPU 再按时间窗口做生成、稳定集排序复用和渲染。</p>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>多态近存 PPIM</h4>
+        <p>不同 4DGS 表示的字段布局和选择过程不一样，但活跃与否都由有界的本地算术或区间测试决定。PPIM 用共享的 bank 侧数据通路适配这些差异，在 GPU 访问完整属性之前给出选择结果。</p>
+      </div>
+      <div class="tile">
+        <h4>层次化压缩 HCF</h4>
+        <p>选择结果驱动 bank 级和 die 级压缩，去掉不活跃属性，把有效数据排成连续块，减少无效的 LPDDR5 传输和零散访问。</p>
+      </div>
+      <div class="tile">
+        <h4>多帧数据流</h4>
+        <p>把共享属性收成能放进 L2 的 batch，窗口内复用属性和稳定图元的排序结果，只对深度变化大的图元按帧排序。双缓冲让近存准备和 GPU 多帧渲染重叠。</p>
+      </div>
+    </div>
+    <p>运行时用混合数据流调度：近存侧的 <code>PIM_SELECT</code> / <code>PIM_REORG</code> 与 GPU 的生成、排序和渲染按窗口和 batch 重叠，减少串行等待。硬件配置里，8 个 LPDDR5 封装、每封装 4 个 die、每 die 16 个 bank（12 个 PIM、4 个保留），一共 384 个 PIM 单元，PPIM 跑在 200 MHz；GPU 侧按 AGX Orin 的 16 个 SM、4 MB L2、204.8 GB/s 和 64 GB 容量来建模。</p>
+    <p>稳定性阈值默认 <code>τ<sub>s</sub> = 0.98</code>，对应论文中归一化深度变化均值的上界约 0.0202。更低的阈值允许更大深度变化，更高的阈值会降吞吐，换来最多约 0.01 dB 的质量。敏感性扫描里，0.98 距离峰值 FPS 不超过 0.6%，距离全排序 PSNR 不超过 0.012 dB。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <p>工作负载是三类 4DGS：4DGS-1K、Ex4DGS 和 Anchored 4DGS，分别代表活跃掩码过滤、关键帧插值和锚点绑定。场景来自 N3V 和 EasyVolcap，覆盖室内外、局部非刚性和遮挡变化，一共六个动态场景。</p>
+    <p>GPU 对照在 NVIDIA Jetson AGX Orin 64 GB 的 MAXN 模式上跑，GPU 和内存频率固定。逐帧路径和多帧路径共用优化过的 CUDA 后端：CUB 做过滤、前缀和分段基数排序，gsplat 做投影和光栅化，并按方法调过线程配置和 batch 大小。“AGX Orin + GSPIM Dataflow”是纯软件实现完整多帧数据流的版本；Full GSPIM 保留这条多帧路径，但把选择和数据重整卸载到 PPIM 和 HCF。</p>
+    <p>专用加速器对照包括 3DGauCIM、QI-4DGS 和 Relay-GS。论文从架构和电路数据重建周期/功耗模型，并复现原文工作负载和参考配置，吞吐和功耗的最大相对误差低于 1.5%。等面积比较把 ASIC 面积用 DeepScaleTool 等缩放到 8 nm，并计入外部存储和共享控制/互连。</p>
+    <h3>哪些是测的，哪些是仿的</h3>
+    <ul>
+      <li>PPIM、HCF 以及 DRAM 侧命令和状态电路用 Chisel 实现，Verilator 周期模型接入 Ramulator 2.0，按 LPDDR5-6400 计时，刷新是每 3.9 μs 持续 280 ns。</li>
+      <li>时序模型用 Orin 的带宽微基准和 Nsight Compute 访存轨迹校准，匹配负载下带宽和访存延迟的最大相对误差分别是 1.4% 和 1.2%。</li>
+      <li>窗口执行时间按帧摊销，计入任务依赖、测到的 GPU 阶段时间、仿真的 PIM 时间、刷新停顿，以及 PIM 流量和刷新给 GPU 访存增加的等待。</li>
+      <li>GPU 侧能量来自重放执行和等待期间的板载 GPU / SoC 轨道测量；PIM 能量结合 1z 开关动态能量和全程泄漏；LPDDR5 的读、写、刷新和背景能量由命令和状态轨迹决定。</li>
+      <li>附加 DRAM 侧电路用 1z DRAM 外围逻辑库做综合、布局布线；功耗基于周期仿真的工作负载 VCD，1.05 V、TT、25°C。Icepak 对四层叠 die、PCB 和模组散热做 3D 热分析，入口空气 40°C、1 m/s。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <h3>相对优化逐帧 GPU</h3>
+    <p>只上软件多帧数据流，已经有 2.40× 几何平均加速，P95 / P99 分别降 46.8% / 48.2%。GPU 自己做选择和压缩仍要扫描全集并写中间结果，准备阶段偏长。完整 GSPIM 把准备和 GPU 生成、渲染重叠后，几何平均加速到 5.36×；相对软件数据流，摊销后的平均帧时间、P95 和 P99 再降 55.2%、44.2% 和 43.5%。在 Actor1_4 这种强非刚性运动上，Anchored 4DGS 的 P99 从 7.81 ms 降到 4.77 ms。</p>
+    <p>阶段拆解里，GSPIM 把占软件数据流时间 36.1%–47.5% 的 S1 卸载到 PIM，再靠 HCF 重整减少 S3 和 S5 的 GPU 工作，GPU 各阶段执行时间之和降 54.1%–61.1%。PIM 任务总时间相当于软件数据流的 16.2%–21.1%，并且和 GPU 执行重叠。争用停顿平均占 GPU / PIM 任务时间的 1.8% 和 7.7%。相对关闭刷新，吞吐损失平均约 0.25%，最高 0.35%。</p>
+    <p>能效上，软件数据流的几何平均提升是 2.08×。只看测量到的 GPU 任务重放，PPIM 和 HCF 把它做到 5.07×；把 PIM 的动态和泄漏以及 LPDDR5 的主动和背景能量算进去，系统能效是 4.99×。</p>
+    <h3>等面积下的专用加速器对照</h3>
+    <p>在相同系统面积下，GSPIM 相对 AGX Orin 的原生 4DGS 吞吐几何平均是 3.43×。相对 3DGauCIM，吞吐高 32.9%、能效高 6.4%；相对默认打开 AQFI 的 QI-4DGS，吞吐高 39.8%、能效高 11.8%。关掉 AQFI 后，QI 的几何平均吞吐是 1.57×，GSPIM 在同一条原生生成路径上是它的 2.18×。相对 Relay-GS，吞吐高 18.7%、能效高 24.4%。Flame Steak、Dance3 和 Actor1_4 上的时域稀疏或较大活跃集会放大收益，Dance3 达到 3.98×；Cook Spinach 和 Sear Steak 上，更大的逐帧生成和光栅化更有利于专用算术。</p>
+    <h3>质量和消融</h3>
+    <p>表 III 里，软件数据流和完整 GSPIM 相对 Orin 基线，场景级 PSNR 最多差 0.006 dB，SSIM 最多差 0.0001。另用一套原生 4DGS 模型和专用加速器对比时，GSPIM 的差异峰值是 0.010 dB 和 0.0003，都低于 0.04%。最坏情况分析在 Dance3 的 24 帧相机运动序列、4DGS-1K 上：相近的稳定高斯仍可能交换深度顺序，单帧 PSNR 损失峰值 0.030 dB（第 11 帧），LPIPS 增加约 0.0013。</p>
+    <p>消融显示：数据流和近存合在一起、但不做窗口和 batch 重叠时，加速是 3.10×–4.87×；再加上重叠，额外获得 1.18×–1.60×，达到相对 Orin 的 3.75×–7.78×。PPIM 选择加 HCF 压缩让 GPU 可见的 DRAM 流量和事务平均减少 69.2% 和 62.7%。</p>
+    <h3>扩展到 3DGS 和其他平台</h3>
+    <p>在静态 3DGS、六个 Tanks and Temples 场景上，软件数据流和完整 GSPIM 的几何平均加速分别是 1.54× 和 2.96×；完整路径比 3DGauCIM 的 2.52× 再高 1.17×。跨平台时，完整 GSPIM 在 Nano / NX 上是 4.52× / 4.63×；在 RTX 4090 / H100 上报告的是<strong>仅数据流</strong>的能效收益 1.65× / 1.52×，不是把 LPDDR5 近存硬件搬到了桌面或服务器 GPU。更大场景和分辨率（含 MatrixCity 的 2,370 万高斯，以及 720p / 1080p / 4K）上，软件数据流和 GSPIM 相对 Orin 的几何平均是 1.93× 和 3.66×。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 落地可能性</h2>
+    <p>和很多只停留在架构模拟的近存工作相比，GSPIM 多做了两件对落地有用的事。第一，近存附加电路在 1z DRAM 工艺上走完了综合和布局布线：32 个 die 的物理面积 18.7172 mm<sup>2</sup>，折合每 die 0.5849 mm<sup>2</sup>，约为 60.92 mm<sup>2</sup> 的 16 Gb LPDDR5 参考 die 的 0.96%；有功能耗 3.8363 W（动态 3.2582 W，泄漏 0.5781 W），每 die 0.120 W，每个四 die 封装 0.480 W。掩码列选择逻辑增加 0.28 ns，论文称仍在列访问时序裕量内，不改变外部读写延迟和列命令间隔。热分析给出约 70°C 的稳态峰值封装壳温，比 85°C 的 WT 级工作上限低约 15°C。第二，仿真器已开源（<a href="https://github.com/MAdrid1011/GSPIM" target="_blank" rel="noopener">MAdrid1011/GSPIM</a>），并且 Orin 侧有校准误差上限。</p>
+    <p>要变成可买到的边缘模组，仍差完整的内存产品化：不是一块已经和 Orin 封装在一起、能直接量墙钟的 PIM LPDDR5；端到端倍数依赖校准模型、Ramulator 时序，以及 GPU 阶段重放与 PIM 仿真的拼接。PPIM 针对“记录里带本地时域字段、用这些字段决定窗口活跃性”的表示，换一套完全不同的 4DGS 时间模型可能要重新写近存微程序。桌面和服务器 GPU 上，论文只把软件多帧数据流做了外推，带宽更高时，属性复用带来的相对能效会变小。</p>
+    <div class="callout">如果做边缘 4DGS 或 3DGS 渲染，值得同时看两条可分开落地的线：一条是不用改内存、只上多帧数据流和稳定集排序复用（Orin 上已经有 2.40× / 2.08×）；另一条才是改 LPDDR5 外围、在 bank 侧做筛选和压缩。前者可以先在现有 Orin 类平台验证，后者才需要存储厂商配合。</div>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 局限</h2>
+    <ul>
+      <li>端到端 5.36× 和 4.99× 来自校准仿真加 GPU 重放，不是 PIM 内存模组在整机上的实测墙钟。</li>
+      <li>专用加速器对照是重建的周期/功耗模型并缩放到 8 nm 后的等面积比较，不是同一块硅上的对打。</li>
+      <li>RTX 4090 / H100 上的数字只覆盖软件数据流的能效，不能读成这些卡已经接了同样的近存硬件。</li>
+      <li>最坏情况下单帧 PSNR 可差 0.030 dB；稳定集复用把误差限制在 alpha 合成顺序里，但高对比重叠处仍可能被放大。</li>
+      <li>近存筛选假定活跃性可以从记录内的本地时域字段判定；表示一变，PPIM 程序和压缩收益也会变。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>出处和条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>无效 LPDDR5 传输</td><td>73.3%–86.8%</td><td>GPU 侧先加载再过滤的基线分析</td></tr>
+        <tr><td>时域过滤占基线时间</td><td>52.4%–63.3%</td><td>AGX Orin；排序+光栅化 26.5%–34.8%</td></tr>
+        <tr><td>软件多帧数据流</td><td>加速 2.40×；能效 2.08×</td><td>几何平均，相对优化逐帧 GPU</td></tr>
+        <tr><td>完整 GSPIM</td><td>加速 5.36×；系统能效 4.99×；GPU 重放能效 5.07×</td><td>三方法 × 六场景，校准仿真</td></tr>
+        <tr><td>相对软件数据流再降</td><td>平均 / P95 / P99：55.2% / 44.2% / 43.5%</td><td>摊销后的每帧时间</td></tr>
+        <tr><td>等面积原生吞吐</td><td>相对 Orin 3.43×</td><td>与专用加速器同一套面积预算</td></tr>
+        <tr><td>相对 3DGauCIM / QI / Relay-GS</td><td>吞吐 +32.9% / +39.8% / +18.7%；能效 +6.4% / +11.8% / +24.4%</td><td>QI 默认开 AQFI；关 AQFI 后 QI 为 1.57×，GSPIM 为 2.18×</td></tr>
+        <tr><td>场景级质量</td><td>PSNR ≤ 0.006 dB；SSIM ≤ 0.0001</td><td>表 III，相对 Orin</td></tr>
+        <tr><td>最坏单帧</td><td>PSNR 损失峰值 0.030 dB</td><td>Dance3，4DGS-1K，第 11 帧</td></tr>
+        <tr><td>流量减少</td><td>GPU 可见 DRAM 流量 / 事务：平均 69.2% / 62.7%</td><td>PPIM 选择 + HCF 压缩</td></tr>
+        <tr><td>静态 3DGS</td><td>数据流 1.54×；完整 2.96×（相对 3DGauCIM 的 2.52× 为 1.17×）</td><td>六个 Tanks and Temples 场景</td></tr>
+        <tr><td>Nano / NX</td><td>4.52× / 4.63×</td><td>完整 GSPIM，几何平均</td></tr>
+        <tr><td>RTX 4090 / H100</td><td>能效 1.65× / 1.52×</td><td>仅软件数据流，不是完整近存硬件</td></tr>
+        <tr><td>附加面积 / 功耗</td><td>18.7172 mm<sup>2</sup>；3.8363 W</td><td>32 个 1z die；单元面积 15.9096 mm<sup>2</sup>；约合参考 die 的 0.96%</td></tr>
+        <tr><td>热</td><td>约 70°C 峰值壳温</td><td>比 85°C WT 上限低约 15°C</td></tr>
+        <tr><td>刷新损失</td><td>平均约 0.25%，最高 0.35%</td><td>相对关闭刷新</td></tr>
+      </tbody>
+    </table>
+    <p>笔记整理于 2026-11-24（Asia/Shanghai），依据 arXiv:2611.04804v5。</p>
+  </section>
+
+  <footer>阅读笔记 · GSPIM / HPCA 2027 · 不替代原文</footer>
+</div>
+</body>
+</html>
