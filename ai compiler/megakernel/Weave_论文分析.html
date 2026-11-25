@@ -122,7 +122,7 @@
         <span class="badge ok">上交 / NUS / 复旦 / 阿里 / 上海 TokMach</span>
         <span class="badge">MoE 推理 megakernel · 运行时 warp 调度</span>
         <span class="badge">SM103 / SM90 / CDNA3</span>
-        <span class="badge warn">正文写 will open-source soon · 本笔记撰写时未见公开仓库</span>
+        <span class="badge ok">官方代码已公开 · ziyuhuang123/weave</span>
       </div>
       <h1>路由一变，就把 comm 和计算的 warp 比例当场改掉</h1>
       <p class="subtitle">Weave: Routing-Adaptive Runtime Warp Scheduling for MoE Megakernels</p>
@@ -132,6 +132,7 @@
         · <a href="https://arxiv.org/pdf/2611.27765" target="_blank" rel="noopener">PDF</a>
         · 许可 CC BY-NC-ND 4.0
         · arXiv 提交 2026-11-20 15:55 UTC（Asia/Shanghai 23:55）<br />
+        <strong>官方实现：</strong><a href="https://github.com/ziyuhuang123/weave" target="_blank" rel="noopener">github.com/ziyuhuang123/weave</a>（MIT，一作账号 ziyuhuang123）。仓库创建于 2026-11-19 20:48（Asia/Shanghai），本笔记于 2026-11-25 核对到 commit <code>94053c83</code>（12:36，Asia/Shanghai）。论文 v1 正文仍写 will open-source soon，以仓库为准。<br />
         同组前作：<a href="https://arxiv.org/abs/2609.21483" target="_blank" rel="noopener">arXiv:2609.21483v3</a>（2026-09-18 首发，09-25 修订），标题是 <em>Fine-Grained Dynamic SM Scheduling</em>，调度粒度停在 SM。本笔记分析的是 11 月这篇把调度下到 warp 的版本，不混用 9 月文的 4×H100 数字。<br />
         本文是阅读笔记，不是译文。数字均来自 arXiv:2611.27765v1 正文、图表或摘要。不要把层加速直接读成端到端加速。
       </p>
@@ -174,7 +175,7 @@
         </div>
       </div>
       <div class="callout">
-        定位要写硬：<strong>MPK / Event Tensor / Fleet</strong> 回答如何把一张图编译或编排成 persistent megakernel；<strong>PDL 重构</strong>回答不做成常驻大核能逼近到哪。<strong>Weave</strong> 站在已经融好的 MoE 层里面，回答通信和计算的硬件资源该怎么按路由重切。它不是通用编译器，评测也基本停在 MoE 层（端到端只给了 8×SM90 相对 MegaMoE 的一张表）。正文写 will open-source soon，本笔记依据 v1 撰写时没有找到公开仓库。
+        定位要写硬：<strong>MPK / Event Tensor / Fleet</strong> 回答如何把一张图编译或编排成 persistent megakernel；<strong>PDL 重构</strong>回答不做成常驻大核能逼近到哪。<strong>Weave</strong> 站在已经融好的 MoE 层里面，回答通信和计算的硬件资源该怎么按路由重切。它不是通用编译器，评测也基本停在 MoE 层（端到端只给了 8×SM90 相对 MegaMoE 的一张表）。论文 v1 正文仍写 will open-source soon；2026-11-25 已能在 <a href="https://github.com/ziyuhuang123/weave" target="_blank" rel="noopener">ziyuhuang123/weave</a> 看到官方 CUDA/HIP 实现（MIT）。评测数字仍以论文 v1 为准，不和仓库 README 里另给的台账混用。
       </div>
     </section>
 
@@ -285,10 +286,11 @@
     <section class="card" id="s8">
       <h2>8. 落地与局限</h2>
       <p>先说能落地的部分。设计是完整的：CUDA / HIP 实现路径、三种架构的离散设计空间、launch 时微秒级代价模型、以及和 EPLB 的关系都写清楚了。对照实现也落到了具体 commit（DeepGEMM bdea79976f、MegaMoE nv_dev b64107f2），层评测覆盖了 NVIDIA 两代和 AMD CDNA3 两机 EP16，这比只在单代 GPU 上讲「我们融得更快」要有用。对已经在用 MegaMoE 或准备在 AMD 上把 RCCL+AITER 换成融合层的团队，这篇的可迁移判断是：运行时 warp 比例、头尾角色切换、以及「scatter 交给谁」应当跟路由走，而不是再锁进编译期常量。</p>
-      <p>不能假装容易搬。正文写 will open-source soon，本笔记撰写时检索 GitHub 和论文页，没有找到对应仓库，因而无法核对实现细节或复现数字。实现高度绑定架构：SM103 依赖 TMEM 和 <code>setmaxnreg</code> 的三档寄存器预算，SM90 / CDNA3 的公式完全不同，CDNA3 还绑了 GDA RDMA 与 xGMI。换一家 GPU，离散比例、带宽模型和交接开销都得重标定。代价模型只在「每卡两三个候选」里做 arg min，不是通用调度编译器。</p>
+      <p>官方实现已经公开，仓库在 <a href="https://github.com/ziyuhuang123/weave" target="_blank" rel="noopener">github.com/ziyuhuang123/weave</a>（MIT）。一作账号于 2026-11-19 20:48（Asia/Shanghai）建库，README 引用的就是 arXiv:2611.27765。2026-11-25 12:36（Asia/Shanghai）看到的最新提交是 <code>94053c83</code>。安装入口是 <code>pip install -e .</code>，推理侧从 <code>deep_gemm.mega</code> 引入 <code>weave_mega_moe</code>；新硬件可先跑一遍 <code>python -m deep_gemm.mega.autotune</code>，再在运行时自动选参，文档在 <code>docs/AUTOTUNE_AND_TUNING_GUIDE.md</code>。公开参数面收成 14 个正交旋钮：空间 5、时间 3、实现 6。硬件范围和论文一致，只是写得更具体：NVIDIA SM100/SM103、H20（SM90）和 AMD MI308X（CDNA3 gfx942），分别走 CUDA C++ 与 HIP C++。仓库还附了 90 格台账、WeaveProfiler 时间线和消融说明；那些数字是仓库自己的实测记录，本笔记的倍数仍只引用论文 v1，二者不要混用。</p>
+      <p>即便代码在手，也不能假装容易搬。实现高度绑定架构：SM103 依赖 TMEM 和 <code>setmaxnreg</code> 的三档寄存器预算，SM90 / CDNA3 的公式完全不同，CDNA3 还绑了 GDA RDMA 与 xGMI。换一家 GPU，离散比例、带宽模型和交接开销都得重标定。代价模型只在「每卡两三个候选」里做 arg min，不是通用调度编译器。</p>
       <p>评测边界同样要写进结论。层实验用真实路由，但权重和激活是随机数，不涉及数值正确性之外的模型质量；端到端只在 8×SM90 相对 MegaMoE 给了五个模型，decode 几何平均 1.08×、prefill 基本持平，其中 MiniMax-M3 prefill 还略慢。没有 vLLM / SGLang 的端到端对照，也没有 SM103、CDNA3 的端到端表。CDNA3 上很大一块加速来自「多核路径 → 融合核」，和 NVIDIA 上「融合核 → 更好的 warp 日程」要分开引用。作者自己写的局限只有一句：还没在非 GPU 加速器上评，那些器件的计算核和 DMA 层级与 GPU warp / wavefront 不同。此外，Weave 只管 MoE 层，不管 attention、KV cache 或整模常驻；S 很大且平台已经算力受限时，相对 MegaMoE 的空间本来就小。</p>
       <div class="callout navy">
-        若只保留一句：MoE megakernel 里真正难的往往不是「再融一次」，而是路由把每张卡的通信 / 计算比拉歪之后，还能不能在 warp 级把日程改过来，并且改得足够便宜。Weave 把这件事做成了 launch 时的一次 2–4 µs 选择；代码公开之前，它首先是一份设计论据，还不是一份可直接合入的实现。
+        若只保留一句：MoE megakernel 里真正难的往往不是「再融一次」，而是路由把每张卡的通信 / 计算比拉歪之后，还能不能在 warp 级把日程改过来，并且改得足够便宜。Weave 把这件事做成了 launch 时的一次 2–4 µs 选择；官方代码现在可以读、可以按文档去标定，但仍然绑在 SM103 / SM90 / CDNA3 的公式和互连上，不是一份通吃的可插拔层。
       </div>
     </section>
 
@@ -315,7 +317,7 @@
     </section>
 
     <footer>
-      阅读笔记依据 arXiv:2611.27765v1（提交 2026-11-20 15:55 UTC，Asia/Shanghai 23:55）。倍数与百分数以论文摘要、图 3、图 7、表 I、表 IV、表 V、第 IV–V 节为准；前作关系依据 arXiv:2609.21483v3，不混用其 4×H100 数字。同目录：
+      阅读笔记依据 arXiv:2611.27765v1（提交 2026-11-20 15:55 UTC，Asia/Shanghai 23:55）。倍数与百分数以论文摘要、图 3、图 7、表 I、表 IV、表 V、第 IV–V 节为准；前作关系依据 arXiv:2609.21483v3，不混用其 4×H100 数字。落地与开源部分依据 2026-11-25 所见官方仓库 <a href="https://github.com/ziyuhuang123/weave" target="_blank" rel="noopener">ziyuhuang123/weave</a>（commit 94053c83，12:36 Asia/Shanghai）；论文倍数仍以 v1 为准。同目录：
       <a href="EventTensor_论文分析.html">Event Tensor</a> ·
       <a href="Fleet_论文分析.html">Fleet</a> ·
       <a href="MPK_论文分析.html">MPK</a> ·
