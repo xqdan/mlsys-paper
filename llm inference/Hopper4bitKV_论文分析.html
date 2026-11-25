@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hopper 4-bit KV 论文分析 | 先把 Hopper 上的 4-bit KV 解码做成比 FP8 快</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.LG · 2026-11-23</span>
+      <span class="badge">arXiv:2611.30027v1</span>
+      <span class="badge">LLM 推理 · 量化 KV · Decode</span>
+      <span class="badge ok">Northeastern University</span>
+      <span class="badge ok">开源 vLLM 插件 · Apache-2.0</span>
+      <span class="badge warn">只覆盖 head dim 128、G≤8；prefill 更慢</span>
+    </div>
+    <h1>Hopper 4-bit KV：先把 Hopper 上的 4-bit 解码做成比 FP8 快，再接到 vLLM</h1>
+    <p class="subtitle">Fast 4-bit KV-Cache Decoding on Hopper GPUs: Why Existing Kernels Are Slow and How to Fix Them</p>
+    <p class="meta">
+      <strong>作者：</strong>Jian Zhang。单位为 Northeastern University。<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.30027" target="_blank" rel="noopener">arXiv:2611.30027</a>
+      · <a href="https://arxiv.org/pdf/2611.30027" target="_blank" rel="noopener">PDF</a>
+      · <a href="https://github.com/thomaszhang2661/kv4-hopper" target="_blank" rel="noopener">代码（kv4-hopper）</a><br />
+      本文是阅读笔记，不是译文。仓库里已有 BitDecoding 的分析；这篇补的是 Hopper 上没有 FP4 硬件时，vLLM 现成 4-bit 路径为什么反而比 FP8 慢，以及怎样把它做成更快。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：省了字节，Hopper 上却更慢</a></li>
+      <li><a href="#s3">现有 kernel 卡在哪</a></li>
+      <li><a href="#s4">五个设计选择</a></li>
+      <li><a href="#s5">准确率配方</a></li>
+      <li><a href="#s6">怎么接到 vLLM</a></li>
+      <li><a href="#s7">实验怎么做的</a></li>
+      <li><a href="#s8">结果怎么读</a></li>
+      <li><a href="#s9">落地可行性</a></li>
+      <li><a href="#s10">局限：这些倍数依赖什么假设</a></li>
+      <li><a href="#s11">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">4-bit KV 大约只读 FP8 一半的字节，但 Hopper 没有 FP4 硬件，解码必须在软件里做。论文用 NVBit 说明：vLLM 现成的 FlashInfer NVFP4 和 Triton UltraQuant，要么指令太多，要么加载、解码和矩阵乘串行，H200 上只能吃到 10–20% 的显存带宽，解码甚至比 FP8 慢。作者写了一个 Hopper 原生的 decode kernel（NVFP4 / MXFP4 / INT4），用 TMA 生产者 warp 与两组计算 warpgroup 重叠，在写入时把 cache 排成寄存器可直接喂给 tensor core 的布局，并交换矩阵操作数以免小 query group 填 padding。配上准确率配方后，做成 vLLM 0.33 的插件。</p>
+    <div class="kpi">
+      <div><div class="n">1.12–1.49×</div><div class="k">H200 上 11 个 shape，kernel 相对 XQA 与 FlashAttention-4 中更快的那个 FP8</div></div>
+      <div><div class="n">1.12–1.64×</div><div class="k">vLLM 里 Llama-3.1-8B、batch≥8 时每步相对 FlashInfer FP8（XQA）</div></div>
+      <div><div class="n">1.23–2.20×</div><div class="k">单卡推理流下最高可持续请求率：8B 为 1.23–1.32×，72B 为 1.67–2.20×</div></div>
+      <div><div class="n">1.63×</div><div class="k">同样显存设置下能装下的 token 数（相对 FP8）</div></div>
+    </div>
+    <div class="callout warn">batch=1 时整步与 FP8 持平，并不是 kernel 没有优势，而是 sink 合并、cache 写回和 q 旋转把优势吃掉了。Prefill 比 FlashInfer FP8 慢约 7%，TTFT 慢 1.5–6%；偏 prefill 的负载上，可持续率反而更差。摘要里的 1.67–2.20× 来自 Qwen2.5-72B、思维链风格流量（约 1K 进、8K 出），此时限制因素是 cache 容量而不是逐步带宽。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：省了字节，Hopper 上却更慢</h2>
+    <p>长上下文和大批次 serving 里，每一步 decode 都要读完整段 KV，注意力受显存带宽限制。以 Llama-3.1-8B（32 个 query 头、8 个 KV 头、head dim 128）为例：一行 BF16 的 K 或 V 是 256 字节，大约只喂 1,024 次浮点运算，约合每字节 4 次；H200 的标称密度是每字节约 206 次 BF16 tensor-core 运算（989 TFLOPS ÷ 4.8 TB/s）。步时因此接近「读了多少字节 ÷ 带宽」，少读字节本应更快，也能在一张卡上放下更多请求。</p>
+    <p>Blackwell 能在硬件里解码 NVFP4 这类 4-bit 格式。现存机器仍以 Hopper（H100 / H200 / H20）为主，只支持 BF16 和 FP8，4-bit 必须在注意力 kernel 里用软件拆开再乘 scale。论文在 H200、batch 32、16K 上下文上测到：FlashInfer 的 BF16 是 0.495 ms，FP8 是 0.395 ms（另一次任务里 XQA 是 0.255 ms），NVFP4 是 0.669 ms。也就是说，vLLM 用户在 Hopper 上打开 <code>--kv-cache-dtype nvfp4</code>，省了显存，解码却更慢。</p>
+    <p>QServe 已经在 A100 上指出：朴素 INT4 注意力可能比 INT8 更慢，因为 CUDA core 上的反量化会变成计算瓶颈。Hopper 把这个问题变得更紧：带宽涨得比指令发射更快，满带宽时每个字节能花的指令更少。</p>
+    <p>格式本身的字节数（含 scale，每行 128 维）见表：BF16 256、FP8 128、INT4 68、NVFP4 72、MXFP4 / UltraQuant 68。4-bit 相对 FP8 的字节比大约是 128/72 ≈ 1.78，这是 kernel 加速的理论上沿；只要软件解码吃掉的指令超出 Hopper 的发射预算，这个上沿就拿不到。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 现有 kernel 卡在哪</h2>
+    <p>论文把 H200 满带宽时的发射预算估成大约每字节 7 条线程指令，再用 NVBit 数现有 4-bit decode kernel 的指令，并对照实际用到的带宽。结论是两类独立的原因：指令太多，以及加载、解码和矩阵乘互相等待；不同 kernel 卡在不同组合上。</p>
+    <table>
+      <thead>
+        <tr><th>Kernel</th><th>每值指令数</th><th>用到的带宽</th><th>隐含发射利用率</th><th>主要问题</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>作者第一版 Triton NVFP4</td><td>11.7</td><td>17%</td><td>52%</td><td>两者都有</td></tr>
+        <tr><td>FlashInfer NVFP4</td><td>8.3</td><td>19%</td><td>40%</td><td>两者都有</td></tr>
+        <tr><td>vLLM UltraQuant（Triton，发行版）</td><td>22.5</td><td>8%</td><td>50%</td><td>两者都有</td></tr>
+        <tr><td>BitDecoding INT4（Hopper 分支）</td><td>3.6（不含自旋等待）</td><td>25%</td><td>约 24%</td><td>等待</td></tr>
+      </tbody>
+    </table>
+    <p>FlashInfer NVFP4 和 UltraQuant 的指令数是预算的 2–6 倍，这与正文开头「10–20% 带宽、最多比 FP8 慢 1.7×」对得上。BitDecoding 的指令已经压下来了，但流水是等的，带宽仍然只有约四分之一。仓库里已有 BitDecoding 笔记；这篇的对照点是：在 Hopper、没有 FP4 tensor core 的前提下，把 NVFP4 / MXFP4 / INT4 都做到能超过当时测到的 FP8 decode kernel，并接到 vLLM 的 paged KV 路径。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 五个设计选择</h2>
+    <p>作者自己也写了：单独拿出来，这些技巧都不新。流水结构跟 FlashAttention-3、LiquidGEMM；小 M 时交换 A/B 是常见 GEMM 做法（vLLM 的 SM90 FP8 GEMM 也这么做）；BitDecoding-FP4 在 Blackwell 的原生 FP4 tensor core 上对两次注意力矩阵乘都做了操作数交换；BitDecoding、Marlin、TensorBridge、FuTransformer、FServe 都从布局或寄存器里的反量化上做过类似的事。这篇加上去的，是把它们用在 Hopper、没有 FP4 硬件时的 E2M1（NVFP4、MXFP4）以及 INT4 decode 上，并且要快过所测的 FP8 decode kernel。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>1. 重叠的流水</h4>
+        <p>一个 TMA 生产者 warp 负责把 cache 搬进来，两个计算 warpgroup 做解码和 wgmma。加载、解码和矩阵乘不再串成一段。</p>
+      </div>
+      <div class="tile">
+        <h4>2. 交换操作数</h4>
+        <p>把小的 query group 放到 N 维，解码后的 K 和 V<sup>⊤</sup> 作为 wgmma 的寄存器操作数。softmax 不必在 padding 行上做功。只有 P 走共享内存（每个 warpgroup 2 KB）。</p>
+      </div>
+      <div class="tile">
+        <h4>3. 写入时排布局</h4>
+        <p>cache 格式由自己控制，写 K 的每一行、以及每 256 token 的 V 块时就做置换，使每个线程的 fragment 落在连续的 16 字节块里：一次 128-bit 共享内存加载，无 bank conflict，无 shuffle。Scale 同样置换。置换发生在 cache-write kernel，不是离线预处理权重。</p>
+      </div>
+      <div class="tile">
+        <h4>4. 便宜的重建</h4>
+        <p>INT4 用 FP16 魔术数把码值嵌进浮点表示，每值大约 0.625 条指令。E2M1 则把指数、尾数和符号放到 FP16 的对应位，精确得到原值乘 2<sup>−14</sup>，包括次正规 0.5。</p>
+      </div>
+    </div>
+    <p><strong>5. Scale 的处理。</strong>INT4 的 per-token scale 和 zero-point 折进乘法两边（论文写明用了 FOSCAR 的仿射折叠）。NVFP4 的每 16 个值一条 E4M3 scale、MXFP4 的每 32 个值一条 E8M0 scale，只能在寄存器里用成对的半精度乘法，因为 Hopper 没有 block-scaled tensor core。早期构建里，NVBit 数到 FP4 每值 3.8 条指令、INT4 2.6 条；其中大约 0.7 条来自 scale，其余多半来自 E2M1 重建。</p>
+    <p>测试还抓到两处数值坑。(1) INT4 魔术数里的 1024 若在乘法之后再减，累积几千 token 后相对误差会到 2×10<sup>−2</sup>，与 Hopper tensor core 累加不是 IEEE 就近舍入（会截断）相符；改到乘法之前减，误差降到 1.3–2.3×10<sup>−4</sup>。(2) 真实的 Llama-3.1-8B KV 里，强 sink 旁边成千上万的小注意力权重会掉进 FP16 次正规；把 P 乘上 2<sup>10</sup> 即可，几乎没有代价。随机测试数据看不出第二类问题。</p>
+    <p>FP4 kernel 读 vLLM 风格的 paged cache（64-token 页、block table、每序列长度），与连续 cache 速度相当（0.99–1.035×，页被打乱）。INT4 kernel 只支持 dense。每条序列最前面 4 个 BF16 sink token 放在 4-bit cache 外面，在 split merge 时拼回去。Kernel 以 G=4 或 8 运行，其他 G≤8 用零把 q 补到这两个宽度。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 准确率配方</h2>
+    <p>配方本身没有新组件，论文测的是每一步在同一套设定上各贡献多少。默认配方是：NVFP4，K 去均值，对 K 做 Hadamard 旋转，4 个 BF16 sink，第 0 层保持 BF16。</p>
+    <table>
+      <thead>
+        <tr><th>步骤（离线，相对 BF16 的均 KL）</th><th>Llama-3.1-8B</th><th>Qwen2.5-7B-Instruct</th><th>Qwen3-8B-Base</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>(a) 4-bit FP4，整 tensor 一个 scale</td><td>0.297</td><td>10.1</td><td>3.00</td></tr>
+        <tr><td>(b) NVFP4：每 16 值一条 E4M3 scale</td><td>0.0269</td><td>5.90</td><td>0.0291</td></tr>
+        <tr><td>(c) + 对 K 做 Hadamard 旋转</td><td>0.0187</td><td>6.95</td><td>0.281</td></tr>
+        <tr><td>(d) + 4 个 BF16 sink</td><td>0.0168</td><td>7.05</td><td>0.249</td></tr>
+        <tr><td>(e) + K 去均值</td><td>0.0111</td><td>0.0167</td><td>0.0125</td></tr>
+        <tr><td>(f) + 第 0 层 BF16</td><td>0.0103</td><td>0.0147</td><td>0.0097</td></tr>
+        <tr><td>对照：FP8，整 tensor 一个 scale</td><td>0.0037</td><td>3.86</td><td>0.0040</td></tr>
+      </tbody>
+    </table>
+    <p>块 scale 把异常值关在自己的 16 维组里，Llama 和 Qwen3-8B-Base 的 KL 因此大幅下降。旋转在 Llama 上有用，但在 Qwen3-8B-Base 上会把很大的逐通道均值摊到每一组，KL 从 0.029 升到 0.281；去掉均值之后，旋转才重新变成 8–14% 的小收益。去均值是救 Qwen 家族的那一步：这些均值对 softmax 是公共偏置（q·μ 对所有 key 相同），量化前减掉不增加读时成本。它需要 sink：sink=0 时，去均值会让 Llama 变差。</p>
+    <div class="callout navy">Qwen2 家族的推理模型在 FP8 KV 下就会崩溃，不必等到 4-bit。论文复现了已有报告，并补了机制：第 0 层 K 的均值几乎就是 key 投影偏置经过 RoPE 之后的样子，用权重和 <code>rope_theta</code> 就能算，约占第 0 层均值能量的 99.7–100%。只把第 0 层留在 BF16，就可以恢复 FP8；4-bit 还要加上去均值。同一套 R1 蒸馏如果底座是 Llama（没有这个 key bias），就不会崩溃。只靠一个固定中心去偏、全部层仍用 FP8，在 R1-Distill-Qwen 上恢复得不完整，所以主配方仍然选择把第 0 层留在 BF16。</div>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 怎么接到 vLLM</h2>
+    <p>实现是 vLLM 0.33.0 的插件，替换 4-bit 后端的 cache 写入、decode 和 prefill 注意力。Prefill 注意力改走 FlashAttention-3 的 BF16（vLLM 的 4-bit 后端默认走 FlashAttention-2；PR #47531 也提过类似切换）。K 的均值是离线标定的静态逐头向量，页大小 64 token。</p>
+    <p>对照的 FP8 默认走 FlashInfer，并且要求日志里出现 <code>decode_backend=xqa</code>。论文特别提醒：FlashInfer 只有在访问 NVIDIA artifact 服务器的网络检查通过时才会用更快的 XQA；检查失败时（他们集群在代理后）会静默退回 FlashInfer 自己的 decode kernel，不报错。Serving 实验因此显式设置了 <code>VLLM_HAS_FLASHINFER_CUBIN=1</code>。</p>
+    <p>附录 A 还向 vLLM 报告了几件事：UltraQuant 格式里的一个 scale 常数、第 0 层 FP8 失败、一个前缀缓存正确性缺陷，以及哪些评测能抓住这类问题。跳过某些层时，FlashAttention-3 会在部分模型上崩溃（#65821，修复提案 #65891）。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 实验怎么做的</h2>
+    <p>速度主平台是 H200 SXM（141 GB）；部分准确率和两处标明的速度用了更慢的 H200 NVL，没有把两种机器上的速度比混在一起。H100 SXM5 只用于 kernel 数字。带宽比例按读到的 K、V 字节除以标称峰值（H200 4.8 TB/s，H100 3.35 TB/s），不算 q、输出、block table、部分结果和 sink；一次大的 device copy 能到 H200 峰值的 86–90%。</p>
+    <p>Kernel 基准：CUDA 12.8、FlashInfer 0.7.3、FOSCAR commit 9089e1f、BitDecoding hopper 分支 584d0d3，随机 K/V/q，Llama-3.1-8B 的头形状。每个时间是 5 次预热后 50 次调用的中位数，每次前冲洗 L2。作者按 1–64 为每个 shape 选最好的 split，基线用各自的启发式，所以 kernel 表略偏向自己的 kernel。插件在 vLLM 里用的是固定规则 <code>min(16, ⌊264/(B·H<sub>kv</sub>)⌋)</code>，不再按 shape 搜索；11 个主 shape 里有 9 个与搜索一致。</p>
+    <p>vLLM 侧用 0.33.0，<code>gpu_memory_utilization=0.90</code>。纯 decode 用 <code>vllm bench forward</code>（dummy 权重、CUDA Graph）。端到端用 <code>vllm bench latency</code> 和 <code>throughput</code>。Serving 是 Poisson 到达，SLO 采用 MLPerf Llama-3.1-8B server 的目标：TTFT ≤ 2 s，每输出 token 时延 ≤ 100 ms，至少 99% 请求满足才算可持续。准确率是 greedy；MATH-500 看规范化后的最后一个 boxed 表达式，多次运行做配对置换检验。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 结果怎么读</h2>
+    <h3>Kernel：能超过当时最快的 FP8 decode</h3>
+    <p>在 H200 的 11 个 shape 上，作者的 NVFP4 相对 FlashInfer FA2 FP8 是 1.4–2.3×，相对更快的 XQA 是 1.2–2.1×（Table 4 全表是 1.24–2.05×）。把尚未合入、但评审认为可能成为 vLLM Hopper FP8 路径的 FlashAttention-4 原生 FP8 加进来之后，它在 11 个 shape 里的 8 个比 XQA 更快、最多快 1.5×，带宽在 batch≥8 时达到峰值的 85–89%。即便如此，作者的 kernel 仍然处处领先，幅度缩小为 1.12–1.49×（Table 5，CUDA Graph 重放，论文认为这是更保守的算法）。INT4 在相等字节下，15 个 shape 都快于 FOSCAR 的 INT4；H200 上是 1.08–1.61×。FOSCAR 的 H200 时间与其公布的 H100 数字接近，等于没吃到 H200 多出来的带宽。H100 上双方差距缩小：作者 INT4 为 1.02–1.31×，NVFP4 为 0.94–1.21×。</p>
+    <p>batch 32–128、16K 时，NVFP4 吃到 H200 峰值的 67–75%，INT4 为 74–83%。消融表明：去掉 E2M1 重建，B≥8 时只要全 kernel 时间的 0.87×，解码大约占 13%；其余空隙在流水、矩阵乘和 softmax。MXFP4 少读 6% 的字节，耗时却几乎一样，说明 H200 上 FP4 已经偏计算侧。H100 带宽/指令更低，两种格式都接近显存上限。</p>
+    <h3>进 vLLM 之后，加速会明显变小</h3>
+    <p>Llama-3.1-8B、完整配方，相对 FlashInfer FP8（XQA）：batch≥8 时每步 1.12–1.64×，batch=1 时每步 1.01–1.05×，端到端每输出 token 时延 0.96–1.03×。同一张表里，vLLM 自带 NVFP4 在 batch≥8 时是 FP8 的 0.43–0.72×，也就是慢 1.4–2.3×。Qwen3-32B 在 batch≥8 时只有 1.05–1.18×，Qwen3-30B-A3B（MoE）是 1.11–1.32×，Qwen2.5-72B（FP8 权重）是 1.04–1.18×。模型越大，一步里权重读取占比越高，注意力本身的加速就越不明显。</p>
+    <p>原因写得很清楚。Llama-3.1-8B 一步还要读 16 GB BF16 权重，按峰值带宽至少 3.3 ms；8×16K 时整步是 6.69 ms，注意力只是少数。一次剖析里，decode kernel 本身是 1.50 ms 对 2.88 ms（1.92×），加上 sink 合并、cache 写入、q 旋转和第 0 层 BF16 之后，与注意力相关的 kernel 合计 2.00 ms 对 3.02 ms；两边 GEMM 都大约 4.0 ms。Cache 能装 2,867,200 个 token，对 FP8 的 1,761,600，正好 1.63×。离线吞吐（8K/16K 输入、512 输出）只有 1.06–1.10×；偏 decode 的 16K 进、2,048 出是 1.17×，若对照默认 FlashAttention-3 FP8 路径则是 1.40×。</p>
+    <p>64×32K 是容量效应而不是逐步加速：FP8 的 cache 装不下全部 64 条（2.1M token 对 1.76M），每输出 token 38.7 ms 对 52.2 ms（1.35×），但整段请求（256 个输出 token）反而是 86.8 s 对 85.0 s，因为 2.1M prompt 的 prefill 慢了 7%（77.0 s 对 71.7 s）。Prefill 单独测 8 条 32K prompt，是 9.29 s 对 8.66 s。TTFT 端到端慢 1.5–6%。</p>
+    <h3>Serving：思维链流量上赢在容量，prefill 重的流量上会输</h3>
+    <p>思维链风格（约 1K 进、8K 出）在 1.25 req/s 及以下，两边都能让全部列出的请求满足 SLO，作者这边平均每输出 token 时延低 23–27%，cache 占用大约一半。超过这个速率，FP8 的 cache 先满并开始抢占。单卡最高可持续速率（至少 99% 满足 SLO）见表：</p>
+    <table>
+      <thead>
+        <tr><th>模型</th><th>FP8 / 本文 cache token</th><th>FP8 最高可持续速率</th><th>本文</th><th>比率</th><th>batch≥8 每步</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Llama-3.1-8B</td><td>1.78M / 2.90M</td><td>[1.25, 1.3)</td><td>[1.6, 1.65)</td><td>1.23–1.32×</td><td>1.12–1.64×</td></tr>
+        <tr><td>Qwen3-32B</td><td>0.50M / 0.82M</td><td>[0.25, 0.275)</td><td>[0.4, 0.45)</td><td>1.45–1.80×</td><td>1.05–1.18×</td></tr>
+        <tr><td>Qwen2.5-72B（FP8 权重）</td><td>0.337M / 0.543M</td><td>[0.125, 0.15)</td><td>[0.25, 0.275)</td><td>1.67–2.20×</td><td>1.04–1.18×</td></tr>
+      </tbody>
+    </table>
+    <p>括号是「仍成立的最高速率，失效的最低速率」。72B 上逐步加速只有 1.04–1.18×，可持续率却至少有 1.61× 的 token 比那么大，因为权重更占显存，cache 先成为瓶颈。长上下文（16K 进、1K 出）在 0.5 req/s 两边都可持续，1.0 时持平（0.87 对 0.84，区间重叠），1.5 时两边都 prefill 打满，作者更差（0.04 对 0.14）。偏 prefill（16K 进、512 出）上 FP8 更好：0.75 时 0.98 对 0.94，1.25 时 0.87 对 0.77，cache 都未满，几乎都是 TTFT 超时。</p>
+    <p>接近饱和时，vLLM 默认的单个 API server 进程会先限制作者这一侧（最多 19% 请求错过 SLO）；改成 4 个进程后，1.35 和 1.5 两个种子上作者一侧全部满足，FP8 则几乎不变，因为它的问题是 cache 满。论文还如实留下了两次没有复现的运行，没有从结果里删掉。</p>
+    <h3>准确率：在所测任务上与 BF16 KV 无显著差，但统计只能排除大约 3.5 分以上的损失</h3>
+    <p>vLLM 里完整配方在 7B 到 32B、以及一个 MoE 上，MATH-500 等任务相对 BF16 KV 的差值都落在运行噪声里。例如 Qwen2.5-7B-Instruct 五次平均 72.0 对 71.2（95% CI [−1.6, +3.3]），R1-Distill-Llama-8B 三次都是 67.7。困惑度上，配方相对 BF16 通常只有 +0.03–0.15%，而 FP8 KV 在 Llama-3.1-8B 是 +0.94%，在 Qwen2.5-72B 是 +0.95%。论文没有测 KV 量化是否会在困惑度几乎不变时拿掉安全拒答。Table 13 的区间大约 ±2.5–3 分，这些比较排除不了更小的损失。</p>
+    <p>作为对照，vLLM 自带 NVFP4 在 Qwen2.5-7B-Instruct 的 MATH-500 上三次都是 0.0%，困惑度 1542 对 6.27；FP8 也只有 1.6%。没有 key bias 的 R1-Distill-Llama-8B 和 Phi-4 上，自带 NVFP4 的任务分并不崩，只是慢。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 落地可行性</h2>
+    <p>代码以 Apache-2.0 放在 <a href="https://github.com/thomaszhang2661/kv4-hopper" target="_blank" rel="noopener">thomaszhang2661/kv4-hopper</a>，是 vLLM 插件，不是已经合进主线的后端。评测钉在 vLLM 0.33.0 和 H200/H100。对已经在 Hopper 上开了 NVFP4 或 UltraQuant、却发现 decode 变慢的人，这条路径是直接可试的；论文给 vLLM 用户的实用说明也很具体。</p>
+    <div class="callout teal">什么时候值得接：decode 占主导、KV 显存是限制（batch≥8、长输出、大模型单卡）。思维链风格、cache 先满的服务，收益会随模型变大而更接近容量比。什么时候不该指望它：batch=1 的低延迟、prefill 很重的流量、以及还没覆盖的 MLA、head dim 256/64。打开 FP8 时先确认日志里真的是 XQA，否则基线会被静默换掉。Qwen2 家族推理模型在 FP8 KV 下可能无报错地崩掉，需要跳过第 0 层；跳层本身在部分模型上会让 FlashAttention-3 崩溃。</div>
+    <p>和仓库里已有工作的关系：BitDecoding 解决的是低比特 KV 如何用上 tensor core；这篇默认读者已经接受 4-bit KV，焦点是 Hopper 上现成路径为什么慢、以及怎样在 vLLM 里跑赢 FP8。FOSCAR（接在 SGLang 上的 INT2/INT4 折叠）是 kernel 对照之一，作者的 INT4 在 H200 上更快，在 FOSCAR 针对的 H100 上优势变小。两者目前都还不是 vLLM / SGLang 默认路径。</p>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 局限：这些倍数依赖什么假设</h2>
+    <ul>
+      <li><strong>形状覆盖。</strong>只支持 head dim 128、每个 KV 头 1–8 个 query 头。Kernel 按 G=4 或 8 跑，其余靠补零，浪费最多 1/8 的 tensor-core 工作。没有 MLA（DeepSeek-V3/R1），没有 head dim 256（Qwen3.x、MiniMax，也是 vLLM UltraQuant 的目标）或 64，基本没有滑窗模型。INT4 只有 dense、且 G=4。</li>
+      <li><strong>Serving 场景。</strong>好吞吐扫描主要是一种 GPU、随机 prompt、思维链风格流量。没有对比共享前缀、真实 trace、分离式 prefill，也没有在更大模型上扫其他负载。张量并行只在 Qwen2.5-72B、TP=2 上做了正确性检查（前缀缓存、跨请求前缀命中、chunked prefill），没有测速度和准确率。</li>
+      <li><strong>batch=1。</strong>64K 上下文时 kernel 大约只到 38% 带宽（16K 时 18%）。一次剖析里，decode kernel 是 382 µs 对 FlashInfer 的 702 µs，但 31 个 4-bit 层加上 sink 合并、写入和 q 旋转后是 848 µs 对 847 µs。下一步是把 sink 合并折进 split reduction、把 q 旋转折进 prologue。</li>
+      <li><strong>基线。</strong>比过 FlashInfer FA2 / XQA、vLLM 默认 FlashAttention-3 FP8，以及 FlashAttention-4 原生 FP8，没有直接比 TensorRT-LLM。在包含那两个未合入 PR 的开发构建里，配方相对 FlashAttention-4 FP8 在 batch≥8 时是 1.04–1.24×，batch=1 持平。一份尚未接入插件的原型把 K 改走类似 XQA 的 FP8 tensor-core 路径，在 batch≥8、每序列至少 16K 时比当前 kernel 再快 1.12–1.14×，离线 KL 升高 14–17%，论文其余数字都不用它。</li>
+      <li><strong>统计与安全。</strong>MATH-500 这类比较排除不了大约 3.5 分以下的准确率损失。没有评估量化是否削弱拒答。个别 serving 运行没有复现，论文留在了结果文件里，但随机种子和 API 进程数会明显影响饱和点附近的数字。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s11">
+    <h2>11. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>FlashInfer NVFP4 相对 FP8</td><td>最多慢 1.7×；带宽 10–20%</td><td>H200；引言测点为 batch 32、16K：0.669 ms 对 0.395 ms</td></tr>
+        <tr><td>vLLM 自带 NVFP4</td><td>batch≥8 慢 1.4–2.3×；batch=1 约慢 1.1×</td><td>vLLM 0.33，Llama-3.1-8B，H200</td></tr>
+        <tr><td>自带 UltraQuant</td><td>比 FP8 慢 1.8–4.4×</td><td>Triton 回退；作者 kernel 比它快 1.9–5.1×</td></tr>
+        <tr><td>Kernel vs 最快 FP8</td><td>1.12–1.49×</td><td>H200，11 个 shape，XQA 与 FA4 取更快者，CUDA Graph</td></tr>
+        <tr><td>NVFP4 带宽</td><td>67–75%（H200，batch 32–128）；79–86%（H100，batch≥8）</td><td>按 K/V 字节 / 标称峰值</td></tr>
+        <tr><td>INT4 vs FOSCAR INT4</td><td>H200：1.08–1.61×；H100：1.02–1.31×</td><td>相等字节（每 token 每头 68）</td></tr>
+        <tr><td>vLLM 每步（8B）</td><td>batch≥8：1.12–1.64×；batch=1：1.01–1.05×</td><td>相对 FlashInfer XQA FP8，完整配方</td></tr>
+        <tr><td>相对 FA4 FP8（开发构建）</td><td>batch≥8：1.04–1.24×；batch=1 持平</td><td>同一构建内比较</td></tr>
+        <tr><td>Cache 容量</td><td>1.63× token</td><td>同样 <code>gpu_memory_utilization=0.9</code>；latency 实验为 2.87M 对 1.76M</td></tr>
+        <tr><td>Prefill / TTFT</td><td>prefill 慢约 7%；TTFT 慢 1.5–6%</td><td>相对 FlashInfer FP8</td></tr>
+        <tr><td>单卡可持续率</td><td>8B：1.23–1.32×；32B：1.45–1.80×；72B：1.67–2.20×</td><td>1K 进、8K 出，SLO：TTFT≤2s、TPOT≤100ms，99%</td></tr>
+        <tr><td>Llama-3.1-8B 困惑度</td><td>配方 +0.06%；FP8 +0.94%；自带 NVFP4 +2.62%</td><td>vLLM，wikitext-2，相对 BF16 KV</td></tr>
+        <tr><td>Qwen2.5-7B MATH-500</td><td>配方 72.0；BF16 71.2；自带 NVFP4 0.0；FP8 1.6</td><td>vLLM；FP8/自带 NVFP4 在该模型上崩溃</td></tr>
+        <tr><td>第 0 层均值来源</td><td>权重即可解释 99.7–100% 的均值能量</td><td>Qwen2 家族，偏置经 RoPE</td></tr>
+        <tr><td>Paged vs 连续</td><td>0.99–1.035×</td><td>FP4 kernel，页被打乱</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.30027v1（2026-11-23，cs.LG）全文。摘要中的 kernel 倍数与 Table 5、vLLM 逐步倍数与 Table 7、可持续率与 Table 9 交叉核对；准确率来自第 8 节与 Table 10–13。代码仓库以论文 Comments 中的链接为准。FOSCAR 与 BitDecoding 仅作为对照出现，不在本篇展开。
+  </footer>
+</div>
+</body>
+</html>

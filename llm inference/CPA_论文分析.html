@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPA 论文分析 | 用前缀注意力修正并行投机草稿，却把顺序计算编成查表</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+    </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.CL · 2026-11-23</span>
+      <span class="badge">arXiv:2611.31112v1</span>
+      <span class="badge">LLM 推理 · 投机解码</span>
+      <span class="badge ok">华为昇腾 / 多伦多研究中心</span>
+      <span class="badge ok">开源实现：vLLM-Ascend</span>
+      <span class="badge warn">只在 Ascend 910B2、Qwen3-4B/8B 上测过；加速比不能直接搬到 GPU</span>
+    </div>
+    <h1>CPA：让并行草稿看见已经选过的前缀，顺序阶段只做查表和累加</h1>
+    <p class="subtitle">Look Back, Draft Ahead: Corrective Prefix Attention for Parallel Speculative Decoding</p>
+    <p class="meta">
+      <strong>作者：</strong>Mohammad Mahdi Moradi、Ali Pourranjbar、Zongzuo Wang、Mingming Zhu、Ben Feng、Boxing Chen。论文标注的单位为华为技术有限公司昇腾团队、多伦多研究中心（Huawei Technologies, Ascend Team, Toronto Research Center）。Moradi 与 Pourranjbar 为共同第一作者，Boxing Chen 为通讯作者。<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.31112" target="_blank" rel="noopener">arXiv:2611.31112</a>
+      · <a href="https://arxiv.org/pdf/2611.31112" target="_blank" rel="noopener">PDF</a>
+      · <a href="https://github.com/MohammadMahdi1375/vLLM_NPU" target="_blank" rel="noopener">代码（vLLM_NPU）</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：一次提出整块，校验却在第一处错误截断</a></li>
+      <li><a href="#s3">和现有修正差在哪</a></li>
+      <li><a href="#s4">两个机制</a></li>
+      <li><a href="#s5">怎么接到 vLLM-Ascend</a></li>
+      <li><a href="#s6">实验怎么做的</a></li>
+      <li><a href="#s7">结果怎么读</a></li>
+      <li><a href="#s8">落地可行性</a></li>
+      <li><a href="#s9">局限：这些倍数依赖什么假设</a></li>
+      <li><a href="#s10">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">并行投机解码器用一次前向提出整块候选，但目标模型只接受第一处不一致之前的前缀，后面全部丢掉。早期一个错误比后期一个错误贵得多，而并行草稿在任何位置被选定之前就打完了所有分。CPA 在 DFlash 的并行骨干上加了一个选择器：每个位置的候选可以注意块内已经选定的更早 token。因为 shortlist 是固定的，任意一对候选之间的交互可以在选择开始前一次性算完，顺序遍历只做查表、累加和一次很轻的打分，不再逐步跑神经网络。训练时再给共享骨干加一条干净前缀上的自回归损失，推理时这条通路不存在。实现接在 vLLM-Ascend 上。</p>
+    <div class="kpi">
+      <div><div class="n">3.35× / 3.37×</div><div class="k">贪心解码下 Qwen3-4B / 8B 相对固定自回归基线的平均加速</div></div>
+      <div><div class="n">2.86×</div><div class="k">temperature=1 时两个目标上的平均加速</div></div>
+      <div><div class="n">+13–15%</div><div class="k">每轮提交 token 数相对 DSpark；相对 DFlash 是 +25–26%</div></div>
+      <div><div class="n">1.52×</div><div class="k">并发 32 时加速收至 1.52×，DSpark 同期为 1.42×</div></div>
+    </div>
+    <div class="callout warn">这些加速都是单请求、一块昇腾 910B2、相对固定的自回归吞吐参考（4B 为 47.83 tok/s，8B 为 39.63 tok/s）。论文写明加速比依赖加速器和 kernel，不能直接搬到 GPU 或其他 serving 栈。接受长度变长并不自动等于更快：shortlist 扩到 32 或把选择器 rank 加到 512，每轮 token 还在涨，平均加速反而从 3.35× 掉到 3.26×。数学、代码基准上加速明显，对话基准弱得多（贪心下 MT-Bench / Alpaca 大约 1.88–2.01×）。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：一次提出整块，校验却在第一处错误截断</h2>
+    <p>投机解码用便宜的草稿模型提出若干 token，目标模型一次前向完成校验。EAGLE-3 这类自回归草稿器每提一个 token 都要跑一步，草稿一长就贵。并行草稿器把这块成本去掉：DFlash 在目标特征上条件化一个小的块模型，一次前向预测整块每个位置。CPA 沿用 DFlash 的骨干，改的是如何从提案里选出一条路径，以及骨干怎么训练。</p>
+    <p>校验规则与并行提案是冲突的。目标模型只接受它同意的最长前缀，在第一处分歧截断并丢弃后缀。速度因此取决于第一个错误出现在哪。并行草稿器给每个位置打分时，还没有任何位置被选定。论文举了一个结构依赖的例子：前面是 they 还是 she，后面动词该是 run 还是 runs，正确选择取决于两个位置之前的主语。逐位置 argmax 看不见实际选中的主语；只看前一个 token 的修正，在两条路径上可能看到同一个 often，仍然分不开。自回归草稿器能看到完整前缀，但每个 token 都要付一次骨干计算。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 和现有修正差在哪</h2>
+    <p>最近的工作因此在并行通路之后再加修正。DFlash 2 对相邻候选对重新打分，相当于 CPA 的局部项；Domino 和 DSpark 用循环或马尔可夫头穿过整块；D-Loop 再跑一遍骨干，条件是已经选定的前缀。这条谱系的权衡很清楚：局部重打分便宜，但只看见一个 token；循环头和重复前向能看见更长前缀，却要在每个位置付出神经网络计算。</p>
+    <p>CPA 的观察是：并行通路之后，每个位置只留下固定的 top-K shortlist。位置 i 的某个候选和更早位置 j 的某个候选之间的交互，只取决于这两个 token，以及已经算好的块特征，不取决于最后走出哪条路。于是所有成对交互可以在选择开始前批量算完；对已选前缀做注意力，精确地变成边走边从表里取出并累加。顺序阶段里没有神经网络求值。论文把它放在局部重打分和循环修正之间：能像循环头那样看见所有更早的选择，但走的时候只查表。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 两个机制</h2>
+    <h3>编译后的前缀注意力选择器</h3>
+    <p>已校验上下文以锚点 token a 结束。草稿器提出 m 个新 token，块长为 m+1（含锚点），默认 m=15。可训练骨干一次并行给出各位置状态，冻结的词表头得到一元 logits，每个位置保留 top-K=16 个候选，一元 argmax 放在第 1 槽。DFlash 在每个位置直接取 ci,1；CPA 则按块内已做的选择，为每个位置挑一个候选。</p>
+    <p>候选分数是三项之和：一元分数、与前一个已选 token 的局部项，以及对其更早选择的多头历史注意力。因为 shortlist 固定，局部项和历史项都可以先编成对表。选择时为每个未来位置、候选和头维护分子、分母；每确定一个位置，就把对应列累加到所有更靠后的位置上，然后做一次 K 路 argmax。论文证明，在精确算术下，编译后的选择与直接按公式计算一致。</p>
+    <p>造表代价是 O(m² K² H r<sub>h</sub>)，每块一次；顺序走 m 步，每步只做查表和轻量打分，总工作 O(m² K H)。在 m=15、K=16、H=4 时，打包后的有效历史表有 188,160 个数，FP32 不足 0.8 MB；实现里实际分配的是带掩码的稠密表。选择器本身很小：Qwen3-4B 上约 3.5M 参数，8B 上约 5.5M，都不到对应目标模型的 0.1%。尽管参数少，造表对 K 是平方的，更大的 shortlist 可能更慢，第 5 节的容量扫描验证了这一点。</p>
+    <h3>只在训练时存在的干净前缀损失</h3>
+    <p>总损失是 DFlash 原有的掩码块损失，加上调度起来的选择器损失，再加上 λ<sub>AR</sub>=0.2 的自回归项。并行草稿器平时只在掩码块上学习，骨干从来没有练习过「从正确前缀预测下一个 token」——而这正是校验会奖赏的情形。CPA 用同一套骨干，在干净、因果掩码的前缀上再跑一次，用冻结词表头做全词表的 next-token 损失。这条通路只更新骨干、不更新选择器，推理时不运行。</p>
+    <p>选择器的监督是：在 shortlist 里对目标模型的贪心 token 做交叉熵；如果记录前缀已经离开贪心路径或 shortlist，后面的位置逐渐降权到 0.25。选择器损失前 2,000 步为 0，到第 4,000 步线性升到 0.5。还用回放检查拒绝那些会缩短「已经选对的前缀」的选择器更新。</p>
+    <p>校验方面，贪心模式提交与目标选择一致的最长前缀，并在第一处失配补上目标 token，或在全部匹配时给一个 bonus token，从而在精确算术下复现贪心目标解码。temperature=1 时，CPA 仍然输出一条确定路径（不带草稿概率），用 vLLM 标准拒绝采样把它当作点质量，以保持目标分布。近似的基于熵的校验和块校验被关掉。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 怎么接到 vLLM-Ascend</h2>
+    <p>解码在 vLLM-Ascend 上运行，CANN 9.1.0，BF16 权重。目标校验用 captured graph；草稿骨干 eager 执行，DSpark 和 CPA 的修正头用单独的 graph。论文给出的实现仓库是 <a href="https://github.com/MohammadMahdi1375/vLLM_NPU" target="_blank" rel="noopener">MohammadMahdi1375/vLLM_NPU</a>。主结果是单请求；并发数字在附录 Table 9。没有报告 GPU 上的 vLLM / SGLang 集成，也没有把选择器接到除昇腾之外的执行栈。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 实验怎么做的</h2>
+    <p>目标是关闭 thinking 模式的 Qwen3-4B 和 Qwen3-8B。八个基准覆盖数学（GSM8K、MATH-500、AIME 2025）、代码（HumanEval、MBPP、LiveCodeBench）和对话（MT-Bench、Alpaca）。temperature 为 0 和 1，top-p=1，不截断 top-k，每条请求最多生成 2,048 个新 token。对照是目标模型自回归、并行草稿器 DFlash 与 DSpark，以及自回归草稿器 EAGLE-3。所有草稿器每轮提出 15 个 token（块大小 16）。DSpark 基于置信度的调度被关掉，各方法使用相同的固定提案预算。</p>
+    <p>所有草稿器（包括 EAGLE-3）都从零训练五个 epoch，数据是同一套 OpenPerfectBlend 提示加目标模型生成的回复。训练用八张昇腾 910B2：六张做数据并行，两张生成目标隐状态。Qwen3-4B 上一个 epoch：DFlash 17 小时，DSpark 23 小时，CPA 28 小时，EAGLE-3 34 小时。选择器消融是在同一份 CPA 检查点上，推理时关掉历史项或整个选择器；AR 损失消融则是另训一份 λ<sub>AR</sub>=0、结构相同的草稿器，同样五个 epoch。</p>
+    <p>速度在一块 64 GB 的 910B2 上测。加速比 S 是输出吞吐除以固定的自回归参考：两个温度下都是 4B 为 47.83 tok/s、8B 为 39.63 tok/s。提交长度 τ 计入目标修正或 bonus token，不含锚点。工作负载平均不加权。阶段耗时在 vLLM-Ascend 路径里打点并在每个边界同步 NPU，按八个负载均值再取算术平均；「Other」是草稿、修正、校验之外的残差。吞吐和加速比在关闭这些打点后另测。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 结果怎么读</h2>
+    <h3>平均最快，但对话和数学不是同一个量级</h3>
+    <p>Table 1 覆盖两种目标、两个温度。CPA 在四个设定里都有最高的平均加速和最长的平均提交长度：贪心下 4B 为 3.35× / τ=7.14，8B 为 3.37× / τ=7.19；采样下两个目标都是 2.86×，τ 分别为 6.29 和 6.32。相对 DSpark，τ 高 13–15%；相对 DFlash 高 25–26%。DSpark 贪心平均是 3.12× 和 3.19×，DFlash 是 3.00× 和 3.07×，EAGLE-3 只有 1.25× 和 1.38×。</p>
+    <p>拆开看，数学最强（4B 贪心 GSM8K 4.38×、MATH-500 4.68×），对话最弱（MT-Bench 1.98×、Alpaca 1.88×）。采样时差距同样在，而且 4B 的 MBPP 上 CPA 的加速 2.60× 略低于 DSpark 的 2.66×，虽然 τ 仍然更高（5.73 对 5.42）。接受得更多，不一定在每一个负载上都更快。</p>
+    <h3>修正更贵，但多接受的 token 仍够用</h3>
+    <p>仪器化的单请求、贪心、Qwen3-4B 每轮耗时（毫秒；Table 3 的 τ 是 7.13，与主表四舍五入后的 7.14 一致）：</p>
+    <table>
+      <thead>
+        <tr><th>方法</th><th>Draft</th><th>Correction</th><th>Verify</th><th>Other</th><th>合计</th><th>τ</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>DFlash</td><td>13.480</td><td>—</td><td>13.158</td><td>13.084</td><td>39.722</td><td>5.70</td></tr>
+        <tr><td>DSpark</td><td>13.752</td><td>1.177</td><td>13.203</td><td>13.682</td><td>41.815</td><td>6.24</td></tr>
+        <tr><td>CPA</td><td>14.138</td><td>2.748</td><td>13.406</td><td>14.207</td><td>44.499</td><td>7.13</td></tr>
+      </tbody>
+    </table>
+    <p>CPA 的修正项大约是 DSpark 的 2.3 倍（2.748 ms 对 1.177 ms），但相对一轮 44 ms 仍是少数。三家里都有大约 13–14 ms 的 Other，和草稿、校验差不多长。论文把「推断成本指数」定义为与这些工作负载均值有关的比率，不是另测的一轮时延：DFlash 为 1.90，CPA 只用并行 argmax 为 2.00，加上局部项为 2.12，再加上历史项为 2.13。历史项把 τ 再提高 5.1%、加速提高 4.8%，成本指数几乎不变，并且在全部八个基准上都有好处，MT-Bench 的 τ 提升最大（14.8%），LiveCodeBench 和 Alpaca 最小（2.0–2.3%）。局部项对 τ 的贡献更大（+8.4%），对加速只有 +2.1%。关掉选择器后，同一份 CPA 检查点的 τ 仍高于 DFlash（6.26 对 5.70），说明一部分收益来自训练而不是选择。</p>
+    <p>AR 损失把平均加速从 3.28× 提到 3.35×，τ 从 6.93 提到 7.14，推理路径完全相同。λ<sub>AR</sub> 在 0.1 到 0.4 之间几乎平坦。这份无 AR 的草稿器是另一次训练，论文承认其他因素也可能进入这个差距，而且比较的是相同 epoch 数，不是相同训练算力。</p>
+    <h3>更大的容量不一定更快；并发会把加速比压下去</h3>
+    <p>K=32 时 τ 升到 7.19，加速却降到 3.26×；rank=512 时 τ 升到 7.31，加速同样是 3.26×。块大小 16 对三个并行草稿器都是最好的；扩到 32 时每家的 τ 和加速都不如 16，因为靠后的位置很少能活过校验，造表和草稿却更贵。CPA 相对 DSpark 的 τ 优势在块长 8 时最小（4.5%），在 16 和 32 时分别为 14.4% 和 10.3%，与「能看见的更早选择变少」一致。</p>
+    <p>并发上升时，目标模型自己的批处理变高效，投机加速比下降。Qwen3-4B 贪心、全部评测提示上的吞吐（tok/s）为：并发 1 时 CPA 160.23（3.35×），并发 8 时 631.22（2.54×），16 时 895.11（1.98×），32 时 986.39（1.52×）。同一行里 DSpark 是 1.42×，DFlash 是 1.36×。相对排序还在，但绝对加速已经接近「略快一点」。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 落地可行性</h2>
+    <p>代码仓库指向 vLLM-Ascend 上的实现，不是通用 GPU 上的 vLLM / SGLang 插件。选择器参数量很小，推理时顺序阶段也被编成查表，这是它相对循环头或二次骨干前向更有吸引力的地方。但造表对 K 和块长是平方的，容量一加就可能把接受长度的收益吃掉；论文的扫描把这条边界画得很清楚。</p>
+    <div class="callout teal">如果已经在昇腾上用 DFlash / DSpark 一类并行草稿，CPA 是值得试的下一步：同样的 15 token 预算，平均能多提交约一到两个 token，单请求加速从大约 3.1× 到 3.3× 量级。若目标是 GPU 上的 vLLM 或 SGLang，这篇还不能当现成方案——需要把造表和顺序走步重新实现，并单独测 kernel 启动开销。训练更贵：4B 上每个 epoch 比 DFlash 多 11 小时，比 DSpark 多 5 小时。对话类负载的加速明显弱于数学和代码，不能用平均 3.35× 代表线上聊天。</div>
+    <p>贪心模式下，精确算术下与目标解码等价；BF16 里求和顺序变化可能在接近平局时翻转决策，论文建议在自己的 kernel 上检查输出一致性。temperature=1 走的是 vLLM 拒绝采样，提案被当成点质量，标准意义上保持目标分布，但草稿概率并没有从 CPA 里传出去。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 局限：这些倍数依赖什么假设</h2>
+    <ul>
+      <li><strong>模型和硬件很窄。</strong>只评了 Qwen3-4B 和 8B 一个家族，消融只在 4B 上做。吞吐只在一块昇腾 910B2 上测。顺序走步的相对成本取决于 kernel 启动开销，换到 GPU 或其他 serving 栈时，加速比不应直接套用。</li>
+      <li><strong>统计偏弱。</strong>各方法都是单次训练，没有对重训或重复计时给出置信区间。像 3.35× 对 3.34× 这样的差别，不足以下结论。最终恢复预算、训练数据修订和被评测检查点的标识，在附带运行元数据里也找不到。</li>
+      <li><strong>方法边界。</strong>选择器只能在并行通路的 top-K 里挑；目标 token 一旦不在 shortlist 里，接受前缀就在这里结束。造表随 K 和块长平方增长，K=32 时成本已经超过接受收益。AR 消融不是同等算力对比。选择器在记录前缀上训练，与自身决策仍有暴露不匹配。</li>
+      <li><strong>评测口径。</strong>加速比相对的是固定的、按模型给出的自回归吞吐参考，不是每个负载单独测一份 AR 吞吐。阶段拆分是带同步的仪器化执行，吞吐是关掉仪器后另跑的。并发结果来自附录，主表是单请求。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>平均加速（贪心）</td><td>4B 3.35×；8B 3.37×</td><td>八个基准不加权平均；AR 参考 47.83 / 39.63 tok/s</td></tr>
+        <tr><td>平均加速（采样）</td><td>两个目标都是 2.86×</td><td>temperature=1，top-p=1</td></tr>
+        <tr><td>平均 τ（贪心）</td><td>4B 7.14；8B 7.19</td><td>含目标修正或 bonus，不含锚点；DSpark 为 6.24 / 6.27</td></tr>
+        <tr><td>相对 DSpark / DFlash 的 τ</td><td>+13–15% / +25–26%</td><td>四个「目标 × 温度」设定上的范围</td></tr>
+        <tr><td>EAGLE-3 平均加速</td><td>贪心 1.25× / 1.38×</td><td>同样 15 token 预算，从零训练</td></tr>
+        <tr><td>对话负载（4B 贪心）</td><td>MT-Bench 1.98×；Alpaca 1.88×</td><td>远低于 GSM8K 的 4.38×</td></tr>
+        <tr><td>每轮时间</td><td>CPA 44.499 ms；DSpark 41.815；DFlash 39.722</td><td>4B 贪心，单请求；修正项 2.748 / 1.177 / —</td></tr>
+        <tr><td>历史项的贡献</td><td>τ +5.1%，加速 +4.8%</td><td>相对仅局部项；成本指数 2.13 对 2.12</td></tr>
+        <tr><td>AR 损失</td><td>3.28× → 3.35×；τ 6.93 → 7.14</td><td>推理路径相同；另训五个 epoch</td></tr>
+        <tr><td>K=16 vs 32</td><td>3.35× / 7.14 vs 3.26× / 7.19</td><td>更大 shortlist 接受更多，总加速下降</td></tr>
+        <tr><td>块大小 8 / 16 / 32</td><td>CPA 加速 2.61× / 3.35× / 1.92×</td><td>各自单独训练；16 最好</td></tr>
+        <tr><td>并发 1 / 8 / 16 / 32</td><td>3.35× / 2.54× / 1.98× / 1.52×</td><td>4B 贪心；并发 32 时 DSpark 为 1.42×</td></tr>
+        <tr><td>选择器参数</td><td>4B 约 3.5M；8B 约 5.5M</td><td>不到目标的 0.1%；m=15</td></tr>
+        <tr><td>训练一个 epoch（4B）</td><td>CPA 28 h；DFlash 17 h；DSpark 23 h</td><td>八张 910B2</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.31112v1（2026-11-23，cs.CL）全文。平均加速与提交长度来自 Table 1，阶段耗时来自 Table 3，消融来自 Table 2 与 Table 4，块大小来自 Table 5，并发吞吐来自附录 Table 9。代码链接以论文摘要为准。
+  </footer>
+</div>
+</body>
+</html>
