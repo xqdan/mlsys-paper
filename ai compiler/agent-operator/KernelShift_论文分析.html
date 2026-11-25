@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KernelShift 论文分析 | 硬件换代时，写核的智能体能不能跟着换策略</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.CL · 2026-11-22</span>
+      <span class="badge">arXiv:2611.29590v1</span>
+      <span class="badge">算子生成 · 智能体评测</span>
+      <span class="badge ok">CMU / Arm</span>
+      <span class="badge warn">只评 Arm CPU；SME2 证据主要来自 20 个 KleidiAI 核</span>
+    </div>
+    <h1>KernelShift：成熟向量扩展上智能体能超通用库，但 SME2 这种编程模型换代还过不去</h1>
+    <p class="subtitle">从 ncnn、llama.cpp、Arm SIMD Loops 和 KleidiAI 做出 99 个真实 kernel、约 1.6K 组工作负载，在 Graviton3 / Graviton4 / Apple M4 上闭环评测。对已站稳的 Neon / SVE，智能体相对自动向量化起点的各列几何平均加速是 2.4–19.8×，相对 ncnn Neon 参考最高 2.74×；相对 KleidiAI 手工核最好只有 0.70×。两台 LLM 的端到端 prefill 相对 llama.cpp 的 i8mm 快路径是 1.30–1.57×，decode 只有 1.04–1.10×，而且换进去的是按形状特化的核。</p>
+    <p class="meta">
+      <strong>论文</strong>：Shuaiwei Huang, Weihua Du, Allen Wu, Ivan Fox, Manupa Karunaratne, Yiming Yang, Sean Welleck. <em>KernelShift: Benchmarking Kernel Optimization Across Evolving Hardware</em>.
+      <a href="https://arxiv.org/abs/2611.29590">arXiv:2611.29590</a>。
+      提交于 2026-11-22。Huang、Du、Wu 为共同第一作者。单位为 Carnegie Mellon University 与 Arm Ltd.。
+      项目页 <a href="https://cmu-l3.github.io/kernel-shift/">cmu-l3.github.io/kernel-shift</a>；代码 <a href="https://github.com/cmu-l3/kernel-shift">cmu-l3/kernel-shift</a>；数据 <a href="https://huggingface.co/datasets/l3lab/KernelShift">l3lab/KernelShift</a>。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#takeaway">一句话结论</a></li>
+      <li><a href="#problem">问题：硬件在变，写核的策略也得变</a></li>
+      <li><a href="#method">做法：仓库出题，真机给反馈</a></li>
+      <li><a href="#sve">成熟向量扩展上能超通用库</a></li>
+      <li><a href="#adapt">换代：SVE2 还行，SME2 跨不过去</a></li>
+      <li><a href="#headroom">加速从哪来，怎样才能更好</a></li>
+      <li><a href="#e2e">塞进 llama.cpp 之后</a></li>
+      <li><a href="#deploy">落地可行性</a></li>
+      <li><a href="#numbers">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="takeaway">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">KernelShift 要回答的不是“智能体能不能再写一个更快的 GEMM”，而是：当 CPU 的指令扩展从固定宽度向量走到可伸缩向量、再到矩阵 tile 时，写核的智能体能不能换一套优化策略。它用智能体辅助、人工验收的流水线，把正在维护的开源仓库做成可扩展基准，并在目标机器上提供编译、评测、反汇编三种工具。当前套件 99 个 kernel、约 1.6K 组工作负载。在 Graviton3 的 SVE 上，最强系统相对 ncnn / llama.cpp / SIMD Loops 专家参考的几何平均 Speedup@40 分别是 2.74× / 1.95× / 1.56×，但相对 6 个 KleidiAI SVE 核最好只有 0.70×。从 SVE 换到 SVE2 几乎不掉；换到 SME2 时，五个模型里有三个相对专家参考的成绩掉到原来的 0.41–0.46。用 Claude Code + Fable 5.1 为 Qwen3.5-4B 和 Llama-3.1-8B-Instruct（均为 Q4_K_M）写出按形状特化的量化矩阵核并替换进 llama.cpp 后，Graviton4 上 prefill 相对官方 i8mm 快路径加速 1.30–1.57×，decode 1.04–1.10×，困惑度不变。</p>
+  </section>
+
+  <section class="card" id="problem">
+    <h2>2. 问题：硬件在变，写核的策略也得变</h2>
+    <p>前沿实验室已经在用智能体改生产级 GPU kernel。CPU 这边，硬件演进常常表现为新的架构扩展：同一功能的高效写法，可能要从 Neon 的固定宽度向量，换成 SVE / SVE2 的可伸缩向量，再换成 SME2 的二维矩阵 tile 和外积累加。智能体如果还按旧接口写，程序可以正确，却用不上新硬件。</p>
+    <p>已有 KernelBench、TritonBench、MobileKernelBench、SimdBench 以及跨设备的评测，多半是在一个或一组固定目标上看生成质量。KernelShift 把硬件看成一条扩展序列，在覆盖允许时用同一组 kernel 跨代比较，专门看智能体能不能适应新指令和新的编程抽象。</p>
+    <div class="callout navy">分数 <code>s</code> 是隐藏工作负载上、相对该目标上专家参考的运行时间几何平均；任一正确性检查失败则 <code>s = 0</code>。主指标 Speedup@40 是 40 次工具调用内最好的正确实现，再对 kernel 做几何平均。编译、评测、反汇编都计入预算。</div>
+  </section>
+
+  <section class="card" id="method">
+    <h2>3. 做法：仓库出题，真机给反馈</h2>
+    <p>构造流水线由编码智能体按固定规程执行，背后是确定性的生成和校验脚本。人只做少量决定：选哪些 kernel、在追不到模型执行轨迹时批准工作负载、审查抽出来的专家参考。每个任务包含一份可移植的标量 C++ 起点、暴露给智能体的上下文、隐藏工作负载，以及仓库里若有同功能优化实现则抽出的专家参考。入选前要在目标硬件上把起点编译并跑通。</p>
+    <p>能从模型执行里收集形状时就收集形状，不保留原始激活值——作者假定性能主要由张量尺寸和算子配置决定。ncnn 的形状来自视觉模型，llama.cpp 的形状来自 ShareGPT 上的推理。去重并子采样后作为隐藏评测集。没有明确源模型的核，则分别构造正确性边角和工作负载规模两组合成例子。</p>
+    <table>
+      <thead>
+        <tr><th>来源</th><th>算子类型</th><th>精度</th><th>专家参考</th><th>核数</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>ncnn</td><td>conv、dwconv、pool</td><td>FP32、INT8（w8a8ch）</td><td>ncnn Neon</td><td>23</td></tr>
+        <tr><td>llama.cpp</td><td>gemm、moe、attn、rmsnorm</td><td>FP32、BF16、q8_0、q4_K_M</td><td>ggml</td><td>26</td></tr>
+        <tr><td>SIMD Loops</td><td>归约、字符串、搜索等循环</td><td>fp / int / uint</td><td>Arm SVE</td><td>24</td></tr>
+        <tr><td>KleidiAI</td><td>gemm、conv、dwconv（NHWC）</td><td>FP32、FP16、BF16、INT8、INT4、INT2</td><td>KleidiAI</td><td>26（6 个 SVE，20 个 SME2）</td></tr>
+      </tbody>
+    </table>
+    <p>99 个核是各目标的并集：每个任务都可以在各代硬件上实例化，但不是每个来源在每一代都有专家参考，所以每一代只用有参考的那一批。ncnn 和 llama.cpp 的任务来自 11 个源模型。工作负载合计约 1.6K 组。</p>
+    <p>评测是硬件在环的。统一控制面把相同的三种工具（compile、evaluate、disassemble）交给所有 harness，请求被路由到跑在目标机器上的 evaluator。正确性先于计时；两边用同一台机器、同一套计时协议。因为不是所有目标都有可靠的周期计数器，性能用墙钟时间。单核重复测量，每次评测在隔离进程里，并拒绝违反约束的实现（例如使用多线程）。</p>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>SVE · Graviton3</h4>
+        <p>AWS c7g，Neoverse V1。主比较用 79 个有 SVE 专家参考的核（23+26+24+6）。</p>
+      </div>
+      <div class="tile">
+        <h4>SVE2 · Graviton4</h4>
+        <p>AWS c8g，Neoverse V2。增量扩展对照，以及端到端替换实验。</p>
+      </div>
+      <div class="tile">
+        <h4>SME2 · Apple M4</h4>
+        <p>流式 SVE 和 ZA 矩阵 tile。跨代和指令阶梯实验主要靠有 SME2 参考的 KleidiAI 核。</p>
+      </div>
+    </div>
+    <p>模型包括 Claude Opus 4.8、Claude Sonnet 4.6、GPT-5.6-sol、GPT-5.6-luna、DeepSeek-V4-Pro、GLM-5.3；harness 是 Claude Code、Codex、nanobot，以及一个最小 tool-call loop。nanobot 跑全部六个模型，用来拆开模型和 harness 的贡献。端到端一节另外用了 Claude Fable 5.1 + Claude Code。消融和受控实验用 32 核子集。测试时扩展预算到 100 次调用。</p>
+  </section>
+
+  <section class="card" id="sve">
+    <h2>4. 成熟向量扩展上能超通用库</h2>
+    <p>在 Graviton3 的 SVE 上，强系统确实能吃到生产库里的优化空间。Table 2 里各列最好的 Speedup@40（括号里是超过专家参考的核占比）是：</p>
+    <table>
+      <thead>
+        <tr><th>来源</th><th>最好系统</th><th>Speedup@40</th><th>超过参考</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>ncnn（23）</td><td>nanobot + GLM-5.3</td><td>2.743×</td><td>91%</td></tr>
+        <tr><td>llama.cpp（26）</td><td>nanobot + GLM-5.3</td><td>1.954×</td><td>85%</td></tr>
+        <tr><td>SIMD Loops（24）</td><td>Claude Code + Opus 4.8</td><td>1.555×</td><td>96%</td></tr>
+        <tr><td>KleidiAI（6）</td><td>Claude Code + Opus 4.8</td><td>0.701×</td><td>33%（2/6）</td></tr>
+      </tbody>
+    </table>
+    <p>编译器自动优化离专家参考很远：即便 <code>-O3</code> 且打开 SVE，相对专家参考最多也只有 0.468×（SIMD Loops），ncnn / llama.cpp / KleidiAI 分别是 0.229× / 0.126× / 0.035×。这份 <code>-O3</code> + SVE 的标量起点，也是每个智能体的出发实现。附录 D 把 Table 2 的同一批运行改成相对起点报告：每一列的几何平均都高于起点，范围是 2.4–19.8×（最低一格是 Codex + GPT-5.6-luna 在 SIMD Loops 上的 2.41×，最高是 Claude Code + Opus 4.8 在 KleidiAI 上的 19.77×）。这是“各系统在各来源上的几何平均”，不是“每个 kernel 都超过起点”——SIMD Loops 上超过起点的核占比是 79%–92%。专家参考本身相对同一起点是 4.37× / 7.97× / 2.14× / 28.20×。</p>
+    <p>单次生成、不用工具的 Claude Opus 4.8 要弱得多（ncnn 0.577×，llama.cpp 0.324×），说明成绩主要来自带真机反馈的迭代，而不是一次写对。</p>
+    <div class="callout warn">不要把“超过 ncnn 2.74×”读成“已经接近硬件上限”。附录 D 用 <code>tfloor = max(W/P, Q/B)</code> 估理论下限：ncnn 和 llama.cpp 的专家参考大约只到上限的 7–8%，前沿智能体是这个数字的两到三倍；KleidiAI 专家参考到 43%，仍然领先所有智能体。Speedup@40 大于 1，首先说明参考路径还有空间。</div>
+  </section>
+
+  <section class="card" id="adapt">
+    <h2>5. 换代：SVE2 还行，SME2 跨不过去</h2>
+    <p>真正吃力的是 SME2：它引入的是流式模式和 ZA 矩阵 tile，而不只是再加一批向量指令。在同一组 6 个 KleidiAI 核上，把 Speedup@40 从 SVE 换到 SME2（nanobot，3 个种子的均值 ± 标准差）时：</p>
+    <table>
+      <thead>
+        <tr><th>模型</th><th>SVE（Before）</th><th>SME2（After）</th><th>After / Before</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Claude Opus 4.8</td><td>0.436 ± 0.02</td><td>0.562 ± 0.20</td><td>1.29</td></tr>
+        <tr><td>Claude Sonnet 4.6</td><td>0.258 ± 0.02</td><td>0.266 ± 0.02</td><td>1.03</td></tr>
+        <tr><td>GLM-5.3</td><td>0.464 ± 0.05</td><td>0.213 ± 0.19</td><td>0.46</td></tr>
+        <tr><td>DeepSeek-V4-Pro</td><td>0.213 ± 0.03</td><td>0.091 ± 0.01</td><td>0.42</td></tr>
+        <tr><td>GPT-5.6-luna</td><td>0.178 ± 0.04</td><td>0.073 ± 0.01</td><td>0.41</td></tr>
+      </tbody>
+    </table>
+    <p>GLM-5.3 在 SVE 上是这五者里最强的之一，换到 SME2 掉到一半以下。SVE 上表现好，并不能保证会用新的编程风格。附录 F 统计最终解是否真的用了目标扩展：SVE 上几乎都会用 SVE intrinsic；在这 6 个核、3 个种子共 18 个最终 SME2 解里，用了 ZA tile 的分别是 Opus 15 个、Sonnet 5 个、GLM-5.3 5 个、DeepSeek-V4-Pro 1 个。个案 <code>gemm_bf16_n512_k512</code> 上，Opus 切到流式模式并用 MOPA / ZA 累加，达到专家实现的 0.94×（附录轨迹里最好一次是第 29 次调用的 0.935×）；Sonnet 和 DeepSeek 仍停在旧的向量写法，只有 0.06× 和 0.05×。</p>
+    <p>固定在 Apple M4、用 nanobot + GPT-5.6-luna、在 20 个 KleidiAI SME2 核上做指令阶梯（3 个种子）：只给 Neon 是 0.141×，加上流式 SVE（不含 ZA）掉到 0.059×，再打开完整 SME2 只回到 0.085×。每个种子都是 Neon &gt; SME2 &gt; 流式 SVE。恢复并不是因为用上了 ZA 外积：智能体只是比“只给流式 SVE”时更常保住 Neon 核。该设置下，最终 SME2 档没有一个核使用 ZA 外积；全部运行里只写过两次 ZA 代码，都没通过。第一种子里，编译失败率从 Neon 档的 13% 升到流式 SVE 的 20%、完整 SME2 的 24%。</p>
+    <p>相比之下，SVE 到 SVE2 是增量扩展。在 8 个专家 SVE2 实现必须用到 SVE2 专有指令的 SIMD Loops 核上，各模型的 SVE2 / SVE 比值在 0.94–1.05。Graviton4 上固定机器的指令阶梯里，只给 Neon 和加上 SVE2 分别是 1.105× 和 1.101×。作者把 SVE 档的落后拆成两半：大约一半是 SVE 代码过不了正确性检查、退回标量；另一半是 SVE 代码正确但更慢、没用对指令。这是 SME2 失败的较弱形态：新接口用不好时，结果可能还不如老的 Neon。</p>
+  </section>
+
+  <section class="card" id="headroom">
+    <h2>6. 加速从哪来，怎样才能更好</h2>
+    <p>在 79 个 SVE 核上，专家参考相对未向量化标量代码越强，智能体的中位 Speedup@40 越低（Spearman ρ = −0.69；llama.cpp 内部是 −0.75）。大的 Speedup@40 常常反映参考路径偏弱，而不是智能体特别强。llama.cpp 的 RMSNorm 参考只比标量快 1.3×，智能体中位超过它 6.0×；q4_K_M 的 GEMM 和 MoE 专家实现已经比标量快 25–29×，智能体只到专家的 0.57–0.69×。</p>
+    <p>测试时扩展方面，大部分提升发生在前 40 次调用内，但 40 次之后仍有回报：Claude Sonnet 4.6 在 100 次时比 40 次高 23–25%，主要来自大约 40–60 次之间少数核的结构性改写，60 次之后曲线基本收敛。</p>
+    <p>消融（nanobot + GPT-5.6-luna；SVE 用 32 核子集，SME2 用 20 个 KleidiAI 核）里，更值得记下的是失败，而不是又加了一种工具：</p>
+    <ul>
+      <li>SVE 上提供 Arm 文档，Speedup@40 从 1.074 降到 0.997；跨 kernel 记事本是 0.974；去掉反汇编是 0.999。轨迹里智能体很少用反汇编，而人类专家设计高级核时常用。</li>
+      <li>禁止 SIMD intrinsic、只准靠编译器自动向量化，成绩从 1.074 掉到 0.300。智能体的主要收益来自把提供的 intrinsic 用对。</li>
+      <li>SME2 上加 Arm 文档把 0.083 提到 0.130，但并不是写出了更好的 SME2 代码：有文档时没有一份最佳版本使用流式 SVE（没有文档时有 6 份），20 个里 14 个改用 Neon（没有文档时是 7 个），编译错误从 102 降到 54。</li>
+      <li>把常见 SME2 陷阱和失败例子写进提示，20 个核上的 Speedup@40 从 0.083 加倍到 0.167，但其中 5 个核反而变差。</li>
+    </ul>
+    <div class="callout teal">官方文档帮不上忙去学会一种新的编程模型；把具体失败模式写进提示更有效，也不稳定。要让智能体用上 SME2，更像是缺“会用 ZA 的示范和约束”，而不是缺一份 ISA 手册。</div>
+  </section>
+
+  <section class="card" id="e2e">
+    <h2>7. 塞进 llama.cpp 之后</h2>
+    <p>主实验是一次优化一个核。为了看应用层有没有增益，作者用 Claude Code + Fable 5.1，为 Qwen3.5-4B 优化 11 个量化矩阵核、为 Llama-3.1-8B-Instruct 优化 7 个（均为 Q4_K_M），在 Graviton4 上替换进 llama.cpp，对照原来的 repacked i8mm 快路径。Table 6：</p>
+    <table>
+      <thead>
+        <tr><th>线程数</th><th>Qwen prefill</th><th>Qwen decode</th><th>Llama prefill</th><th>Llama decode</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>1.395×</td><td>1.045×</td><td>1.568×</td><td>1.099×</td></tr>
+        <tr><td>4</td><td>1.348×</td><td>1.059×</td><td>1.454×</td><td>1.069×</td></tr>
+        <tr><td>16</td><td>1.298×</td><td>1.048×</td><td>1.391×</td><td>1.102×</td></tr>
+      </tbody>
+    </table>
+    <p>正文把两模型、1–16 线程汇总为 prefill 1.30–1.57×、decode 1.04–1.10×。Qwen 的困惑度 9.504 对 9.506，Llama 两边都是 7.879，作者称为不变。18 个核都用了 Graviton4 的 i8mm，并加上按形状的分块、布局和预取。单独测量时，这些核比 llama.cpp 自己的 repacked 核平均快 1.45×（Qwen）和 1.62×（Llama）；正文约写成 1.5×。prefill 的优势随提示变长而下降，因为没被替换的算子（主要是 attention）占比上升；batch size 为 1 时行为接近 decode。</p>
+    <div class="callout warn">每个生成核只服务一个固定形状，而通用库必须覆盖更宽的形状分布。作者明确写了：这不是“智能体已经在端到端上全面超过专家库”，只说明部署时按硬件和形状特化有潜力。</div>
+  </section>
+
+  <section class="card" id="deploy">
+    <h2>8. 落地可行性</h2>
+    <p>如果你关心的是 CPU 侧、尤其是 Arm 服务器或端侧上，用智能体去挤通用库（ncnn、llama.cpp）里还没手写到极致的核，KernelShift 给出的证据是扎实的：题来自正在维护的仓库和真实模型形状，评测在目标机器上闭环，而且端到端替换后 prefill 有 1.3–1.6× 量级、质量指标没有变差。代码和数据集都已公开。同目录里 KernelOPT、CompoundingKernel、AscendGYM 主要看 GPU / NPU；这篇把镜头转到“指令扩展换代时策略会不会跟着换”，是补了一块之前几乎没被对准的评测。</p>
+    <p>若要把结论外推到“智能体可以替代厂商微核、或自动跟上每一次 ISA 换代”，限制同样清楚。</p>
+    <ul>
+      <li><strong>只评了 Arm CPU，而且核级实验是单核、禁止多线程。</strong>x86 和 GPU 会不会是同一趋势，文中明确列为未知。多核部署里的缓存、亲和性和并行开销也不在核级分数里。端到端虽然跑了 1–16 线程，替换的仍只是部分矩阵核。</li>
+      <li><strong>大加速经常来自参考路径偏弱。</strong>ρ = −0.69 这一条必须和 2.74×、1.95× 一起读。对手已经 25–29× 于标量的 q4_K_M GEMM / MoE，智能体只有专家的 0.57–0.69×；对 KleidiAI 这种专门手写的微核，最好也只到 0.70×，并且 43% 峰值利用率仍领先所有智能体。</li>
+      <li><strong>SME2 的证据面窄，而且多数模型并没有真正用上矩阵 tile。</strong>作者自己写了：新硬件缺少专家参考，限制了跨代可比较的核数；SME2 证据主要建立在 20 个有专家参考的 KleidiAI 核上。跨代表里更只有 6 个核。不少看起来的“恢复”其实是退回 Neon。</li>
+      <li><strong>端到端核是按形状特化的。</strong>换模型、换序列长度分布，这些核不能当通用库用。decode 收益很小，长上下文时 prefill 优势也会被 attention 吃掉。</li>
+      <li><strong>基准扩展仍要人盯着。</strong>一次给端到端 GEMM 任务扩容的记录里，人工发了 37 条消息，其中 17 条改变了走向（14 个决定、3 个纠正）；智能体还写错过两个形状。命令本身大约 23 分钟，Graviton 实例连同下载和重跑占了约 4.5 小时。流水线能减轻重复劳动，但不能无人值守地“自动跟上所有新仓库和新芯片”。</li>
+      <li><strong>公开仓库有污染风险，但作者做了针对性检查。</strong>智能体在多数 ncnn / llama.cpp / SIMD Loops 核上超过了专家实现，并用了库里没有的 intrinsic 和不同算法结构；起点是带基准接口的可移植标量代码，不是库的原文件。KleidiAI 的 SME2 专家核同样公开，智能体反而差得远。在 Table 3 完整 SME2 臂的 20 个核里，GPT-5.6-luna 知识截止日期（2026-02-16）之后才进入 KleidiAI 的 6 个核，成绩与更早的 14 个接近（0.088 对 0.082）。正确性和计时用的工作负载也对智能体隐藏。</li>
+    </ul>
+    <div class="callout">对仓库读者的建议：把它读成“CPU 核优化智能体的换代评测床”，而不是又一份 KernelBench 的 GPU 成绩表。能用的结论是：在熟悉的向量 ISA 上，带真机反馈的智能体已经可以超过通用库里偏弱的路径，并在部署时按形状特化出可测量的 prefill 收益；不能用的结论是：它们已经学会了 SME2 这类新编程模型，或可以整体替换 KleidiAI 这一级的手写微核。</div>
+  </section>
+
+  <section class="card" id="numbers">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>口径</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>基准规模</td><td>99 个 kernel，约 1.6K 组工作负载</td><td>ncnn 23、llama.cpp 26、SIMD Loops 24、KleidiAI 26；来自 11 个源模型</td></tr>
+        <tr><td>SVE 主比较</td><td>79 个核（23+26+24+6）</td><td>Graviton3；32 核子集用于消融</td></tr>
+        <tr><td>相对专家参考最好成绩</td><td>2.743× / 1.954× / 1.555× / 0.701×</td><td>ncnn / llama.cpp / SIMD Loops / KleidiAI；Speedup@40 几何平均</td></tr>
+        <tr><td>相对 <code>-O3</code>+SVE 起点</td><td>各列几何平均 2.4–19.8×</td><td>专家参考本身为 4.37 / 7.97 / 2.14 / 28.20×；SIMD Loops 超过起点的核占 79%–92%</td></tr>
+        <tr><td>编译器上限</td><td><code>-O3</code>+SVE 最多 0.468× 专家参考</td><td>即智能体的出发实现</td></tr>
+        <tr><td>峰值利用率</td><td>ncnn / llama.cpp 专家约 7–8%；KleidiAI 专家 43%</td><td>前沿智能体大约是前一类的 2–3 倍，仍低于 KleidiAI</td></tr>
+        <tr><td>与专家强度的相关</td><td>Spearman ρ = −0.69（llama.cpp 内 −0.75）</td><td>79 个 SVE 核；RMSNorm 中位 6.0×，q4_K_M GEMM / MoE 仅 0.57–0.69×</td></tr>
+        <tr><td>SVE→SME2 比值</td><td>Opus 1.29，其余 Claude 1.03，另三个模型 0.41–0.46</td><td>6 个 KleidiAI 核、3 个种子；GLM-5.3 从 0.464 降到 0.213</td></tr>
+        <tr><td>M4 指令阶梯</td><td>Neon 0.141×，流式 SVE 0.059×，完整 SME2 0.085×</td><td>20 核、nanobot+GPT-5.6-luna、3 种子；最终 SME2 档未使用 ZA 外积</td></tr>
+        <tr><td>SVE→SVE2 比值</td><td>0.94–1.05</td><td>8 个必须用 SVE2 专有指令的 SIMD Loops 核</td></tr>
+        <tr><td>测试时扩展</td><td>Sonnet 4.6 在 100 次比 40 次高 23–25%</td><td>主要发生在 40–60 次；60 次后基本收敛</td></tr>
+        <tr><td>禁止 intrinsic</td><td>1.074 → 0.300</td><td>SVE、32 核子集</td></tr>
+        <tr><td>SME2 提示工程</td><td>文档 0.083→0.130；陷阱示例 0.083→0.167</td><td>文档主要让模型改用 Neon；20 核里 5 个核变差</td></tr>
+        <tr><td>端到端</td><td>prefill 1.30–1.57×，decode 1.04–1.10×</td><td>Qwen3.5-4B 11 核 + Llama-3.1-8B 7 核，Q4_K_M，Graviton4，对照 llama.cpp i8mm 快路径；1–16 线程</td></tr>
+        <tr><td>单核对照（隔离）</td><td>Qwen 1.45×，Llama 1.62×</td><td>相对 llama.cpp 自己的 repacked 核；按形状特化</td></tr>
+        <tr><td>困惑度</td><td>Qwen 9.504 vs 9.506；Llama 两边 7.879</td><td>作者称为不变</td></tr>
+      </tbody>
+    </table>
+    <p>本笔记根据 <a href="https://arxiv.org/abs/2611.29590">arXiv:2611.29590v1</a> 原文整理，数字均来自论文，未另行复现实验。</p>
+  </section>
+
+  <footer>AI 编译器跟踪笔记 · KernelShift · 2026-11-25 · 原文：arXiv:2611.29590v1</footer>
+</div>
+</body>
+</html>
