@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DLM-AIMC 论文分析 | 扩散语言模型与模拟存内计算</title>
+  <style>
+
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  
+  
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">DATE 2027</span>
+      <span class="badge">arXiv:2611.32223v1</span>
+      <span class="badge">模拟存内计算 · CIM</span>
+      <span class="badge ok">北航 × 港大 × 北大</span>
+      <span class="badge warn">16 芯片混合实测 + 校准仿真，不是完整模型上板</span>
+    </div>
+    <h1>Beyond Autoregression：模拟存内计算更需要扩散式生成，而不是再把 AR 解码做硬</h1>
+    <p class="subtitle">AIMC 的权重扰动在自回归解码里会被写进因果上下文并级联；扩散语言模型把不确定的 token 留到更晚再提交。论文用对照实验排除“多轮噪声平均”，并在校准噪声模型和 16 芯片 eFlash AIMC 集群的混合测量里，给出 1.4–3× 的可容忍噪声差距。</p>
+    <p class="meta">
+      <strong>作者：</strong>Yuanuo Feng<sup>†</sup>、Yizhe Chen、Wang Kang<sup>*</sup>（北航集成电路学院）；Yubing Ye<sup>†</sup>、Ngai Wong、Wenyong Zhou<sup>*</sup>（香港大学工学院）；Wenshuai Yao（北大集成电路学院）。† 共同一作，* 通讯作者<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.32223">arXiv:2611.32223</a> · 2026-11-24 提交 · 接受于 DATE 2027<br />
+      <strong>评测口径：</strong>大规模扫描是在 8×L20 GPU 上、用硅片 MVM 误差校准过的扰动模型做的仿真；板上结果是混合测量——Transformer 线性层 MVM 在 AIMC 上，其余计算在数字侧。不要读成 8B 模型完整跑在这 16 枚芯片上。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：AR 会把一次扰动写进后续所有步</a></li>
+      <li><a href="#s3">做法：机制分析，再校准到 AIMC</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">和已有近存笔记的关系</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">模拟存内计算能把矩阵向量乘放在阵列里做，但编程偏差、电导漂移、读噪声和外围电路非理想会扰动有效权重。自回归模型每个 token 一生出来就被写进因果上下文，一次被扰动翻错的 token 会改变后面所有预测。扩散语言模型迭代地去噪、先提交有把握的位置，把不确定的位置留到上下文更清楚再决定。论文在规模对齐的模型和公开检查点上观察到 DLM 在持续权重扰动下退化更缓，并用对照实验表明：这不是多轮独立噪声被平均掉，而是延迟提交和逐步补全上下文。去噪步数还可以当成 DLM 特有的“延迟–鲁棒性”旋钮。在按片上 MVM 误差校准的扰动模型下，8B 量级、八个基准的仿真里，σ=0.3 时 DLM 均值在所有基准上都超过 AR 均值，差距从 20 个百分点（ARC-C）到 45 个百分点（GSM8K）。16 芯片 28 nm eFlash AIMC 集群上的混合测量给出：在暂定 2% 相对损失阈值下，DLM 可容忍的有效噪声是配对 AR 的 1.4–3 倍，从 45M 的 1.4× 扩到 8B 的 3×。混合测量里，注意力/FFN 的 MVM 在 AIMC 上，其余计算在数字侧。</p>
+    <div class="kpi">
+      <div><div class="n">1.4–3×</div><div class="k">混合测量里 DLM 相对配对 AR 可容忍的有效权重噪声</div></div>
+      <div><div class="n">−10.5% vs −31.6%</div><div class="k">σ<sub>eff</sub>=0.15 时 8B GSM8K：LLaDA / Llama-3 相对干净精度的变化</div></div>
+      <div><div class="n">40.4% → 3.9%</div><div class="k">LLaDA-8B 去噪步从 64 增到 512 时，干净–含噪相对差距（混合测量）</div></div>
+      <div><div class="n">KL 0.003</div><div class="k">校准扰动模型相对片上 MVM 误差直方图；未校准高斯为 0.246</div></div>
+    </div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：AR 会把一次扰动写进后续所有步</h2>
+    <p>AIMC 把 MVM 留在存储器阵列里做，减少数据搬运，这是它被拿来做语言模型推理的原因。代价是有效权重会被器件和电路非理想扰动。对判别式网络或单次 token 精度，已有不少硬件感知训练、校准和补偿。论文关心的是另一件事：这些扰动如何在生成轨迹里被放大。</p>
+    <p>自回归解码从左到右，每个生成出来的 token 立刻成为后面所有步的上下文。扰动只要在靠前的位置把 token 翻错，后面的预测就在错误上下文上继续，形成级联。因此 AIMC 上的 AR 鲁棒性，不只是单次 MVM 误差有多大，而是一次局部错误会不会被不可逆地提交。</p>
+    <p>扩散语言模型走另一条生成过程：对部分掩码的序列做迭代精炼，可以先确定把握大的位置，把不确定的位置留到后面。图 1 用深度 32、宽度 4096、词表约 128k 的 LLaDA-8B 和 Llama-3-8B 对照——后者预训练 token 数多 6.5 倍，但在权重扰动下 LLaDA-8B 退化更缓，并在中等噪声下于 GSM8K 上反超 Llama-3。论文据此认为，这是生成方式本身的特性，不是训练规模带来的。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：机制分析，再校准到 AIMC</h2>
+    <p>这篇不是新的 CIM 宏或编译器，而是把生成范式放到 AIMC 的误差模型里检验。工作分成三步：先在受控扰动下比较 DLM 和 AR，再做提交时机和上下文解析的干预实验，最后把扰动模型校准到真实芯片的 MVM 误差，并在 16 芯片集群上做混合测量。</p>
+    <h3>持续扰动，而不是每轮重采样</h3>
+    <p>默认设置把一次采样出的误差图固定下来，在整条 AR 解码或全部去噪轮次里复用，用来模拟一次编程后的器件失配，而不是每一步独立的读噪声。GPU 扫描取权重主导极限，等效为乘性高斯扰动；嵌入和语言模型头保持数字，不注入扰动。校准后的物理模型是按权重大小加偏置项的加性高斯，用来对接后面的片上误差。</p>
+    <h3>机制：延迟提交，不是噪声平均</h3>
+    <p>一个容易想到的解释是：DLM 多轮去噪，把相互独立的参数扰动平均掉了。但默认设置里扰动是共享的、整条轨迹不变，这个解释本来就不成立。论文仍显式比较了“共享扰动”和“每轮重采样”。若平均是主因，重采样应当系统更好；结果显示没有这种系统优势。他们进一步把强制提交的轮次提前或推迟：在提示、噪声种子和总去噪预算固定时，把提交从第 0 轮推迟到第 8 轮，事后不匹配在 45M 模型上从 0.835 降到 0.265，在 125M 上从 0.85 降到 0.30。上下文解析实验里，参考 token 的对数概率裕度随已解析上下文比例单调上升；权重噪声造成的最大裕度下移是 −0.541 nats，小于上下文补全带来的裕度增益。这些实验支持“先提交有把握的位置、用更完整的上下文挡住翻转”，但论文自己写明：这不是唯一来源，也不能说自然 rollout 的上下文都有 oracle 质量。</p>
+    <h3>硬件平台</h3>
+    <p>原型是 28 nm eFlash AIMC，四核，带 DAC/ADC，和 12 nm 逻辑裸片混合键合成三维堆叠，经 PCIe/DDR 控制。16 枚芯片组成集群。映射对象是每个 Transformer 块里的线性算子（注意力投影和 FFN 权重）：权重大阵切成阵列块，有缺陷的列用备用列重映射。论文特地提醒：部署图描述的是被测量的线性 MVM 如何路由，不能读成完整模型都在这些裸片上执行。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <div class="callout warn">数字要分三层看。第一层是 GPU 上的受控扰动和公开检查点扫描，用来谈机制。第二层是用片上 MVM 误差校准后的扰动模型，在 8×L20 服务器上对 8B 量级模型做仿真。第三层是 16 芯片集群上的混合测量：注意力/FFN 的 MVM 在 AIMC 上，其余计算在数字侧。混合工作点写作 σ<sub>eff</sub>=0.15。表 I 的“Max σ<sub>eff</sub>”是暂定 2% 相对损失阈值，不是器件规格书上的保证噪声容限。</div>
+    <p>公开检查点方面，GSM8K 用完整测试集 1,319 题，七个噪声水平、三个噪声种子；PIQA 用完整验证集 1,838 例。LLaDA 和 Llama 分别跟各自发布的 5-shot 和 8-shot 协议。规模对齐的小模型另有对齐的训练和评测设置，避免把干净精度差异当成鲁棒性。校准跟随 NoiseGuard，拟合后的 MVM 误差边缘分布相对测量直方图的 KL 为 0.003，未校准高斯为 0.246，文中写作 82× 的 KL 下降。8B 仿真比较两组 DLM（LLaDA-8B、Dream-7B）和两组 AR（Qwen2.5-7B、Llama-3.1-8B），σ ∈ {0, 0.1, 0.2, 0.3}，八个基准。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <h3>机制和受控比较</h3>
+    <p>公开 DLM 检查点在 PIQA 上随 σ 上升退化较缓；论文把 σ=0.2 处的差异拆成“干净模型本来就有的差距”和“扰动额外带来的退化”，避免把绝对精度差直接叫做更鲁棒。规模对齐的 AR 与 MDLM 比较里，MDLM 的相对验证损失上升更小，说明这不是某个检查点或干净精度更高造成的。增加去噪步预算会缩小干净和含噪之间的差距，因此多出来的轮次不只是提高干净生成质量，也为在最终决定前纠正或推迟不确定预测提供了机会。</p>
+    <h3>校准仿真（8×L20，不是板上）</h3>
+    <p>AR 模型在 σ=0 时干净精度更高，但优势在 σ=0.1 已经消失，并在更大扰动下反转。σ=0.3 时，DLM 均值在全部八个基准上都超过 AR 均值，差距从 20 个百分点（ARC-C）到 45 个百分点（GSM8K）。这是校准模型上的仿真扫描，用来把前面的趋势推到 8B 量级，不是 16 芯片集群的墙钟精度。</p>
+    <h3>混合板上测量（σ<sub>eff</sub>=0.15）</h3>
+    <table>
+      <thead>
+        <tr><th>规模</th><th>模型</th><th>数字侧</th><th>含芯片</th><th>相对变化</th><th>Max σ<sub>eff</sub>（2% 阈值）</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>45M（loss，越低越好）</td><td>AR / MDLM</td><td>3.412 / 3.465</td><td>3.451 / 3.494</td><td>+1.14% / +0.84%</td><td>0.19 / 0.27</td></tr>
+        <tr><td>125M（loss）</td><td>AR / MDLM</td><td>3.183 / 3.236</td><td>3.207 / 3.242</td><td>+0.75% / +0.19%</td><td>0.28 / 0.58</td></tr>
+        <tr><td>8B（GSM8K 精度）</td><td>Llama-3 / LLaDA</td><td>0.748 / 0.702</td><td>0.512 / 0.628</td><td>−31.6% / −10.5%</td><td>0.03 / 0.09</td></tr>
+      </tbody>
+    </table>
+    <p>配对阈值给出 1.4–3× 的可容忍有效噪声比，从 45M 的 1.4× 扩到 8B 的 3×。125M 上 MDLM 的损失只增加 0.19%，AR 为 0.75%。8B 上干净精度其实是 Llama-3 更高（0.748 vs 0.702），上板后 LLaDA 反超（0.628 vs 0.512），相对跌幅也小得多。</p>
+    <p>去噪步是 DLM 特有的旋钮。LLaDA-8B 在 64/128/256/512 步时，相对退化从 40.4% 降到 21.7%、10.5%、3.9%，延迟为 0.73 / 1.42 / 2.81 / 5.58 s，能量为 410 / 801 / 1590 / 3150 mJ，代价大致随步数线性增加。标准 AR 解码没有这一档“多走几步换鲁棒性”的控制。这些延迟和能量是混合测量边界内的生成代价，不是完整 8B 模型全部在 AIMC 上的系统能耗。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 和已有近存笔记的关系</h2>
+    <p>仓库里已有的近存笔记大多针对数字 DRAM/HBM PIM、近 bank 计算、PIM 编译或 CXL/HBF 近存系统。这篇走的是模拟 CIM：阵列里做 MVM，误差来自器件物理，对策是换一种生成范式，而不是再加一套 bank 级 ISA 或编译器。它和 PIMphony、DCC、Tenon、Synapse、ANOR 不重复，补的是“语言模型如何在不理想的模拟阵列上生成”这一层。</p>
+    <p>贡献的重心在算法–硬件协同，不在新的 CIM 宏电路。如果只关心 bank 级 PIM 系统实现，这篇不会直接给出可综合的引擎。如果关心模拟 CIM 能不能承接生成式模型，它提供的是目前比较少见的、带校准和混合实测的证据：问题可能出在 AR 的提交方式，而不只是阵列精度差一点。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>有利条件比许多纯仿真 CIM 论文具体。第一，有 28 nm eFlash 原型和 16 芯片集群，校准对着测到的 MVM 误差，KL 从 0.246 降到 0.003，不是随手加的高斯。第二，混合测量把“哪些算子上板”写清楚了，并且明确警告部署图不能当成完整模型上板。第三，去噪步数是一个可以在部署时调节的旋钮：512 步能把 LLaDA-8B 的相对退化收到 3.9%，同时也把延迟和能量带到大约 5.58 s 和 3150 mJ，成本和收益可以放在同一张表里看。第四，工作已被 DATE 2027 接收，材料完整度高于同期一些未标注会议的预印本。</p>
+    <p>要落到可用的 AIMC 推理系统，缺口同样清楚。完整的注意力 softmax、采样、KV 管理和语言模型头仍在数字侧，8B 的上板结果不能外推成“8B DLM 已经在这套集群上端到端推理”。阈值 2% 是论文自己定的工作定义，换成别的质量门槛，1.4–3× 会变。延迟随步数线性上涨，说明鲁棒性不是免费的；在低延迟场景里，64 步时 LLaDA-8B 相对退化仍有 40.4%，并不比 AR 自动更香。扰动默认是一次编程后的静态误差图，不覆盖运行中的漂移和逐次读噪声叠加。小模型上的提交干预支持机制，但作者不把它写成唯一原因。</p>
+    <div class="callout teal">今天值得记下的是那条硬件含义：如果鲁棒性来自延迟提交，DLM 可以容忍更大的持续权重误差，从而放松阵列保真度，而不是先把 AIMC 的编程精度做上去再硬跑 AR。这条判断目前由校准仿真和混合测量支撑，还差完整模型上板和更真实的器件动态误差。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li>8B 公开检查点的提示协议并不对齐（5-shot vs 8-shot）；规模对齐比较主要在小模型上。</li>
+      <li>自然 rollout 的上下文实验表明随机上下文会把裕度打到 0.02，但 oracle 上下文并不等于真实生成上下文。</li>
+      <li>σ=0.3 时 20–45 个百分点的优势来自 GPU 校准仿真，不要和混合测量表 I 混抄。</li>
+      <li>延迟和能量只在混合边界内、按每次生成报告，没有和同等质量的 AR 系统做端到端能效对比。</li>
+      <li>没有把阵列面积、功耗或吞吐作为一阶指标，因此不能直接回答“这块 AIMC 宏有多好”，只回答“这种生成方式更能扛这块阵列的误差”。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>条目</th><th>数字</th><th>出处和条件</th></tr></thead>
+      <tbody>
+        <tr><td>规模对齐的 8B 对照</td><td>32 层、宽 4096、词表约 128k；Llama-3 预训练 token 多 6.5×</td><td>图 1 设定</td></tr>
+        <tr><td>提交干预</td><td>第 0 轮改到第 8 轮：不匹配 0.835→0.265（45M），0.85→0.30（125M）</td><td>提示、噪声种子、总步数固定</td></tr>
+        <tr><td>噪声造成的最大裕度下移</td><td>−0.541 nats</td><td>上下文解析实验</td></tr>
+        <tr><td>校准拟合</td><td>KL 0.003 vs 未校准 0.246（约 82×）</td><td>相对片上 MVM 误差直方图</td></tr>
+        <tr><td>8×L20 仿真，σ=0.3</td><td>DLM 均值全面超过 AR，差距 20–45 个百分点</td><td>ARC-C 到 GSM8K；校准模型，不是上板</td></tr>
+        <tr><td>混合测量 8B GSM8K</td><td>Llama-3：0.748→0.512（−31.6%）；LLaDA：0.702→0.628（−10.5%）</td><td>σ<sub>eff</sub>=0.15，256 步</td></tr>
+        <tr><td>Max σ<sub>eff</sub>（2% 阈值）</td><td>45M：0.19/0.27；125M：0.28/0.58；8B：0.03/0.09</td><td>AR 或 Llama-3 / 对应 DLM</td></tr>
+        <tr><td>可容忍噪声比</td><td>1.4–3×，随规模从 1.4× 扩到 3×</td><td>上表配对比值</td></tr>
+        <tr><td>LLaDA-8B 步数扫描</td><td>退化 40.4% / 21.7% / 10.5% / 3.9%；延迟 0.73 / 1.42 / 2.81 / 5.58 s；能量 410 / 801 / 1590 / 3150 mJ</td><td>64/128/256/512 步，混合测量</td></tr>
+        <tr><td>硬件</td><td>28 nm eFlash AIMC + 12 nm 逻辑，混合键合；16 芯片集群</td><td>线性 MVM 上板，其余数字侧</td></tr>
+      </tbody>
+    </table>
+    <p class="figcap">笔记整理于 2026-11-25（Asia/Shanghai），依据 <a href="https://arxiv.org/abs/2611.32223">arXiv:2611.32223v1</a>。阅读笔记 · DLM-AIMC / DATE 2027 · 不替代原文</p>
+  </section>
+
+  <footer>笔记整理于 2026-11-25（Asia/Shanghai）。阅读笔记，不替代原文。</footer>
+</div>
+</body>
+</html>

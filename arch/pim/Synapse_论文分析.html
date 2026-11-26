@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synapse 论文分析 | HBM 协同的 HBF 近存计算</title>
+  <style>
+
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  
+  
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge">arXiv:2611.29901v1</span>
+      <span class="badge">cs.AR · 未标注会议</span>
+      <span class="badge hot">近存计算 · HBF</span>
+      <span class="badge ok">KAIST</span>
+      <span class="badge warn">H100 剖析 + HBF 仿真，不是整机硅片实测</span>
+    </div>
+    <h1>Synapse：让 HBF 近存计算和 GPU 错开跑多 Agent 视频推理</h1>
+    <p class="subtitle">把注意力和专家算子放到 HBF 底座上执行，用 HBM 底座上的硬件调度器和按 wordline 的刷新会计，重叠多个 agent 的进度，而不是把 HBF 只当一块更快的外部盘。</p>
+    <p class="meta">
+      <strong>作者：</strong>Juhyeong Jin、Hyunjun Cho、Joo-Young Kim（邮箱均为 @kaist.ac.kr）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.29901">arXiv:2611.29901</a> · 2026-11-23 提交 · 7 页<br />
+      <strong>评测口径：</strong>GPU 时间在 NVIDIA H100 上测；HBF 计算、NAND 访问、传输和争用按表 1 仿真。能效里的 host / HBF / 传输项是模型，不是板级功耗计。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：容量扩了，agent 还在抢 GPU</a></li>
+      <li><a href="#s3">做法：Flow、Fuse、Forward、Fortify</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">和已有近存笔记的关系</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">多 agent 视频推理会把大模型权重和每路 KV 一起撑出单卡 HBM。只把 High-Bandwidth Flash（HBF）当成高带宽后备存储，并不能让一路 decode 在另一路 prefill 占用 GPU 时继续往前走。Synapse 在 HBF 底座上放一套共享的近存计算引擎，用 HBM 里已经就绪的 KV 做注意力（Flow），在 NAND 旁边做 MoE 专家（Fuse）；HBM 底座上的 Operand Issue Engine / Result Writeback Engine 负责不经过 GPU 命令路径就发出就绪任务、并在结果写回 HBM 后点亮后继依赖（Forward）。相对“GPU + 被动 HBF”基线，三个模型上端到端延迟降低 48.92–66.60%，吞吐最高到 2.98×，建模的每输出 token 能量最多低 64.48%。这些端到端数字是 H100 剖析加上 HBF/NAND 仿真，不是硅片墙钟。磨损仿真里，按 wordline 记账的 Fortify 在应力因子 α=1.5 时，相对块级刷新多完成 46.04–46.77% 的轮次，折合同等负载率下寿命大约长 46–47%。</p>
+    <div class="kpi">
+      <div><div class="n">48.92–66.60%</div><div class="k">相对被动 HBF 的 E2E 延迟下降（三模型消融，仿真）</div></div>
+      <div><div class="n">1.93–2.98×</div><div class="k">相对被动 HBF 的吞吐（同一组消融）</div></div>
+      <div><div class="n">46.13–64.48%</div><div class="k">建模的每输出 token 能量下降</div></div>
+      <div><div class="n">72.92 mm²</div><div class="k">五对 HBM–HBF 的 7 nm 面积估计；HBF 侧约占五枚标称 footprint 的 8.29%</div></div>
+    </div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：容量扩了，agent 还在抢 GPU</h2>
+    <p>视频推理正在变成多 agent 工作流：同一份大模型被几路 agent 共用，前缀 KV 可以共享，但每路在工具调用停顿期间仍要保留自己的对话 KV。论文以 Qwen3-VL 235B 为例：BF16 权重大约 470 GB，已经是 80 GB HBM 的约 5.9 倍，还没算每路 KV。六张 80 GB GPU 加起来也只有 480 GB 原始容量，留给 KV、激活和通信缓冲的余量很小；再加卡则会引入张量/专家并行的同步开销。这是引入 HBF 作为高容量层的动机——OCP 已经给出 HBF 规范。</p>
+    <p>但把 HBF 只当 backing store，解决不了并发进度。论文用 Ego4D 风格的“书现在在哪”做例子：Agent A 找书、Agent B 跟踪移动，合成与校验再往后接。当 B 的工具结果到达、要做 prefill 时，A 可能正好处在 decode。被动 HBF 下，注意力和专家都还得去 GPU 上算，于是出现四类卡住：</p>
+    <div class="grid-2">
+      <div class="tile"><h4>GPU 争用</h4><p>B 的 prefill 占着 GPU 时，即便 A 的活跃 KV 已经在 HBM 里，A 的注意力也会被堵住。</p></div>
+      <div class="tile"><h4>专家两段等待</h4><p>A 的专家权重要从 HBF 读上来，先被其他 agent 的读请求堵住；权重到了 HBM，执行还要再等 GPU。</p></div>
+      <div class="tile"><h4>软件发射间隙</h4><p>如果 HBF 任务靠 GPU 命令和软件更新就绪位，GPU 工作会推迟发射，结果已经写回 HBM 后继任务仍可能空等。</p></div>
+      <div class="tile"><h4>共享权重的读干扰</h4><p>多路 agent 反复读同一份权重，NAND 读干扰累积；按块做刷新会多写，缩短 HBF 寿命。</p></div>
+    </div>
+    <p>已有工作也没把这四件事一起收掉。Duplex 把 MoE 专家和注意力放到 HBM-PIM 上，但非驻留的专家权重仍要先装进 HBM，部分和还要回到 xPU 求和。ReKV、LiveVLM、Hot–Cold 这类 KV 管理能减轻 HBM 压力，注意力却还在 GPU 上。论文要做的是：容量不够时用 HBF，同时让一路 agent 的近存计算和另一路的 GPU 计算重叠起来。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：Flow、Fuse、Forward、Fortify</h2>
+    <p>Synapse 按“一对 HBM–HBF”来组织。HBM 底座上放协调器，HBF 底座上放共享计算引擎和按 bank 的读干扰保护。计算引擎在底座面积预算内同时服务注意力和专家：Shared MAC Engine（SME）做乘加，Vector Function Engine（VFE）做向量函数。四个机制是分开的，后面的消融也按这个切法报告。</p>
+    <div class="grid-2">
+      <div class="tile"><h4>Flow</h4><p>用已经在 HBM 里的 Q/K/V 在 HBF 上做 decode 注意力，让一路 decode 在 GPU 给另一路做 prefill 时继续走。</p></div>
+      <div class="tile"><h4>Fuse</h4><p>在 NAND 驻留的专家权重旁边做专家计算，同一专家的多次调用共享一条权重流，避免把专家权重搬到 GPU。</p></div>
+      <div class="tile"><h4>Forward</h4><p>OIE 不等 GPU 命令就发出已就绪的 HBF 任务；RWE 在结果对 GPU 可见之后，不经软件轮询就点亮后继依赖。</p></div>
+      <div class="tile"><h4>Fortify</h4><p>按物理 wordline 而不是按逻辑请求计数；共享读取只计一次，该刷新时与 Flow 重叠，避免整块过早重写。</p></div>
+    </div>
+    <h3>硬件路径里的关键约定</h3>
+    <p>OIE 用任务描述符里的就绪位和代价估计做放置：比较“等 HBF”和“等 GPU”哪边更快，再决定把任务发给 HBF 还是 GPU。发出后置 issued 位，防止重发。HBF 做完 Flow 或 Fuse，把任务标签和结果送给 RWE；RWE 校验标签，经 Write DMA 写入 HBM，并且只在结果对 GPU load 可见后才确认完成。残差加回等后继操作在输入齐、GPU 空闲时由队列派出，不再经 OIE 重选，也不再走软件提交。</p>
+    <p>Fortify 把保护决策做到 NAND 命令路径上。每个 HBF bank 统计物理读；共享权重被多路 agent 读时只加一次。超过安全限度就置 refresh-pending，由 sequencer 把有效页经 ECC 拷到新块，再改映射、擦旧块。拷贝期间，另一路 agent 的 Flow 可以继续用 HBM 里的 Q/K/V 和输出投影权重在 SME/VFE 上算，不必访问 NAND。被拦住的 Fuse 请求等刷新结束后，用新块上的权重恢复。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <div class="callout warn">端到端数字不是整机硅片实测。GPU 执行时间在 H100 上测；HBF 计算、NAND 访问、传输和争用按表 1 仿真。GPU 能量用执行时间和 NVML 板级功耗（含 HBM）；host、HBF 和传输能量按 Yu 等人 2026 的 HBF 模型。host 与 HBF 背景功耗贯穿全程，HBF 逻辑功耗只在 HBF 计算期间计入。</div>
+    <table>
+      <thead><tr><th>项目</th><th>配置</th></tr></thead>
+      <tbody>
+        <tr><td>HBM</td><td>5 × 16 GB HBM2e，合计 80 GB</td></tr>
+        <tr><td>HBF</td><td>5 × 512 GiB，合计 2.5 TiB</td></tr>
+        <tr><td>CPU 内存 / 链路</td><td>512 GB DRAM；CPU–GPU 为 PCIe Gen5 ×16，H2D/D2H 为 55.7/46.1 GB/s；D2D 最大 1.536 TB/s（UCIe，OCP Grade 2）</td></tr>
+        <tr><td>HBF 计算</td><td>合计 2,048 个 BF16 MAC，400 MHz（论文对照时写作 1.64 TFLOPS）</td></tr>
+        <tr><td>NAND</td><td>2,048 个活跃 bank，4 KiB 页；t<sub>R</sub>=3 μs，t<sub>PROG</sub>=100 μs；读/编程 6.8/100 pJ/bit，D2D 6.8 pJ/bit</td></tr>
+        <tr><td>功耗模型</td><td>Host 100 W；HBF 背景/活跃逻辑 5/16 W</td></tr>
+      </tbody>
+    </table>
+    <p>与先前工作的对照用 Qwen3-VL-235B-A22B-Instruct；消融另外包括 InternVL3.5-241B-A28B 和 GLM-5.3-Flash。工作流有两种：Case A 是并行的运动/物体分析再合成报告；Case B 是先起草答案，再对照视频校验并修订。每个 agent 保留独立 KV。先前工作对照重放三条 LongVideoBench 验证视频上的 Qwen3-VL 轨迹，每条视频 4 次，共 12 个工作流实例，每视频 256 帧；消融改用 64 帧。前两个 agent 各最多输出 64 个 token，最后一个 32 个。工作流每隔 10 ms 到达，同时最多 <em>C</em> 路并发，默认 <em>C</em>=6，扫描集合是 {1, 3, 6, 12}。被动 HBF 基线仍在 GPU 上跑，HBM 缺失时从 HBF 取权重和状态；QKV 投影和路由留在 GPU。</p>
+    <p>指标定义需要跟着读：平均 E2E 是工作流到达至最后 agent 完成的时间，含排队；吞吐是全部 agent 的输出 token 数，除以第一个到达至最后一个完成的墙钟。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <h3>和先前系统比</h3>
+    <p><strong>HBM-PIM（Duplex 系）。</strong>Case A 在 <em>C</em>=1 和 6 时，三方都用 80 GB HBM 和 2,048 个 400 MHz BF16 MAC。CPU 基线把全部权重放在 512 GB DRAM；两个 Duplex 变体按需把专家权重装进 HBM，中间结果送回 GPU 求和。相对 Duplex + 被动 HBF，Synapse 把 E2E 降 30.8–32.2%，吞吐 1.43–1.48×，送到 GPU 的中间数据少 37.0–42.2%。论文把这部分归给 Flow/Fuse 少搬数据，以及 Forward 缩短命令等待——不只是容量变大。</p>
+    <p><strong>KV 管理。</strong><em>C</em>=6、256 帧，检索和传输计入。ReKV 取 64 个块，LiveVLM 压缩检索后保留 4,896 个 token，Hot–Cold 用 LRU 加写回驱逐。Synapse 保留完整视频 KV，E2E 仍低 35.7–61.8%。把 ReKV/LiveVLM 的选择和专家路由固定住以后，E2E 仍低 38.2–40.2%，用来把执行收益和 KV 选择拆开。</p>
+    <p><strong>权重加载和注意力等待。</strong>同样固定 LiveVLM 选择和路由时，Fuse 把累计加载时间降 75.3–82.3%（<em>C</em>=1, 3, 6, 12）。在 7,090 个相同的 KV-ready 任务上，平均就绪到启动等待在 <em>C</em>=3, 6, 12 时降 44.9–70.2%。到 <em>C</em>=12，注意力等待的降幅变小，但 GPU 权重加载仍低 81.0%，说明专家放在 HBF 上的好处还在。</p>
+    <p><strong>软件调度。</strong>在打开 Flow/Fuse、同样的 GPU/HBF 分配规则、并假设 4 μs 命令服务时间的前提下，重放 Sarathi-Serve 的策略，<em>C</em>=6 时平均 E2E 从 157.8 s 降到 139.9 s。再叠 Forward，E2E 到 122.8 s、吞吐 9.51 tokens/s，相对 Sarathi 再改进 12.2% 和 14.0%。这里比较的是硬件就绪通知相对软件调度的增量，不是“和完整的 Sarathi 服务系统对打”。</p>
+    <h3>消融和资源</h3>
+    <p>完整配置相对被动 HBF：E2E 降 48.92–66.60%，吞吐到 1.93–2.98×。这组消融固定 64 帧、2,048 个 MAC 和缓冲。Flow+Fuse 在全部六个模型–工作流组合里都强于单独使用其中一项。打开 Flow/Fuse 之后，Forward 还能再把 E2E 最多再降 28.36%。</p>
+    <p>MAC 扫描用来回答“是不是得把近存引擎做得很宽”。保持向量 lane、缓冲和链路带宽不变时，2,048 个 MAC 至少保住 8,192 个 MAC 相对被动 HBF 延迟收益的 88.7%；GLM 上 E2E 变化最多 0.32%。能效方面，完整配置把建模的每输出 token 能量降 46.13–64.48%；建模的平均功率反而高 4.31–6.08%，因为更早结束，总能量仍更低。</p>
+    <h3>磨损和面积</h3>
+    <p>Fortify 和块级控制重放同一组 Qwen3-VL 235B 轨迹，读计数和有效应力上限都是 100,000，P/E 预算 100,000，第一个权重块达到上限就停。α=1.5 时，Fortify 多完成 46.04–46.77% 的轮次，折合同等负载率下的寿命增益相同。结论里把这一项写成 46–47%。</p>
+    <p>面积是估计，不是版图签字。表 2 汇总五对 HBM–HBF：HBM 底座增加 0.120 mm²（OIE 0.047、RWE 0.033、物理实现余量 0.040），HBF 底座增加 72.801 mm²，合计 72.92 mm²。HBF 侧最大头是 128 MiB 的控制和元数据 SRAM（56.036 mm²），来自 Fortify 按 2,048 个 bank、每 bank 上取到 64 KiB。SRAM 用 CACTI 在 22 nm 估计，再按 FLINT 的 3.9/14.3 比例缩到 7 nm；MAC/控制参考 ASAP7，VFE 按 FPnew 留余量，并计入 SRAM ECC、2 μm 边距、10% cell-area buffering 和 70% 标准单元利用率。72.801 mm² 相当于五枚标称 HBF footprint（878 mm²）的 8.29%。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 和已有近存笔记的关系</h2>
+    <p>仓库里的 PIMphony、DCC、Pimba、Tri-Stack-PIM 主要讨论 HBM/DRAM 近 bank 或 3D 堆叠 PIM 怎么承接注意力、状态更新和编译。Synapse 不替换这些工作：它针对的是 HBM 容量已经被大模型和多路 KV 撑破之后，如何把 OCP 规范下的 HBF 从“被动大容量”做成近存计算层，并且专门服务多 agent 视频推理里 prefill/decode 交错、专家权重来回搬的场景。</p>
+    <p>和 Duplex 式 HBM-PIM 的对照是论文自己做的，收益来自少把中间数据和专家权重送回 GPU，以及硬件发射，而不是再做一套 bank 级 PIM ISA。面积估计还借用了 FLINT 把 CACTI 从 22 nm 缩到 7 nm 的比例；这只用于面积换算，不是复现 FLINT 的 HBF 推理系统。arch 根目录的「8栈近存大模型部署」讨论的是近存部署形态，Synapse 则把近存引擎、HBM 侧协调器和闪存磨损写成同一套架构。PIVOT、Tenon、GSPIM 分别走 UPMEM 向量检索、PIM 编译和 4DGS 近存，和这篇的 HBF 底座计算不是同一条线，不重复。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>有利的地方在于问题很具体，而且拆成了可以独立打开的四块。Flow 和 Fuse 对应的是已经出现的产品形态——HBM 不够、HBF 补容量、MoE 专家权重又很大。Forward 把就绪和完成做成 HBM 控制器上的引擎，避开“每一步都等 GPU 命令和软件更新”这条路径，对多 agent 交错执行是有针对性的。Fortify 直接对着共享权重的读干扰，而不是只报一个更低的平均延迟。面积上，HBM 侧增加只有 0.120 mm²，真正的负担在 HBF 底座的 SRAM 和余量；论文把 2,048 个 MAC 写成已经能保住更宽引擎收益的八成以上，说明他们自己也在控制底座预算。</p>
+    <p>要落到可流片或可部署系统，缺口同样清楚。第一，HBF 计算引擎、NAND 争用、D2D 和能量都是模型，H100 只提供 GPU 段的时间；没有 HBF 近存原型上的墙钟，也没有真实多卡 HBM–HBF 对的互连实测。第二，HBF 本身仍是规范与模型对象（文中引用 OCP HBF 0.7.0 和 Yu 等人的表征），不是已能量产的近存计算器件。第三，QKV 投影和路由仍留在 GPU，完整一层并没有都放到 HBF 上。第四，面积是 7 nm 估出来的，128 MiB 元数据是否能按这个密度放进 HBF 底座，需要真正的后端落地才能确认。第五，评测工作流是重放固定轨迹，不是在线调度真实的工具调用到达过程。</p>
+    <div class="callout teal">今天最值得看的，不是把 2.98× 抄成“HBF 已经能替 GPU 做视频推理”，而是：一旦 HBF 从被动存储变成可计算层，多 agent 场景里真正值钱的是“谁在何时发出任务、结果何时对 GPU 可见，以及共享权重别被刷新写穿”。这些都还停留在剖析加仿真。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li>文中未标注会议或期刊；按 7 页短文来读，系统细节和敏感性不如长文展开得充分。</li>
+      <li>先前工作对照用 256 帧，消融用 64 帧，两套数字不能直接横比。</li>
+      <li>Sarathi 对照固定了 4 μs 命令服务时间和 GPU/HBF 分配规则，测的是 Forward 的增量，不是完整服务系统替换。</li>
+      <li>能量是“NVML 板级功耗 + 模型出来的 host/HBF/传输项”，平均功率升高、每 token 能量下降，都要按这个口径读。</li>
+      <li>磨损模型来自已有 HBF endurance 公式，寿命是投影，不是器件考核。</li>
+      <li>没有开源仿真器或轨迹仓库的声明，复现成本不低。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>条目</th><th>数字</th><th>出处和条件</th></tr></thead>
+      <tbody>
+        <tr><td>Qwen3-VL 235B BF16 权重</td><td>约 470 GB，约 5.9× 80 GB HBM</td><td>引言，尚未计入每路 KV</td></tr>
+        <tr><td>完整配置 vs 被动 HBF</td><td>E2E 低 48.92–66.60%；吞吐 1.93–2.98×</td><td>§4.3，三模型、64 帧、2,048 MAC，仿真</td></tr>
+        <tr><td>建模每 token 能量 / 平均功率</td><td>能量低 46.13–64.48%；功率高 4.31–6.08%</td><td>同一组消融，能量含模型项</td></tr>
+        <tr><td>vs Duplex+被动 HBF</td><td>E2E 低 30.8–32.2%；吞吐 1.43–1.48×；中间数据少 37.0–42.2%</td><td>Case A，C=1 和 6</td></tr>
+        <tr><td>vs ReKV / LiveVLM / Hot–Cold</td><td>E2E 低 35.7–61.8%；固定选择后仍低 38.2–40.2%</td><td>C=6，256 帧</td></tr>
+        <tr><td>权重加载 / 就绪启动</td><td>加载低 75.3–82.3%；等待低 44.9–70.2%；C=12 时加载仍低 81.0%</td><td>固定 LiveVLM 选择；等待来自 7,090 个 KV-ready 任务</td></tr>
+        <tr><td>相对 Sarathi 的 Forward</td><td>157.8 → 139.9 → 122.8 s；9.51 tokens/s；再改进 12.2% / 14.0%</td><td>C=6，Flow/Fuse 已开，4 μs 命令服务</td></tr>
+        <tr><td>Forward 增量</td><td>E2E 最多再降 28.36%</td><td>Flow/Fuse 已开</td></tr>
+        <tr><td>2,048 vs 8,192 MAC</td><td>保住至少 88.7% 的延迟收益；GLM E2E 变化 ≤0.32%</td><td>lane / 缓冲 / 链路固定</td></tr>
+        <tr><td>Fortify 寿命</td><td>α=1.5 时多完成 46.04–46.77%；结论写作 46–47%</td><td>100,000 P/E，磨损仿真</td></tr>
+        <tr><td>面积估计</td><td>72.92 mm²（HBM 0.120 + HBF 72.801）；占 878 mm² 的 8.29%</td><td>7 nm 估计，五对堆叠</td></tr>
+      </tbody>
+    </table>
+    <p class="figcap">笔记整理于 2026-11-25（Asia/Shanghai），依据 <a href="https://arxiv.org/abs/2611.29901">arXiv:2611.29901v1</a>。阅读笔记 · Synapse · 不替代原文</p>
+  </section>
+
+  <footer>笔记整理于 2026-11-25（Asia/Shanghai）。阅读笔记，不替代原文。</footer>
+</div>
+</body>
+</html>
