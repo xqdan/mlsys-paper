@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Libtt 论文分析 | 让 Tenstorrent 在 PJRT 上长得像一颗 TPU</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.DC · 2026-11-25</span>
+      <span class="badge">arXiv:2611.34273v1</span>
+      <span class="badge">AI 编译器 · 框架后端</span>
+      <span class="badge ok">开源 · pcmoritz/libtt</span>
+      <span class="badge warn">约 400 个上游补丁，不是官方发行版</span>
+    </div>
+    <h1>Libtt：让 Tenstorrent 在 PJRT 上长得像一颗 TPU</h1>
+    <p class="subtitle">A Compiler and Runtime for Tenstorrent Processors</p>
+    <p class="meta">
+      <strong>作者：</strong>Philipp Moritz、Sarah Dong（通讯邮箱为 relativity.cc）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.34273" target="_blank" rel="noopener">arXiv:2611.34273</a>
+      · <a href="https://arxiv.org/pdf/2611.34273" target="_blank" rel="noopener">PDF</a>
+      · <a href="https://github.com/pcmoritz/libtt" target="_blank" rel="noopener">代码</a>
+      · 项目页 <a href="https://relativity.cc/" target="_blank" rel="noopener">relativity.cc</a><br />
+      本文是阅读笔记，不是译文。图是根据论文结构重画的示意，不是原文插图。仓库里已有
+      <a href="../torchtpu/TorchTPU_论文分析.html">TorchTPU</a> 与
+      <a href="../openxla/OpenXLA_发展历程与能力.html">OpenXLA</a> 笔记；这篇写的是接在它们下面的 Tenstorrent 编译器与运行时，不是把 TorchTPU 重写一遍。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：官方栈逼你改模型</a></li>
+      <li><a href="#s3">硬件给编译器的约束</a></li>
+      <li><a href="#s4">一个 so，四级 lowering</a></li>
+      <li><a href="#s5">把框架语义做对</a></li>
+      <li><a href="#s6">融合、trace 与多卡</a></li>
+      <li><a href="#s7">训练、微调与 RL</a></li>
+      <li><a href="#s8">推理成绩怎么读</a></li>
+      <li><a href="#s9">测试覆盖与缺口</a></li>
+      <li><a href="#s10">部署可行性</a></li>
+      <li><a href="#s11">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">Libtt 把整个 Tenstorrent 编译器、运行时、固件和 kernel 源码打进一个 PJRT 插件 <code>libtt.so</code>（完整发布构建小于 90&nbsp;MB）。对 JAX 来说它就是一个 <code>tt</code> 平台；对 PyTorch 来说，它走仓库里已经分析过的 TorchTPU，再加一层 <code>LIBTT_TPU_COMPAT=1</code> 的兼容适配。目标不是再写一套 TTNN 模型，而是让已有的 <code>jax.jit</code> / eager / <code>torch.compile</code> 程序在 Blackhole 上几乎不用改源码就能跑，并且把“怎样才快”交给编译器和运行时。</p>
+    <div class="kpi">
+      <div><div class="n">26,110 / 1,663</div><div class="k">JAX 0.11.2 测试通过 / 失败；同期上游 tt-xla 在创建 client 时崩溃</div></div>
+      <div><div class="n">435 tok/s</div><div class="k">四卡 FSDP 训练 Qwen3-8B 的单卡吞吐（融合 loss 之前是 287）</div></div>
+      <div><div class="n">2.8–3.2×</div><div class="k">同一份 SGLang-TorchTPU，TPU v6e 比单颗 Blackhole P150 快的倍数，接近 3.2× 的带宽比</div></div>
+      <div><div class="n">≈400 补丁</div><div class="k">压在 tt-xla / tt-mlir / tt-metal 上的改动量，另有约 15,000 行自有代码</div></div>
+    </div>
+    <div class="callout warn">这不是 Tenstorrent 官方发行的框架后端，而是 Relativity 作者在开源栈上打的厚补丁包。论文写到“许多改动适合回上游”，但回上游之前，兼容性与性能都绑在这组 pin 住的补丁上。读成绩时要把“能跑完整应用”和“测试套件仍有一千多个失败”分开看。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：官方栈逼你改模型</h2>
+    <p>Tenstorrent 文档里跑模型的主路径，是按 TTNN 的 Python API 把算子、layout、内存位置和核配置手改一遍。结果是每个模型一份实现。框架方向上虽然有官方 PJRT 插件 tt-xla，但论文的判断很直接：对 JAX，缺失的 lowering 和错误的算子语义到处都是；对 PyTorch，PyTorch/XLA 的懒图模型也不是他们想要的——他们要的是现有软件已经在用的 eager 和 <code>torch.compile</code>。</p>
+    <p>所以 libtt 的设计目标写得很清楚：现有模型代码尽量不改，性能尽可能开箱可用。优化做在 StableHLO 上，而不是绑死在开发时用过的那几个模型。PyTorch 不走 PyTorch/XLA，而是复用 Google 的 TorchTPU，并把 Tenstorrent 芯片伪装成 TPU 设备。JAX 则直接注册为 <code>JAX_PLATFORMS=tt</code>。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>和 TorchTPU 笔记的关系</h4>
+        <p>TorchTPU 解决的是“PyTorch 如何在 TPU 上保持 eager / compile 编程模型”。Libtt 把它当成前端，自己负责 PJRT 以下的编译、运行时和 kernel。SGLang-TorchTPU、TorchTitan 的 TPU 训练路径，源码在支持范围内不用改。</p>
+      </div>
+      <div class="tile">
+        <h4>和官方 tt-xla 的关系</h4>
+        <p>编译管线的四级（StableHLO → TTIR → TTNN → 调用表）来自上游 tt-mlir，PJRT 插件来自 tt-xla，运行时来自 tt-metal。Libtt 的贡献是补语义、补数值、补融合、改多卡通信，以及把整栈链成一个 so。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 硬件给编译器的三条约束</h2>
+    <p>论文用的主平台是 TT-QuietBox 2：两张卡、四颗 Blackhole，芯片之间是 800&nbsp;Gbps Ethernet。一颗 Blackhole 有 120 个 Tensix 核（运行时把 110 个交给程序），每核 1.5&nbsp;MB SRAM、五个 32 位 RISC-V“baby core”，外加矩阵单元和向量单元；旁边是 32&nbsp;GB GDDR6。核之间没有共享缓存，数据要在片上网络上显式搬运。</p>
+    <p>对编译器真正有约束的是下面三条，后面几乎所有优化都从这里来。</p>
+    <div class="grid-3">
+      <div class="tile">
+        <h4>启动程序不便宜</h4>
+        <p>一个在 110 核上做加法的小程序大约 5&nbsp;μs，只在有活的核上大约 2&nbsp;μs。但 Qwen3.8-27B 在四卡上每一步 decode 要跑一千多个程序。所以要融合、要按需启动核、要用 device trace 把 dispatch 从主机关键路径上拿掉。</p>
+      </div>
+      <div class="tile">
+        <h4>一行对 32×32 tile 很不友好</h4>
+        <p>张量默认按 32×32 tile 存放，不足的用 padding。Decode 时一个请求每步往往只有一行：一行 4,096 个数要占 128 个 tile，其中 31/32 是填充。有的 kernel 因此只碰有数据的行，有的则把长度为 n 的向量在逻辑上收成 (n/32, 32)。</p>
+      </div>
+      <div class="tile">
+        <h4>Decode 受限于权重带宽</h4>
+        <p>稠密模型每出一个 token 几乎要读完所有权重。矩阵乘 kernel 让每个核都去读权重、两条网络一起读、并把访问打散到各个 bank；多卡时各拿一份权重一起读。中间结果尽量核间传递，不回 DRAM。</p>
+      </div>
+    </div>
+    <div class="callout navy">矩阵单元很快但很粗：一条指令做 8×16 乘 16×16（2,048 次乘加），每周期一条，一个 32×32 tile 要 16 条指令。操作数经 19 比特寄存器进来，BF16 要 2 个 fidelity phase 才基本盖住、4 个才盖全；FP32 会在进单元时丢掉尾数低 13 位。向量单元一次只处理 32 个数，但保留完整 FP32。编译器必须按数值要求在两者之间做选择，而不能一律走最快默认。</div>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 一个 so，四级 lowering</h2>
+    <div class="fig" aria-hidden="true">
+      <svg viewBox="0 0 980 420" width="900" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="978" height="418" fill="#fffdf8" stroke="#e7e0d4"/>
+        <text x="24" y="32" font-size="14" fill="#57534e" font-family="Segoe UI, sans-serif">JAX / SGLang-JAX</text>
+        <text x="520" y="32" font-size="14" fill="#57534e" font-family="Segoe UI, sans-serif">PyTorch + TorchTPU / SGLang-TorchTPU / TorchTitan / Miles</text>
+        <rect x="24" y="50" width="932" height="44" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="490" y="78" text-anchor="middle" font-size="15" fill="#1e3a5f">StableHLO 程序与 buffer，经 PJRT C 接口</text>
+        <rect x="24" y="110" width="932" height="210" fill="#fff7ed" stroke="#9a3412"/>
+        <text x="40" y="136" font-size="13" fill="#9a3412" font-family="Segoe UI, sans-serif">libtt.so</text>
+        <rect x="48" y="150" width="884" height="36" fill="#fffdf8" stroke="#e7e0d4"/>
+        <text x="490" y="174" text-anchor="middle" font-size="14">PJRT 插件（来自 tt-xla）：client、device、buffer、executable</text>
+        <rect x="48" y="198" width="884" height="36" fill="#fffdf8" stroke="#e7e0d4"/>
+        <text x="490" y="222" text-anchor="middle" font-size="14">编译器（来自 tt-mlir）：StableHLO → TTIR → TTNN → 程序镜像</text>
+        <rect x="48" y="246" width="884" height="36" fill="#fffdf8" stroke="#e7e0d4"/>
+        <text x="490" y="270" text-anchor="middle" font-size="14">运行时（来自 tt-metal）：算子、kernel、dispatch、trace</text>
+        <text x="490" y="348" text-anchor="middle" font-size="14" fill="#57534e">PCIe → 多颗 Blackhole，芯片间 Ethernet</text>
+      </svg>
+    </div>
+    <p class="figcap">图 1. 程序路径的示意。大框里的东西全部链进同一个共享库。根据论文 Figure 1 重画。</p>
+    <p><code>libtt.so</code> 用 Bazel 静态链入 PJRT 插件、MLIR、StableHLO、Shardy 分区器、运行时和驱动，对外只导出 PJRT 规定的三个符号。库加载时把内嵌的压缩包解到以哈希命名的临时目录：里面是 RISC-V GCC、全部 kernel 与固件源码、链接脚本。编译发生在用户机器上，首次需要时编 kernel，二进制缓存在磁盘。主机并不直接在核上启动程序，而是往队列里写命令，由芯片上常驻的 prefetcher / dispatcher 去分发。最终编译产物是一张调用表，由运行时解释执行，不为主机生成机器码。</p>
+    <p>四级 lowering 里，libtt 明确标了自己新加的步骤：索引降到 <code>rows_gather</code> / <code>rows_scatter</code>；FP16 与 FP8 保持原生类型；attention 预处理、残差 RMSNorm、SwiGLU 等融合；以及把过宽的行重排成更满的 tile。优化级别目前用两档：最低档每个算子走矩阵单元能给的最高精度，上一档则向算子库查询可接受的 layout 和类型再选。SGLang-JAX 用第二档，torch_tpu 用最低档。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 把框架语义做对，比再写一个快 kernel 更烦人</h2>
+    <p>论文花了很长的 Table 2 去对齐框架测试里那些“小问题”：NaN 是否等于自己、越界 scatter 怎么办、排序遇到相等键谁在前、整数归约能不能经过 FP32。这类工作不显眼，但却是“现有程序不用改”的前提。举几件值得记住的：</p>
+    <ul>
+      <li>IEEE FP16 从 PJRT buffer 一直到 kernel 都与 BF16 分开；<code>float8_e4m3fn</code> 和 <code>float8_e5m2</code> 在 buffer、编译器类型和运行时里保持 FP8，搬数据只拷字节。没有原生 FP8 实现的算子先拓宽再算。</li>
+      <li>PyTorch 的 scaled matmul 走矩阵单元原生 FP8，FP32 累加；激活量化可以融进前面的 normalization，scale 在矩阵乘 kernel 里用。</li>
+      <li>最高精度的 FP32 矩阵乘走一套新的向量单元 kernel，保住操作数和累加精度，代价是明显更慢。PyTorch 在用户明确要求最高精度时才选它。</li>
+      <li>32 位整数的 collective sum 和 cumsum 留在整数算术里，溢出按框架要求回绕；不再先转成浮点再加。</li>
+      <li>索引统一降到两个新算子。越界 gather 钳位、越界 scatter 丢弃；embedding 查找只重排索引和更新，不复制整张表。</li>
+    </ul>
+    <div class="callout teal">这些对齐是用上游 JAX / torch_tpu 测试套件当“正确性定义”来做的，而不是另写一套芯片自测。后面第 9 节会看到：这条路找到了很多缺失和错误，但套件本身仍有大量失败，不能理解成“已经和 TPU 行为一致”。</div>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 融合、trace 与多卡</h2>
+    <h3>融合仍然主要是模式匹配</h3>
+    <p>编译器同时识别 JAX 和 PyTorch 两种写法，把 RMSNorm、SwiGLU、残差加归一化、attention 输入预处理（分头、QK 归一、RoPE）等收成一个程序。若干融合 kernel 会逐步复现原来的舍入，结果与未融合路径按比特一致。也有一些加速完全来自改写而不换 kernel：比如每 batch 只出一个数的矩阵乘改成乘法再求和；只保留最大 softmax 概率时，先挑最大输入再做 softmax。</p>
+    <div class="callout warn">作者自己承认，今天大多数融合是“匹配子图，降到手写融合 kernel”。图稍微写得不一样，或换一个数据类型，匹配器和 kernel 都要改。上游已有自动生成融合 kernel 的 D2M，但 libtt 关掉了它：编译明显变慢、生成代码还不够快、也覆盖不了现有大部分融合。这是后续计划，不是已经交付的能力。</div>
+    <p>StableHLO 表达不好的东西走 custom call：paged attention、循环层、MoE、行量化，以及训练用的前向/反向 attention 和融合 loss。Cache 更新用输入输出别名做原地写。</p>
+    <h3>Trace：把条件也录进去</h3>
+    <p>上游 TT-Metalium 已有 trace。Libtt 把它扩到真实框架负载里的动态执行：记录命令引用固定地址，所以要跟踪内存、防止重放覆盖还活着的张量；支持 trace 内分配并预留临时 DRAM；输入尽量留在设备上。更关键的是给命令处理器加了条件命令——设备自己读条件、跳过未选中的分支，token sampler 这类嵌套条件不必每步回主机。所有分支的 kernel 必须在捕获前编好并加载，为此加了“只准备、不执行”的模式，避免准备未选中分支时改模型状态。</p>
+    <h3>两种多卡模型都要支持</h3>
+    <p>JAX 是单控制器，Shardy 做分区，集合通信走芯片间 Ethernet，不经过主机，也不需要额外部署 MPI。张量并行 decode 里最要命的 all-reduce 被从两个程序收成一个：各卡把有数据的行直接送到对方的空闲内存再累加；必须精确的整数或 FP32 求和走向量单元。行划分的 embedding 也不再在“每卡一份全表”和“每次 gather 整表”之间二选一：本卡查自己的行，没有就返回零，再 all-reduce，跨卡只走每个 token 一个向量。</p>
+    <p>TorchTPU 是一卡一进程。进程之间用第一个进程起的小型 TCP 键值店做发现和协调，张量仍走芯片链路。上游集合通信常常假设各卡 buffer 地址一致，独立进程做不到，所以 all-gather / reduce-scatter 在握手时交换地址。论文还提到，为了迁就 PyTorch 常见的 MPMD，他们重新设计了更底层的通信原语。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 训练、微调与 RL：完整回路有了，收敛证据还薄</h2>
+    <p>TorchTitan 的 TPU 训练路径在四颗 Blackhole 上跑，源码不用改。一卡一进程，FSDP 把参数、梯度和优化器状态四等分。TPU 训练里那些 Pallas 写的 attention 与融合 loss，被接到 tt-metal 已有的融合前向/反向 kernel 上。融合 loss 不再保存整表词表 logits，按块处理并在反向时重算；配合融合 attention，Qwen3-8B 可以从每卡 1 条序列加到 4 条，单卡吞吐从 287 提到 435 token/s。对打包文档，kernel 跳过文档外的被 mask 块，Llama 3 8B 一步从 30.5 秒降到 22.0 秒。</p>
+    <p>反向里还有几处很“编译器”的活：embedding 梯度按行轮转分核，Qwen3-1.7B 的 embedding 梯度从约 238&nbsp;ms 降到约 30&nbsp;ms；相邻 slice 的梯度收成 concat，避免大块全零中间张量；Llama 3 的 RoPE 表达式会造出一个长度为 2 的尾维，在 tiled 存储里占 32 列（十六倍 padding），被改写成对每个 head 的两半分别计算。</p>
+    <h3>四卡训练吞吐（Table 4）</h3>
+    <p>参数、梯度和 AdamW 状态都是 BF16。文本来自 C4（Llama 用的是 TorchTitan 的小样本），打包进序列。Llama 的时间是编译之后各步的均值。</p>
+    <table>
+      <thead>
+        <tr><th>模型</th><th>每卡 token 数</th><th>每步秒数</th><th>每卡 token/s</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Qwen3-8B</td><td>4 × 2,048</td><td>18.8</td><td>435</td></tr>
+        <tr><td>Qwen3.5-9B</td><td>4 × 2,048</td><td>30.1</td><td>272</td></tr>
+        <tr><td>Llama 3 8B</td><td>8,192</td><td>22.0</td><td>372</td></tr>
+        <tr><td>Llama 3.2 3B</td><td>8,192</td><td>13.8</td><td>595</td></tr>
+        <tr><td>Llama 3.2 1B</td><td>8,192</td><td>5.82</td><td>1,407</td></tr>
+      </tbody>
+    </table>
+    <p>和 CPU 的对照是另做的，不是这组全尺寸吞吐实验：小模型以及 Llama 3 8B 的前两层（完整词表、8,192 token）从同一起点训几步，第一步 loss 至少三位一致，之后相差最多大约百分之一。DeepSeek-V3、Qwen3 MoE、Qwen3.5 MoE 的 debug 模型可以在 PyTorch eager、FP32 下原样跑，但论文没有给它们的全尺寸训练数字。</p>
+    <h3>监督微调与 Miles RL</h3>
+    <p>Qwen3.5-9B-Base 在 ToolACE 上做函数调用微调：11,300 条样本，300 步（约 1.25 个 epoch），AdamW 最大学习率 2×10<sup>−5</sup>。一步 29.5 秒（每卡 278 token/s）；持出集 loss 从第一步的 0.448 降到第 25 步的 0.302、第 300 步的 0.252。用 SGLang-TorchTPU 贪心、最多 1,024 token，在 BFCL 五个单轮类别（1,240 题）上，同一套 prompt 的平均分从 64.8% 提到 88.5%，换与训练格式一致的 non-thinking prompt 是 91.0%。Base 模型即便宽松读格式，平均也到不了 75.8% 以上。另一项 MetaMathQA 的缩小版对照里，芯片与 CPU 逐步 loss 平均相差不超过 0.2%；推理时约 99% 的位置与 CPU 参考选出同一个 next token，多数差异落在 BF16 精度边界。</p>
+    <p>Miles 把训练和 serving 放在同一个 RL 环里，是对兼容性更苛刻的测试。现成的 TPU 工作流（TorchTitan + SGLang-TorchTPU + PyTorch 模型定义）迁过来，没有单独的 Tenstorrent 训练器或模型移植；论文脚注写明只改了两个文件，用来启用基于磁盘的权重传输，并替换两处 CUDA 调用。Qwen3-0.6B 在 QuietBox 上两卡 FSDP2 训练、两卡张量并行生成，90 步 GRPO，每步对 16 道 GSM8K 训练题各采样 8 个答案。三个不同种子把 1,319 道测试题的贪心准确率从第 0 步的 58% 提到 90 步后平均 73.3%（72.4%–74.6%）。起点策略已经有 99% 的答案会装箱，所以这不是“学会了输出格式”。两个 rollout batch 上，FP32 CPU 计算的答案对数概率与训练器 batch 均值相差不超过 0.0003。最后 15 步平均：生成 48 秒、log-prob 21 秒、训练 50 秒、权重传输 1.6 秒。分布式训练的 checkpoint / resume 仍是后续工作。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 推理成绩怎么读</h2>
+    <p>Serving 走两条栈：SGLang-JAX 加了一层 Tenstorrent 后端，用 custom call 调 libtt 的 attention 等 kernel；SGLang-TorchTPU 在支持路径上不改源码，由兼容层把 Pallas/TPU 专用 kernel 换成 Tenstorrent 实现。循环层（Qwen3.5 / Qwen3.8 里的 gated DeltaNet）状态留在设备上；paged attention 把同一 head 的 K 和 V 并排放在一行，避免“两行 pad 到 32”的浪费。</p>
+    <p>公布的 Blackhole serving 数字来自项目页上的脚本，用的是 libtt 0.2.2，机器仍是 QuietBox 2（AMD Ryzen 7 9700X，256&nbsp;GB 主机内存）。单请求是预热两次后五次的中位数；多卡用张量并行切模型。</p>
+    <h3>单请求 decode（Table 7，摘录）</h3>
+    <p>SGLang-JAX：权重大矩阵是 BFP8，MoE 的 expert 是 BFP4，其余 BF16。SGLang-TorchTPU：权重是逐元素 FP8。</p>
+    <table>
+      <thead>
+        <tr>
+          <th>栈与模型</th>
+          <th>1 / 2 / 4 卡 tok/s</th>
+          <th>1 / 2 / 4 卡首 token，ms</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>JAX · Qwen3-8B</td><td>47.0 / 81.0 / 124.4</td><td>113 / 76 / 54</td></tr>
+        <tr><td>JAX · Qwen3-14B</td><td>27.0 / 49.4 / 83.3</td><td>179 / 110 / 76</td></tr>
+        <tr><td>JAX · Qwen3-32B</td><td>— / 22.7 / 40.6</td><td>— / 229 / 147</td></tr>
+        <tr><td>JAX · Qwen3-30B-A3B</td><td>— / 104.3 / 127.4</td><td>— / 97 / 69</td></tr>
+        <tr><td>TorchTPU · Qwen3-8B-FP8</td><td>44.4 / 75.0 / 116.0</td><td>251 / 166 / 122</td></tr>
+        <tr><td>TorchTPU · Qwen3-32B-FP8</td><td>— / 22.6 / 38.8</td><td>— / 477 / 317</td></tr>
+        <tr><td>JAX · Qwen3.8-Flash-Next</td><td>— / — / 42.7</td><td>— / — / 810</td></tr>
+      </tbody>
+    </table>
+    <p>加速并不按卡数正比：Qwen3-8B 两卡是单卡的 1.72 倍，四卡是 2.65 倍。论文的解释是只有读权重被四等分了，层间小程序、collective、选 token 都不会按卡数变快。更大的稠密模型收益更高，Qwen3-14B 四卡是单卡的 3.09 倍。Qwen3.8-Flash-Next 四卡只有 42.7 tok/s、首 token 810&nbsp;ms，和同表里的 MoE 比明显更慢，论文没有单独解释这一行，只能当“并非所有支持模型都已经很快”。</p>
+    <p>四卡并发（Table 8，19 token 提示、生成 128、贪心、含 prefill）：SGLang-JAX 上 Qwen3-8B 从 1 路 120 tok/s 到 16 路 1,139 tok/s；Qwen3-32B 从 39 到 444。TorchTPU 路径同样随并发上升，但同样配置下通常低于 JAX，和动态量化的 scale 开销一致。</p>
+    <h3>和 TPU、和官方栈比</h3>
+    <p>Table 9 用<strong>同一份</strong> SGLang-TorchTPU 代码，一边是 libtt + Blackhole P150，一边是 Google libtpu + TPU v6e。论文的表述是：按内存带宽归一之后，单颗 Blackhole 在单请求 decode 上匹配或超过一颗 TPU；绝对值上 TPU 快 2.8–3.2 倍，接近 1,638&nbsp;GB/s 对 512&nbsp;GB/s 的 3.2 倍带宽优势。具体数字（decode / 首 token / 16 路总吞吐）：Qwen3-8B-FP8 为 44.2 vs 130.6 tok/s、253.5 vs 108.2&nbsp;ms、407.6 vs 1,270.1 tok/s。Qwen3.5-9B 的首 token 差距更大（471.0 vs 123.3&nbsp;ms），16 路也拉得更开（206.3 vs 1,177.6）。这更像“带宽用满了没有”的对照，不是“已经赶上 TPU”。</p>
+    <p>Table 10 和上游 Tenstorrent vLLM 插件比时，作者自己写了“不是苹果对苹果”：上游 vLLM 大部分权重是 BFP8、其余 BFP4；SGLang-JAX 用 BFP8，最接近；SGLang-TorchTPU 用 FP8，还有 scale 开销。单卡、短提示 decode 上，JAX 路径等于或快于上游（Qwen3-8B 46.1 vs 38.7 tok/s，Qwen3.5-9B 43.4 vs 22.4），作者把原因归到编译器多做的融合。TorchTPU 路径 decode 也快于上游，但 prefill 和更大 batch 更慢。16 路时 Qwen3-8B 的 JAX 与上游几乎持平（514.1 vs 522.8）。</p>
+    <p>投机解码（Table 12）在 SGLang-JAX、四卡、Qwen3.8-27B 上，用模型自己的 draft 层：5 token 短事实提示从 46.0 到 119.8 tok/s（约 2.6 倍），215 token 摘要请求只从 45.7 到 56.8（约 24%）。收益显然取决于 draft 有多准。采样本身也不免费（Table 11）：JAX 上 Qwen3-8B 四卡从贪心 124.4 降到 temperature+top_p+top_k 的 66.8 tok/s，因为 sampler 不会随卡数变快。</p>
+    <p>完整模型的数值检查里，Qwen3-8B 的 MMLU 是 75.10%（10,331 / 13,757）。这是兼容性证据的一部分，不是和 GPU 参考实现逐题对齐的报告。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 测试覆盖与缺口</h2>
+    <p>Table 13 是 2026-11-22、libtt 0.2.2 对上游 tt-xla 1.5.0.dev20260831 的快照。JAX 0.11.2 与 torch_tpu 0.2.0 下，tt-xla 在创建 client 时崩溃；进程崩溃记为失败。</p>
+    <table>
+      <thead>
+        <tr><th>套件</th><th>栈</th><th>通过</th><th>失败</th><th>错误</th><th>跳过</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>JAX 0.11.2</td><td>libtt</td><td>26,110</td><td>1,663</td><td>0</td><td>6,737</td></tr>
+        <tr><td>JAX 0.11.2</td><td>tt-xla</td><td colspan="4">启动即崩溃</td></tr>
+        <tr><td>JAX 0.7.1</td><td>libtt</td><td>24,075</td><td>1,577</td><td>0</td><td>6,511</td></tr>
+        <tr><td>JAX 0.7.1</td><td>tt-xla</td><td>17,824</td><td>7,816</td><td>0</td><td>6,523</td></tr>
+        <tr><td>torch_tpu 0.2.0</td><td>libtt</td><td>7,324</td><td>1,677</td><td>14</td><td>243</td></tr>
+        <tr><td>torch_tpu 0.2.0</td><td>tt-xla</td><td colspan="4">启动即崩溃</td></tr>
+      </tbody>
+    </table>
+    <p>JAX 测试是拉对应版本源码、不改测试文件直接跑，排除了 13 个需要 Pallas 或 CUDA 等插件外设施的文件或目录。torch_tpu 套件每个文件单独进程，用三个样本和 CPU 比；原测试的参考文件来自别的硬件，作者打了两个小补丁，并排除了四个文件。单卡失败里包括动态 shape 和 TPU 专有特性，论文说这些总数既反映不支持的行为，也反映测试环境和套件目标硬件的差异，修测试是正在进行的工作。</p>
+    <p>展望里还列了明确没有的东西：特征值分解、更多复数运算、剩下的窗口归约；动态 shape（大多数 JAX / TorchTPU 负载已经是固定 shape）；真 64 位类型（除了 RNG 状态，现在是降到 32 位）；BF16 把 NaN 变成无穷、FP8 次正规、以及不支持的 <code>float8_e8m0fnu</code>；跨机多卡、Blackhole 之外的处理器、中断后的链路恢复；由计算结果决定终止的循环目前仍由主机一轮一轮驱动。</p>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 部署可行性：方向对，维护负担不轻</h2>
+    <p>这篇文章最有价值的地方，不是某一行 tok/s，而是它把“新加速器怎么接进今天真正在用的框架”说清楚了，并且用完整应用来验收：TorchTitan 微调、SGLang serving、Miles 的 RL 环，从装权重、训练、导出到服务和评测都走通了。这比再展示一个手写 TTNN 模型有说服力。选择复用 PJRT 和 TorchTPU，而不是再发明一套前端，也和仓库里已有的 OpenXLA / TorchTPU 笔记对得上——新芯片要的是把 libtpu 这一层替换掉，而不是让用户重写模型。</p>
+    <p>但若问“现在能不能当生产后端用”，我的判断偏谨慎。</p>
+    <ul>
+      <li><strong>补丁很厚。</strong>近 400 个补丁、超过 50,000 行改动，加上约 15,000 行自有代码，全部 pin 在上游修订之上。作者希望正确性修复、数值类型和通用编译/kernel 改进回上游，否则 libtt 会一直背着一份私有栈。这不是小维护面。</li>
+      <li><strong>兼容性还是“能跑支持过的应用”，不是“任意 JAX/PyTorch 程序”。</strong> 一千多个失败仍在。动态 shape、部分 TPU 特性、Pallas kernel 都不能直接跑；SGLang-JAX 仍要一层自定义后端。新应用至少要写或更新适配器，而且得跟着上游软件一起升级。</li>
+      <li><strong>训练证据偏短、偏小。</strong> 全尺寸给出的是吞吐，不是对齐过的长跑收敛。CPU 对照只覆盖小模型和部分层的几步，外加一次缩小的微调。论文自己也说，需要在其他硬件上做全尺寸对照，以及更多模型、更长的 run。更大模型还要继续减内存或加并行（例如 context parallel）。Checkpoint / resume 在 Miles 里仍未完成。</li>
+      <li><strong>性能对比要带着带宽和数值格式一起读。</strong> 对 TPU，绝对值仍差大约一个带宽倍数；对官方 vLLM 插件，JAX 路径在 decode 上有融合带来的优势，但 numerics 并不相同，16 路已经基本持平。Flash-Next 那一行说明，支持列表里的模型也不是都已经调好。</li>
+      <li><strong>规模停在单机四卡。</strong> 主实验是 QuietBox 2。Tenstorrent 还有 32 卡机柜，但跨机执行是展望，不是结果。融合仍靠手写模板，自动 D2M 还不能用。</li>
+    </ul>
+    <p>作者在展望里还写了更远的两步：给 Pallas 或 TileLang 做 Tenstorrent 后端；以及把这套编译机制推到其他 tile 加速器，甚至给 TPU 写一个开源的 libtpu 替换，或在 AMD/NVIDIA GPU 上也保持 tiled 存储、直接送进 tensor core。这是方向，不是已经做出的后端。就当前这篇而言，它更像一份高质量的“框架兼容层工程报告”：问题选得对，验收用了真负载，但生产就绪程度仍取决于补丁能否回上游、测试失败能否收敛、以及训练侧更长的对照。</p>
+  </section>
+
+  <section class="card" id="s11">
+    <h2>11. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字或事实</th><th>出处与条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>硬件</td><td>Blackhole，120 核 / 110 可用，每核 1.5&nbsp;MB，32&nbsp;GB GDDR6；QuietBox 2 为四卡、800&nbsp;Gbps Ethernet</td><td>§2</td></tr>
+        <tr><td>发布物</td><td><code>libtt.so</code> 完整构建 &lt; 90&nbsp;MB；版本 0.2.2 用于 serving 与 Table 13</td><td>§4.2，§10.5，§11</td></tr>
+        <tr><td>改动量</td><td>近 400 个补丁，&gt;50,000 行改动，约 15,000 行新增</td><td>§4.3</td></tr>
+        <tr><td>JAX 0.11.2</td><td>26,110 通过，1,663 失败，6,737 跳过</td><td>Table 13，2026-11-22，一卡</td></tr>
+        <tr><td>JAX 0.7.1 对比 tt-xla</td><td>libtt 24,075 / 1,577；tt-xla 17,824 / 7,816</td><td>Table 13</td></tr>
+        <tr><td>torch_tpu 0.2.0</td><td>7,324 通过，1,677 失败，14 错误，243 跳过</td><td>Table 13</td></tr>
+        <tr><td>Qwen3-8B 训练</td><td>287 → 435 tok/s/chip；四卡、FSDP、BF16</td><td>§9.1，Table 4</td></tr>
+        <tr><td>Llama 3 8B 一步</td><td>30.5 → 22.0 秒（打包文档的 attention 跳过）</td><td>§9.1</td></tr>
+        <tr><td>ToolACE 微调</td><td>持出 loss 0.448 → 0.252；BFCL 平均 64.8% → 88.5% / 91.0%</td><td>§9.4，Table 5</td></tr>
+        <tr><td>Miles / GSM8K</td><td>58% → 平均 73.3%（72.4–74.6），90 步 GRPO，Qwen3-0.6B</td><td>§9.5</td></tr>
+        <tr><td>Qwen3-8B decode</td><td>JAX 四卡 124.4 tok/s；TorchTPU FP8 四卡 116.0 tok/s</td><td>Table 7</td></tr>
+        <tr><td>对 TPU v6e</td><td>绝对值慢 2.8–3.2×，接近 3.2× 带宽比（1,638 vs 512&nbsp;GB/s）</td><td>§10.5.3，Table 9</td></tr>
+        <tr><td>MMLU</td><td>Qwen3-8B 75.10%（10,331 / 13,757）</td><td>§11.3</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记 · 基于 arXiv:2611.34273v1（2026-11-25）· 不收录论文 PDF
+  </footer>
+</div>
+</body>
+</html>
+
