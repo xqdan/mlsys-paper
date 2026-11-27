@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DFly2 论文分析 | 把目标的稀疏选择借给块并行草稿模型</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.CL · 2026-11-25</span>
+      <span class="badge">arXiv:2611.34776v1</span>
+      <span class="badge">LLM 推理 · 投机解码 · 长上下文</span>
+      <span class="badge ok">腾讯 Hy</span>
+      <span class="badge ok">训练代码与权重已公开</span>
+      <span class="badge warn">只适用于原生稀疏目标；许可证不是 Apache</span>
+    </div>
+    <h1>DFly2：把目标的稀疏选择和 KV 借给块并行草稿模型</h1>
+    <p class="subtitle">DFly2: Turbocharging Long-Context Speculative Decoding by Sharing the Target’s Sparsity</p>
+    <p class="meta">
+      <strong>作者：</strong>Hong Liu、Rui Cen、Junhan Shi、Lin Niu、Runzhi Fan、Zhaojing Zhou、Haodi Lei、Jiebin Zhang、Saiyong Yang、Junqiang Zheng、Zhenghai Xue、Guanghua Yu（通讯作者）、Jianchen Zhu。单位为 Tencent Inc。<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.34776" target="_blank" rel="noopener">arXiv:2611.34776</a>
+      · <a href="https://arxiv.org/pdf/2611.34776" target="_blank" rel="noopener">PDF</a>
+      · <a href="https://github.com/Tencent/AngelSpec" target="_blank" rel="noopener">代码（AngelSpec）</a>
+      · <a href="https://huggingface.co/collections/AngelSlim/angelspec" target="_blank" rel="noopener">权重（AngelSlim）</a><br />
+      本文是阅读笔记，不是译文。仓库里已有 FLINT、RoCoKV、TideCache 等推理笔记；这篇补的是：在 DeepSeek-V4、GLM-5、Hy4 这类带 indexer 的原生稀疏目标上，块并行草稿模型还要不要自建上下文 KV，以及怎样直接复用目标已经付过费的缓存和选择。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：稀疏目标已经选好了位置</a></li>
+      <li><a href="#s3">自建缓存的四处代价</a></li>
+      <li><a href="#s4">提前一步的选择够不够用</a></li>
+      <li><a href="#s5">做法：KV sharing 与 Index sharing</a></li>
+      <li><a href="#s6">初始化、末层状态和块内校正</a></li>
+      <li><a href="#s7">实验怎么做的</a></li>
+      <li><a href="#s8">结果怎么读</a></li>
+      <li><a href="#s9">落地可行性</a></li>
+      <li><a href="#s10">局限：这些倍数依赖什么假设</a></li>
+      <li><a href="#s11">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">长上下文模型把注意力做成了原生稀疏：每一层只用 indexer 选出的固定数量位置，并且自己维护一份紧凑 KV。但配在它们上面的块并行草稿模型，大多还沿用稠密目标时代的做法，自己再投一份上下文 KV，按全量或滑窗去读。这份缓存的代价不只是显存：prefill 实例上要跑草稿、前缀缓存命中变少变短、解码并发下降；全量注意力的草稿时间还会随上下文变长。DFly2 的判断是：该读哪份缓存、该读哪些位置，目标在验证前一步已经算过、也付过费了。每个草稿层直接读配对目标层已经写下的 KV，并且只读该层 indexer 在锚点前一步选出的 top-k（再加上目标自己的近窗，如果它把近窗存在另一处）。草稿因此不再自建缓存、也不再打分，每步读取的位置数不随提示变长。</p>
+    <div class="kpi">
+      <div><div class="n">3.9%–10.5%</div><div class="k">通用任务上，平均接受长度相对同配方更强基线 DSpark 的优势</div></div>
+      <div><div class="n">10.0%–31.5%</div><div class="k">长上下文和 agent 任务上，这一优势被拉大后的范围（最长 128K）</div></div>
+      <div><div class="n">+62% / +81%</div><div class="k">DS-V4.1-Flash 高并发、对齐人均解码速度时，相对 DSpark 在 CodeSpan 64K / SWE 64K 上的吞吐</div></div>
+      <div><div class="n">0.87–0.88</div><div class="k">锚点前一步的 top-512，能覆盖块内后续 token 自己本会选中的质量比例；同样大小的近窗只有 0.15–0.18</div></div>
+    </div>
+    <div class="callout warn">端到端加速比解码加速小得多，因为长提示的 prefill 仍然占主导。例如 DS-V4.1-Flash 在 AgentLongBench 上，DFly2 的解码加速是 3.82×，端到端只有 1.25×。DFlash 因为要在 prefill 侧为自己的缓存投影整段提示，同一组 agent 任务上端到端甚至慢于不投机（平均 0.90×）。摘要里的吞吐增益来自高并发、对齐人均速度的对照，不要直接读成单请求的端到端倍数。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：稀疏目标已经选好了位置</h2>
+    <p>投机解码用草稿模型一次提出 <i>γ</i> 个候选，目标一次验证，接受最长合法前缀并补一个 bonus token。记平均接受长度为 <i>τ</i>（含 bonus，因此 1 ≤ <i>τ</i> ≤ <i>γ</i>+1），每生成一个 token 的时延是 (<i>T</i><sub>draft</sub> + <i>T</i><sub>verify</sub>) / <i>τ</i>。草稿时间又可以拆成与上下文无关的部分 <i>T</i><sub>0</sub>，以及读 <i>m</i> 个上下文位置的注意力 <i>T</i><sub>attn</sub>(<i>m</i>)。加速来自提高 <i>τ</i> 的同时把 <i>T</i><sub>draft</sub> 压住；而 <i>T</i><sub>draft</sub> 只会通过 <i>m</i> 随上下文变长。</p>
+    <p>块并行草稿把一个锚点 token 和 <i>γ</i> 个 mask 槽位放进同一次前向，槽位之间以及槽位与上下文互相可见。上下文进入草稿的路径，论文归纳成三条（Table 1）：</p>
+    <ul>
+      <li><strong>输入处条件化</strong>（MTP、EAGLE）：在输入端吃目标隐状态，草稿自己为每个位置存 KV。</li>
+      <li><strong>KV 注入</strong>（DFlash、DSpark）：把若干目标层隐状态融合成 <i>H</i><sub>ctx</sub>，投影后当作额外的 K/V 注入每一层；草稿仍然自建一份随上下文增长的 KV。</li>
+      <li><strong>直接读目标缓存</strong>（GliDe 及其后的 LongSpec、H-Spec、LongSpark）：不再自建上下文 KV，但选哪些位置，仍是全量或最近窗口，规则与当前 query 无关。</li>
+    </ul>
+    <p>问题出在后两条路径遇到原生稀疏目标时。DeepSeek-V4、GLM-5、Hy4 这一代模型用的是 DeepSeek Sparse Attention（DSA）的变体：稀疏层先用轻量 indexer 给每个历史位置打分，只对 top-k 的 KV 潜变量做注意力；多数层只保留滑窗或递推状态，真正随上下文增长的 KV 已经被压得很小。论文举的例子是：百万 token 时，DeepSeek-V4-Flash 的每 token FLOPs 和 KV 分别只有 DeepSeek-V3.2 的 10% 和 7%。目标每一步都在为当前 query 重新选择位置，而且这份选择是训练时就和模型一起学出来的。</p>
+    <p>草稿模型却还停在稠密目标的范式里。DFlash 缓存全部位置；目标越省，这份草稿缓存占的比例越大。DSpark 用滑窗把成本卡住，在 DeepSeek-V4 上是最近 128 个 token。GliDe 这一路虽然改读目标 KV，但仍然按全量或窗口读，因为它们当初面对的稠密目标并没有一份可以追随的选择。MagicDec 也早就说过：按 query 做 top-k 能得到很高的接受率，但草稿侧自己做选择，代价在长上下文和大 batch 下不可接受。验证引导的方法后来会从稠密目标的注意力里把选择再抽出来；原生稀疏目标其实已经把这一步做完了。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 自建缓存的四处代价</h2>
+    <p>论文把“草稿要不要自建 KV”和“读哪些位置”分成两个问题。先看自建缓存，它在三个地方额外花钱，全量注意力再叠上第四笔。</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>Prefill</h4>
+        <p>在 prefill–decode 分离部署里，自建缓存的草稿必须在 prefill 实例上也驻留一份权重，对提示的每个位置做注入投影，再把缓存传到 decode 实例，拖长首 token。KV sharing 读的是目标已经写下的潜变量，prefill 侧不必再跑草稿。</p>
+      </div>
+      <div class="tile">
+        <h4>前缀缓存</h4>
+        <p>草稿自己的 KV 是从目标隐状态投影出来的，前缀缓存默认并不保存这些隐状态。要嘛把草稿缓存也放进前缀池，要嘛命中后重算目标。前者在 DS-V4.1-Flash 上会占到每条缓存前缀内存的五分之二以上，池子能留下的前缀变少；后者会截短目标自己的命中。KV sharing 没有这份私有缓存，目标的命中就是草稿的命中。</p>
+      </div>
+      <div class="tile">
+        <h4>解码并发</h4>
+        <p>在飞请求的 KV 必须常驻。目标已经把随长度增长的每 token KV 压小了，三层草稿的私有缓存却几乎不跟着缩小。按配置估算（bf16）：DS-V4.1-Flash 目标 4.4 KiB/token，三层草稿再加 3.4 KiB，变成 1.76×；GLM-5.3-Flash 是 11.7+3.0（1.26×），Hy4 flash 是 17.2+3.4（1.20×）。去掉这份附加后，32K 时同一块池子在 DS-V4.1-Flash 上能多放约 1.73× 的请求。滑窗草稿能接近这个并发，但窗口越短，能看到的上下文越少。</p>
+      </div>
+      <div class="tile">
+        <h4>草稿注意力</h4>
+        <p>即便不自建缓存，如果把目标 KV 全读一遍，<i>T</i><sub>attn</sub>(<i>m</i>) 仍随上下文涨。固定数量的位置（窗口或 top-k）在各种长度和负载下大约只占解码步的 4%–6%；全量缓存在 4K 时差不多，到 128K 会升到 14%–23%，负载越重涨得越快。长上下文上应该读有界个位置，而且“最有用的那些”并不比“最近的那些”更贵。</p>
+      </div>
+    </div>
+    <div class="callout teal">滑窗可以缩小后三笔代价，但不能同时取消它们并保住覆盖范围。论文的 Table 3 写得很清楚：窗口草稿在 prefill 侧仍要跑，前缀命中仍可能被截短，32K 并发能回到 1.71–1.73×，但只看得到最后 <i>w</i> 个位置（32K 上大约 0.4%–1.6%）。KV sharing 把并发也做到 1.73×，同时仍能触达整段上下文。</div>
+    <p>更麻烦的是，自建缓存时“该用全量还是窗口”还跟目标有关。后面的实验里：长上下文和 agent 任务上，全量缓存在 DS-V4.1-Flash 上强于窗口，在 GLM-5.3-Flash 上弱于窗口，在 Hy4 flash 上一旦提示超过草稿的 32K 训练长度，接受长度会塌到每步 1.08 个 token。从稠密目标搬过来的规则，要按目标再调一遍；而按 query 重新打分，又会把随上下文增长的成本请回来。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 提前一步的选择够不够用</h2>
+    <p>有界读取可以按位置取最近窗口，也可以按当前 query 打分。后者能看到整段上下文，但打分本身仍扫一遍全上下文。原生稀疏目标每一步已经付过这笔打分：发布模型里的 top-k 预算大约是 512 到 2,048。草稿如果已经在读目标的 KV，就可以把这份选择一并借来，成本跟窗口相当，却不必自己跑 indexer。</p>
+    <p>这里有两个需要单独检验的假设。第一，草稿是另一个更小的模型，它能不能学会使用目标为自身 query 选出的位置，要靠端到端训练来回答。第二，块并行草稿启动时，手里只有锚点前一步（行 <i>A</i>−1）的选择 <i>S</i><sub><i>A</i>−1</sub>，却要把同一份集合用到块里每一个槽位；后面那些 query 依赖目标还没处理的 token，理论上可能转向别的位置。</p>
+    <p>第二个假设可以在没有草稿的情况下，只跑目标来量。论文在 DS-V4.1-Flash 上，对长上下文评测数据的 158,638 个块，用后续真实续写得到每一行自己的 top-512，再算共享选择覆盖了其中多少索引分数质量（top-k mass coverage，分母是任意 512 个位置能拿到的上限，因此不超过 1）：</p>
+    <ul>
+      <li>对槽位和层取平均，覆盖率约 0.873–0.880；同样大小的最近窗口只有 0.147–0.175。</li>
+      <li>沿块往后再走，覆盖率只是慢慢下降。最深层的最后一个槽位仍有大约五分之四，远高于窗口在任何槽位上的水平。</li>
+      <li>上下文越长，相对窗口的优势越大：目标把选择铺在整段上下文上，窗口能覆盖的比例越来越小。</li>
+    </ul>
+    <p>机制上也说得通。把 <i>A</i>−1 行的 query 旋转到后面每一行，在他们检查的全部 72 个「槽位 × 层 × 上下文长度」格子里，top-512 都没有变。索引 query 的能量几乎都在低频 RoPE 分量上，挪几个位置几乎推不动；真正在变的是内容，而内容一次只多一个 token，焦点是漂移而不是切换。因此下降主要跟槽位在块里走了多远有关，而不是跟上下文有多长有关。</p>
+    <div class="fig">
+      <svg viewBox="0 0 820 250" role="img" aria-label="块并行草稿复用锚点前一步的选择">
+        <rect x="20" y="30" width="780" height="50" rx="6" fill="#ffedd5" stroke="#c2410c"/>
+        <text x="410" y="52" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">目标上下文 KV（随长度增长，但每层只保留紧凑潜变量）</text>
+        <text x="410" y="70" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#57534e">indexer 在行 A−1 选出固定大小的 S<sub>A−1</sub>，验证阶段已经算过</text>
+        <rect x="20" y="120" width="90" height="70" rx="6" fill="#f0f4f8" stroke="#1e3a5f"/>
+        <text x="65" y="150" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">锚点</text>
+        <text x="65" y="170" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">行 A</text>
+        <rect x="130" y="120" width="110" height="70" rx="6" fill="#f0fdfa" stroke="#0f766e"/>
+        <text x="185" y="150" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">槽位 1…γ</text>
+        <text x="185" y="170" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">共用 S<sub>A−1</sub></text>
+        <rect x="260" y="120" width="250" height="70" rx="6" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="385" y="150" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">DFly2 草稿层</text>
+        <text x="385" y="170" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">读配对层 KV，位置 = top-k ∪ 近窗</text>
+        <rect x="530" y="120" width="270" height="70" rx="6" fill="#faf7f2" stroke="#78716c"/>
+        <text x="665" y="145" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">不再做的两件事</text>
+        <text x="665" y="168" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">不自建上下文 KV · 不跑 indexer</text>
+        <path d="M410 80 L410 120" stroke="#1e3a5f" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+        <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1e3a5f"/></marker></defs>
+        <text x="420" y="108" font-family="Segoe UI, sans-serif" font-size="11" fill="#57534e">KV + Index sharing</text>
+      </svg>
+    </div>
+    <p class="figcap">示意：验证阶段产出锚点时，目标已经写好 KV 并选出 S<sub>A−1</sub>。DFly2 把同一份选择用于整块草稿，不再为上下文单独建缓存或打分。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 做法：KV sharing 与 Index sharing</h2>
+    <p>DFly2 是一个三层块并行草稿。每一层与目标的一个 DSA 层配对，读该层已经缓存的潜变量，并且只读该层选出的位置。运行时从目标拿来的是缓存和选择，不是权重；草稿自己的投影都是训练出来的。</p>
+    <h3>KV sharing</h3>
+    <p>DFlash / DSpark 在块开始前，要把每个上下文位置投影成草稿自己的 K/V。DFly2 改读配对层已经存下的潜变量 <i>c</i><sub>s</sub><sup><i>L</i><sub>i</sub></sup>，再用草稿的上投影把它映到注意力空间。块内的 <i>γ</i> 个槽位仍用草稿自己的下投影压缩、再用同一组上投影展开，所以一次注意力同时覆盖「借来的上下文」和「块内槽位」。上下文部分在运行时不占用草稿的任何按位置存储：没有私有 KV，第三节的三笔代价按设计不出现。</p>
+    <p>只有 DSA 层保留可复用的潜变量，所以配对层按深度从这些层里取，一层对一层。不同层选出的位置并不相同，草稿看到的是上下文的几个不同视图，而不是同一份选择重复三次。配对选错的代价在消融里很明显：DS-V4.1-Flash 上如果改去配对 37–39 层，而 37–39 复用的是第 36 层选出的 512 个潜变量，三个草稿层就在重复看同一视图，接受长度平均掉 4.6%。</p>
+    <h3>Index sharing</h3>
+    <p>草稿层 <i>i</i> 读取的位置集合是</p>
+    <p style="text-align:center;font-size:17px;margin:18px 0;"><i>R</i><sub>i</sub> = <i>S</i><sub><i>A</i>−1</sub><sup>(<i>L</i><sub>i</sub>)</sup> ∪ <i>N</i></p>
+    <p>其中 <i>S</i><sub><i>A</i>−1</sub><sup>(<i>L</i><sub>i</sub>)</sup> 是配对层 indexer 在行 <i>A</i>−1 的 top-k，<i>N</i> 是锚点前目标自己的近窗。一份集合供该层全部槽位使用。验证前向已经产出了这份选择，草稿不再打分、也不携带 indexer。两项的大小都由目标固定，所以每步读取的位置数 <i>m</i> 不随提示变长，<i>T</i><sub>draft</sub> 也就被卡住。</p>
+    <p>三个目标给出的形式并不一样，DFly2 按原样接收，不另调一套选择规则（Table 4）：</p>
+    <table>
+      <thead>
+        <tr><th>目标</th><th>配对层</th><th>Top-k</th><th>近窗</th><th>每步位置数</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>DS-V4.1-Flash</td><td>[28, 32, 36]</td><td>512 个单位置</td><td>另存 128，top-k 选不到</td><td>646（512+128+6 个块内行）</td></tr>
+        <tr><td>GLM-5.3-Flash</td><td>[35, 39, 43]</td><td>512 组，每组 4 个相邻位置</td><td>已包含在可被 top-k 选中的潜变量里</td><td>2,054</td></tr>
+        <tr><td>Hy4 flash</td><td>[33, 37, 41]</td><td>2,048</td><td>同上，不必另加</td><td>2,054</td></tr>
+      </tbody>
+    </table>
+    <p>「同样的 <i>k</i> = 512」在 GLM 上会变成数倍的位置，因为选择的是位置组。DS-V4.1-Flash 把近窗和 top-k 所用的潜变量存在两处，所以第二项补的是 top-k 根本选不到的最近 128 个位置；另外两个目标的近窗已经在同一组潜变量里，消融里再加一项几乎没有好处。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 初始化、末层状态和块内校正</h2>
+    <p>配对关系同时决定读哪份 KV、读哪些位置、以及草稿层从哪里初始化。注意力侧的下/上投影和输出投影从配对层拷贝再继续训；配对层的 <i>W</i><sup>DQ</sup> 本身也给 indexer 提供 query，所以拷贝过来的草稿 query 一上来就落在产出这份 top-k 的 query 空间里。前馈侧不能整层搬专家，论文从配对层的路由专家里均匀抽一个子集（每个草稿层 128 个专家），连同对应的 router 行和校正偏置一起拷贝，共享专家和注意力后的 norm 则整份复制。两边单独做，接受长度大约各掉 1.6% 和 1.1%，说明一半对一半都有用。</p>
+    <p>目标最后一层隐状态只送给 LM head 和 MTP，任何 KV 缓存里都没有它，但它正是目标据以产出锚点的那个状态。DFly2 像目标的 MTP 那样，把它和锚点嵌入融合，再通过一个从 0 初始化的门加到锚点槽位上。Prefill–decode 分离时，这只会在传输里多一个每请求向量。消融里去掉它大约掉 1.6%；改成广播到每个槽位，和只进锚点差不多，一个入口就够了。</p>
+    <p>块内校正继承 TreeFlash 那种对「当前槽位隐状态 + 上一槽位已草稿 token」做 SwiGLU 的隐式校正，但额外加了两路注意力：一路重读某个草稿层已经共享的目标上下文，一路用门控看块内已经生成的前缀。校正自己的输出投影和门也从 0 起步，训练开始时等价于只有继承来的那一项。这是草稿步里唯一必须按槽位串行的部分；在 tp8 引擎上，这两路注意力占解码步不到 1%，去掉它们接受长度大约掉 2.8%。</p>
+    <p>训练只更新草稿参数。目标是单阶段的：每个槽位对齐目标在该处的分布，损失是 LK 蒸馏（KL 与全变差的混合，混合比随两者重叠变化），再用 D-PACE 权重按「从该槽位起还期望贡献多少接受长度」加权，这些权重不反传。服务时选择来自验证前向；训练没有验证步，就用冻结的配对层 indexer 重算一遍，保证训练和推理看到同一批潜变量和同一批位置。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 实验怎么做的</h2>
+    <p>三个目标的稀疏机制并不相同：DS-V4.1-Flash 像 YOCO 那样让若干层共享一份压缩潜变量，GLM-5.3-Flash 把 11 个 DSA 层和 34 个线性注意力层交错，Hy4 flash 分两阶段压缩稀疏层的索引。基线覆盖自建缓存的两种做法：DFlash 缓存全部上下文，DSpark 把私有缓存限制在滑窗里；DFlash† 是把 DFlash 也限制到同一窗口（128，Hy4 flash 上是 512），用来把窗口和其他改动分开。所有草稿都由作者用同一配方、同一数据、同样步数训练，三层 MoE 栈，大小和 DFly2 相差不超过 2%。每个草稿 6B–14B 参数，每 token 激活 0.4B–1.1B，复用目标的 embedding 和输出头。块长固定 <i>γ</i> = 5。除非另说，数字都在 NVIDIA H20 上测。</p>
+    <p>任务分成三组。通用组来自 DSpark 发布的 DeepSpec 评测集，主表报告 GSM8K、MATH-500、AIME25、MBPP、HumanEval、LiveCodeBench、MT-Bench 这七个。长上下文组沿用 LongSpark：LongSpec 语料续写 32K、CodeSpan 64K、LongSWE-Bench 128K。Agent 组沿用 DLite：AgentLongBench、MemoryAgentBench、BFCL-v3 的长上下文多轮类别，以及 LongSWE-Bench 的 64K 题目。每组交叉四种采样：贪心（<i>T</i> = 0）和随机（<i>T</i> = 1，Hy4 flash 上为 0.9），再交叉 2K 对话和 8K thinking。主表是 2K 对话、关闭 thinking、最多生成 2048 个 token；消融表对每组的数据集和全部四种设置取平均。</p>
+    <p>训练数据是 DFly-SFT：989,861 段对话、7.42B token，全部来自公开数据集，按十个能力域混合，样本先按最长填充，截断在 32,768。61.6% 的样本带显式推理轨迹，34.9% 超过 8K，并对 DeepSpec 的十二个评测集做了 n-gram 去污染。优化器用 Muon，三轮，全局 batch 256，序列长度 32K。</p>
+    <p>推理走 vLLM：DFly2 不注册自己的 KV group，直接读配对层已有的 page。接受长度在单个 tp8 引擎上测，取最后三次运行的均值。加速比按各目标自己的部署、并发为 1：DS-V4.1-Flash 和 GLM-5.3-Flash 是分离的 prefill / decode tp8 实例，Hy4 flash 是单个 tp8 实例。高并发扫描只做了 DS-V4.1-Flash、贪心，每个实例为 DP8 × TP1、EP8；短文本用 1 个 prefill + 1 个 decode，并发 1 到 128；CodeSpan 64K 和 SWE 64K 用 8 个 prefill 对 1 个 decode，并发 1 到 32，否则单个 prefill 喂不饱 decode batch。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 结果怎么读</h2>
+
+    <h3>接受长度：通用任务小赢，长上下文和 agent 上拉开</h3>
+    <p>主表（Table 6、Table 7）里，DFly2 在全部十八个目标 × 温度格子中都高于两个基线。通用组相对更强的 DSpark，平均接受长度高 3.9%–10.5%。短文本上，DFlash 是否改用窗口，接受长度最多只动 2%，说明「私有缓存留多少」在短提示上几乎不构成差别。</p>
+    <p>提示超过所有草稿都见过的 32K 训练长度之后，差距放大到 10.0%–31.5%。Agent 组的提示大多更长：DFly2 的组平均仍落在各自通用组平均的 4% 以内，DSpark 则下降 11%–21%。两个基线恰好展示了自建上下文的两种上限：窗口看不到窗外；全量缓存什么都看得到，但训练长度之外可能崩掉——Hy4 flash 上，DFlash 在超过 32K 的提示里最低会落到每步 1.08 个 token。DFly2 读的是目标 indexer 已经选出的、大小固定、位置可以落在上下文任意处的集合，所以训练时学会的读法可以直接搬到更长的提示上，等于继承了目标自己的长度泛化。</p>
+    <table>
+      <thead>
+        <tr>
+          <th>目标</th><th>草稿</th>
+          <th class="num">通用平均 τ（T=0 / 1）</th>
+          <th class="num">长上下文平均</th>
+          <th class="num">Agent 平均</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>DS-V4.1-Flash</td><td>DSpark</td><td class="num">3.81 / 3.51</td><td class="num">3.23 / 2.79</td><td class="num">3.35 / 3.08</td></tr>
+        <tr><td></td><td>DFly2</td><td class="num">4.12 / 3.88</td><td class="num">3.74 / 3.32</td><td class="num">4.06 / 3.75</td></tr>
+        <tr><td>GLM-5.3-Flash</td><td>DSpark</td><td class="num">3.68 / 3.35</td><td class="num">3.05 / 2.64</td><td class="num">3.10 / 2.99</td></tr>
+        <tr><td></td><td>DFly2</td><td class="num">3.96 / 3.69</td><td class="num">3.85 / 3.36</td><td class="num">4.03 / 3.68</td></tr>
+        <tr><td>Hy4 flash</td><td>DSpark</td><td class="num">3.81 / 3.73</td><td class="num">3.20 / 3.01</td><td class="num">3.16 / 2.95</td></tr>
+        <tr><td></td><td>DFly2</td><td class="num">3.96 / 3.95</td><td class="num">3.63 / 3.46</td><td class="num">4.11 / 3.88</td></tr>
+      </tbody>
+    </table>
+    <p class="figcap">主表总体平均，温度 1 在 Hy4 flash 上实际是 0.9。完整分任务数字见论文 Table 6 和 Table 7。Hy4 flash 上 DFlash 的长上下文平均只有 1.63 / 1.53，未列入此对照。</p>
+
+    <h3>加速比：解码优势能带进端到端，DFlash 在 agent 流量上甚至更慢</h3>
+    <p>并发为 1、贪心时，DFly2 在每个目标和每一组任务上的平均解码加速、端到端加速都是最高的（Table 8、Table 9）。相对更强基线，解码速度快 2%–6%（通用）、6%–18%（长上下文）、12%–30%（agent）。端到端还要算上 prefill。DS-V4.1-Flash 上，两个 DFlash 变体在提示上建设私有缓存，首 token 最慢可以到原来的两倍；在 agent 组，它们的端到端平均是 0.90× 和 0.96×，已经慢于不投机。DFly2 在 prefill 不加这份缓存，长提示上的优势因此有两个来源：接受长度更高带来的解码加速，以及 prefill 不再额外加税。</p>
+    <div class="callout navy">端到端倍数在长提示上会被 prefill 压得很低，这不是测量错误。DS-V4.1-Flash 的 AgentLongBench 上，DFly2 解码 3.82×、端到端 1.25×；MemoryAgentBench 是 2.60× / 1.24×。宣传材料里 Hy4 flash 的「最高约 4.2×」更接近贪心、并发 1 时 AgentLongBench 的解码加速 4.55×，不是端到端，也不是高并发吞吐。</div>
+
+    <h3>高并发：同样人均速度下吞吐更高</h3>
+    <p>只在 DS-V4.1-Flash、贪心下扫了并发（Figure 7）。论文的描述是：DFly2 的「吞吐–人均解码速度」曲线在每个并发点都落在基线外侧，batch 变大后缺口也没有合上。对齐 DSpark 的人均速度时，短文本吞吐高 28%，CodeSpan 64K 高 62%，SWE 64K 高 81%；对齐吞吐时，人均解码快 15%–24%。单请求上的优势，大体能带到高并发。需要记住：这次扫描只有一个目标，64K 还用了 8 个 prefill 实例去喂 decode。</p>
+
+    <h3>消融：赢的是选择，不是「改读目标缓存」本身</h3>
+    <p>Table 10 把读取内容拆开，对每组数据集和四种采样取平均。拿掉目标的 top-k、只留近窗，是这里最大的损失，而且长上下文组的跌幅是通用组的两到六倍——窗口按位置取，上下文越长漏得越多。近窗本身只在 DS-V4.1-Flash 上大约值 3%，在另外两个目标上几乎为 0，这和第五节说的存储布局一致。若仍读目标选出的位置、只是改回自建缓存，接受长度只再掉一点（GLM 和 Hy4 上最多大约 3%）。也就是说，共享缓存主要清掉的是第三节那些系统代价，真正把 <i>τ</i> 抬起来的是那份 query 相关的选择。训练时如果只用近窗、不用稀疏选择，通用组上三个目标的接受长度也会变差，说明这不是长上下文特供的技巧。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 落地可行性</h2>
+    <p>就「能不能拿到、能不能接到现有服务里」而言，DFly2 比多数同期投机解码论文更完整。2026-11-26，腾讯 Hy 把训练代码、技术报告和 MoE 草稿权重一并公开：代码在 <a href="https://github.com/Tencent/AngelSpec" target="_blank" rel="noopener">Tencent/AngelSpec</a>，权重在 <a href="https://huggingface.co/collections/AngelSlim/angelspec" target="_blank" rel="noopener">Hugging Face 的 AngelSlim/angelspec 集合</a>，包括 <code>Hy4-flash-DFly2-B6</code>、<code>DS-V4.1-Flash-DFly2-B6</code>、<code>GLM-5.3-Flash-DFly2-B6</code>。README 写明：DFly2 已经是 Hy4 和 Hy4 flash 随模型发布的草稿；论文评测用的另外两个开源稀疏目标，现在也有对应权重。AngelSpec 还是同一条训练流水线，配置切换即可训 DFly、DFlash、DFlare、DSpark、Eagle3 和 MTP。</p>
+    <p>推理路径上，论文明确写了接在 vLLM 里：DFly2 不注册自己的 KV group，直接读配对层已经持有的 page。仓库安装项里有 <code>.[vllm]</code>，conda 脚本也提到 sglang 后端。Prefill–decode 分离是对得上的：草稿不必出现在 prefill 实例，传到 decode 侧的附加只有每请求一个末层隐向量。对已经在跑 DS-V4.1-Flash、GLM-5.3-Flash 或 Hy4 flash 的服务，优先路径是直接加载公开权重，而不是先从零训一个草稿。</p>
+    <p>要在自己的引擎里复现，关键不在再写一个注意力 kernel，而在于引擎能不能把目标 DSA 层的 KV page 和 indexer 的 top-k 在验证步之后交给草稿。做不到这一点，KV sharing 和 Index sharing 都落不了地，草稿又会退回自建缓存或自己打分。训练框架本身是 torch-native，快速上手示例按 8 卡划分推理和训练；大模型是多机示例。文档提醒：PyPI 默认的 torch / vLLM 轮子对准 CUDA 13，CUDA 12 的机器要先装匹配的轮子。</p>
+    <div class="callout warn">许可证写的是 AngelSpec License，不是 Apache-2.0。商业使用或二次分发前需要先读仓库里的 <code>LICENSE</code>，不要默认按常规开源协议处理。另外，这套方法绑定「目标自己带 indexer、并且稀疏层保留可复用潜变量」。稠密的 Llama / 普通 Qwen、或只有滑窗而没有 query 相关选择的模型，没有一份可以借的选择，不能指望把同一份实现丢上去就生效。</div>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 局限：这些倍数依赖什么假设</h2>
+    <ul>
+      <li><strong>只覆盖原生稀疏目标。</strong>三个被测模型都是 DSA 变体。论文没有在稠密目标上报告数字，方法也依赖目标已经付过费的 indexer 选择。</li>
+      <li><strong>不是免训练插件。</strong>每个目标要训一个配套草稿。公开权重降低了这三个模型的门槛，但换一个尚未覆盖的稀疏模型，仍要按 32K、三轮、Muon 的配方重跑。</li>
+      <li><strong>选择是提前一步的近似。</strong>块内覆盖率从约 0.88 慢慢降到最深层末槽的约 0.80，仍然远好于窗口，但不是每一步的精确 top-k。YOCO 结构上还可以并入更早行或跨层并集再挤出大约 2%–3% 的接受长度，正文默认配置没有把这些加上。</li>
+      <li><strong>训练长度是 32K。</strong>泛化到 64K / 128K 是实证结果，不是训练直接覆盖到的范围。数据是通用指令精调，不是专门的 agent 轨迹。</li>
+      <li><strong>硬件和部署面偏窄。</strong>数字都在 H20 上；高并发扫描只做了 DS-V4.1-Flash。块长固定为 5。64K 的吞吐数字用了 8 个 prefill 实例，换更弱的 prefill 配置，曲线会平移。</li>
+      <li><strong>端到端不等于解码。</strong>长提示上 prefill 仍主导，agent 任务的端到端加速常常只有 1.1×–1.7× 这一档。若服务的瓶颈在首 token 而不是解码，投机解码的收益会按 prefill 占比被稀释；DFly2 的贡献更多是「不要再把首 token 搞得更慢」。</li>
+      <li><strong>块内校正是串行的。</strong>开销被测到不到 1% 的解码步，但 <i>γ</i> 若显著变大，这一项会重新出现在关键路径上。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s11">
+    <h2>11. 数字速查</h2>
+    <table>
+      <thead><tr><th>条目</th><th>数字</th><th>条件</th></tr></thead>
+      <tbody>
+        <tr><td>块长 <i>γ</i></td><td>5</td><td>所有投机方法共用</td></tr>
+        <tr><td>草稿规模</td><td>3 层、128 个路由专家；6B–14B 参数，激活 0.4B–1.1B</td><td>复用目标 embedding 与输出头</td></tr>
+        <tr><td>每步读取位置</td><td>646 / 2,054 / 2,054</td><td>DS-V4.1-Flash / GLM-5.3-Flash / Hy4 flash</td></tr>
+        <tr><td>自建缓存附加的每 token KV</td><td>3.4 / 3.0 / 3.4 KiB，使总量变成 1.76× / 1.26× / 1.20×</td><td>bf16 配置估算，三层草稿</td></tr>
+        <tr><td>去掉私有缓存后的 32K 并发</td><td>1.73×（相对全量私有缓存）</td><td>DS-V4.1-Flash，按配置估算</td></tr>
+        <tr><td>固定预算注意力占解码步</td><td>约 4%–6%，与长度无关；全量在 128K 升到 14%–23%</td><td>DS-V4.1-Flash，服务器按步计时</td></tr>
+        <tr><td>提前一步选择的覆盖率</td><td>0.873–0.880（窗口 0.147–0.175）</td><td>DS-V4.1-Flash，158,638 个块，top-512</td></tr>
+        <tr><td>通用组平均 τ</td><td>DS 4.12/3.88，GLM 3.96/3.69，Hy4 3.96/3.95</td><td>相对 DSpark 高 3.9%–10.5%；T=0/1</td></tr>
+        <tr><td>长上下文 / agent 平均 τ</td><td>见第 8 节表；优势 10.0%–31.5%</td><td>最长 128K；agent 组相对通用组，DFly2 波动 ≤4%，DSpark 下降 11%–21%</td></tr>
+        <tr><td>通用组解码 / 端到端加速</td><td>DS 3.14× / 2.97×，GLM 2.50× / 2.36×，Hy4 3.34× / 3.19×</td><td>贪心，并发 1，相对不投机</td></tr>
+        <tr><td>长上下文组解码 / 端到端</td><td>DS 2.87× / 2.11×，GLM 2.45× / 1.64×，Hy4 3.06× / 2.12×</td><td>同上</td></tr>
+        <tr><td>Agent 组解码 / 端到端</td><td>DS 3.10× / 1.50×，GLM 2.61× / 1.22×，Hy4 3.41× / 1.67×</td><td>DFlash 在 DS 上端到端平均 0.90×</td></tr>
+        <tr><td>高并发吞吐（对齐人均速度）</td><td>短文本 +28%，CodeSpan 64K +62%，SWE 64K +81%</td><td>仅 DS-V4.1-Flash、贪心，相对 DSpark；对齐吞吐时人均快 15%–24%</td></tr>
+        <tr><td>去掉 top-k 后的 τ（DS / GLM / Hy4，长上下文）</td><td>2.76 / 3.10 / 3.12，对照完整 3.62 / 3.67 / 3.46</td><td>四设置平均；近窗一项几乎只在 DS 上有用</td></tr>
+        <tr><td>配对改到 37–39 层</td><td>平均掉 4.6%</td><td>DS-V4.1-Flash，因这三层复用第 36 层的选择</td></tr>
+        <tr><td>去掉块内上下文/前缀注意力，或去掉末层注入</td><td>接受长度大约 −2.8% / −1.6%；两路注意力 &lt;1% 解码步</td><td>DS-V4.1-Flash，tp8</td></tr>
+        <tr><td>训练数据与日程</td><td>7.42B token，三轮，batch 256，序列 32K，Muon</td><td>与基线同一配方</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记基于 arXiv:2611.34776v1（2026-11-25）。数字均来自论文正文与表格，不包含未给出的推算。分析写于 2026-11-27（Asia/Shanghai）。
+  </footer>
+</div>
+</body>
+</html>
