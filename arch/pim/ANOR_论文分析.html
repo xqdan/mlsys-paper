@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ANOR 论文分析 | GPU–PNM 层级上的稀疏注意力</title>
+  <style>
+
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  
+  
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge">arXiv:2611.30417v1</span>
+      <span class="badge">cs.AR · 未标注会议</span>
+      <span class="badge hot">近存计算 · CXL-PNM</span>
+      <span class="badge ok">KAIST × SK hynix × Penn State</span>
+      <span class="badge warn">LLMServingSim 仿真，不是 CXL-PNM 实卡墙钟</span>
+    </div>
+    <h1>ANOR：把 CXL-PNM 当成 GPU 存储层次里的计算层，而不是主注意力引擎</h1>
+    <p class="subtitle">稀疏注意力每次只读一小部分 KV，但全部 KV 还得留着。PNM 放得下，带宽却远低于 GPU HBM。ANOR 用选择局部性把大多数注意力留在 GPU 缓存里算，未命中才在 PNM 上算，并把缓存更新从当前步的关键路径上拿掉。</p>
+    <p class="meta">
+      <strong>作者：</strong>Hyunsu Ye、Hyunmin Choi、Jaehong Cho、Jaeseo Lee、Jongse Park（KAIST）；Hyeongseok Gwak、Joohee Lee、Donguk Moon、Woosuk Chung、Hoshik Kim（SK hynix）；Kiwan Maeng（Penn State）<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.30417">arXiv:2611.30417</a> · 2026-11-23 提交 · 15 页<br />
+      <strong>评测口径：</strong>服务系统用 LLMServingSim 建模；GPU kernel 在 H100 NVL 上剖析，PNM 延迟由配置到目标器件的 M2NDP 推导，CPU 开销在主机上测。面积和功耗是 CACTI 22 nm 再缩到 7 nm 的估计。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：PNM 能放下 KV，却成了新瓶颈</a></li>
+      <li><a href="#s3">做法：有界更新、ESB、自适应 cache factor</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">和已有近存笔记的关系</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">长上下文解码的容量压力来自必须保留的完整 KV，不是来自每一步真正读到的那一小截。通过 CXL 挂上的 processing-near-memory（PNM）可以就地算注意力，但现有 CXL-PNM 的内存带宽远低于 GPU HBM；先前 GPU–PNM 系统把大部分注意力放在 PNM 上，PNM 反而成了瓶颈，GPU 在空等。ANOR 的判断是反过来：利用稀疏注意力的选择局部性，让 GPU 用最近选过的 KV 缓存做大多数注意力，未命中才在 PNM 上算。因为未命中不必先搬回 GPU，缓存更新可以和当前步解耦，并在后续命中率饱和处截住更新量；Early Streaming Buffer（ESB）在 PNM 做注意力时把 KV 抓下来再送给 GPU，减轻 DRAM 再读。两个模型和三个长上下文 agent 工作负载上，解码吞吐平均比 HiSparse 高 2.3×，比 PNM 基线高 2.0×。这些系统数字全部来自 LLMServingSim 仿真，不是 CXL-PNM 实卡实测。</p>
+    <div class="kpi">
+      <div><div class="n">2.3× / 2.0×</div><div class="k">平均解码吞吐相对 HiSparse / PNM 基线（摘要，仿真）</div></div>
+      <div><div class="n">2.6× / 2.1×</div><div class="k">最大 batch 上相对 HiSparse：4B / 30B，三个负载平均</div></div>
+      <div><div class="n">2.7× / 3.3×</div><div class="k">20 req/s 时 P50 完成延迟相对最佳基线：4B / 30B</div></div>
+      <div><div class="n">2.01 mm²</div><div class="k">每台 PNM 增加的 7 nm 面积估计；四台合计 8.04 mm²、0.74 W</div></div>
+    </div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：PNM 能放下 KV，却成了新瓶颈</h2>
+    <p>稀疏注意力每一步只读 query 选中的一小部分 KV，但后面的步还可能选到别的条目，所以完整 KV 必须保留。上下文一长，这份缓存就会超出 GPU HBM。把 PNM 经 CXL 接到 GPU 上，可以把完整 KV 放在近存侧并就地算注意力，这是合理的硬件动机。</p>
+    <p>论文反对的是“PNM 中心”的执行方式：先前 GPU–PNM 稀疏注意力系统把大部分注意力放到 PNM 上。现有 CXL-PNM 的内存带宽远低于 GPU HBM，于是 PNM 成为关键路径，GPU 算完自己的部分就得空等注意力结果。另一方面，如果走 HiSparse 这类“GPU 缓存 + 主机内存、未命中先经 PCIe 搬回再算”的路径，未命中传输会卡在 GPU 朝外的链路上，GPU 同样在等。</p>
+    <p>作者把困难写成三条：</p>
+    <div class="grid-3">
+      <div class="tile"><h4>窄链路上的缓存更新</h4><p>要把未来可能再被选中的 KV 送进 GPU 缓存，更新流量会和当前步争同一条 GPU 朝外链路。</p></div>
+      <div class="tile"><h4>带宽不匹配</h4><p>PNM 内部 DRAM 带宽高于朝向 GPU 的链路。如果更新还要再从 DRAM 读一遍，就会在链路上叠一次多余的读。</p></div>
+      <div class="tile"><h4>cache factor 和 batch</h4><p>给每个请求留更大的 GPU 缓存能提高命中率，但会挤掉 batch；负载一变，固定切分就会偏。</p></div>
+    </div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：有界更新、ESB、自适应 cache factor</h2>
+    <p>ANOR 把自己定位成 GPU 中心的联合加速：GPU 用最近被选中的条目做大多数注意力，PNM 只处理未命中。因为未命中就在 PNM 上算完，当前步不必等这些 KV 搬到 GPU，缓存更新变成对后续局部性的投资，而不是当前步的前置条件。</p>
+    <div class="grid-3">
+      <div class="tile"><h4>有界缓存更新</h4><p>更新比例停在后续步命中率饱和的地方。评测默认用 30% 的按近因优先更新，用来限制朝向 GPU 的链路流量。</p></div>
+      <div class="tile"><h4>Early Streaming Buffer</h4><p>PNM 做未命中注意力时，把要用的 KV 抓进片上 ESB，再流给 GPU，避免大多数为了更新再读一遍 DRAM。默认每台设备 8 MiB。</p></div>
+      <div class="tile"><h4>自适应 cache factor</h4><p>按服务负载调节每个请求的 GPU 缓存大小：低负载把 factor 提到 4.0 提高命中；高负载降到能接近吞吐最优 batch 的位置，多容纳请求。</p></div>
+    </div>
+    <p>执行流可以概括成：索引器给出本步选择；命中的在 GPU 缓存上算；未命中在 PNM 上算，同时 ESB 抓取后续要用的更新数据；GPU 侧合并 LSE 等结果。Residency Candidate Table 和传输控制（含 capture bitmap）辅助记录哪些条目值得留下。静态地把每步选择按固定比例切给 GPU 和 PNM，论文认为不够：GPU 份额加大虽能少把活留给低带宽 PNM，但超过约 60% 后，要搬过链路的 KV 变多，GPU 又开始等传输。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <div class="callout warn">系统结果是仿真。作者用 LLMServingSim 覆盖请求排队与准入、HBM 限制下的 GPU 缓存分配、GPU–PNM 执行、链路争用、缓存更新流量、有限的 ESB 容量和再读。GPU kernel（索引、注意力、LSE 合并、投影、FFN）在 H100 NVL 上剖析；PNM 延迟由配置到这些器件的 M2NDP 推导；CPU 侧开销在主机上测。不要把吞吐和完成延迟读成 CXL-PNM 实卡数字。</div>
+    <table>
+      <thead><tr><th>项目</th><th>配置</th></tr></thead>
+      <tbody>
+        <tr><td>模型与 GPU</td><td>Qwen3-4B-Thinking 用 1 张 H100 NVL；Qwen3-30B-A3B-Thinking 用 2 张。主机为 Intel Xeon 6520P</td></tr>
+        <tr><td>CXL-PNM 模型</td><td>4 台设备，每台 4 个 DDR5-6400 通道（200 GB/s）、512 GB，合计 2 TB 卸载池</td></tr>
+        <tr><td>对照容量</td><td>HiSparse 用同等容量的主机内存池；两边到 GPU 都是 PCIe Gen5 ×16</td></tr>
+        <tr><td>工作负载</td><td>SWE-chat、Open-SWE、OpenResearcher 三条长上下文 agent 轨迹</td></tr>
+        <tr><td>稀疏轨迹</td><td>按 SeerAttention-R、SAS、DSA 训练索引器并收集选择轨迹；系统评测重放 SeerAttention-R、Top-2K，所有系统拿到同一组请求和轨迹</td></tr>
+        <tr><td>ANOR 默认</td><td>30% 近因优先更新，每台 PNM 8 MiB ESB</td></tr>
+      </tbody>
+    </table>
+    <p>基线有三条：GPU-only 把完整 KV 放在 HBM 并在 GPU 上做全部稀疏注意力，HBM 不够时记为不可用；HiSparse 是稀疏注意力的 KV 卸载系统，GPU 缓存背后是主机内存，未命中先搬到 GPU 再算；PNM 基线只在 GPU 上留一小段稳态 token，大部分稀疏注意力在 PNM 上算。离线吞吐扫描里，为了把 GPU–PNM 执行和自适应分配拆开，HiSparse 和 ANOR 都把 cache factor 固定为 1.0。在线服务只用 SWE-chat，请求的上下文和输出长度从轨迹分布抽样，按泊松过程以 5/10/15/20 requests/s 到达，注入 200 s 后跑到全部完成；prompt KV 已在后备内存里。</p>
+    <p>面积与动态功耗用 CACTI 7.0 在 22 nm 建模 ESB、RCT 和传输控制，再按 DeepScaleTool 缩到 7 nm；动态功耗由各负载的访问次数估计。论文提到 Marvell Structera A 是 5 nm，因此他们的 7 nm 估计偏保守——这是对照工艺节点，不是声称在 Structera 上跑过。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <h3>离线解码吞吐</h3>
+    <p>batch 扫到 4B 的 128 和 30B 的 256，上下文长度从各负载分布抽样，输出长度固定为该负载中位数。GPU-only 在小 batch 有竞争力，但完整 KV 很快超出 HBM。HiSparse 和 PNM 基线能撑更大 batch，吞吐却会饱和：前者等每一次未命中经 PCIe 到达，后者等更低带宽的 PNM 算完大部分注意力。ANOR 保持较高命中率，未命中就在 PNM 上算，把未命中传输从当前步关键路径拿掉。最大 batch 上，相对 HiSparse 的吞吐在 4B / 30B 上分别为 2.6× / 2.1×，相对 PNM 基线为 2.3× / 1.7×，均为三个负载平均。摘要和结论里的 2.3× / 2.0× 是跨设置的总平均，和最大 batch 这两行不是同一组数。</p>
+    <h3>在线服务</h3>
+    <p>TPOT 是一个请求从第一个到最后一个生成 token 的平均间隔；完成延迟从到达解码实例计到最后 token，因此含准入等待。相对 cache factor=1.0 的 HiSparse，ANOR 把 P50 TPOT 最多降到 16.0×（4B）和 7.8×（30B）；相对 PNM 基线最多 10.8× 和 5.8×。相对表现最好的 HiSparse（factor=4.0），在中低到达率下 P50 TPOT 最多低 2.1×。到达率升到 20 requests/s 时，ANOR 会降低 cache factor 以多准入，TPOT 向 HiSparse 靠近，但同时多解码 1.2–1.3× 的并发请求。</p>
+    <p>把排队算进去以后，差距在高到达率下拉大。20 requests/s 时，相对最佳基线，P50/P99 完成延迟在 4B 上为 2.7× / 2.8×，在 30B 上为 3.3× / 2.2×。同一到达率下，相对 factor=4.0 的 HiSparse，等待中的请求峰值低 2.1×（4B）和 6.6×（30B），队列分别早 115 s 和 43 s 排空。</p>
+    <h3>敏感性和消融</h3>
+    <p>在 4B + SWE-chat、离线最大 batch 上，把每步选择按 20–90% 固定切给 GPU，最好的静态切分仍比 ANOR 慢 1.43×；GPU 份额超过 60% 后，链路传输重新把 GPU 卡住。更新比例 30% 时，ANOR 相对 HiSparse 把解码延迟降 2.55×；再提高更新比例会增加 GPU 要等的链路流量，去掉 ESB 还会加上再读延迟。这是他们采用 30% 和 8 MiB ESB 的依据。</p>
+    <p>自适应 cache factor 在 5 与 20 requests/s 之间每 50 s 切换时，低负载保持 4.0，高负载降到 2.8，直到活跃 batch 接近吞吐最优的 <em>B*</em>；多余请求在队列里等，负载降回去之后仍先保持较低 factor，排空后再回到 4.0。和固定 factor=4.0 比，5 requests/s 时两者一样；20 requests/s 时，4B 上两者接近，30B 上更大的权重让 batch 更值钱，人均吞吐高 1.13×，平均完成延迟低 1.21×。</p>
+    <h3>硬件开销</h3>
+    <p>30% 更新时，8 MiB ESB 在两个模型上几乎抓全更新数据；同样容量在 40% / 50% 更新时，4B 上会溢出 11.1% / 24.4%。表 1：每台设备增加 ESB 1.6981 mm² / 111.12 mW，RCT 0.1007 mm² / 59.58 mW，传输控制 0.2107 mm² / 15.14 mW，合计 2.0095 mm² / 185.84 mW。正文约写成 2.01 mm² 和 186 mW；四台合计 8.04 mm² 和 0.74 W。这是 7 nm 估计，大部分面积在 ESB 上。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 和已有近存笔记的关系</h2>
+    <p>ANOR 属于近存计算，但硬件形态不是仓库里已经写过的 HBM-PIM、3D 堆叠 PIM 或 UPMEM。它讨论的是经 CXL 挂到 GPU 上的 PNM，专门承接长上下文稀疏注意力的完整 KV。和 PIMphony、DCC、Pimba、Tri-Stack-PIM 的差别在于：那些工作把计算推到内存堆叠或 bank 旁边，ANOR 则主张 PNM 不该当主力注意力引擎，而应该当 GPU 存储层次里的一层计算——未命中就地算，命中仍走 HBM 带宽。</p>
+    <p>工作负载确实是解码服务、KV cache 和稀疏注意力，这和一般的大模型推理系统论文有重叠。这篇仍放进 <code>arch/pim/</code>，是因为它的主张和设计都落在 GPU–PNM 层级、缓存更新和 ESB 上，而不是调度器、投机解码或通用推理框架。Synapse 同期讨论的是 HBM 协同的 HBF 近存，对象是多 agent 视频推理的权重和 KV 容量；ANOR 的对象是 CXL-PNM 上的稀疏选择局部性，两条线互补，不重复。Tenon 是 PIM 编译，PIVOT 是 UPMEM 上的 ANNS，都不覆盖这篇。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>有利条件主要在系统设计而不在新器件。第一，问题对准的是已经能买到或正在出现的 CXL-PNM：容量够、内部带宽高于 PCIe，但明显低于 GPU HBM。第二，三条原则都可单独看——更新要有界、更新数据尽量复用 PNM 已经读过的 KV、cache 大小要随负载变——不一定非要一次实现全部微结构。第三，增加的面积和功耗估计不大，而且和更新比例绑在一起：先把更新量截住，8 MiB ESB 才够用。第四，工作得到 SK hynix 支持，并扩展了 LLMServingSim，后续若要在同一套模型里替换器件参数，接口是现成的。</p>
+    <p>落地缺口也很硬。系统吞吐、TPOT 和完成延迟全部是仿真；PNM 延迟来自 M2NDP 推导，不是目标 CXL-PNM 上的实测注意力。评测默认重放 SeerAttention-R 的 Top-2K 轨迹，索引质量和选择局部性被当成输入，换一套索引器或更低的局部性，有界更新和命中率都会变。自适应 cache factor 的收益在 30B 上比 4B 清楚，说明它对“权重大、更需要 batch”的设置更敏感，不能直接外推到任意模型。没有实卡原型，也没有开源实现或器件配置的完整公开。</p>
+    <div class="callout teal">值得记下的判断是那句结语：PNM 最有效的用法，未必是当主注意力引擎，而是当 GPU 存储层次里的一层计算。这句话目前由仿真支撑，还需要在真实 CXL-PNM 带宽和软件栈上验证。</div>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li>文中未标注会议；15 页长文把系统和评测写全了，但缺少硅验证。</li>
+      <li>离线对照把 cache factor 固定为 1.0，在线对照才打开自适应；读 2.6× 那一行时不要把它算成自适应的功劳。</li>
+      <li>20 requests/s 时 ANOR 的 TPOT 向大缓存 HiSparse 靠近，换来的是更高并发和更短完成延迟，不能只抄 TPOT 倍数。</li>
+      <li>面积/功耗是 22 nm CACTI 缩到 7 nm 的估计，并与 5 nm 商用器件比保守程度，不是实测功耗。</li>
+      <li>稀疏选择轨迹在系统之间共享，评测不包含索引器本身的开销差异或选错代价。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead><tr><th>条目</th><th>数字</th><th>出处和条件</th></tr></thead>
+      <tbody>
+        <tr><td>平均解码吞吐</td><td>相对 HiSparse 2.3×，相对 PNM 基线 2.0×</td><td>摘要/结论，两模型三负载平均，仿真</td></tr>
+        <tr><td>最大 batch 离线吞吐</td><td>vs HiSparse：2.6× / 2.1×；vs PNM：2.3× / 1.7×</td><td>4B / 30B，三负载平均，cache factor=1.0</td></tr>
+        <tr><td>P50 TPOT</td><td>最多 16.0× / 7.8× vs HiSparse cf=1.0；10.8× / 5.8× vs PNM；最多 2.1× vs HiSparse cf=4.0</td><td>在线 SWE-chat，4B / 30B</td></tr>
+        <tr><td>高负载并发</td><td>20 req/s 时多解码 1.2–1.3× 并发请求</td><td>TPOT 已接近大缓存 HiSparse</td></tr>
+        <tr><td>完成延迟</td><td>20 req/s 时 P50/P99：4B 为 2.7× / 2.8×，30B 为 3.3× / 2.2×</td><td>相对最佳基线，含排队</td></tr>
+        <tr><td>队列</td><td>峰值低 2.1× / 6.6×；早 115 s / 43 s 排空</td><td>20 req/s，相对 HiSparse cf=4.0，4B / 30B</td></tr>
+        <tr><td>最佳静态切分</td><td>仍比 ANOR 慢 1.43×</td><td>4B + SWE-chat，离线最大 batch</td></tr>
+        <tr><td>30% 更新时的解码延迟</td><td>相对 HiSparse 降 2.55×</td><td>同上设置</td></tr>
+        <tr><td>自适应 vs 固定 cf=4.0</td><td>30B 上人均吞吐 1.13×，平均完成延迟低 1.21×</td><td>20 req/s；4B 上两者接近</td></tr>
+        <tr><td>ESB 溢出</td><td>30% 时几乎为 0；40% / 50% 时 4B 上 11.1% / 24.4%</td><td>8 MiB，三负载平均，最大 batch</td></tr>
+        <tr><td>每台 / 四台开销</td><td>2.0095 mm²、185.84 mW；合计 8.04 mm²、0.74 W</td><td>7 nm 估计</td></tr>
+      </tbody>
+    </table>
+    <p class="figcap">笔记整理于 2026-11-25（Asia/Shanghai），依据 <a href="https://arxiv.org/abs/2611.30417">arXiv:2611.30417v1</a>。阅读笔记 · ANOR · 不替代原文</p>
+  </section>
+
+  <footer>笔记整理于 2026-11-25（Asia/Shanghai）。阅读笔记，不替代原文。</footer>
+</div>
+</body>
+</html>
