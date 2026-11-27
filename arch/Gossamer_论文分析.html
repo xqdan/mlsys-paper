@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gossamer 论文分析 | 恒定预算下的推理解码 KV 压缩架构</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">MICRO 2026 · Session 1B</span>
+        <span class="badge ok">arXiv:2611.29497v1</span>
+        <span class="badge">算法–系统–硬件协同</span>
+        <span class="badge warn">精度实测 + SCALESim 仿真</span>
+      </div>
+      <h1>Gossamer：恒定预算下，把 KV 压缩嵌进注意力数据通路</h1>
+      <p class="subtitle">一篇面向长思维链推理的 KV 缓存架构论文。它不是再提出一种驱逐或量化算法，而是把驱逐、合并、量化放进同一套效用决策，并利用解码注意力「M=1、算力闲着」的结构性空档，把相似度估计融进一次 GEMM。</p>
+      <p class="meta">
+        <strong>Feng Cheng、Cong Guo、Junyao Zhang、Haoxuan Shan、Chiyue Wei、Hai Li、Yiran Chen</strong>（Duke University）；<strong>Hong Wang</strong>（Intel）<br />
+        论文：<a href="https://arxiv.org/abs/2611.29497">arXiv:2611.29497</a>（v1，2026-11-22）·
+        MICRO 2026 程序 Session 1B（3D-Stacked &amp; PIM Architectures for LLM/MoE Serving）·
+        检索时未见配套开源仓库
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：KV 线性涨，全局打分又贵又懒</a></li>
+        <li><a href="#s3">Gossamer 是什么</a></li>
+        <li><a href="#s4">现有路线的三个缺口</a></li>
+        <li><a href="#s5">做法：效用动作、Free-Lunch、数据通路</a></li>
+        <li><a href="#s6">实验怎么做的</a></li>
+        <li><a href="#s7">结果怎么读</a></li>
+        <li><a href="#s8">面积、功耗与消融</a></li>
+        <li><a href="#s9">局限与落地可行性</a></li>
+        <li><a href="#s10">数字速查</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">Gossamer 的判断是：推理解码的 KV 缓存必须被限制在恒定预算里，但现有方法要么只做局部压缩（缓存仍随长度线性涨），要么用单独的全局相似度内核做周期性重压缩（又贵又会一下子丢掉太多上下文）。它把量化、合并、驱逐统一成效用动作，并在类 TPU 的脉动阵列上，把余弦相似度估计融进注意力计算，让每一步都能更新缓存、又几乎不增加访存。</p>
+      <div class="kpi">
+        <div><div class="n">最多 16.7×</div><div class="k">Fig. 10-c，完整 8192 token 生成的端到端吞吐，相对 FP16 FullKV。「最多」出现在紧预算、可扩大 batch 的设定</div></div>
+        <div><div class="n">5.5× / 4.9×</div><div class="k">同一张图，相对近 4-bit 量化基线 Oaken / Ecco</div></div>
+        <div><div class="n">1.8×</div><div class="k">摘要与 Fig. 10-c 相对驱逐基线 R-KV 的端到端吞吐。Fig. 15 的延迟分解另有 1.25×（预算 512）和 1.79×（预算 2048）</div></div>
+        <div><div class="n">55.0%</div><div class="k">Fig. 16，QwQ-32B、MATH-500、预算 256 时的准确率；文称几乎是 R-KV 的两倍</div></div>
+      </div>
+      <div class="callout warn">上面的吞吐倍数全部来自 SCALESim-v2 对一颗自定义 128×128 脉动阵列（HBM2 512 GB/s，28 nm，500 MHz）的周期精确仿真，不是 GPU 墙钟。准确率来自 HuggingFace 上的真实检查点（pass@1，随机采样）。16.7× 是「最多」，收益里有很大一块是压缩后能装下更大 batch，不要读成单条请求的解码加速。摘要 1.8× 与 Fig. 15 的 1.79× 不要随手合成同一组数。</div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：KV 线性涨，全局打分又贵又懒</h2>
+      <p>推理模型把生成长度 <code>T</code> 拉得很长之后，KV 缓存同时卡住两件事。容量上，系统要按目标生成长度预留缓存，HBM 很快成为并发上限：引言引用既有测量，512 token 时 KV 占内存不到 2%，128K 时可超过 84%。带宽上，每一步解码都要把已缓存的 K、V 再流一遍，注意力代价随有效 KV 长度增长。解码注意力在 GEMM 里是 <code>M=1</code> 的矩阵–向量乘，算力强度低，落在带宽墙上。</p>
+      <p>服务栈常用 batch 把投影层喂饱——权值跨请求共享，容易进计算墙。注意力做不到这一点：每个请求有私有 KV，FlashAttention 一类内核也只是把一批独立的 <code>(1×d)·(d×L)</code> 乘在一起，Fig. 4-b 显示 TFLOPS 几乎不随 batch 上升，只是延迟变长。于是注意力里总有算力空档，现有压缩算法却很少去用。</p>
+      <p>更麻烦的是全局打分本身。R-KV 这类方法要算全对相似度 <code>S=KK<sup>⊤</sup></code>，复杂度 <code>O(T² d<sub>k</sub>)</code>，再加上归约、top-k 和重排，开销可以明显高于一步注意力的 <code>O(T d<sub>k</sub>+T d<sub>v</sub>)</code>。论文的测量是：在 512 条目的缓存上，一次全局压缩的延迟可以到一次注意力的 12 倍。于是实践里往往每 128 个新 token 才压缩一次：缓存先涨到预算（例如 256），再一次性打回 128，既突然丢掉大量上下文，压缩后又有约一半预算空着。若改成每步都做同样的全局打分，缓存是满的，但单独内核贵到不切实际。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. Gossamer 是什么</h2>
+      <p>Gossamer 是一套恒定预算的 KV 管理架构，外面包着一颗类 TPU 的脉动阵列加速器。软件侧是效用驱动的动作框架（文中称 DAU）：主缓存 <code>C<sub>main</sub></code> 满了以后，对候选 token 比较驱逐、合并、量化三种动作的效用，选损失最小的一项；量化缓存 <code>C<sub>quant</sub></code> 也有自己的预算，满了要先挤出一个最低价值条目。两边预算加起来是常数，与序列长度 <code>T</code> 无关。</p>
+      <p>硬件侧围着这套决策改数据通路，而不是另做一颗「压缩加速器」。三个关键点是：(i) 把 key 拆成 L2 归一化后的方向向量和范数，点积直接当余弦相似度；(ii) 只维护很轻的元数据（例如累加 key 向量、很小的相似度表），不必为了打分再读一遍完整 key 缓存；(iii) 把注意力、冗余估计和近邻搜索融进同一次矩阵乘。</p>
+      <div class="fig">
+        <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gossamer 融合注意力与效用估计示意">
+          <text x="8" y="18" font-size="12" fill="#57534e" font-family="Segoe UI, sans-serif">解码注意力的 Free-Lunch 融合（示意，非比例）</text>
+          <rect x="20" y="40" width="200" height="140" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+          <text x="120" y="62" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#9a3412">普通解码注意力</text>
+          <text x="120" y="90" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">Q 是 1×d</text>
+          <text x="120" y="110" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">M=1，算力闲着</text>
+          <text x="120" y="130" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">K/V 仍要完整读出</text>
+          <text x="120" y="160" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#9a3412">再开一次全局打分内核</text>
+          <text x="250" y="110" font-size="22" fill="#1e3a5f" font-family="Segoe UI, sans-serif">→</text>
+          <rect x="280" y="40" width="420" height="140" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
+          <text x="490" y="62" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#115e59">Gossamer：M=1+2 的融合 GEMM</text>
+          <text x="490" y="90" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">第一行：普通注意力预 logits</text>
+          <text x="490" y="110" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">另两行：新归一化 key + 运行累加 key</text>
+          <text x="490" y="130" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">K⊤ 只读一次，多出来的 FLOPs 很少</text>
+          <text x="490" y="160" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#0f766e">每步都能决策，不必另走一遍缓存</text>
+        </svg>
+      </div>
+      <p class="figcap">Fig. 3–4 的核心图像：R-KV 要么懒压缩、要么逐步打分太贵；Gossamer 把 r=2 行辅助向量垫进注意力左操作数。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 现有路线的三个缺口</h2>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>局部原地压缩</h4>
+          <p>量化（FP16→4-bit）或按固定比例剪 token，只能推迟容量耗尽。缓存仍然随上下文线性增长，解决不了「预算必须是常数」这件事。</p>
+        </div>
+        <div class="tile">
+          <h4>单一手法</h4>
+          <p>驱逐缩短长度，但可能砍掉长程依赖；量化保长度，却怕异常值和跨层尺度不一致；合并省带宽，却可能把 token 特异性糊掉。论文认为容量（每 token 字节）和带宽（每步 token 数）要同时动，而且层、头、输入区制度都不同，单靠一种方法很难在固定质量下压得很狠。</p>
+        </div>
+        <div class="tile">
+          <h4>打分和注意力脱节</h4>
+          <p>全局相似度是单独阶段，不是硬件友好的访问模式。懒触发会浪费预算、一次丢掉太多上下文；逐步触发又把运行时间交给打分内核。压缩质量和系统效率被拆开了。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 做法：效用动作、Free-Lunch、数据通路</h2>
+      <h3>5.1 统一效用，而不是再发明一种分数</h3>
+      <p>候选 token <code>t<sub>c</sub></code> 的三种动作被写到同一效用空间里。驱逐效用是 <code>U<sub>evict</sub> = −w<sub>imp</sub>·ω(t<sub>c</sub>)</code>，重要性越高效用越负。合并效用是 <code>U<sub>merge</sub> = w<sub>merge</sub>·(φ<sub>merge</sub>−1)</code>，完美合并（余弦相似度为 1）时效用为 0，否则为负。量化还要加上「量化缓存已满时，挤走其中最不值钱条目」的置换代价 <code>D<sub>cost</sub></code>。系统取效用最高（损失最小）的动作。重要性 <code>ω</code> 本身是注意力使用痕迹和冗余度的折中，由超参 <code>β</code> 调节。</p>
+      <p>量化不是朴素向量量化。论文用 gain–shape 表示，并把高相关通道重新排列后再分块量化，以降低码本误差（Fig. 5）。码本在 GSM8K 上剖析得到，后面 LongBench 评估直接复用，用来论证跨域迁移。</p>
+
+      <h3>5.2 Free-Lunch：把 r=2 行垫进注意力</h3>
+      <p>解码时注意力左操作数天生是 <code>M=1</code>。Fig. 2-b 表明，在内存墙里把 <code>M</code> 略微增大，延迟几乎不动。Gossamer 因此只垫两行辅助向量：新 token 的归一化 key，以及一个运行中的 key 累加器，做成 3 行融合 GEMM。第一行给出普通注意力预 logits，另外两行给出逐步的相似度和冗余信号。因为 <code>K<sup>⊤</sup></code> 本来就要读一遍，多出来的是很少的 FLOPs，没有第二次缓存扫描。注意力跨请求不可批，所以即使服务 batch 很大，每个请求仍然停在 <code>M=1+r</code>，不会被推到计算墙。Fig. 4-c 称，扫过全部 batch 时，加与不加辅助行的解码延迟几乎分不开。文中把这叫 Free-Lunch Utilization。</p>
+      <div class="callout navy">Fig. 4 的动机曲线提到了「高度优化的 FlashAttention 内核」，说明「注意力批不起来、算力闲着」这条观察对 GPU 解码也成立。但后文的端到端吞吐并不建立在某个具名 GPU 的墙钟上，仍是后面那套脉动阵列仿真。</div>
+
+      <h3>5.3 加在脉动阵列周围的数据通路</h3>
+      <p>加速器是 output-stationary 的 128×128 PE 阵列，FP16 乘法、FP32 累加，片上缓冲一共 64 MB（输入 16、权值 16、输出 32），片外按 HBM2、合计 512 GB/s 来建模。外围有输入准备引擎（做归一化、更新累加 key、把增益写入元数据）、动态权值/输入缓冲、环形缓冲、优先级打分和 top-k 选择，以及量化 token 的反量化路径。新 key 到达时被拆成范数和单位方向，方向写入主 key 缓冲，范数进元数据；打分阶段不必再扫一遍完整缓存。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 实验怎么做的</h2>
+      <p>准确率和架构性能是两套实验，不要混着引用。</p>
+      <p><strong>准确率</strong>在真实检查点上评：DeepSeek-R1-Distill-Llama-8B、DeepSeek-R1-Distill-Qwen-14B，以及扩展用的 QwQ-32B 和 Llama-3.1-8B-Instruct。主基准是 MATH-500 和 AIME 2024，最长生成分别封顶 8192 和 16384 token；论文称再加长在预实验里没有抬高精度。因为贪心解码在长推理上方差大，他们按已有工作用 pass@k，报告随机采样下的 pass@1：温度 0.6、top-p 0.95，每题采 k=16。量化码本用各模型在 GSM8K 上的 KV 统计来建。基线是 SnapKV（被改到 prefill 和 decode 都能用）、R-KV（按推荐配置），以及 FullKV。SnapKV / R-KV 按每 128 步重压缩；预算按整个 KV 缓存计。Gossamer 在准确率图里采用 75% 全精度 + 25% 量化，并把预算归一到「同等内存」的逻辑预算，以便和全精度基线比实际占用。</p>
+      <p><strong>性能</strong>用基于 SCALESim-v2 的周期精确仿真，吃进去的是按模型和数据生成的逐层轨迹。对照包括 FullKV、近 4-bit 在线编解码的 Ecco 与 Oaken，以及 R-KV。Gossamer 自己报了 50% FP 和 75% FP 两种配置。所有方法都放进同一套仿真器。面积和能耗把 Gossamer 的自定义模块写成 SystemVerilog，用 Synopsys Design Compiler 在商用 28 nm、500 MHz 下综合。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 结果怎么读</h2>
+      <h3>准确率：紧预算时拉开，预算变松后大家向 FullKV 靠拢</h3>
+      <p>Fig. 8 上，Gossamer 在两个蒸馏模型和两个基准里都最接近 FullKV，并在低、中预算段超过 R-KV 和 SnapKV；差距在 AIME 2024 上更明显，因为这个任务对 KV 预算更敏感。MATH-500 曲线更平滑、绝对差距更小，但排序不变。Llama-8B 在 256–768 的紧预算下对 SnapKV 优势更清楚。预算加大后，压缩方法都逐渐靠近 FullKV，Gossamer 到这条「几乎无损」的前线更快。</p>
+      <p>Fig. 16 把模型换到更大的 QwQ-32B，看 GPQA Diamond 和 MATH-500。紧预算时优势最大：MATH-500、预算 256 时 Gossamer 准确率 55.0%，文称几乎是 R-KV 的两倍，并明显超过 SnapKV。预算加大后各方法向 FullKV 收敛，Gossamer 仍不低于 R-KV，并一直领先 SnapKV。这组数字用来说明，收益不只属于较小的蒸馏模型和单一基准。</p>
+      <p>Table I 把场景换到 LongBench。v1（Llama-3.1-8B-Instruct，预算 1024）上，正文写 Gossamer 在 MF-en 和 Qasp 上达到或超过 FullKV，Musiq 上仍然接近，并明显超过 KIVI、Quest 和 Cake。v2（DS-Llama-8B，预算 2048）上，总体准确率 30.4%，与 FullKV 相差不到 0.4%，并超过所有压缩基线。码本仍然只用 GSM8K 剖析的那份，论文把它当作跨域、免按任务重新剖析的证据。</p>
+
+      <h3>并发：50% FP 在预算 256 时可大一个数量级</h3>
+      <p>Fig. 9 统计的是：每条序列最多生成 8192 token 时，设备内存里能放下的最大 batch。这个设定里 KV 是主导内存，压缩直接变成并发。两个蒸馏模型、所有预算上，Gossamer 都是压缩方法里最高的，并大幅超过 FullKV。最明显的是紧预算：50% FP 变体在预算 256 时，batch 比 FullKV 大一个数量级以上，并大致比 R-KV 高 20–40%。75% FP 用略小的并发换更高精度。预算变大后各方法靠近，但 Gossamer 仍高于 R-KV 和 Ecco。</p>
+
+      <h3>吞吐：16.7× 是端到端、而且很大一块来自 batch</h3>
+      <p>Fig. 10-a/b 看预算 1024 和 2048 下，吞吐随生成步数的变化。压缩方法在序列变长后都会超过 FP16 FullKV，因为 KV 足迹小了，访存和注意力都更便宜。短生成阶段（KV 还没到预算），Ecco / Oaken 的 4-bit 立刻省带宽，反而领先；R-KV 和 Gossamer 这时还没启动基于预算的压缩，初期增益较小。一旦长度超过预算、压缩开始工作，Gossamer 成为所有模型和预算上最高的一条。</p>
+      <p>论文把加速拆成三件事：KV 变小后 batch 变大，混合精度降低每步注意力的访存量，以及融合估计把压缩开销压到几乎可以忽略。相对贡献随模型而变：较小的 8B/14B 上，GEMM 在不大的 batch 就会饱和，注意力更容易成为主导。Fig. 10-c 汇总完整 8192 token 生成的归一化端到端吞吐，三个模型、各预算上 Gossamer 都最好，并给出摘要里那组「最多」倍数：相对 FullKV 16.7×，相对 Oaken 5.5×，相对 Ecco 4.9×，相对 R-KV 1.8×。预算变大后所有方法的吞吐都下降——留下的缓存越长，注意力越贵——但在论文认为「跟准确率相关」的 1024–2048 区间，75% FP 和 50% FP 都还保持领先。</p>
+      <div class="callout warn">读 Fig. 10-c 时要把「单步更快」和「同一块内存里多跑几条请求」分开。16.7× 是紧预算下的峰值，和 Fig. 9 在预算 256 时 batch 大一个数量级以上是同一类效应。不要把它抄成「相对 H100 或某张 GPU 加速 16.7 倍」。</div>
+
+      <h3>延迟分解：融合之后，压缩不再随预算涨</h3>
+      <p>Fig. 15 把 Llama-8B 的端到端延迟拆成投影、注意力、压缩三段，并在每个预算上归一到 R-KV。投影的绝对时间两边差不多。Gossamer 的注意力更短，因为混合精度 KV 减少了每步从内存流过的数据。差别最大的是压缩：R-KV 要单独做一次随序列变长的全局相似度，预算 2048 时占总运行时间的 23%；Gossamer 把余弦相似度融进注意力后，压缩开销在所有预算下都低于 2%。由此得到相对 R-KV 的 1.25×（预算 512）和 1.79×（预算 2048）加速——预算越大，R-KV 的打分越贵，这笔差距越明显。这组数是延迟分解，不是 Fig. 10-c 的端到端吞吐。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 面积、功耗与消融</h2>
+      <p>Fig. 11 给出综合结果：自定义模块 1.46 mm²、811 mW，论文称相对「baseline system」只多 0.68% 面积和 0.65% 功耗。正文没有写出这个 baseline 的绝对面积和功耗，百分比应对着 Fig. 11 读，不要自行外推到某颗商用 GPU 或 TPU。</p>
+      <p>消融主要在 MATH-500 上做。Fig. 12 扫冗余–重要性折中 <code>β</code>，准确率呈倒 U：两个信号都要用，单靠一头会掉点。Fig. 13 扫 <code>w<sub>merge</sub></code> 与 <code>w<sub>quant</sub></code> 的比：预算 768 和 1024 时，比值 1.0 最高，等于不偏向任何一方、只选信息损失最小的动作；预算 512 时最优点移到 <code>w<sub>quant</sub>/w<sub>merge</sub>=1.1</code>，因为全精度配额已经很紧，剩下的 token 都偏关键，强行合并更容易损伤上下文，需要略偏向量化。Fig. 14 扫总预算里的 FP16 占比，峰值多出现在 50%–75%。两个值得记下的现象：FP 配额固定为 128 时，总预算 512 反而优于 768 和 1024——总 token 更多但全精度名额不变，等于把更多 token 推进激进量化；预算 1024 时把 FP 从 768 加到 896，准确率还略降，论文将其解释为适度量化有时能滤掉上下文噪声。</p>
+      <p>动作分布（MATH-500，DS-Llama-8B，预算 1024）：驱逐 87.6%，量化 10.1%，合并 2.3%。合并很少，但不等于可以删掉：拿掉量化或合并，这些 token 就只能被驱逐。混合动作空间的价值在「少数但昂贵的例外」，而不是三种动作均分。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 局限与落地可行性</h2>
+      <ul>
+        <li><strong>吞吐是架构仿真，不是硅片，也不是 GPU 墙钟。</strong>准确率有真实检查点；16.7× / 5.5× / 4.9× / 1.8× 来自 SCALESim-v2，对象是 128×128、HBM2 512 GB/s、28 nm / 500 MHz 的自定义阵列。文中没有 H100 / A100 或其它具名 GPU 的端到端实测。和 Raptor 那种早期硅片笔记、也和 Hopper 4-bit KV 这类 GPU 内核笔记，不是同一类证据。</li>
+        <li><strong>16.7× 不要当单流加速读。</strong>它是「最多」，出现在完整 8192 token 生成的端到端吞吐里，紧预算下 batch 可以比 FullKV 大一个数量级以上。投影层会吃 batch，注意力仍然按请求私有 KV 计算。换到低并发、延迟优先的服务，这笔倍数会明显收缩。</li>
+        <li><strong>摘要 1.8× 和 Fig. 15 的 1.25× / 1.79× 要分开。</strong>前者是端到端吞吐相对 R-KV；后者是 Llama-8B 延迟分解里相对 R-KV 的加速，开销下降主要来自「压缩不再单独成阶段」。</li>
+        <li><strong>这是包在类 TPU 脉动阵列外的专用数据通路，不是现成 GPU 上的即插模块。</strong>归一化 key、范数与方向拆分、累加 key、环形缓冲和 top-k 选择都要进数据通路。Free-Lunch 的想法（注意力里垫几行）在 GPU 上或许能写成融合内核，但本文没有提供这样的实现，也没有对应墙钟。</li>
+        <li><strong>面积百分比的分母不透明。</strong>1.46 mm² / 811 mW 只覆盖自定义模块；0.68% / 0.65% 相对未在正文写出绝对值的 baseline system。不能据此判断「加到某颗现成加速器上只多不到百分之一」。</li>
+        <li><strong>超参和分区仍然要调。</strong><code>β</code>、合并/量化权重、FP 占比都会改准确率，而且紧预算和松预算的最优点不一样。动作分布里驱逐占 87.6%，系统对重要性分数和 <code>β</code> 会敏感。论文没有给出跨模型、跨任务的一键默认配置有多稳。</li>
+        <li><strong>码本跨域是加分项，但场景仍有限。</strong>LongBench 复用 GSM8K 码本而且掉点不多，对部署友好。主推理评估仍集中在数学/科学类基准和最多 8K–16K 的生成长度，没有走到百万上下文，也没有和 AMMA、Raptor 那类近存注意力系统做对照。</li>
+        <li><strong>未见开源实现。</strong>检索时没有找到与本文配套的代码或仿真器发布。准确率实验按论文可在现有 Transformers 流程上复现决策逻辑，但周期级性能与 28 nm 综合结果目前只能读论文。</li>
+      </ul>
+      <div class="callout teal">和已有笔记的分工可以这样看：<code>llm inference/</code> 下的 Hopper 4-bit KV、CPA、TideCache、RoCoKV、DQ 等，主要是 GPU 或服务栈上的 KV 量化、驱逐与卸载；FLINT 回答的是「权重要不要放到高带宽闪存」；AMMA / Raptor / 近存笔记回答的是「注意力要不要换到 HBM 立方或 3D-DRAM 上算」。Gossamer 问的是另一句话：在推理解码里，能不能把恒定预算的混合压缩做成注意力数据通路的一部分，而不是再挂一个又懒又贵的打分内核。它出现在 MICRO 2026 Session 1B，和 3D 叠层、PIM 服务场次放在一起，但设计本身是脉动阵列上的 KV 管理，不是近存立方。</div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 数字速查</h2>
+      <table>
+        <thead><tr><th>项目</th><th>数字</th><th>对照 / 条件</th></tr></thead>
+        <tbody>
+          <tr><td>端到端吞吐（Fig. 10-c）</td><td>最多相对 FullKV 16.7×、Oaken 5.5×、Ecco 4.9×、R-KV 1.8×</td><td>完整 8192 token 生成；三个模型、多档预算中的峰值；SCALESim，不是 GPU 墙钟</td></tr>
+          <tr><td>相对 R-KV 的延迟分解（Fig. 15）</td><td>预算 512 为 1.25×，预算 2048 为 1.79×</td><td>Llama-8B；压缩开销在 Gossamer 下各预算均 &lt;2%，R-KV 在 2048 时占 23%</td></tr>
+          <tr><td>最大 batch（Fig. 9）</td><td>预算 256、50% FP：比 FullKV 大一个数量级以上；大致比 R-KV 高 20–40%</td><td>每条最多 8192 token；8B / 14B 蒸馏模型</td></tr>
+          <tr><td>QwQ-32B 准确率（Fig. 16）</td><td>MATH-500、预算 256 时为 55.0%，文称几乎是 R-KV 的两倍</td><td>另有 GPQA Diamond；紧预算差距最大，松预算向 FullKV 收敛</td></tr>
+          <tr><td>LongBench v2</td><td>总体 30.4%，与 FullKV 相差不到 0.4%</td><td>DS-Llama-8B，预算 2048；超过所有压缩基线</td></tr>
+          <tr><td>LongBench v1</td><td>MF-en、Qasp 达到或超过 FullKV，Musiq 接近</td><td>Llama-3.1-8B-Instruct，预算 1024；超过 KIVI / Quest / Cake。码本仍来自 GSM8K</td></tr>
+          <tr><td>动作分布</td><td>驱逐 87.6%，量化 10.1%，合并 2.3%</td><td>MATH-500，DS-Llama-8B，预算 1024</td></tr>
+          <tr><td>融合宽度</td><td>r=2，3 行融合 GEMM</td><td>新归一化 key + 运行累加 key；Fig. 4-c 称加行后延迟几乎不变</td></tr>
+          <tr><td>全局打分代价（动机）</td><td>512 条目缓存上，一次全局压缩延迟可达一次注意力的 12 倍</td><td>用来解释为何 R-KV 类方法倾向于每 128 步才压缩</td></tr>
+          <tr><td>准确率协议</td><td>pass@1；温度 0.6，top-p 0.95，k=16</td><td>MATH-500 最长 8192，AIME 2024 最长 16384</td></tr>
+          <tr><td>仿真配置</td><td>128×128 PE，OS 数据流，FP16× / FP32+；片上 64 MB（16/16/32）；HBM2 512 GB/s</td><td>SCALESim-v2；Gossamer 另报 50% FP 与 75% FP</td></tr>
+          <tr><td>自定义模块综合</td><td>1.46 mm²，811 mW；相对 baseline 为 +0.68% 面积、+0.65% 功耗</td><td>SystemVerilog，28 nm，500 MHz。baseline 绝对值正文未写出</td></tr>
+          <tr><td>预算分区</td><td>准确率图默认 75% FP + 25% 量化；消融峰值多在 50%–75% FP</td><td>图中预算已归一到同等内存的逻辑预算</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      阅读笔记依据 arXiv:2611.29497v1（cs.AR，2026-11-22；MICRO 2026 Session 1B；2026-11-25 读，Asia/Shanghai）。准确率来自真实检查点上的 pass@1；Fig. 9–11、Fig. 15 与 16.7× / 5.5× / 4.9× / 1.8× 来自 SCALESim-v2 仿真及 28 nm 综合，不是 GPU 墙钟。检索时未见配套开源代码。未上传论文 PDF。本页是分析笔记，不代表论文作者立场。
+    </footer>
+  </div>
+</body>
+</html>
