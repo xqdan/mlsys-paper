@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bit-Accurate MMA 论文分析 | 给十代 GPU 的 Tensor Core / Matrix Core 建立位精确算术模型</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">MICRO 2026 Session 1A</span>
+        <span class="badge">GPU 微结构 / 数值精度</span>
+        <span class="badge ok">十代真机对照，位精确</span>
+        <span class="badge ok">开源 MMA-Sim</span>
+      </div>
+      <h1>Bit-Accurate MMA：把 Tensor Core / Matrix Core 的黑盒算术写成可执行模型</h1>
+      <p class="subtitle">用闭环特征探测（CLFP）还原 MMA 指令内部的求和树、融合粒度、截断精度和舍入方式，而不是再猜一遍 IEEE-754 的乘加。</p>
+      <p class="meta">
+        <strong>Peichen Xie, Shuotao Xu, Yang Wang, Fan Yang, Mao Yang</strong>（Microsoft Research）<br />
+        来源：MICRO 2026 Session 1A「GPU Microarchitecture &amp; Numerical Precision」；
+        arXiv:<a href="https://arxiv.org/abs/2511.10909">2511.10909</a>v3（2026-09-28）。
+        开源：<a href="https://github.com/microsoft/MMA-Sim">github.com/microsoft/MMA-Sim</a>（MIT，PyPI 包名 <code>mmasim</code> / <code>mmasim-kernels</code>）。
+        本笔记只提交分析文档，不上传论文 PDF。
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：同一条 MMA，不同芯片算出不一样的数</a></li>
+        <li><a href="#s3">CLFP 和 MMA-Sim 是什么</a></li>
+        <li><a href="#s4">现有路线的三个缺口</a></li>
+        <li><a href="#s5">做法：闭环探测，八类初等运算模型</a></li>
+        <li><a href="#s6">实验怎么做的</a></li>
+        <li><a href="#s7">结果怎么读</a></li>
+        <li><a href="#s8">模型参数与误差上界</a></li>
+        <li><a href="#s9">局限与落地可行性</a></li>
+        <li><a href="#s10">数字速查</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">这篇工作不是新加速器，而是把 NVIDIA Tensor Core 和 AMD Matrix Core 里不公开的浮点算术行为，做成对硬件输出逐位一致的白盒模型。作者在十代 GPU 上跑指令级接口，用闭环特征探测补全求和顺序、融合宽度、内部精度和舍入，并做成可执行模拟器 MMA-Sim。</p>
+      <div class="kpi">
+        <div>
+          <div class="n">10 代架构</div>
+          <div class="k">NVIDIA Volta 到 RTX Blackwell，AMD CDNA1 到 CDNA3；每代用一块真机对指令级接口做位级对照</div>
+        </div>
+        <div>
+          <div class="n">8 类模型</div>
+          <div class="k">三大类：FTZ 乘加、FMA、以及六种融合点积加（FDPA）变体。考察过的指令都不是标准 IEEE-754 乘加链</div>
+        </div>
+        <div>
+          <div class="n">6 种结果</div>
+          <div class="k">同一组输入（Table IV），混合精度 MMA 会给出 0.0、−0.375、−0.5、−0.75、−0.875、−1.0；FP64/FP32 则全部得到 −0.875</div>
+        </div>
+        <div>
+          <div class="n">可 pip 安装</div>
+          <div class="k">MMA-Sim 开源且提供 Jupyter 复现笔记本；CLFP 仍是半自动，建模一条指令通常 2–12 小时</div>
+        </div>
+      </div>
+      <div class="callout warn">
+        文中的「位精确」指模拟器输出与对应 GPU 的指令级 MMA 结果逐位相同，不是端到端训练/推理和 cuBLAS / hipBLAS 高层 API 的数值保证。Table IV 是一组刻意构造的输入，用来展示差异从哪来；§VI-C 的 MSE 和工作区数字都来自指定分布上的 128×128（或 128×128×128）矩阵乘例子，不要当成通用加速比。
+      </div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：同一条 MMA，不同芯片算出不一样的数</h2>
+      <p>训练和推理已经主要跑在矩阵乘加单元（MMAU）上：NVIDIA 叫 Tensor Core，AMD 叫 Matrix Core。它们对外只给出指令或 API，内部的计算顺序、融合粒度、中间精度、舍入和特殊值处理并不公开，也没有统一标准。于是，即便输入逐位相同，不同厂商、甚至同一厂商的不同代际，都可能给出不同的浮点结果。这类差异会穿过软件栈，变成跨平台难以复现；有时还会直接伤到训练稳定性和精度。</p>
+      <p>论文点名了两组已经公开讨论过的事故：Hopper 上部分 FP8 MMA 因累加精度不够，训练精度和稳定性下降；CDNA2 上 FP16 矩阵乘会把次正规数刷成零，PyTorch 侧曾因此观察到训练不收敛，后来用把 FP16 升到 BF16 的办法换动态范围，代价是精度。作者的判断是：只在软件层对齐编译选项、随机种子和并行归约顺序，仍解释不完这些现象，缺的是对硬件算术行为的白盒模型。</p>
+      <p>难点在于搜索空间极大。可能影响结果的特征既没有完整清单，也不能从数据手册里直接读出来。此前的特征探测工作往往只覆盖部分架构、部分特征，而且很少把模型跑到「和硬件逐位一致」这一步。没有这一步，模型里残留的错误假设很难被发现。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. CLFP 和 MMA-Sim 是什么</h2>
+      <p>闭环特征探测（Closed-Loop Feature Probing，CLFP）要构造一个可执行模型 <code>Φ</code>，使得对接口允许的任意 <code>A</code>、<code>B</code>、<code>C</code>，都有 <code>Φ(A,B,C) = MMA-Interface(A,B,C)</code>。流程分五步：先确认接口确定、且各输出位置算术行为一致，再推断点积累加的求和树和运算目数，接着用一组可复用的特征探测测试（FPT）填写精度、舍入、内部顺序等细节并写出模型，然后用随机差分测试做位级校验；一旦对不上，就把失败用例收成新的 FPT，改模型后再验，直到通过。</p>
+      <p>MMA-Sim 是这些模型的软件实现：给定架构和指令描述，在软件里模拟 <code>D = A×B+C</code>，目标是和对应 GPU 指令的输出逐位相同。仓库提供 NVIDIA PTX <code>mma.sync</code> 和 AMD <code>v_mfma</code> 两套接口。论文把建模对象收在指令级，而不是 cuBLAS 一类 API，就是为了把硬件行为和编译器/程序员引入的变换分开。</p>
+      <div class="callout teal">
+        覆盖的十代架构写得很清楚：NVIDIA Volta（sm70）、Turing（sm75）、Ampere（sm80）、Ada Lovelace（sm89）、Hopper（sm90）、Blackwell（sm100）、RTX Blackwell（sm120），以及 AMD CDNA1（gfx908）、CDNA2（gfx90a）、CDNA3（gfx942）。作者称这几乎覆盖了截至 2025 年带 Tensor Core / Matrix Core 的 GPU 架构。未来工作才提到 CPU、TPU 和 API 级接口。
+      </div>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 现有路线的三个缺口</h2>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>从 API 反推硬件</h4>
+          <p>API 结果里可能已经掺了软件改写。Hickmann 等人曾把软件相关的归约顺序算到硬件头上；Fasi 等人曾把硬件特有的 FP16 输出舍入算到软件头上。</p>
+        </div>
+        <div class="tile">
+          <h4>特征覆盖不全</h4>
+          <p>乘积是否先规格化、内部求和顺序、溢出和次正规数怎么处理，这些未刻画的点会让「看起来差不多」的模型在位级对不上。</p>
+        </div>
+        <div class="tile">
+          <h4>缺少位级校验</h4>
+          <p>不做逐位对照，错误假设可以长期留着。例如 Hickmann 等人认为 FP32 次正规数会被当零，后来被后续工作否定。</p>
+        </div>
+      </div>
+      <p>作者把早期「Tensor Core 的点积是完美二叉树乘加」的模型也列为已被推翻的简化。CLFP 的闭环就是冲着这三点去的：指令级接口、尽量补全特征、用差分测试把模型钉到位精确。</p>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 做法：闭环探测，八类初等运算模型</h2>
+      <h3>5.1 五步闭环</h3>
+      <p><strong>第 1 步</strong>用随机测试确认接口确定；再用同一组 <code>a<sub>k</sub></code>、<code>b<sub>k</sub></code>、<code>c</code> 填满整个矩阵，检查所有 <code>d<sub>i,j</sub></code> 是否逐位相同。十代上的全部接口都通过了，于是后面只需为一条点积累加建模。</p>
+      <p><strong>第 2 步</strong>推断求和树。方法改编自 FPRev：放一对能淹没其它加数的大数 <code>±U</code>，看哪些小加数还能活下来。作者发现高精度融合求和会打破 FPRev 原先「有限精度融合会把中间项全部淹没」的假设，例如 CDNA1 的 <code>mfma_f32_32x32x4bf16</code>，于是扩展了算法，把有限精度和高精度融合分开识别。图 2 给出的典型树包括：二元链式求和（如 CDNA1 的 FP32 MMA、NVIDIA DMMA）、成对求和再累加（CDNA2 带 <code>_1k</code> 后缀的 BF16）、三项或五项融合求和。</p>
+      <p><strong>第 3 步</strong>用可复用的 FPT 填细节。正文展开了四个最重要的测试：求和精度（对二元加用 <code>Add(U,ε)</code> 不断对半，对融合求和用 <code>FusedSum(U,−U,ε)</code>，若一直保持到 <code>ε=0</code> 则视为精确）、舍入模式、内部求和顺序，以及乘积是否规格化。其余测试主要检查次正规数等二元性质。FPT 4（乘积规格化）本身就是第 5 步从失败用例里长出来的：最大乘积满足 <code>|Sig(a<sub>i</sub>)Sig(b<sub>i</sub>)| ≥ 2</code> 时，旧模型会对不上。</p>
+      <p><strong>第 4–5 步</strong>用约一百万组随机输入做差分测试。对不上就缩小到通常两到四个关键元素，改指数、翻转尾数或符号，观察匹配/失配的切换点，写成新的 FPT 再进入下一轮。</p>
+
+      <h3>5.2 八类模型，不是一种「近似 FP32」</h3>
+      <p>所有模型都由「初等运算」拼起来：一种确定的 n 元浮点映射，中间量可以不是输出格式。正文考察过的 GPU MMA 指令，没有一条是由标准 IEEE-754 乘法和加法组成的。</p>
+      <ul>
+        <li><strong>Φ<sub>FTZ-MulAdd</sub></strong>：用于 CDNA2 的 BF16/FP16。输入次正规数刷成 <code>+0.0</code>；乘、加先按 RNE 进 FP32，再把绝对值小于 <code>2<sup>−126</sup></code> 的结果按符号刷零。乘完后每 <code>L∈{2,4}</code> 个乘积成对相加，再与 <code>C</code> 顺序累加。</li>
+        <li><strong>Φ<sub>FMA</sub></strong>：NVIDIA 全部 FP64，以及 AMD 的 FP64/FP32。就是一条 FMA 链，默认 RNE；NVIDIA 还可配成 RZ / RU / RD。</li>
+        <li><strong>Φ<sub>E-FDPA</sub></strong>：CDNA1 的 BF16/FP16。按无穷精度算完 <code>c+Σ a<sub>k</sub>b<sub>k</sub></code>，再 RNE 到 FP32。</li>
+        <li><strong>Φ<sub>T-FDPA</sub></strong>：NVIDIA 上大多数混合精度指令。先对 <code>L</code> 对操作数做精确的未规格化定点乘，再把这 <code>L</code> 个乘积和累加器对齐到最大指数、截断到 <code>F</code> 位小数后精确求和，最后按 <code>ρ</code> 写成输出格式。</li>
+        <li><strong>Φ<sub>ST-FDPA</sub></strong>：MXFP8/6/4。在 T-FDPA 上把块缩放因子（E8M0，尾数恒为 1.0）的指数加进乘积指数。</li>
+        <li><strong>Φ<sub>GST-FDPA</sub></strong>：部分 MXFP4 / NVFP4。先按组做精确点积再乘缩放；MXFP4 的块长 <code>K<sub>block</sub>=32</code>，NVFP4 为 16；表注写这类指令的组大小 <code>G=16</code>。</li>
+        <li><strong>Φ<sub>TR-FDPA</sub></strong>：CDNA3 的 TF32/BF16/FP16。截断融合之后，内部求和使用向下舍入（RD）。</li>
+        <li><strong>Φ<sub>GTR-FDPA</sub></strong>：CDNA3 的 FP8。偶、奇编号乘积先分组做截断融合，两组再对齐并用 RD 求和，最后与 <code>C</code> 做带额外截断的舍入累加。</li>
+      </ul>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 实验怎么做的</h2>
+      <p>指令级接口：NVIDIA 用 CUDA 和内联 PTX，并核对其与 SASS 的映射；AMD 用 HIP 和指令 intrinsic，并核对函数到指令的映射。对照用的真机是 V100、T4、A100、RTX 4090、H100、B200、RTX PRO 6000 Blackwell，以及 MI100、MI250X、MI300X。</p>
+      <p>CLFP 目前是半自动的：第 1、2 步、第 3 步里跑测试、以及第 4 步可以由脚本完成；第 3 步的模型编写和第 5 步的修订仍靠人工。性能瓶颈原来在 MMA-Sim：单线程跑第 4 步的一百万测试大约要 10–20 小时，一条指令往往要一天甚至数天。作者给模拟器做了 GPU 加速，称加速超过 10×，把这一步降到大约 1 小时。优化后，一条指令通常 2–12 小时（Table I）：第 1–3 步里 GPU 测试和时间开销都不大，第 4 步模拟约 1 小时、GPU 数分钟；一旦进入第 5 步，大约还要 4 小时人工。</p>
+      <p>多数指令零次或一次修订就够；同一家族（例如 HMMA）一旦首条建模完成，其余往往可以单遍跑完 1–4 步。新家族的第一条通常要一到两次修订。最复杂的是 CDNA3 的 FP8 MMA，修订了十次。</p>
+      <div class="callout navy">
+        Artifact 附录把复现材料拆成三块：CLFP 与 FPT 集合、实现了 §IV 模型的 MMA-Sim、以及十代架构的 CUDA/PTX 与 HIP 接口。软件-only 的 MMA-Sim 可以在没有 GPU 的 CPU 上跑；要对照硬件，需要带 Tensor Core 或 Matrix Core 的 GPU。附录举例说 Jupyter 笔记本需要 Turing，例如 T4；本地安装建议近期 Linux、匹配的驱动和 CUDA/ROCm，以及带 CUDA 或 ROCm 的 PyTorch 2.7+。复现笔记本在 <a href="https://github.com/peichenxie/MMA-Sim-MICRO2026-AE">github.com/peichenxie/MMA-Sim-MICRO2026-AE</a>。
+      </div>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 结果怎么读</h2>
+      <h3>差异来自初等运算和参数，不只是「浮点不可结合」</h3>
+      <p>按模型看，只有 FP64 和 FP32 MMA 能在厂商和代际之间保持一致：它们都是同一条顺序 FMA 链。混合精度则用了不同的初等运算和不同的 <code>L<sub>max</sub></code>、<code>F</code>、<code>ρ</code>，差异因此是系统性的。</p>
+      <p>Table IV 用公式 (10) 把这一点写死。输入是</p>
+      <p>
+        <code>a = (−2<sup>13</sup>, −0.5, −0.25, −0.125, 0, …)</code>，
+        <code>b = (2<sup>10</sup>, 1, 1, 1, 0, …)</code>，
+        <code>c = (2<sup>23</sup>, 0, …)</code>，
+        于是 <code>d<sub>0,0</sub></code> 应该是 <code>2<sup>23</sup> + (−2<sup>23</sup>) + (−0.5) + (−0.25) + (−0.125) = −0.875</code>。
+        FP64/FP32 在全部设备上都得到这个精确值。混合精度则散开：
+      </p>
+      <table>
+        <thead>
+          <tr><th>架构</th><th>TF32/BF16 指令</th><th>FP16 指令</th><th>FP8 指令</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Volta</td><td>N/A</td><td>0.0（F=23，连 −0.5 都被截掉）</td><td>N/A</td></tr>
+          <tr><td>Turing / Ampere / Ada</td><td>Ampere/Ada：−0.5</td><td>−0.5（F=24，截掉 −0.25 和 −0.125）</td><td>Ada：0.0（F=13）</td></tr>
+          <tr><td>Hopper</td><td>−0.75</td><td>−0.75（F=25，只截掉 −0.125）</td><td>0.0（F=13）</td></tr>
+          <tr><td>Blackwell / RTX Blackwell</td><td>−0.75</td><td>−0.75</td><td>−0.75（FP8 的 F 提到 25）</td></tr>
+          <tr><td>CDNA1</td><td>−0.875</td><td>−0.875（精确 E-FDPA）</td><td>N/A</td></tr>
+          <tr><td>CDNA2</td><td>−0.375 或 0.0</td><td>0.0</td><td>N/A</td></tr>
+          <tr><td>CDNA3</td><td>−0.5</td><td>−0.5</td><td>−1.0（分组后再 RD）</td></tr>
+        </tbody>
+      </table>
+      <p>CDNA2 的分叉来自求和顺序：不带 <code>_1k</code> 的 BF16 是 <code>(2<sup>23</sup>+(−2<sup>23</sup>−0.5))+(−0.25−0.125)=−0.375</code>；FP16 以及带 <code>_1k</code> 的 BF16 则先把 <code>−0.5−0.25−0.125</code> 合成 <code>−0.375</code> 再与 <code>±2<sup>23</sup></code> 相消，得到 0.0。CDNA3 的 FP8 更进一步：偶、奇组分别得到 <code>−2<sup>23</sup></code> 和 <code>−0.625</code>，<code>−0.625</code> 被向下舍入成 <code>−1</code>，最后变成 <code>−1.0</code>。</p>
+
+      <h3>四个精度瓶颈，外加一种不对称</h3>
+      <p>Table V 把误差源加成：FTZ、普通加减乘的 0.5 ulp、FMA/E-FDPA 的输出舍入，以及 T-FDPA 等变体里融合求和的 <code>(L+1)2<sup>e<sub>max</sub>−F</sup></code> 再加上输出舍入（RNE 为 0.5 ulp，RZ 为 1 ulp）。多数指令的误差上界仍和标准 FP32 相当（<code>0.5 ulp<sub>FP32</sub> = 0.5×2<sup>e−23</sup></code>），真正构成「精度瓶颈」的是 Table VI 那几条：</p>
+      <ul>
+        <li><strong>CDNA2 的 FP16 输入 FTZ</strong>：输出侧 FTZ 最多引入 <code>2<sup>−126</sup></code>，输入侧对 FP16 则可到 <code>2<sup>−14</sup></code>。这对应了 PyTorch 在 CDNA2 上看到的训练不收敛。</li>
+        <li><strong>Ada / Hopper 的 FP8</strong>：QMMA / QGMMA 只用 <code>F=13</code>，FP32 输出时 <code>ρ=RZ<sub>E8M13</sub></code>。相对同代 HMMA/HGMMA 的 <code>F=24</code>（Ada）或 <code>F=25</code>（Hopper），融合求和误差上界高 2048× 或 4096×，输出舍入上界高 1024×。这对应 Hopper 上 FP8 训练精度下降的讨论。</li>
+        <li><strong>NVIDIA 全代的 FP16 输出</strong>：即便内部融合已经接近 FP32 精度，输出按 <code>RNE<sub>FP16</sub></code> 写回，整体精度仍被 FP16 格式卡住，误差上界是 <code>0.5 ulp<sub>FP16</sub> = 0.5×2<sup>e−10</sup></code>。</li>
+        <li><strong>CDNA3 混合精度的内部 RD</strong>：多数指令用对称的 RZ 或 RNE，CDNA3 的 <code>v_mfma</code> 内部求和用向下舍入。作者用 <code>v_mfma_f32_32x32x8_f16</code> 和把内部 RD 改成 RZ 的假想变体对比，<code>A,B ~ 1000×N(0,1)</code>、<code>C ~ N(0,1)</code> 时，RD 的偏差分布明显偏负，RZ 则对称。</li>
+      </ul>
+      <div class="callout teal">
+        一个容易漏掉的代际变化：Blackwell / RTX Blackwell 把 FP8 的 <code>F</code> 从 Hopper 的 13 提到 25，FP32 输出的舍入也从 <code>RZ<sub>E8M13</sub></code> 改成 <code>RZ<sub>FP32</sub></code>。同一组 Table IV 输入上，这两代的 FP8 结果从 Hopper 的 0.0 变成了 −0.75，和其他非 FP8 混合精度对齐。这是硬件侧对 Hopper FP8 精度问题的修正，不是软件 workaround。
+      </div>
+
+      <h3>三条软件 workaround，都是例子而不是通解</h3>
+      <p><strong>缩放输入</strong>针对 CDNA2 的 FP16 FTZ：把输入放大、避开次正规数，算完再缩回来。例子是 128×128，<code>A ~ N(0, 0.001<sup>2</sup>)</code>、<code>B ~ N(0,1)</code>，相对 FP64 的 MSE 从 <code>7.632×10<sup>−9</sup></code> 降到 <code>1.591×10<sup>−18</sup></code>。作者认为这比 PyTorch 把 FP16 转成 BF16 更保住计算精度。</p>
+      <p><strong>MMA 不算 C</strong>针对 CDNA3 的偏差：Matrix Core 只做 <code>C=0</code> 的矩阵乘，累加交给通用计算单元用完整 FP32。128×128×128、<code>A,B ~ N(0,10<sup>2</sup>)</code> 时，相对 FP64 的平均偏差从 <code>−1.352×10<sup>−6</sup></code> 降到 <code>+7.467×10<sup>−8</sup></code>。</p>
+      <p><strong>换指令</strong>针对 NVIDIA 的瓶颈：不要用 FP16 输出的 MMA，改用 FP32 输出；在 Ada / Hopper 上如果更在乎精度而不是吞吐，FP8 矩阵乘改走 FP16 MMA。同一规模的例子里，FP16 输出改 FP32 输出后 MSE 从 0.247 降到 <code>4.481×10<sup>−8</sup></code>（若再转回 FP16 则是 0.0551）；Ada/Hopper 上 FP8 输入改走 FP16 MMA，MSE 从 0.0103 降到 <code>5.569×10<sup>−11</sup></code>。</p>
+      <p>对未来 MMAU，作者的建议很直接：避免 Table VI 里那些设计，让每个计算步骤都保持 FP32 量级的精度；舍入优先用对称模式，并建议采用 RZ，因为它在原码或一字补码下就是截断，实现比其它模式便宜。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 模型参数与误差上界</h2>
+      <p>Table III 是按架构、指令族、输入/输出类型给出的完整参数表。下面按代际把关键趋势收紧，细节以原表为准。GST-FDPA 类指令另有 <code>G=16</code>。</p>
+      <table>
+        <thead>
+          <tr><th>架构</th><th>主要模型</th><th>L<sub>max</sub> / F / ρ 的要点</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Volta HMMA</td><td>Φ<sub>T-FDPA</sub></td><td>L<sub>max</sub>=4，F=23；FP32 输出 RZ，FP16 输出 RNE</td></tr>
+          <tr><td>Turing / Ampere / Ada HMMA</td><td>Φ<sub>T-FDPA</sub></td><td>L<sub>max</sub> 按「16 字节 / 输入宽度」加倍，F=24；Ampere 起有 TF32（L<sub>max</sub>=4）和 BF16</td></tr>
+          <tr><td>Ada QMMA</td><td>Φ<sub>T-FDPA</sub></td><td>FP8：L<sub>max</sub>=16，F=13，FP32 输出为 RZ<sub>E8M13</sub></td></tr>
+          <tr><td>Hopper HMMA/HGMMA</td><td>Φ<sub>T-FDPA</sub></td><td>L<sub>max</sub> 再按「32 字节 / 输入宽度」加倍，非 FP8 的 F=25</td></tr>
+          <tr><td>Hopper QGMMA</td><td>Φ<sub>T-FDPA</sub></td><td>FP8：L<sub>max</sub>=32，F 仍为 13，FP32 输出仍为 RZ<sub>E8M13</sub></td></tr>
+          <tr><td>Blackwell / RTX Blackwell</td><td>T / ST / GST-FDPA</td><td>多数格式沿用 Hopper 的 L<sub>max</sub> 与 F；FP8/6/4 的 F 提到 25、FP32 输出改 RZ<sub>FP32</sub>；MXFP4/NVFP4 走 GST-FDPA，L<sub>max</sub>=64，F=35</td></tr>
+          <tr><td>NVIDIA DMMA（Ampere 起）</td><td>Φ<sub>FMA</sub></td><td>FP64，L<sub>max</sub>=1，舍入可配置</td></tr>
+          <tr><td>CDNA1 v_mfma</td><td>Φ<sub>FMA</sub> / Φ<sub>E-FDPA</sub></td><td>FP32/FP64 为 FMA；BF16 的 L<sub>max</sub>=2，FP16 的 L<sub>max</sub>=4，皆 RNE FP32</td></tr>
+          <tr><td>CDNA2 v_mfma</td><td>Φ<sub>FTZ-MulAdd</sub></td><td>BF16 的 L<sub>max</sub>=2，FP16 为 4；带 <code>_1k</code> 的 BF16 为 4</td></tr>
+          <tr><td>CDNA3 v_mfma</td><td>Φ<sub>TR-FDPA</sub> / Φ<sub>GTR-FDPA</sub></td><td>L<sub>max</sub> 按「16 字节 / 输入宽度」，F=24，输出 RNE FP32；与 NVIDIA Ampere 的 L<sub>max</sub>、F 相同，但内部是 RD</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr><th>来源（Table V）</th><th>误差上界</th><th>出现位置</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>输入 FTZ</td><td>2<sup>−126</sup> 或 2<sup>−14</sup></td><td>Φ<sub>FTZ-MulAdd</sub>；FP16 输入取后者</td></tr>
+          <tr><td>FTZ 乘加本身</td><td>0.5 ulp（按 FP32 结果）</td><td>加、乘先 RNE 到 FP32</td></tr>
+          <tr><td>输出 FTZ</td><td>2<sup>−126</sup></td><td>同样在 Φ<sub>FTZ-MulAdd</sub>，风险低于输入 FTZ</td></tr>
+          <tr><td>FMA / E-FDPA 输出舍入</td><td>0.5 ulp（RNE）或 1 ulp（其它）</td><td>内部视为无穷精度</td></tr>
+          <tr><td>截断融合求和</td><td>(L+1)2<sup>e<sub>max</sub>−F</sup></td><td>T-FDPA 及其变体</td></tr>
+          <tr><td>FDPA 输出舍入</td><td>0.5 ulp 或 1 ulp</td><td>RNE FP32/FP16 取前者，RZ FP32 与 RZ<sub>E8M13</sub> 取后者</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 局限与落地可行性</h2>
+      <p>和同场 Session 1A 的 Better Call SoL 不同，这篇几乎没有「下一代 GPU 要加一块什么」的硅片提案，落地路径反而更短：模型已经写成 MIT 许可的 Python 包，也能在 CPU 上做纯软件模拟。对调试跨卡数值差异、写数值稳定的 kernel、以及给下一代 MMAU 做精度预算，这是可以直接用的工具，而不是只能看的仿真加速比。</p>
+      <p>可行性上的边界也很清楚，不宜放大：</p>
+      <ul>
+        <li><strong>对的是指令，不是整个软件栈。</strong> 框架、编译器、kernel 生成器仍会改变指令选择和累加方式。用 MMA-Sim 解释 cuBLAS 或 PyTorch 的端到端差异，还要自己把调用降到具体 MMA 指令。</li>
+        <li><strong>CLFP 还不是全自动。</strong> 新家族的第一条指令仍然要人看失败用例、写模型和 FPT。作者自己也说，第 5 步的人工时间已经超过模拟器运行时间，后续想用脚本做最小失败集归约，并尝试用 AI agent 写修订代码。在那之前，把方法迁到新的 ISA 仍有成本。</li>
+        <li><strong>覆盖停在这十代。</strong> 文中明确写的是「截至 2025 年」的 Tensor Core / Matrix Core。没有 Intel GPU，没有 CDNA4，也没有把 CPU AMX 或 TPU 纳入本次实验。新芯片必须重新探测，不能默认算术行为沿用上一代——Hopper 到 Blackwell 的 FP8 参数变化就是反例。</li>
+        <li><strong>不模拟性能。</strong> MMA-Sim 回答「这个输入会算出哪一个 bit pattern」，不回答吞吐、占用或数据通路延迟。它也不是时序精确的微结构模型。</li>
+        <li><strong>workaround 要自己接进框架。</strong> 缩放输入、把 <code>C</code> 拆出去、改用更高精度指令，都是 kernel 级建议，而且数字来自给定分布的中等规模矩阵。接到生产训练或推理里，还要看动态范围、吞吐代价，以及框架默认会不会又选回那条有瓶颈的指令。</li>
+        <li><strong>位精确不等于训练可复现。</strong> 即使单条 MMA 对上了，归约顺序、并发、算法实现仍会制造差异。这篇工作消掉的是「硬件算术这个黑盒」，不是整个数值栈。</li>
+      </ul>
+      <p>对做 GPU / AI 芯片的人，最有用的可能不是那六种输出本身，而是一套已经在十块真机上钉过的术语：<code>L<sub>max</sub></code>、<code>F</code>、输出与内部舍入、是否 FTZ、是否非对称。设计下一代 Tensor Core 或兼容 CUDA/ROCm 数值的国产 MMAU 时，Table VI 可以直接当作反面清单；要兼容现有生态，则至少需要说清自己落在八类模型里的哪一类，并准备和 MMA-Sim 对位。</p>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 数字速查</h2>
+      <table>
+        <thead>
+          <tr><th>项目</th><th>数字</th><th>对照 / 条件</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>覆盖架构</td><td>10 代</td><td>NV Volta–RTX Blackwell，AMD CDNA1–CDNA3；真机：V100 / T4 / A100 / 4090 / H100 / B200 / RTX PRO 6000 Blackwell / MI100 / MI250X / MI300X</td></tr>
+          <tr><td>模型类别</td><td>3 大类、8 种类型</td><td>FTZ-MulAdd、FMA，以及 E / T / ST / GST / TR / GTR 六种 FDPA</td></tr>
+          <tr><td>Table IV 同一输入</td><td>混合精度出现 0.0、−0.375、−0.5、−0.75、−0.875、−1.0</td><td>公式 (10)；所有 FP64/FP32 指令均为 −0.875</td></tr>
+          <tr><td>Volta → Hopper 的 F</td><td>23 → 24 → 25（非 FP8）</td><td>L<sub>max</sub> 按 8 / 16 / 32 字节除以输入宽度扩展；Ada/Hopper 的 FP8 仍为 F=13</td></tr>
+          <tr><td>Blackwell FP8 修正</td><td>F=25，ρ 改为 RZ<sub>FP32</sub></td><td>MXFP4/NVFP4 另用 GST-FDPA，F=35，L<sub>max</sub>=64</td></tr>
+          <tr><td>Ada/Hopper FP8 相对同代 HMMA</td><td>融合误差上界高 2048× 或 4096×；舍入上界高 1024×</td><td>F=13 对 F=24 或 25；ρ 为 RZ<sub>E8M13</sub> 对 RZ<sub>FP32</sub></td></tr>
+          <tr><td>CDNA2 缩放 workaround</td><td>MSE 7.632×10<sup>−9</sup> → 1.591×10<sup>−18</sup></td><td>128×128，A ~ N(0,0.001<sup>2</sup>)，B ~ N(0,1)，相对 FP64</td></tr>
+          <tr><td>CDNA3 不用 C 的 workaround</td><td>平均偏差 −1.352×10<sup>−6</sup> → +7.467×10<sup>−8</sup></td><td>128×128×128，FP16 输入 ~ N(0,10<sup>2</sup>)，相对 FP64</td></tr>
+          <tr><td>改用 FP32 输出 MMA</td><td>MSE 0.247 → 4.481×10<sup>−8</sup>（再转回 FP16 为 0.0551）</td><td>同一 128×128×128 例子</td></tr>
+          <tr><td>Ada/Hopper 上 FP8 改走 FP16 MMA</td><td>MSE 0.0103 → 5.569×10<sup>−11</sup></td><td>FP8 输入，同一规模例子</td></tr>
+          <tr><td>CLFP 单指令耗时</td><td>通常 2–12 小时</td><td>Table I：GPU 10–20 分钟，MMA-Sim 1–3 小时，人工 1–9 小时；第 5 步约 4 小时人工</td></tr>
+          <tr><td>MMA-Sim 加速</td><td>&gt;10×，第 4 步 10–20 小时 → 约 1 小时</td><td>相对原先单线程模拟约一百万测试</td></tr>
+          <tr><td>修订次数</td><td>多数 0–1 次；CDNA3 FP8 为 10 次</td><td>同家族后续指令常可单遍完成</td></tr>
+          <tr><td>开源与许可</td><td>MIT；<code>pip install mmasim mmasim-kernels</code></td><td><a href="https://github.com/microsoft/MMA-Sim">microsoft/MMA-Sim</a>；AE 笔记本另见 peichenxie/MMA-Sim-MICRO2026-AE</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      分析基于 arXiv:2511.10909v3 与 MICRO 2026 Session 1A 日程。数字均来自论文正文、表格和 artifact 附录，未做额外实验。提交仓库时只包含本分析文档，不附论文 PDF。
+    </footer>
+  </div>
+</body>
+</html>
