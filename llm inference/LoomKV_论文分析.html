@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoomKV 论文分析 | 无损压缩同时放大外部 KV 层和 GPU pool</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge hot">arXiv cs.AI · 2026-11-24</span>
+      <span class="badge">arXiv:2611.32954v1</span>
+      <span class="badge">LLM 推理 · 无损 KV · 分层缓存</span>
+      <span class="badge ok">华东师范大学 × 中兴</span>
+      <span class="badge warn">论文未给代码；单机 TP1/TP2；未测 MLA / FP4</span>
+    </div>
+    <h1>LoomKV：无损压缩同时放大外部 KV 层和 GPU pool</h1>
+    <p class="subtitle">Lossless KV Cache Compression from GPU Memory to SSD for LLM Serving</p>
+    <p class="meta">
+      <strong>作者：</strong>Wentao Zhu、Ziao Sheng、Peng Deng、Huiqi Hu（通讯作者）、Xuan Zhou（华东师范大学）；Xing Wei、Zhuang Wang（中兴）。<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.32954" target="_blank" rel="noopener">arXiv:2611.32954</a>
+      · <a href="https://arxiv.org/pdf/2611.32954" target="_blank" rel="noopener">PDF</a><br />
+      本文是阅读笔记，不是译文。仓库里已有 MoRI UMBP（把 Agentic KV 放到 NVMe）和 TideCache；Hopper 4-bit KV、DQ、RoCoKV 走的是有损量化。这篇补的是：在不改引擎、不改 KV 数值的前提下，怎样把省下来的字节变成 DRAM / SSD 层和 GPU pool 里的真实容量。图是根据论文结构重画的示意，不是原文插图。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：容量卡在两层</a></li>
+      <li><a href="#s3">高字节很偏，低字节几乎压不动</a></li>
+      <li><a href="#s4">编码：两级 3-bit 高字节码本</a></li>
+      <li><a href="#s5">Tier 模式：TileStream</a></li>
+      <li><a href="#s6">Pool 模式：FragPack 与融合 decode</a></li>
+      <li><a href="#s7">传输：把长度回读移出关键路径</a></li>
+      <li><a href="#s8">实验怎么做的</a></li>
+      <li><a href="#s9">结果怎么读</a></li>
+      <li><a href="#s10">落地可行性</a></li>
+      <li><a href="#s11">局限：这些倍数依赖什么假设</a></li>
+      <li><a href="#s12">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">多轮和 agent 请求要靠外部 KV 层（DRAM / SSD）复用前缀，同时每个在跑的请求还得在 GPU pool 里占一块空间。有损量化或驱逐能省空间，但会改输出。LoomKV 用按头校准的两级 3-bit 码，只压缩 BF16 的高字节（符号和指数高 7 位），低字节原样保存，在九个模型上把 BF16 KV 存到原大小的 0.71，FP8 KV 到 0.85–0.87。它接到未改动的 vLLM 0.30 和 LMCache 0.5.6 上：tier 模式用 TileStream 把压缩记录写成精确长度对象，解压后直接写回引擎打散的页；pool 模式用 FragPack 把变长记录装进更小的共享预算页，由融合 decode-attention kernel 就地读取。AgentX 上，压缩后的外部层表现得像 1.4 倍大的原始层。</p>
+    <div class="kpi">
+      <div><div class="n">0.71 / 0.85–0.87</div><div class="k">九模型上 BF16 / FP8 KV 的存储比（压缩后 ÷ 原始）</div></div>
+      <div><div class="n">2.7–3.6×</div><div class="k">LMCache 写穿 LRU 悬崖附近，tier 模式相对 raw 的 goodput</div></div>
+      <div><div class="n">1.31–1.34×</div><div class="k">pool 模式在同样 GPU 预算下能放下的 token 数</div></div>
+      <div><div class="n">1.24× / 1.59×</div><div class="k">AI IDE 痕迹上，两层都紧时 tier / pool 相对 raw 的 goodput</div></div>
+    </div>
+    <div class="callout warn">摘要里的 2.7–3.6× 发生在 raw 层刚好把将要复用的前缀挤掉的悬崖上，不是容量已经够用时的普遍加速。容量够用时，压缩最多让吞吐掉 2.2%。Tier 模式与 raw 层输出按位一致；pool 模式与 FlashAttention-3 的数值误差相当，但累加顺序不同，不是逐比特相同的 logits。</div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：容量卡在两层</h2>
+    <p>引擎把算过的 KV 留下来，是为了避免每次把长前缀再 prefill 一遍。这块 cache 很大：论文举的例子是 Qwen3-30B-A3B 每个 token 要 96 KB KV，一张卡若只留 32 GB 给 KV，只能放下五个 64K 的 agent 会话。vLLM、SGLang 一类引擎因此把 KV 溢写到主机 DRAM 和 SSD，通过 LMCache、Mooncake、SGLang HiCache、CachedAttention、Strata 这类外部层，在前缀再次出现时装回来。</p>
+    <p>容量会在两个地方分别把服务卡住：</p>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>外部层：能不能复用前缀</h4>
+        <p>DRAM（L1）和 SSD（L2）决定多少算过的 KV 还能留着。被淘汰后只能重新 prefill。论文在两张 H800、vLLM + LMCache、BF16 KV 上跑 AgentX：64 个在线会话共享 400 GB DRAM，总容量从 1200 GB 降到 1040 GB 时，命中率从 0.84 掉到 0.55，goodput 从 9.4 降到 4.6 请求/分钟。</p>
+      </div>
+      <div class="tile">
+        <h4>GPU pool：能不能同时跑长请求</h4>
+        <p>即便前缀已经在 DRAM / SSD 里，请求还得在 GPU 上占页才能跑。把外部层做大，解决不了这块。论文把 SSD 固定在 2 TB，把同时准入的请求数从 8 调到 12、16，说明 GPU KV 预算本身就会让请求在引擎里排队。</p>
+      </div>
+    </div>
+    <p>Goodput 的口径要先记住：引擎 TTFT ≤ 2 s 且 token 间隔（ITL）≤ 40 ms 的请求数，单位是每分钟。后面的倍数都按这个门槛算，不是裸吞吐。</p>
+    <div class="fig">
+      <svg viewBox="0 0 860 210" role="img" aria-label="外部层与 GPU pool 两层容量">
+        <rect x="20" y="30" width="250" height="140" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+        <text x="145" y="58" text-anchor="middle" font-size="14" font-family="Segoe UI, sans-serif" fill="#9a3412">外部层 L1 / L2</text>
+        <text x="145" y="86" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#57534e">主机 DRAM + SSD</text>
+        <text x="145" y="112" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#1c1917">决定前缀能否复用</text>
+        <text x="145" y="138" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">Tier 模式压缩存在这里</text>
+        <text x="145" y="156" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">解压后写回 GPU 原页</text>
+        <path d="M270 100 H330" stroke="#1e3a5f" stroke-width="2" marker-end="url(#arr)"/>
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="#1e3a5f"/>
+          </marker>
+        </defs>
+        <rect x="330" y="30" width="230" height="140" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5"/>
+        <text x="445" y="58" text-anchor="middle" font-size="14" font-family="Segoe UI, sans-serif" fill="#115e59">GPU KV pool</text>
+        <text x="445" y="86" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#57534e">固定大小的分页</text>
+        <text x="445" y="112" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#1c1917">决定并发长请求数</text>
+        <text x="445" y="138" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">Pool 模式压缩就在页里</text>
+        <text x="445" y="156" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">融合 kernel 读入寄存器</text>
+        <rect x="590" y="30" width="250" height="140" fill="#f0f4f8" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="715" y="58" text-anchor="middle" font-size="14" font-family="Segoe UI, sans-serif" fill="#1e3a5f">未改动的引擎</text>
+        <text x="715" y="90" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#1c1917">vLLM 0.30 + FA3</text>
+        <text x="715" y="116" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#1c1917">LMCache 0.5.6 管分配、</text>
+        <text x="715" y="140" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#1c1917">淘汰、写穿和预取</text>
+      </svg>
+    </div>
+    <p class="figcap">图 1　示意：容量同时受外部层和 GPU pool 限制。LoomKV 的两种模式分别作用在这两层，引擎本身不改。</p>
+    <p>作者的目标不是再做一个更狠的有损 KV 量化，而是问：省下来的字节能不能变成「容量等价」——一块大小为 <em>B</em>、存储比为 <em>r</em> 的压缩层，行为是否接近一块大小为 <em>B/r</em> 的原始层。要做到这一点，压缩比、分配出来的空间、解压速度、decode 速度，以及变长记录的长度回读，都必须同时过关。这五条要求贯穿后文的设计。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 高字节很偏，低字节几乎压不动</h2>
+    <p>BF16 能无损压缩的空间并不大。论文在 Qwen3-30B-A3B 的全部 48 层、每层的 K 和 V（共 96 个张量）上，分别统计高字节和低字节的取值频率：每个张量里最常见的 7 个高字节，平均覆盖约 94% 的出现次数；低字节同样集中（约 92%），但熵已经接近 8 bit 里的 7.97 bit，几乎没有可压的空间。因此编码只打高字节，低字节原样保存。</p>
+    <p>这也是它不走通用 GPU 压缩库的原因。同一份 KV、同一块 GPU 上，nvCOMP 的 ANS 把数据存到原大小的 72.5%，解压约 182 GB/s；LoomKV 是 70.9%、1182 GB/s。LZ4 在交错的 BF16 里几乎找不到字节级匹配，存储比变成 1.0005，等于没压。</p>
+    <p>和仓库里已有工作的差别在这里就清楚了。Hopper 4-bit KV、DQ、RoCoKV 改的是 KV 的数值表示，换容量和带宽，但输出要重新验收。MoRI UMBP 改的是 KV 放在哪一层存储，并不压缩内容。LoomKV 保留每一个原始值，因而也可以叠在已经量化过的 FP8 KV 上面。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 编码：两级 3-bit 高字节码本</h2>
+    <p>编码和 ZipServ 是同一路子，但为 GPU 并行解码做了固定宽度的选择。每个 BF16 标量的低字节原样存放；高字节换成一个定宽符号，指向一张静态码本。不用变长熵编码，是因为每个符号的比特偏移会依赖前面所有符号，warp 就无法独立解压一个 tile。</p>
+    <div class="fig">
+      <svg viewBox="0 0 860 168" role="img" aria-label="两级 3-bit 高字节编码">
+        <rect x="16" y="36" width="140" height="96" fill="#fff7ed" stroke="#c2410c"/>
+        <text x="86" y="64" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#9a3412">BF16 16 bit</text>
+        <text x="86" y="88" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#1c1917">高字节 8 bit</text>
+        <text x="86" y="110" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">符号 + 指数高 7 位</text>
+        <rect x="168" y="36" width="140" height="96" fill="#faf7f2" stroke="#e7e0d4"/>
+        <text x="238" y="64" text-anchor="middle" font-size="13" font-family="Segoe UI, sans-serif" fill="#1e3a5f">低字节 8 bit</text>
+        <text x="238" y="96" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#1c1917">原样保存</text>
+        <text x="238" y="118" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#57534e">熵约 7.97 / 8</text>
+        <path d="M308 84 H360" stroke="#1e3a5f" stroke-width="2"/>
+        <rect x="360" y="20" width="150" height="50" fill="#ccfbf1" stroke="#0f766e"/>
+        <text x="435" y="40" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#115e59">一级符号 0–6</text>
+        <text x="435" y="58" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">最常见的 7 个高字节</text>
+        <rect x="360" y="80" width="150" height="50" fill="#ffedd5" stroke="#c2410c"/>
+        <text x="435" y="100" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#9a3412">一级符号 7 = 逃逸</text>
+        <text x="435" y="118" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">约 6% 的高字节</text>
+        <path d="M510 105 H562" stroke="#c2410c" stroke-width="2"/>
+        <rect x="562" y="80" width="150" height="50" fill="#fef3c7" stroke="#d97706"/>
+        <text x="637" y="100" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#92400e">二级符号 0–6</text>
+        <text x="637" y="118" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">再 7 个常见值</text>
+        <rect x="724" y="80" width="120" height="50" fill="#f5f0e6" stroke="#57534e"/>
+        <text x="784" y="100" text-anchor="middle" font-size="12" font-family="Segoe UI, sans-serif" fill="#1c1917">二级 7</text>
+        <text x="784" y="118" text-anchor="middle" font-size="11" font-family="Segoe UI, sans-serif" fill="#57534e">原样 8 bit（0.19%）</text>
+      </svg>
+    </div>
+    <p class="figcap">图 2　示意：低字节不编码；高字节先走 3-bit 一级码，逃逸后再走 3-bit 二级码，只有剩下的少数值写回原始字节。</p>
+    <p>选 3 bit 是因为：最常见的 7 个高字节已经覆盖大约 94%，再加宽到 4 bit 等于每个标量都多付 1 bit；而 8 个 1 字节表项正好塞进 GPU 一条字节重排指令 <code>PRMT</code> 的 8 字节寄存器输入。一级逃逸大约 6%。如果每次逃逸都直接写回 8-bit 原值，会多出 0.06 × 8 = 0.48 bit/标量；于是一级逃逸改为再发一个 3-bit 二级符号，指向码本第二行的 7 个次常见值。只有落在 14 个表项之外的高字节，才用二级符号 7 逃逸到原始 8 bit——在 Qwen3-30B-A3B 上这是 0.19%。Pool 模式把第二级加宽到 4 bit（15 个次级表项），好让融合解压不用打循环。</p>
+    <p>码本按「每一层、K 或 V、每一个 KV 头」各做一张。全模型共用一张会丢掉不同张量的指数范围；再细到 per-channel，熵收益可以忽略，却逼着同一条 lane 换表。码本在服务启动后保持静态：先有一张通用回退表，再用一次 1024 token 的前向离线校准出模型专用表，并把码本摘要写进记录头以防对不上。Qwen3-30B-A3B 上码本只要 8.4 KB。校准过的码本在散文、源码、中文聊天、数学、合成 needle 和随机 token 上，BF16 存储比都是 0.706–0.709，和按域单独校准相差不超过 0.001；在 240K 上下文的各个位置上也维持 0.709–0.710。</p>
+    <p>对 FP8（E4M3）KV，同样的两级码原样保存 3 bit 尾数，只编码高 5 位（符号和指数）。因为同一头内各通道幅度不同，压缩前要先减去静态的 per-channel 整数指数偏移，解压时再加回去。K 上的 RoPE 会旋转通道对，所以校准 K 的偏移前，要先把捕获的 K 在 256K 上下文上重新转回去；BF16 不需要这些偏移，也就不用再转一次 RoPE。</p>
+    <p>在 Qwen3-30B-A3B 上，单张量 128 KB 原始大小被压到约 90.7 KB：低字节和一级符号固定花费 8 + 3 bit，逃逸与分组索引再加 0.34 bit，合计 11.34 / 16 bit，存储比 0.709。九个 4B–72B 的稠密和 MoE 模型上，校准后的 TileStream 记录都落在 0.705–0.709，离 0 阶熵下界只差 0.033–0.036。通用回退表要差一些，Qwen3-30B-A3B 从 0.764 降到 0.709 是最明显的一档。FP8 被压到 0.853–0.873。FragPack 因为每 warp 的头比 tile 索引更小，BF16 比还能再紧一点（0.700–0.705）。</p>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. Tier 模式：TileStream</h2>
+    <p>省下的字节如果还按原始大小去预留，容量就不会增加。外部层因此按「精确长度」分配对象：GPU 压缩得到真实字节数后，L1 按这个长度分配，并原样写到 L2；L2 写完后把压缩长度记进主机元数据，之后从 L2 预取时可以先准备好精确大小的 L1 缓冲。变长的 L1 分配器和按字节的 LRU 淘汰都不用改。压不动的 chunk 回退到原始存储，最坏不超过原始大小。</p>
+    <p>TileStream 把一个 chunk 写成一条记录。以 Qwen3-30B-A3B 为例，一条记录覆盖 128 个 token、48 层共 96 个 K/V 张量，前面是 4 KB 对齐的逐张量偏移头，后面再留 4 KB 填充，方便 <code>O_DIRECT</code> 的 SSD 传输。每个张量的字节按类型拆成四条连续流：低字节、一级符号、二级符号、原始逃逸字节。定宽的数据可以合并加载，变长逃逸被隔离在后两条流里。</p>
+    <p>每个张量再切成 256 个标量的 tile：一条 32-lane 的 warp 里，每条 lane 一次用 128-bit 向量指令读写 8 个 BF16（16 B；FP8 则是 64-bit），正好覆盖 32 × 8 = 256 个标量。二级流和原始流的偏移依赖前面所有逃逸，若逐 tile 扫描就无法并行。于是每个张量附带分组索引：每 8 个 tile 一组，记下组起点的两个 32-bit 前缀计数，再加上 tiles 1–7 的 16-bit 组内偏移，代价大约 0.14 bit/标量，而不是每 tile 两个 32-bit 计数的 0.25 bit/标量。</p>
+    <p>加载时，每个 warp 解压一个 tile，直接写进引擎打散的 KV 页，不经过临时缓冲。一条 lane 的四步是：标出一级逃逸并在本地计数；用 warp 前缀和加上 tile 索引，得到自己在二级流和原始流里的位置；用两次无分支的 <code>PRMT</code> 查表并合并；把解压出的高字节和原样低字节交错后，写到目标页。写地址只来自主机校验过的元数据，记录里读出的偏移会被夹紧在加载缓冲范围内。</p>
+    <p>存储路径上，三个连续 GPU kernel 从引擎的分页块直接压缩一批 chunk，中间没有主机同步：计数逃逸、由单个 CTA 计算流偏移并标记压不动的 chunk、再把对齐的头、流和索引写进存储缓冲。相比先把 chunk 收成连续缓冲，少了两遍扫原始 KV，也少了大约两次 kernel 启动。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. Pool 模式：FragPack 与融合 decode</h2>
+    <p>Pool 模式把压缩后的记录直接放进 GPU KV pool，用一个树外的 attention 后端来算 decode，引擎源码仍然不改。页表布局保持固定大小，但把物理页缩小到接近一个 block 记录的典型压缩长度，同一笔 GPU 预算就能放下更多 KV block。</p>
+    <p>一条 FragPack 记录是 128 × 128 个标量（原始 32 KB），对应一个 128 token 的 block、一层、一个 KV 头、以及 K 或 V 其中之一。融合 kernel 用 256 线程（8 个 warp）的 CTA，沿着同一个请求、同一个 KV 头的连续页前进。压缩时就把标量排成 MMA 时每条线程要提供的 64 标量 fragment 顺序，解压后可以直接从寄存器喂给 tensor core。</p>
+    <p>计算路径可以看成三步：TMA 把下一条记录提前搬进共享内存（共享槽的地址余数要对齐到源地址模 128，否则会有大约 30% 的带宽惩罚）；线程在寄存器里做 <code>PRMT</code> 一级查表、warp scan 逃逸和无需循环的 4-bit 二级/原始修补，得到 fragment 顺序的 <em>K</em> 和转置后的 <em>V</em>；再用 <code>m16n8k16</code> MMA 和在线 softmax 做注意力。K 步和 V 步对 token 与输出维的切分不同，CTA 会经共享内存交换 <em>P</em>。双缓冲的 K/V 槽让 TMA 始终比计算提前一条记录，把拷贝藏到解压和 MMA 后面。</p>
+    <p>只有完整的 128 token block 会被压缩。每个正在跑的请求把尚未写满的 open block 以原始格式放在每请求的暂存缓冲里，attention 会同时读压缩页和这块缓冲。Prefill 以计算为主，不是读 KV 为主，pool 模式因此不融合 prefill：先解压到临时 BF16 工作区，再跑引擎自带的 attention，prefill 时间最多增加 3%。</p>
+    <p>共享预算页大约能放下 1.38 倍的原始 block（如果按最坏 2 KB/记录预留是 1.33 倍，理想零空隙是 1.42 倍）。暂存缓冲、溢出区和记录表要从同一笔 54 GB KV 预算里扣掉，净 token 容量在 54 GB/GPU 时是 1.34 倍（缓冲约占 2–3%），在 28 GB/GPU 时是 1.31 倍（约占 4–5%）。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 传输：把长度回读移出关键路径</h2>
+    <p>往外部层写变长记录时，CPU 必须把 GPU 算出的长度读回来，才能分配空间、决定传输大小。这次同步如果堵在处理线程上，就会挡住其他 KV 加载。LoomKV 把存储拆成两条线程：处理线程领一块 GPU 存储缓冲，启动三个压缩 kernel，记下 CUDA event，把批次交给后台存储线程后立刻回去处理排队的加载。存储线程在自己的 CPU 线程和 CUDA 流上等事件，一次同步读回整批长度，再分配精确长度的 L1 对象、拷进 L1，并触发写穿到 L2。存储缓冲在突发下用满时，处理线程会反压，而不是丢弃存储。</p>
+    <p>加载不需要再读长度，因为主机元数据里已经有每个钉住的 L1 对象的精确长度。为了避免多进程争用 GPU 时间片时卡住并不等待计算片的 PCIe DMA，加载把 PCIe 拷贝和 GPU 解压放在两条 CUDA 流上，轮转一组 GPU 加载缓冲（部署里是四个）。每个解压只等自己这块缓冲的拷贝，每个回填只等这块缓冲上一次解压。论文给过一个对照：加载 110K token 的前缀、同时另一个进程用 BF16 矩阵乘把 GPU 占满时，单缓冲会让延迟涨到 288–294 ms（原始拷贝在同样争用下是 117–141 ms）；四个缓冲把它降到 90 ms，接近空闲 GPU 上单缓冲的 83 ms，也和 0.71 倍原始字节的 PCIe 传输时间相当，解压被藏到 PCIe 后面。</p>
+    <p>Pool 模式复用这两条异步流水，但对象格式改成「一个完整 128 token block 的各层 FragPack 记录 + 4 KB 对齐头」，存储路径用导出 kernel 替换压缩，加载路径用导入 kernel 替换解压。导入可能因损坏的头或溢出区满而失败，处理线程会在为该请求排队完所有导入后做一次状态回读，避免在流水中途停住；失败的批次由引擎重算。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 实验怎么做的</h2>
+    <p>主测试平台是一台带 1 TB DRAM、15 TB SSD 和两张 H800（80 GB，700 W）的服务器。默认服务 Qwen3-30B-A3B-Instruct，TP 2，BF16 KV 每 token 96 KB；对照模型是稠密的 GLM-4-9B-Chat-1M（80 KB/token）。存储比另外在九个 4B–72B 的稠密和 MoE 模型上测。引擎是未改动的 vLLM 0.30，128 token 的 block，默认 attention 是 FlashAttention-3。缓存服务是 LMCache 0.5.6，128 token 的 chunk，带上界的 DRAM / SSD 层和 LRU 淘汰。有损基线是 vLLM 的未再压缩 FP8 KV，GPU pool 和外部层的 KV 大小都减半。</p>
+    <p>主负载是 AgentX：回放 cc-traces 里 393 个 Claude Code 会话，带 subtagent 和记录下来的思考时间，指标只统计预热后的剖析窗口。会话之间不共享前缀，prompt 最长 254K，中位数 89K。每张 GPU 给 KV 留 54 GB（原始 118 万 token）；pool 模式下暂存、溢出区和记录表从同一笔预算扣除。因为测试夹具对每个在线会话只保持一个在飞请求，vLLM 前面加了一个 FIFO 代理，最多同时准入 <em>S</em> 个请求，以免引擎排队把缓存效果掩掉。默认 <em>S</em> = 8，这时 raw GPU pool 内部不再排队。在线会话数 <em>P</em> 决定复用工作集 <em>W</em>：<em>P</em> = 32 时 306 GB 原始 KV，<em>P</em> = 64 时 641 GB。多数实验是 <em>P</em> = 64、400 GB DRAM，SSD 从 400 GB 扫到 2 TB，剖析窗口 1800 s。</p>
+    <p>第二条负载是内部 AI IDE 服务的开环回放：三小时、5098 个请求、0.47 请求/秒，prompt 均值 68K、p99 192K，输出均值 505 token。这里没有 FIFO 准入代理，TTFT 直接包含 vLLM 排队。受约束节点是 128 GB DRAM + 512 GB SSD；对照是 400 GB + 2 TB 的大 raw 配置。</p>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 结果怎么读</h2>
+    <h3>Kernel 是否够快</h3>
+    <p>Table II 在单卡上做了逐字节校验。存储路径上，LoomKV 从分页块直接压缩，比 SplitZip 快 1.6 倍，比 ExANS 和 nvCOMP 快 4.7–59 倍。加载路径上，从寄存器直写打散页，达到原始分页拷贝速度的 81%，比 PCIe 带宽高一个数量级，也避开了 SplitZip 那种几乎把吞吐砍半的额外 scatter；同时比 SplitZip 少存 8% 的字节。变长 ANS（ExANS、nvCOMP ANS）尽管 ExANS 的存储比还紧 1.6%，解压要慢 6.3 倍。离线体积上，ZipServ 是 0.722，ZipFusion 是 0.79，都不如 LoomKV 的 0.709。</p>
+    <p>Pool 模式的融合 BF16 decode kernel 在满时钟下，几乎每个 shape 都快过 vLLM 所用的 FA3 和 FlashInfer：TP 1 时是 FlashInfer 时间的 0.80–0.92 倍、FA3 的 0.56–0.85 倍；单个 TP 2 rank 上，12 个 shape 里有 11 个是 FlashInfer 的 0.79–0.97 倍，只有 1×32K 升到 1.23 倍（这里 FlashInfer 从 8K 起就几乎不再变）。同一套 kernel 跑未压缩的 FragPack 记录，仍是 FlashInfer 的 0.90–0.96 倍，说明加速不全来自少读 30% 的字节，kernel 本身也更快。两张 H800 在持续 AgentX 服务里，超过 99% 的忙碌样本顶在 700 W 功耗墙；连续满负荷时，BF16 仍然领先，只是 1×32K 会到 FlashInfer 的 1.35 倍。FP8 在功耗墙上失去优势：相对 FlashInfer 是 0.98–1.15 倍，超过 32K token 时相对 FA3 是 1.21–1.30 倍。</p>
+    <h3>外部层不够时：tier 模式</h3>
+    <p>压缩后的外部层表现得像 1.4 倍大的原始层，也就是 0.71 存储比的倒数。论文用 880 GB 的压缩层对上 1231 GB 的 raw 对照，goodput 相当；只放大 SSD（1072 GB）或只放大 DRAM（1200 GB），也落在同一条曲线上。写穿 LRU 的悬崖大约按 1.4 倍向左移：raw LMCache 在总容量低于 1200 GB 时掉下去，tier 模式到 640 GB 仍接近峰值。夹在两道悬崖之间，640 GB 时是 raw goodput 的 2.8–2.9 倍，480 GB 多次重复是 2.7–3.6 倍，平均引擎 TTFT 降到 1.9–3.1 分之一。</p>
+    <table>
+      <thead>
+        <tr><th>配置（Qwen3-30B-A3B，400 GB DRAM，64 会话，S = 8）</th><th>Goodput</th><th>命中率</th><th>TTFT 均值 / p99（s）</th><th>ITL（ms）</th><th>吞吐（k token/s）</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2 TB SSD，raw / tier</td><td>15.1 / 15.1</td><td>0.94 / 0.94</td><td>1.69 / 18.6　对　1.73 / 17.6</td><td>26.0 / 26.0</td><td>27.5 / 26.9</td></tr>
+        <tr><td>640 GB SSD，raw / tier</td><td>4.6 / 13.5</td><td>0.55 / 0.91</td><td>6.76 / 78.7　对　2.31 / 41.6</td><td>43.5 / 28.4</td><td>12.2 / 24.6</td></tr>
+        <tr><td>480 GB SSD，raw / tier</td><td>3.5 / 9.3</td><td>0.44 / 0.81</td><td>7.66 / 73.0　对　3.97 / 42.3</td><td>53.9 / 34.6</td><td>11.1 / 19.4</td></tr>
+        <tr><td>仅 DRAM、40 会话，raw / tier</td><td>2.9 / 12.5</td><td>0.45 / 0.91</td><td>7.33 / 48.4　对　1.56 / 15.7</td><td>62.0 / 30.7</td><td>11.3 / 25.1</td></tr>
+      </tbody>
+    </table>
+    <p>2 TB 已经装得下工作集时，两条线重合，tier 模式没有额外 goodput，吞吐从 27.5 降到 26.9 k token/s，对应后文「最多 2.2%」的代价。640 GB 时，raw 的 ITL 已经到 43.5 ms，越过 40 ms 门槛；tier 模式回到 28.4 ms。仅 DRAM、命中主要靠预取和晋级时，重复 prompt 的 TTFT 最多降到约 1.7 分之一。GLM-4-9B 上方向相同：400 GB SSD 时 goodput 从 3.5 到 13.4；仅 DRAM、48 会话时从 1.9 到 14.4。</p>
+    <p>有损 FP8 KV 在 640 GB SSD 上 goodput 是 20.6，比无损 tier 的 13.5 更高，但输出已经变了。LoomKV 可以叠在 FP8 上面：仅 DRAM、<em>P</em> = 64 时，raw FP8 会溢出 400 GB（命中率 0.61–0.75，goodput 6.6–10.6），打开 tier 模式后命中率到 0.92，goodput 到 19.4。</p>
+    <h3>GPU pool 不够时：pool 模式</h3>
+    <p>当外部层已经装下工作集（Table IV 里命中率全程 0.93–0.94，400 GB DRAM + 2 TB SSD），瓶颈就只剩 GPU pool。S = 8 时两个 pool 都不排队，goodput 接近。S = 12 时 raw pool 开始缺页，平均 TTFT 大约变成三倍，goodput 从峰值明显掉下去；pool 模式排队几乎不涨，给出 raw 的 1.5 倍 goodput，并和 raw 在 S = 8 时的最好结果相当，prompt 吞吐相对 raw 的 S = 8 是 1.16 倍。S = 16 时两边都排队，但 pool 模式同时跑 14.0 个请求，raw 是 11.1，goodput 是 2.5 倍。GLM-4-9B 把同样的平移往后推了一档：S = 16 的 pool 模式达到 raw 在 S = 12 时吞吐的 1.22 倍。</p>
+    <p>把每卡 KV 预算收到 28 GB 时，即便 S = 8，vLLM 内部也会排队。这时 pool 模式相对仍用 raw pool 的 tier 模式，等待大约减半，goodput 高 1.8 倍，并和「把 raw pool 放大到同样 token 数」的对照对齐，说明它在 token 数上是容量等价的。28 GB 的 raw LMCache 被略去，是因为少数已经装入但还没开始跑的长请求占住 72–82% 的 pool、又没有正在跑的请求可抢占，运行会卡住——论文把它写成 vLLM 小 pool 的调度现象，不是压缩本身的结果。Pool 模式还会把 FragPack 记录原样导出到 L1 / L2，所以外部层偏紧时也有帮助：640 GB SSD、S = 8 时，goodput 与 tier 模式相当（14.5 对 13.5），平均 TTFT 再低 15%。</p>
+    <h3>两层都紧：AI IDE 痕迹</h3>
+    <p>受约束节点（128 GB + 512 GB）上，raw 的总命中率相对大 raw 对照（400 GB + 2 TB 的 0.87）少 7 个百分点（0.80）。重算那些长前缀把 GPU 打满，平均排队超过 20 s，ITL 到 54 ms，goodput 9.4。Tier 模式把总命中率拉回到 0.86，平均 TTFT 降到约 5.6 分之一，goodput 到 11.6（1.24 倍），但 GPU pool 成为新瓶颈，请求仍在排队。Pool 模式同时松开两层，大部分命中直接落在 GPU pool（0.81 + 0.06），排队降到 0.65 s，goodput 到 15.0（1.59 倍），甚至超过那份更大的 raw 对照（12.7），尽管 DRAM 只有三分之一、SSD 只有四分之一。</p>
+    <h3>代价和「精确」分别指什么</h3>
+    <p>四项系统开销把代价框住：tier 模式每卡大约多占 2.5 GB 显存（其中 2.1 GB 是 32 个 chunk 的存储缓冲和轮转加载缓冲）；外部层已经够用时，仅 DRAM（P = 24）掉 1.3% 吞吐，2 TB SSD 掉 2.2%；320 条互不重复的 32K prompt、一次都打不中时，端到端时间在 tier 模式增加 0.3%，pool 模式增加 0.9%；按 AgentX 的 chunk 速率在离线 vLLM 任务旁边跑存储和加载，会让 vLLM 再慢 1.5%（原始拷贝是 0.5%），来自多进程分时。Pool 模式里，FragPack 压缩占 GPU 时间的 1.5%，attention 占 48%。</p>
+    <p>Tier 模式在 Qwen3-30B-A3B 和 GLM-4-9B 上，贪婪解码输出与 raw 层按 SHA-1 一致，包括原始回退和部分 tile。这对可复现评测、RL rollout，以及量化会伤对齐的安全敏感部署有用。Pool 模式存的仍是无损 KV，融合 kernel 在压缩记录和 raw FragPack 记录上的输出也按位相同，说明编码本身没有误差；但注意力累加顺序和 FA3 不同，最终 logits 只在舍入精度上有差别。相对 FP64 参考，平均绝对 decode 误差与 FA3 相同：BF16 都是 3.1×10<sup>−5</sup>；FP8 上是 3.0×10<sup>−5</sup> 对 FA3 的 5.1×10<sup>−4</sup>（FA3 这时也量化了 query）。GSM8K 和 32K–128K 的 RULER 多 key needle、五跳变量追踪上，端到端准确率在一个标准差内（配对 McNemar p ≥ 0.42）；vLLM 的有损 FP8 KV 会错过 FA3 能找回的 needle（p = 0.03，未校正）。</p>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 落地可行性</h2>
+    <p>工程接口是这篇最有吸引力的地方：vLLM 0.30 不改源码，LMCache 继续管分配、淘汰、写穿和预取；tier 模式做在 LMCache 的缓存服务进程里，pool 模式是树外 attention 后端。评测钉在两张 H800、PCIe、TP 1 / TP 2。论文没有给出代码仓库或构件链接，所以目前还不能按仓库即装即跑，只能按设计复现。</p>
+    <div class="callout teal">什么时候值得接：外部 DRAM / SSD 已经顶在复用悬崖上，或者 GPU pool 限制了长请求并发——尤其是不能再加本地 NVMe 或 GPU 显存的节点。什么时候先别指望它：raw 层和 raw pool 已经装得下工作集、引擎也不排队，这时压缩没有容量收益，还可能掉最多 2.2% 吞吐。FP8 的 pool 模式收益有限，页必须按最难压的层来定大小（存储比 0.906，均值是 0.838），融合 kernel 在功耗墙上也慢于 FA3。</div>
+    <p>论文给的运行时选择很清楚，观察的是线上指标而不是离线假设：</p>
+    <ol>
+      <li>外部层是瓶颈（SSD 命中多，或命中率明显低于无界层）→ 用 tier 模式，保留 FA3 的精确输出，不必重新验收模型。</li>
+      <li>GPU pool 是瓶颈（命中率已经高，但引擎里持续有等待队列）→ 用 pool 模式；融合 kernel 需要一次性数值验收，与 FA3 比到浮点舍入。</li>
+      <li>两层都紧 → 用 pool 模式，因为它把 FragPack 记录原样导出到 L1 / L2，同时放大两层。AI IDE 痕迹就是这种情况。</li>
+      <li>两层都不紧 → 关掉压缩。</li>
+    </ol>
+    <p>容量规划可以分两步。先估计活跃复用工作集 <em>W</em>。在 LMCache 的写穿 LRU 下，raw 部署大约要到 DRAM+SSD ≈ 1.8<em>W</em>，或仅 DRAM ≈ 1.2–1.3<em>W</em>，才离开悬崖——倍数大于 1，是因为 <em>W</em> 只是在线会话的平均 KV，LRU 还会留下尚未老化的过期 chunk，写穿又会在两层各留一份热 chunk。再乘上存储比：BF16 用 0.71，FP8 用 0.85–0.87。替换策略只决定悬崖在哪，无损压缩按同样的因子把它左移：模拟器里用 1/0.709 放大容量，能在 80 GB 内对上测到的两道 LRU 悬崖；把写穿 LRU 换成单层 exclusive LRU，压缩仍然把悬崖精确缩到 0.71 倍字节。</p>
+    <p>和仓库里已有工作的关系：MoRI UMBP 讨论的是 agentic KV 要不要跳过 DRAM、直接走 NVMe，解决的是层次和带宽路径；TideCache 是缓存管理侧的另一条线。LoomKV 不替代它们，而是在已有 LMCache 层次上把同样多的物理字节变成更多逻辑 KV。它和有损 4-bit / FP8 KV 也可以叠加，但一旦走有损，就不再享有 tier 模式那种按位一致的输出。</p>
+  </section>
+
+  <section class="card" id="s11">
+    <h2>11. 局限：这些倍数依赖什么假设</h2>
+    <ul>
+      <li><strong>没有可复现的代码。</strong>正文和注释里都没有 GitHub 或构件链接。设计写得很完整，但落地首先要自己按 TileStream / FragPack 和 LMCache 0.5.6、vLLM 0.30 的接口复现。</li>
+      <li><strong>服务形态。</strong>评测是单机、TP 1 和 TP 2、走 PCIe。每个 TP rank 压缩、存储、解压自己的 KV 头，没有跨卡通信，存储比不随 TP 度数变化。流水线并行、专家并行、多引擎共享缓存服务、MLA 和 FP4 KV 都还没有测。对 MLA，作者认为 TileStream 可以直接压潜向量，但 pool 模式现有的 GQA kernel 需要改。</li>
+      <li><strong>后端覆盖。</strong>Pool 模式当前后端支持 BF16 和 FP8 KV、128 维头、最多 8 的 GQA 组、128 token 的 block。混合了线性或状态空间层的结构里，它只压缩注意力 KV 层。服务主结果来自 Qwen3-30B-A3B 和 GLM-4-9B，另外七个模型只贡献了存储比，没有端到端 goodput。</li>
+      <li><strong>主负载的形状。</strong>AgentX 会话不共享前缀，prompt 很长（中位 89K，最长 254K），并且用 FIFO 代理把并发钉在 <em>S</em> 上。共享前缀很重、短请求为主、或已经做了 prefill–decode 分离的集群，倍数不能直接搬。</li>
+      <li><strong>FP8 pool 和功耗墙。</strong>BF16 融合 kernel 在功耗墙上仍大多领先；FP8 在墙上会慢于 FA3。若生产环境已经把卡顶在功耗上限，并且 KV 已经是 FP8，不要用 kernel 微基准的满时钟数字去外推端到端收益。</li>
+      <li><strong>小 pool 的调度。</strong>28 GB raw LMCache 的失败被归因于 vLLM 在小 pool 下的抢占问题。比较 pool 模式与「放大后的 raw pool」是公平的，但和「同样 28 GB 的 raw LMCache」比，会混进引擎调度效应。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s12">
+    <h2>12. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>BF16 存储比</td><td>TileStream 0.705–0.709；FragPack 0.700–0.705</td><td>九个 4B–72B 模型，校准码本</td></tr>
+        <tr><td>FP8 存储比</td><td>0.853–0.873（TileStream）；持有集上 FragPack 0.838</td><td>同一组模型；FragPack 为至 240K 的 agent KV</td></tr>
+        <tr><td>Qwen3-30B-A3B 分解</td><td>0.709 = 0.676 熵 + 0.024 定宽开销 + 0.009 索引和对齐</td><td>相对原始大小</td></tr>
+        <tr><td>高字节覆盖</td><td>前 7 个值约 94%；一级逃逸约 6%；二级后再原样写出 0.19%</td><td>Qwen3-30B-A3B，96 个 K/V 张量平均</td></tr>
+        <tr><td>解压吞吐</td><td>1182 GB/s；为原始分页拷贝的 81%</td><td>Table II，单卡，直写打散页</td></tr>
+        <tr><td>压缩吞吐</td><td>535 GB/s；比 SplitZip 快 1.6×，比 ExANS / nvCOMP 快 4.7–59×</td><td>Table II，从分页块直接压缩</td></tr>
+        <tr><td>容量等价（外部层）</td><td>880 GB 压缩层 ≈ 1231 GB raw（约 1.4×）</td><td>AgentX，goodput 对齐</td></tr>
+        <tr><td>LRU 悬崖上的 goodput</td><td>2.7–3.6×；平均 TTFT 降到 1.9–3.1 分之一</td><td>Qwen3-30B-A3B，400 GB DRAM，480–640 GB SSD 一带</td></tr>
+        <tr><td>容量已够时的代价</td><td>吞吐最多掉 2.2%；每卡约多 2.5 GB 显存</td><td>2 TB SSD 或仅 DRAM 且工作集已放下</td></tr>
+        <tr><td>Pool 容量</td><td>1.31–1.34× token；共享页约 1.38× block</td><td>54 GB / 28 GB 每卡 KV 预算</td></tr>
+        <tr><td>S = 12 / 16 的 goodput</td><td>1.5×（15.7 对 10.6）；2.5×（9.1 对 3.7）</td><td>Qwen3-30B-A3B，54 GB/GPU，层已够用</td></tr>
+        <tr><td>AI IDE</td><td>tier 1.24×、pool 1.59× goodput；tier 平均 TTFT 约 5.6 分之一</td><td>128 GB DRAM + 512 GB SSD，相对 raw 9.4 请求/分钟</td></tr>
+        <tr><td>融合 kernel（满时钟）</td><td>TP 1：FlashInfer 时间的 0.80–0.92×；TP 2：11/12 个 shape 为 0.79–0.97×</td><td>BF16；例外是 TP 2 的 1×32K（1.23×）</td></tr>
+        <tr><td>Prefill</td><td>最多增加 3%</td><td>Pool 模式不解压融合，走临时 BF16 + 自带 kernel</td></tr>
+        <tr><td>数值误差</td><td>相对 FP64：BF16 上与 FA3 同为 3.1×10<sup>−5</sup></td><td>累加顺序不同；压缩与 raw FragPack 记录按位一致</td></tr>
+        <tr><td>码本</td><td>一次 1024 token 前向；Qwen3-30B-A3B 上 8.4 KB</td><td>启动后静态，按头校准</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    阅读笔记依据 arXiv:2611.32954v1（2026-11-24，cs.AI）全文。存储比与 Table I 交叉核对，kernel 吞吐与 Table II，AgentX 外部层与 Table III，GPU pool 与 Table IV，AI IDE 与 Table V。摘要中的 2.7–3.6×、1.31–1.34× 和 1.24× / 1.59× 分别对应第 9 节这三块。论文未提供代码仓库。MoRI UMBP、TideCache 以及有损 KV 工作仅作为对照出现，不在本篇展开。
+  </footer>
+</div>
+</body>
+</html>
