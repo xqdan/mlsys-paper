@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Better Call SoL 论文分析 | 在 GPU SM 里加一颗可编程 LUT 核</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge hot">MICRO 2026 Session 1A</span>
+        <span class="badge ok">GPU 微结构</span>
+        <span class="badge warn">Accel-Sim 仿真，无硅片</span>
+        <span class="badge">软硬件协同</span>
+      </div>
+      <h1>Better Call SoL：在 GPU SM 里加一颗可编程 LUT 核</h1>
+      <p class="subtitle">用片上 Sea-of-LUTs 接住 Softmax、查表和规约这类 Tensor Core 帮不上忙的内核，而不是再外挂一块 FPGA。</p>
+      <p class="meta">
+        <strong>Shashank Nag, Justin Garrigus, Yuting Chen, Lizy K. John</strong>（The University of Texas at Austin）<br />
+        来源：MICRO 2026 Session 1A「GPU Microarchitecture &amp; Numerical Precision」；作者实验室相机就绪稿
+        <a href="https://lca.ece.utexas.edu/pubs/nag_micro26.pdf">nag_micro26.pdf</a>
+        （IEEE PDF eXpress，2026-09-11）。检索时未见 arXiv 条目，也未见配套开源。
+      </p>
+    </header>
+
+    <nav class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li><a href="#s1">一句话结论</a></li>
+        <li><a href="#s2">问题：Tensor Core 解决不了的那段延迟</a></li>
+        <li><a href="#s3">GPU-SoL 是什么</a></li>
+        <li><a href="#s4">现有路线的三个缺口</a></li>
+        <li><a href="#s5">做法：每 SM 一颗 LUT 核，四条指令</a></li>
+        <li><a href="#s6">实验怎么做的</a></li>
+        <li><a href="#s7">结果怎么读</a></li>
+        <li><a href="#s8">面积、频率与重配置</a></li>
+        <li><a href="#s9">局限与落地可行性</a></li>
+        <li><a href="#s10">数字速查</a></li>
+      </ol>
+    </nav>
+
+    <section class="card" id="s1">
+      <h2>1. 一句话结论</h2>
+      <p class="lead">Better Call SoL 的判断是：现代 GPU 已经把 GEMM 交给 Tensor Core，但 Softmax、低比特查表、带同步的规约和动态规划，仍然常走 CUDA Core，而且其中不少还卡在不规则访存或内核内数据依赖上。它在每个 SM 里加一颗不含 DSP / BRAM 的 Sea-of-LUTs（SoL）核，用四条新的 SASS 指令在寄存器堆和可编程逻辑之间搬数据、加载比特流、触发执行，让这些自定义数据通路可以在同一颗 GPU 晶圆上、同一套执行模型里被动态改写。</p>
+      <div class="kpi">
+        <div>
+          <div class="n">1.34×</div>
+          <div class="k">Fig. 6，端到端延迟几何平均加速；包含加速最明显的 KWS。去掉 KWS 后文称仍有 1.25×</div>
+        </div>
+        <div>
+          <div class="n">1.22×</div>
+          <div class="k">Fig. 7，每张推理的能耗几何平均下降</div>
+        </div>
+        <div>
+          <div class="n">约 6%</div>
+          <div class="k">相对 A100 折算后的每 SM 面积开销；22 nm 贴片面积再按 15→7 nm 因子 3.7× 缩放</div>
+        </div>
+        <div>
+          <div class="n">约 1.25×</div>
+          <div class="k">llama2 / mistral / BERT：把 Softmax 放到 SoL，文称 Softmax 本身平均约 3×</div>
+        </div>
+      </div>
+      <div class="callout warn">上面的倍数全部来自 Accel-Sim + AccelWattch，再叠加 COFFE2 / VTR 给出的面积、延迟和功耗，不是某张真实 GPU 或 GPU-FPGA 板卡的墙钟。评测时钟把 SoL 压在 260 / 282 MHz（对齐商用 FPGA 的悲观设定），尽管织物本身按 7 nm 估到 0.9–3.8 GHz。1.34× 是「几何平均」，里面混了边缘级（类 Jetson Orin，16 SM）和服务器级（类 A100，108 SM）两套配置，机器学习负载还只看了单 batch 推理。不要把它抄成「相对 A100 加速 1.34 倍」。</div>
+    </section>
+
+    <section class="card" id="s2">
+      <h2>2. 问题：Tensor Core 解决不了的那段延迟</h2>
+      <p>过去十年，矩阵乘把 GPU 推成主流训练和推理平台，Tensor Core 也把 GEMM / GEMV 从通用 CUDA Core 里拆了出去。论文的观察是：这只覆盖了「长得像矩阵乘」的那一段。逐元素核、FIR、不少非 ML 应用，以及 LLM 里的 Softmax、LayerNorm，仍然主要走 CUDA Core；数据类型或访问模式对不上 Tensor Core 时，专用单元帮不上忙。</p>
+      <p>对当前 LLM 推理，这条缝尤其显眼。线性层可以喂饱 Tensor Core，但延迟敏感的非线性经常成为瓶颈。引言引用已有测量：在长上下文结构里，Softmax 可占到端到端推理延迟的 30%。这类运算在 FPGA 上反而好做——自定义流水和细粒度数据通路对得上——已有工作甚至给出相对 GPU 约 8× 的能效提升（这是引用，不是本文测到的）。麻烦在于，把一块外部 FPGA 接到 GPU 上，会重新引入封装引脚和 I/O 墙：数据要绕出芯片，动态换功能时还要付一次缓慢的重配置。</p>
+      <p>GPU 自己的另一面限制也在变紧。为了吞吐，数据并行架构会进一步约束访问行为，稀疏线性代数和查表这类散列访问就不高效；尽管窄位宽、高量化模型越来越常见，GPU 对低精度定制运算的支持仍然有限。于是出现一个很具体的缺口：人们需要的不是再做一个只能加速 Softmax 的固定功能单元，而是一块能在核内被改写、又不必出芯片的可编程逻辑。</p>
+    </section>
+
+    <section class="card" id="s3">
+      <h2>3. GPU-SoL 是什么</h2>
+      <p>GPU-SoL 是一颗「每个 SM 旁边多出一个可编程逻辑核」的 GPU。这个核叫 Sea-of-LUTs（SoL）：逻辑块是查找表和触发器，用可配置互连连起来，再配输入/输出缓冲和一条高并行的比特流加载通路。它和 CUDA Core、Tensor Core 并列，而不是挂在芯片外面的加速器，也不是一块完整的片上 FPGA——论文明确去掉了商用 FPGA 里常见的 DSP 切片和 BRAM，只保留 LUT 织物，把浮点重活留给已经存在的 Tensor Core 和单/双精度单元。</p>
+      <div class="fig">
+        <div class="grid-2" style="margin:0;">
+          <div class="tile">
+            <h4>普通 SM</h4>
+            <p>寄存器堆、CUDA / 特殊功能单元、Tensor Core、共享内存。自定义或不规则运算要么写成 CUDA Core 内核，要么把数据搬到芯片外的 FPGA / NPU。</p>
+          </div>
+          <div class="tile">
+            <h4>带 SoL 的 SM</h4>
+            <p>同样的功能单元之外，多一颗私有于线程块的 LUT 核。线程用 <code>REG2SOL</code> / <code>SOL2REG</code> 跟 1 KB 的输入输出缓冲打交道，一个线程发 <code>SOLEXECUTE</code>，必要时先 <code>SOLPROGRAM</code>。</p>
+          </div>
+        </div>
+      </div>
+      <p class="figcap">Fig. 3 的结构（示意，非比例）：SoL 核在 SM 内部，不经过片外 I/O 端口。</p>
+      <p>软件侧不是另起一套运行时。论文加了四条硬件 SASS 指令，编程模型尽量贴着现有 GPU：缓冲用物理地址索引，同一线程块内的线程可以并行搬数据，但 <code>SOLEXECUTE</code> 只由一个线程发出，前后用同步保证顺序。比特流可以用独立的 CUDA stream 与非 SoL 内核重叠，也可以写进融合内核，靠硬件信号量保证「先编程、再执行」。</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2>4. 现有路线的三个缺口</h2>
+      <div class="grid-3">
+        <div class="tile">
+          <h4>外接 FPGA / 中央加速器</h4>
+          <p>GPU–FPGA、PICACHU 一类外挂 CGRA、Tandem 那样的 NPU 协处理器，都能做非 GEMM，但数据要过 PCIe 或共享主存。细粒度、内核内的卸载会被搬运延迟吃掉，动态换比特流时更明显。</p>
+        </div>
+        <div class="tile">
+          <h4>专用功能单元</h4>
+          <p>LUT-Tensor Core 只服务查找式混合精度 GEMM；Avant-Garde 一类改动瞄准特定数值格式。它们对单一算子很有效，换到规约、动态规划或未来新出现的自定义算子，就要再改一次微结构。</p>
+        </div>
+        <div class="tile">
+          <h4>更粗的 CGRA 织物</h4>
+          <p>CGRA 时钟可以更快、计算密度更高，但处理单元在流片时就定了。为 Softmax 准备的浮点阵列，对加密或低比特查表几乎用不上。论文因此坚持细粒度 LUT，而不是「先猜好常见算子再做可配置互连」。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="s5">
+      <h2>5. 做法：每 SM 一颗 LUT 核，四条指令</h2>
+      <h3>5.1 设计取舍：只要 LUT，而且分散进 SM</h3>
+      <p>论文写了两条关键选择。第一，可编程逻辑里只放 LUT / 触发器和互连，不放 DSP 和 BRAM，用来压面积。理由是：浮点密集的活，现成 Tensor Core 和 FPU 已经更合适；LUT 在功能上完备，必要时也能凑浮点，只是吞吐会差。所以 SoL 瞄准的是「适合自定义数据通路、只夹杂有限浮点」的片段，并且因为和 SM 做了紧耦合，这种卸载可以发生在同一个内核里。</p>
+      <p>第二，采用分布式：每个 SM 一颗小的 SoL 核，而不是 SM 外面一颗大的中央逻辑。这是为了跟着 GPU 的执行模型走——线程块在各 SM 上独立取数、计算——数据进出 SoL 仍然走原有存储层次。论文也讨论过放到 SM 子分区（SMSP）的方案，硬件集成更简单，但 warp 在 SMSP 之间的分配由硬件在运行时决定、对程序员不透明，编程模型会变难。默认实现因此停在 SM 级；第 7 节用 needle 做过 SMSP 方案的反例。</p>
+      <p>默认织物是 44×44 个逻辑块，每块 10 个 BLE、每个 LUT 6 输入，块输入线 40、布线通道 320，对应大约 19,360 个 LUT。每边 1 KB 的输入/输出缓冲当寄存器堆和可编程逻辑之间的暂存。配置 SRAM 按块设独立扫描链，同芯片内可以并行写，不必经过板上的 JTAG 引脚。</p>
+
+      <h3>5.2 四条 SASS 指令和同步</h3>
+      <p>ISA 很短：</p>
+      <ul>
+        <li><code>REG2SOL r_data, r_bufidx</code>：从 GPU 寄存器写入 SoL 输入缓冲的指定位置。</li>
+        <li><code>SOL2REG r_data, r_bufidx</code>：从输出缓冲读回寄存器。</li>
+        <li><code>SOLPROGRAM</code>：用当前输入缓冲里的比特流给可编程逻辑编程；比特流比缓冲大时可以连续发多次。</li>
+        <li><code>SOLEXECUTE</code>：用当前输入缓冲中的数据执行已编程电路，结果进入输出缓冲。</li>
+      </ul>
+      <p>SoL 用分频时钟，比特流生成时确定频率。数据本身在缓冲两侧按各自时钟域读写，真正跨时钟的是控制信号，经过触发器同步器，论文写有 2 拍惩罚；评测里还额外给 <code>SOLEXECUTE</code> 加了 10 个 GPU 周期。仿真中 <code>REG2SOL</code> / <code>SOL2REG</code> 的执行段按 1 拍建模。</p>
+      <p>冒险用硬件信号量记分牌：<code>inp</code> / <code>sol</code> / <code>out</code> 分别跟踪搬入、执行和搬出。调度器会记下占用 SoL 的线程块，避免别的线程块同时用它。SoL 自己不会发存储请求，只碰专用缓冲；和 GPU 其余部分的一致性仍靠软件同步屏障，论文称整体内存一致性模型与普通 GPU 相同。缓冲和核的内容对线程块私有，跨块通信仍要走原子一类原有手段。</p>
+
+      <h3>5.3 编译与调度</h3>
+      <p>工作流分四步：先标出适合 SoL 的运算（编译器自动识别，或用户通过暴露的 API 手工插入）；NVCC 照常编译，含 SoL 的内核会带上新指令；再走 RTL 和比特流。机器学习负载用 mako 从训练好的 PyTorch 模型生成 RTL，非 ML 负载用 Xilinx Vitis HLS；也可以换成手写模板、hls4ml 或 Siemens Catapult。VTR 针对 SoL 织物做布局布线，产出比特流。调度上，编程内核可以和不用 SoL 的计算放在两条 CUDA stream 里，用 event 同步；编程和执行若在同一 stream，配置会在执行前完成。论文说多数负载重编程并不频繁，藏不住的那一段也会被摊薄。比特流生成会给编译增加「数分钟」量级的开销，需要靠长执行摊掉。</p>
+    </section>
+
+    <section class="card" id="s6">
+      <h2>6. 实验怎么做的</h2>
+      <p>这是一套拼起来的仿真，不是硅片，也不是板上对照。</p>
+      <p>面积、延迟和功耗：用 COFFE2 给单个逻辑块建模，再用 VTR 对具体电路做布局布线。性能：在 Accel-Sim 里把可编程逻辑、输入缓冲、输出缓冲写成三类功能单元，流水级与普通 GPU 指令相同（取指、译码、发射、收操作数、执行、写回）。<code>SOLPROGRAM</code> 和 <code>SOLEXECUTE</code> 的执行延迟来自对应负载的 VTR 报告。功耗把 VTR 的功耗数接到改过的 AccelWattch。</p>
+      <p>Accel-Sim 用了两套 Ampere 配置，细节在 Table III：</p>
+      <table>
+        <thead><tr><th>项目</th><th>嵌入式（类 Jetson Orin，sm87）</th><th>服务器（类 A100，sm80）</th></tr></thead>
+        <tbody>
+          <tr><td>SM 数</td><td>16</td><td>108</td></tr>
+          <tr><td>每 SM 寄存器</td><td>65536</td><td>65536</td></tr>
+          <tr><td>L1 + 共享内存</td><td>192 KB</td><td>192 KB</td></tr>
+          <tr><td>每 SM 执行单元</td><td>4 SP / 4 DP / 4 SFU / 4 INT / 4 TC，外加 1 个 SoL</td><td>相同</td></tr>
+          <tr><td>L2</td><td>4 MB</td><td>20 MB</td></tr>
+          <tr><td>GPU 核时钟</td><td>1300 MHz</td><td>1410 MHz</td></tr>
+          <tr><td>SoL 核时钟</td><td>260 MHz</td><td>282 MHz</td></tr>
+          <tr><td>内存带宽</td><td>83.5 GB/s</td><td>1.95 TB/s</td></tr>
+        </tbody>
+      </table>
+      <p>llama2 和 mistral 走服务器配置，其余（含 BERT、LL-ViT、Rodinia / HecBench）走嵌入式配置。机器学习侧的基线是基于 PyTorch 的 GPU 实现，SoL 路径是把要卸载的运算替换成带新指令的自定义 CUDA 核，再接到模型实现上。关键指标是端到端推理延迟加速，以及每次推理的能耗；ML 负载「主要考虑单 batch 推理」。正文没有写明 llama2 的参数量；参考文献里的 Mistral 是 Mistral 7B。不要自行补一个未写出的模型尺寸。</p>
+      <p>负载被拆成「适合 SM 的部分」和「适合 SoL 的部分」（Table II）：llama2 / mistral / BERT 的线性层留在 GEMM / GEMV，Softmax 走自定义流水；LL-ViT 额外把低精度 LUT 层放到 SoL；kmeans、tsp 的规约，particlefilter 的累积，needle 的波前动态规划，以及关键词检出（KWS / DWN）里的按位运算和不规则访问，都是 SoL 的目标。</p>
+    </section>
+
+    <section class="card" id="s7">
+      <h2>7. 结果怎么读</h2>
+      <h3>端到端 1.34× 是几何平均，拿掉 KWS 是 1.25×</h3>
+      <p>Fig. 6 给出相对「普通 GPU」的端到端加速，以及被卸到 SoL 的片段在基线延迟里的占比。这些片段大约覆盖基线执行时间的 15%–90%，说明基准本身就很杂。全体负载的几何平均是 1.34×。KWS 是加速最明显的一条，因为它几乎被按位运算主导，全部放到了 SoL 上；正文没有写出这条的端到端倍数。论文特别声明：即使去掉这条高度优化的 KWS，其余负载的几何平均仍是 1.25×。</p>
+      <p>语言建模这边，llama2、mistral、BERT「大约 1.25×」，来源是 Softmax 在 SoL 上的自定义数据通路，文称 Softmax 本身平均约 3×（实现引用了已有的数据通路工作）。LL-ViT 在 Softmax 之外还有低精度查找层，查找本身大约 6×。kmeans 的规约约 3×，端到端 1.2×；tsp 端到端 1.15×；particlefilter 的累积 7×，端到端 1.2×；needle 的波前动态规划给出 1.33×。</p>
+      <div class="callout navy">把「内核加速」和「端到端」分开读。Softmax 3×、LUT 6×、累积 7× 是卸出去的那一段；端到端被仍留在 SM 上的线性层、调度和访存拽回去了。LLM 的 1.25× 还只是单 batch。另外，llama2 / mistral 跑在类 A100 配置上，BERT 和 LL-ViT 跑在类 Orin 配置上，不能把这组语言模型数字当成同一块芯片上的对比。</div>
+
+      <h3>能量 1.22×：延迟降了，但面积和重编程会吃回一部分</h3>
+      <p>Fig. 7 是同一组负载上，每次推理能耗的几何平均下降 1.22×。延迟变短是主因，但 SoL 大约 6% 的面积，加上通信和重编程开销，会抵消一部分收益，所以能耗下降小于延迟下降。论文认为 SoL 的空闲 / 漏电相对整卡功耗是小头，未加速部分因此不会明显变费。Fig. 8 用 LL-ViT 说明：在被加速的那个内核里，延迟和能量的大头反而可能仍是 SM 侧的 load / store，而不是 LUT 织物上的运算。</p>
+
+      <h3>这不是「一块更快的 cache」</h3>
+      <p>一个容易产生的误解是：LUT 不过是更近的一块小存储。论文用三组对照把这条路堵上（Fig. 11），对象是那些被放到 SoL 上的自定义运算：</p>
+      <ul>
+        <li>把常规 GPU 的 L1 延迟从 38 拍改成假设的 5 拍，自定义运算仍然比带常规 L1 的 GPU-SoL 慢 12×；即使把 L1 大到工作集完全命中，也还慢 10×。</li>
+        <li>增加共享内存 bank、减轻冲突，常规 GPU 仍追不上使用默认共享内存的 GPU-SoL。</li>
+        <li>增加 MSHR 能抬常规 GPU 的端到端，但仍然到不了基线 MSHR 下的 GPU-SoL。</li>
+      </ul>
+      <p>Fig. 10 还给出一个访存侧数字：LL-ViT 前馈块被放到 SoL 之后，动态 GPU load 指令降了 77%。Roofline（Fig. 14，相对边缘级 GPU 的 L2）上，compute-bound 的 needle 动态规划往上移，memory-bound 的 LL-ViT LUT 层在性能和算术强度上都有改善——中间数据留在内部缓冲里流动，减少了随机、重复的 LLC 访问，原本串行的每次查找指令也被数据通路替掉，前端压力下降。particlefilter 的累积落在中间区域，性能和算术强度同样上升。论文据此说，SoL 做的不只是「多一点算力」，而是换了一种执行方式。</p>
+
+      <h3>对外接 FPGA：搬运仍然主导</h3>
+      <p>Fig. 15 在 BERT（small）上把 Softmax 放到外部 FPGA，数据要来回搬，对照一块小的 Zynq Ultrascale+（PCIe 3）和一块大的 Virtex Ultrascale+（PCIe 4）。正文的结论是定性的：即便互连已经「高效」，GPU–FPGA 上仍然是数据搬运主导执行时间；GPU-SoL 避开了这条通信瓶颈。需要在较小外部 FPGA 上动态重编程时，差距还会拉大。文中没有为这张图写出一个可以单独引用的加速倍数，不要补一个。</p>
+
+      <h3>敏感度和设计点</h3>
+      <p>Fig. 12：提高 <code>SOLEXECUTE</code> 延迟时，早期往往仍由搬数主导，整体延迟先不动，随后才上升；即便 SoL 变慢，要到「显著很高」的延迟才会差过基线 GPU。对 LL-ViT，即便 <code>REG2SOL</code> 超过 50 拍，文称仍有 5× 优势。Fig. 13 用 needle 扫织物规模：默认 44×44（约 19,360 个 LUT）能放下 BLOCK-SIZE=16 的脉动阵；缩到 16×16（2,560 个 LUT）只能做 BLOCK-SIZE=8，这时会差过 GPU 基线。过小的 SoL 没有意义。</p>
+      <p>如果把 SoL 下放到每个 SMSP，一种可编程的办法是强制单 warp 线程块。needle 上的结果是：尽管每个 SM 里 SoL 单元变多，这种限制反而带来 1.2× 变慢。要做成对软件透明的调度，论文留给未来工作。</p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2>8. 面积、频率与重配置</h2>
+      <p>评测用的块配置是 N=10 / K=6 / I=40 / W=320，单块面积 933.19 µm²（Table IV，COFFE2）。44×44 折下来，论文写 22 nm 下每 SM 约 1.8 mm²，已含 I/O 缓冲、重配置电路和交叉开关等。再按先前 FPGA 块面积缩放工作给出的「偏悲观」因子 3.7×（15 nm→7 nm）折到 7 nm，变成每 SM 0.48 mm²；该缩放方法在不同架构上的标准差被引用为 2%。对照 A100 公布的 826 mm²、108 个 SM，相当于折算后每 SM 晶圆面积的大约 6%。</p>
+      <p>单块关键路径大约 150–200 ps（所选配置 169.44 ps），块级峰值频率可到数 GHz；按 5–20 级逻辑的典型路径、再做工艺缩放，7 nm 织物频率被估在 0.9–3.8 GHz。评测没有用这个数。为了更严，SoL 被放到 260 / 282 MHz，对齐商用 FPGA，并且所有实现都满足此时序。换句话说，主结果是在「织物可能更快、但先按慢钟走」的前提下拿到的。</p>
+      <p>重配置方面，并行扫描链把比特流写入配置 SRAM，论文称小于 10,000 个 GPU 周期，功耗大约 3 W。对 LL-ViT 这种层间要换功能的模型，这段时间可以藏在不用 SoL 的层后面，端到端可以不付额外惩罚（Fig. 9）。峰值占用可以到 100%，平均占用差得很多：Softmax 一类计算密集运算平均可到 80%，LL-ViT 里低延迟 LUT 核平均不到 10%——这时差不多 90% 的空闲是 SM 在等 cache / 内存的 load / store。论文强调：平均占用低不等于白做，而可能是 SoL 先算完，访存还没跟上。</p>
+    </section>
+
+    <section class="card" id="s9">
+      <h2>9. 局限与落地可行性</h2>
+      <ul>
+        <li><strong>全部是仿真，没有硅片，也没有真实 GPU–FPGA 板卡墙钟。</strong>性能走 Accel-Sim，功耗走 AccelWattch + VTR，面积走 COFFE2 再缩放。1.34× / 1.22× / 约 6% 都建立在这套工具链上。和 Raptor 那种早期硅片笔记不是同一类证据，也不能直接当成「在 A100 或 Orin 上已经测到」。</li>
+        <li><strong>1.34× 不要当单一场景的加速读。</strong>它是几何平均，包含加速最明显、几乎全是按位运算的 KWS；去掉后是 1.25×。LLM 的约 1.25× 来自单 batch 推理里的 Softmax，不是高并发服务。语言建模和其余基准还拆在两套 Accel-Sim 配置上（类 A100 vs 类 Orin）。</li>
+        <li><strong>6% 面积是折算值。</strong>分母是 A100 的 826 mm² / 108 SM，分子是 22 nm 贴片面积按 15→7 nm、因子 3.7× 缩到 0.48 mm² / SM。工艺节点、缩放方法和「每 SM 归一化面积」都会改这个百分比。若保持总面积不变、硬塞进 SoL，论文自己写：完全用不到它的规则负载大约会慢 6%；当然也可以把 SoL 配成普通功能单元来补密度，但这只是讨论，没有评测数字。</li>
+        <li><strong>评测时钟偏慢，但对集成偏乐观的地方也有。</strong>260 / 282 MHz 是往保守方向走。另一方面，同芯片多扫描链、小于 10,000 周期的重配置、以及「现代处理器最多 18 层金属，能布下高并行配置互连」是设计假设。16×16 的小核在 needle 上已经慢于基线，说明面积不能随意再砍。</li>
+        <li><strong>编程模型和编译还不是一条产品路径。</strong>当前要靠用户或库作者通过 API 标出加速区；自动改写只是展望。比特流生成有数分钟编译开销。SMSP 级集成会碰到 warp 调度不透明，强制单 warp 在 needle 上反而慢 1.2×。ISA 很薄，但驱动、工具链、调试和占用管理都还没有产品级描述。</li>
+        <li><strong>SoL 不做主存访问，大设计要靠时间折叠或中途重编程。</strong>数据只进专用缓冲。超过织物规模的数据通路，要么时间上折叠复用处理单元，要么在同一内核里快速改比特流、把中间数据留在寄存器堆或 L1。这能用，但把「编译、配置、同步」的负担交给了软件。</li>
+        <li><strong>和已有专用单元、外接加速器没有同平台墙钟对照。</strong>对 LUT-Tensor Core、PICACHU、Tandem、Gemmini 的比较是机制上的；Fig. 15 对外接 FPGA 是定性结论。本文也没有和 Kitsune / Tangram 那类 GPU 数据流笔记、或 Voxel / AMMA 那类 3D 叠层加速器做对照——问题本就不是同一层。</li>
+        <li><strong>未见开源实现。</strong>检索时没有找到与本文配套的 Accel-Sim 模型、VTR 架构文件或示例内核。实验室 PDF 可以核对数字，但周期级结果目前只能读论文。</li>
+      </ul>
+      <div class="callout teal">和已有笔记的分工可以这样看：<code>arch/dataflow/</code> 下的 Kitsune、Tangram、T10 讨论的是如何在现有 GPU 上做数据流执行；<code>arch/GPU/</code> 下的 Cypress、Hwacha、CDNA5 是另一条向量 / SIMT 微结构线索；AMMA、Raptor、Voxel 和 <code>arch/pim/</code> 回答的是注意力或 LLM 要不要换到近存 / 3D 叠层上算。Better Call SoL 问的是：在不放弃 GPU 编程模型和 Tensor Core 的前提下，能不能在 SM 里留一块可改写的细粒度逻辑，把 Softmax、查表、规约这类「不像 GEMM」的片段就地做成数据通路，而不是再出一趟芯片到 FPGA。它出现在 MICRO 2026 Session 1A 的 GPU 微结构场次，和 Session 1B 的 Gossamer、AMMA 不是同一类工作。</div>
+    </section>
+
+    <section class="card" id="s10">
+      <h2>10. 数字速查</h2>
+      <table>
+        <thead><tr><th>项目</th><th>数字</th><th>对照 / 条件</th></tr></thead>
+        <tbody>
+          <tr><td>端到端延迟（Fig. 6）</td><td>几何平均 1.34×；去掉 KWS 后 1.25×</td><td>相对无 SoL 的基线 GPU；Accel-Sim，不是墙钟</td></tr>
+          <tr><td>LLM 端到端</td><td>llama2 / mistral / BERT 约 1.25×；Softmax 本身平均约 3×</td><td>单 batch 推理；llama2 / mistral 用类 A100 配置，BERT 用类 Orin 配置。正文未写 llama2 参数量</td></tr>
+          <tr><td>LL-ViT</td><td>低精度 LUT 层约 6×；另有 Softmax</td><td>查找层平均占用 &lt;10%，约 90% 空闲来自 SM 侧 load / store</td></tr>
+          <tr><td>其他端到端</td><td>kmeans 1.2×（规约约 3×）；tsp 1.15×；particlefilter 1.2×（累积 7×）；needle 1.33×；KWS 最高但无写出的端到端倍数</td><td>Rodinia / HecBench / DWN；嵌入式配置</td></tr>
+          <tr><td>能耗（Fig. 7）</td><td>几何平均 1.22× 下降（每次推理）</td><td>小于延迟收益；含面积、通信和重编程开销</td></tr>
+          <tr><td>动态 load（Fig. 10）</td><td>降 77%</td><td>LL-ViT 前馈块中被加速的部分</td></tr>
+          <tr><td>对「更快 L1」（Fig. 11-a）</td><td>5 拍 L1 仍差 12×；工作集全驻留仍差 10×</td><td>对照带常规 38 拍 L1 的 GPU-SoL；对象是自定义运算延迟</td></tr>
+          <tr><td>对外接 FPGA（Fig. 15）</td><td>正文为定性：搬运主导，GPU-SoL 避开通信瓶颈</td><td>BERT（small）的 Softmax；Zynq UltraScale+ / PCIe 3 与 Virtex UltraScale+ / PCIe 4。未给出可单独引用的倍数</td></tr>
+          <tr><td>REG2SOL 敏感度（Fig. 12-b）</td><td>超过 50 拍时，LL-ViT 仍称有 5× 优势</td><td>用来说明即使搬数延迟被低估，结论方向仍在</td></tr>
+          <tr><td>织物规模（Fig. 13）</td><td>默认 44×44 ≈ 19,360 LUT，needle 上 BLOCK-SIZE=16；16×16 = 2,560 LUT 时差过基线</td><td>针对于 needle 的动态规划阵</td></tr>
+          <tr><td>SMSP 方案</td><td>强制单 warp 线程块导致 1.2× 变慢</td><td>尽管每 SM 的 SoL 单元变多；needle</td></tr>
+          <tr><td>面积</td><td>22 nm 每 SM 约 1.8 mm²；7 nm 折 0.48 mm²；相对 A100 约 6%</td><td>单块 933.19 µm²（N=10/K=6/I=40/W=320）；缩放因子 3.7×（15→7 nm）。A100：826 mm²，108 SM</td></tr>
+          <tr><td>频率</td><td>评测 260 / 282 MHz；7 nm 织物估计 0.9–3.8 GHz</td><td>嵌入式 / 服务器配置；评测取对齐商用 FPGA 的悲观钟</td></tr>
+          <tr><td>重配置</td><td>&lt; 10,000 个 GPU 周期，约 3 W</td><td>LL-ViT 上可藏在非 SoL 层后面</td></tr>
+          <tr><td>默认微结构</td><td>每 SM 1 个 SoL；输入/输出缓冲各 1 KB；LUT only，无 DSP / BRAM</td><td>分布式，不放在 SM 外部，也不默认放到 SMSP</td></tr>
+          <tr><td>跨时钟</td><td>同步器 2 拍；评测另给 SOLEXECUTE 加 10 个 GPU 周期；REG2SOL / SOL2REG 按 1 拍建模</td><td>Accel-Sim 功能单元模型</td></tr>
+          <tr><td>仿真器配置</td><td>嵌入式：16 SM，1300 MHz，83.5 GB/s，L2 4 MB；服务器：108 SM，1410 MHz，1.95 TB/s，L2 20 MB</td><td>Table III，Ampere sm87 / sm80</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      阅读笔记依据 UT Austin LCA 实验室相机就绪稿 <a href="https://lca.ece.utexas.edu/pubs/nag_micro26.pdf">nag_micro26.pdf</a>（Better Call SoL: Enhancing GPUs with a Sea-of-LUTs Core；IEEE PDF eXpress 认证于 2026-09-11；MICRO 2026 Session 1A；2026-11-26 读，Asia/Shanghai）。1.34× / 1.22× / 约 6% 等数字来自 Accel-Sim、AccelWattch、COFFE2 与 VTR 的仿真与缩放，不是硅片或板卡墙钟。检索时未见 arXiv 条目，也未见配套开源代码。未上传论文 PDF。本页是分析笔记，不代表论文作者立场。
+    </footer>
+  </div>
+</body>
+</html>
