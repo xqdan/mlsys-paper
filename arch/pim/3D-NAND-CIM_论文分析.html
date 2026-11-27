@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D-NAND-CIM 论文分析 | 混合键合 3D NAND 模拟存内计算宏</title>
+  <style>
+
+
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  
+  
+  
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge">arXiv:2611.27479v1</span>
+      <span class="badge">cs.ET · 未标注会议</span>
+      <span class="badge">© 2027 IEEE 版权行</span>
+      <span class="badge hot">模拟存内计算 · 3D NAND CIM 宏</span>
+      <span class="badge ok">IBM Research × Micron</span>
+      <span class="badge warn">宏级硅片测量 + 网络混合推理，不是完整网络纯芯片端到端</span>
+    </div>
+    <h1>3D-NAND-CIM：把 14 nm 逻辑混合键合到 3D NAND 上，先把权重密度做到 4.8M/mm²</h1>
+    <p class="subtitle">这是一颗 prototype / concept vehicle：Chip-on-Wafer 混合键合 14 nm FinFET 逻辑芯片与 3D NAND Flash 存储晶圆，权重编到 16 档电导，用电流控制振荡器 ADC 做 MAC。能效并不高于先前的 PCM / ReRAM 演示；真正往前推的是单位面积可放的权重量，以及前 48 层 tier 上大致平稳的 3–4 bit 等效精度。</p>
+    <p class="meta">
+      <strong>作者：</strong>共同一作 Pritish Narayanan（IBM Research, San Jose）、Athanasios Vasilopoulos（IBM Research, Zurich）。其余作者来自 IBM Research（San Jose、Zurich、Yorktown Heights、Tokyo）、Micron Technology（Novi、Folsom、Boise、Tokyo、San Jose）以及 University of Patras。<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.27479">arXiv:2611.27479</a> · 2026-11-20 提交 · 5 页 · 页脚有 © 2027 IEEE，正文未写已录用会议，不以 ISSCC 或其它会议已发表论处。<br />
+      <strong>评测口径：</strong>宏的 MVM 误差、能效和面积效率来自键合后测试车的硅片测量；WideResNet-16-8 是把 11M 权重部署到芯片上，权重层 MVM 在 NAND tiers 上执行，其余运算在软件。不要读成完整网络纯芯片端到端，也不要把 360 ns 能效点和网络演示用的 550 ns 积分时间混在一起。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：AIMC 还没有走到够大的权重容量</a></li>
+      <li><a href="#s3">做法：3D NAND 阵列加上 14 nm 逻辑外围</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">和已有近存笔记的关系</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">IBM Research 和 Micron 展示了一颗混合键合的 3D NAND 模拟存内计算宏：14 nm FinFET 逻辑芯片以 Chip-on-Wafer 方式键到 3D NAND Flash 存储晶圆上，权重按 4-bit 目标写成 16 档电导，用电流控制振荡器（CCO）ADC 做 MAC。按 ADC、输入驱动、SRAM 和本地控制器估算的 5 mm² 有效宏面积，他们给出 4.8M weights/mm² 的权重密度和 24M 的宏容量；NAND 存储本身大约只有 0.25 mm²。前 48 层 tier 上，8-bit 输入的权重等效精度落在 3–4 bit 之间。把 MVM 时间收到 360 ns 时，测到 4.2 TOPS/W、0.58 TOPS/mm²，误差相当于 x8w3，峰值吞吐 2.92 TOPS。WideResNet-16-8 的 11M 权重全部部署到芯片，权重层 MVM 在片上执行、其余运算在软件：CIFAR-10 / CIFAR-100 在 Conv0 也走硬件时分别是 95.96% / 76.57%，相对浮点软件基线 96.39% / 79.8%，下降约 0.43 和 3.23 个百分点。这是宏级硅片测量加网络混合推理，不是完整网络纯芯片端到端。</p>
+    <div class="kpi">
+      <div>
+        <div class="n">4.8M /mm²</div>
+        <div class="k">权重密度；24M 权重除以估算的 5 mm² 有效宏面积。图 6 约定 1M = 1024×1024</div>
+      </div>
+      <div>
+        <div class="n">4.2 TOPS/W</div>
+        <div class="k">360 ns MVM、误差相当于 x8w3 时的能效；面积效率 0.58 TOPS/mm²，峰值 2.92 TOPS</div>
+      </div>
+      <div>
+        <div class="n">3–4 bit</div>
+        <div class="k">8-bit 输入下，前 48 层 tier 的权重等效精度；优于 x8w3，略差于 x8w4</div>
+      </div>
+      <div>
+        <div class="n">0.43 / 3.23 pp</div>
+        <div class="k">WideResNet-16-8 在 CIFAR-10 / 100 上相对浮点基线的精度下降（Conv0 在硬件；其余运算在软件）</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：AIMC 还没有走到够大的权重容量</h2>
+    <p>通用 CPU / GPU 的能效，在模型涨到数十亿参数时已经吃力。模拟存内计算（AIMC）把矩阵–向量乘放到非易失存储器阵列里并行做，去掉静态权重搬运，也和近来把大语言模型里大块全连接层交给专用推理加速器、把宝贵 DRAM 留给 KV cache 的趋势对得上。</p>
+    <p>作者认为，直到这项工作之前，AIMC 还没有展示出一条路，既能提供现代模型所需的很大权重容量，又能保住它高能效、高吞吐和低延迟的好处。这篇要回答的，不是“再做一个更省电的小阵列”，而是：用已经量产、本身就靠往上叠层扩容量的 3D NAND，再通过混合键合把 14 nm 逻辑外围接上去，宏的权重密度能不能上一个数量级。</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：3D NAND 阵列加上 14 nm 逻辑外围</h2>
+    <h3>混合键合测试车</h3>
+    <p>这是一颗 prototype / concept vehicle，不是产品形态的完整加速器。14 nm FinFET 逻辑芯片（含输入驱动和 ADC 等 IMC 电路）混合键合到定制的 3D NAND Flash 存储晶圆上；逻辑晶圆是在常规 14 nm 代工晶圆上补层做成的。存储晶圆上的再布线层形成一个共同的 pad-cage，同时服务逻辑芯片和存储晶圆。两片晶圆顶面都是暴露的、边长数微米的方形铜垫，排在连续方格上，边角有对准图形。</p>
+    <div class="callout teal">作者明确写了：Wafer-on-Wafer 混合键合更成熟、成品率更好，但原型阶段用 Chip-on-Wafer，是为了不必把逻辑和存储的 reticle pitch 精确对齐。减薄和划片经过优化，键合后先筛 NAND 阵列健康、穿过约 330 对 hybrid-bond 的 via-chain 健康，以及 pad 连续性，合适的测试车再划片、打线。</div>
+    <h3>编程和 MVM 是两步，高压要和逻辑断开</h3>
+    <p>测试分两步。先在存储晶圆上做块擦除，再按器件仔细编程：对选定 wordline 层加适合 Fowler–Nordheim 隧穿的电压，未选中 wordline 被抑制。这里编的不是用阈值电压判别的数字态，而是 4-bit 目标下的 16 档模拟电导。</p>
+    <p>编程之后，存储晶圆切到 MVM 模式：选中某个 tile 的某一层 tier，由逻辑芯片经 1024 条 hybrid-bond 驱动阵列的 row-line；列线电流经另一组 hybrid-bond 送到逻辑芯片上的 ADC。编程时相关 hybrid-bond 信号会断开，避免 NAND 编程高压打到逻辑芯片。四个 NAND 阵列各自有 512 条列线 hybrid-bond，对应逻辑芯片上共 2048 个 ADC；这个初始原型里，四个阵列共享同一组 1024 条 row-line hybrid-bond。</p>
+    <h3>有符号权重、8-bit 输入和 CCO ADC</h3>
+    <p>一个逻辑“权重”用一对物理 row-line 和一对物理 column-line 编码。正输入走第一条 row-line，负输入走第二条。逻辑芯片上的输入驱动按电压和脉宽实现有符号 8-bit 输入。片上本地控制器（LC）由片上 PLL 提供约 700 MHz 时钟，把 8-bit 输入装进一块较大的 SRAM，再在 MVM 期间控制输入驱动。有符号权重只把四个 NAND 器件中的两个编到目标电导，另外两个编到尽可能深的低电导；逻辑结果是两条物理列线积分电流之差。若后续层用 ReLU、输入变为非负，就可以每条 row-line 放一个权重，可用行数翻倍——WideResNet-16-8 的演示就用了这一点。</p>
+    <p>每条物理列线接一个专用的电流控制振荡器（CCO）ADC：模拟前端把电流送到两颗小电容之一，数字后端统计电容充放电次数。最多 2048 个片上 ADC 同时测 MAC 电流。ADC 可校准把列线钳在标称 500 mV 读电压的 VDAC、电流镜增益，以及振荡频率升高时的电荷损失二次校正。多 bit 输入把一次 MVM 积分拆成多个 bit-slice，可用脉宽减半、计数器权值减半，或按从高位到低位改脉冲幅度。slice 结束时电容上的残余电荷若不处理，就是量化误差。ADC 因此提供电荷保持（charge-retention），以及不保持时从 0 V 开始（丢弃全部电荷）或从 V<sub>DD</sub>/2 开始（四舍五入）两种选择。积分完成后，数字化结果进 SRAM，由 FPGA 读出。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <div class="callout warn">这里至少有三类不要混用的结果：合成数据上的宏级 MVM 测量、能效/面积效率随 MVM 时间的扫描，以及把真实网络权重编进去后的混合推理。网络精度不是“整网在芯片上从头跑到尾”，能效点也不是网络演示用的积分时间。</div>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>宏级 MVM（硅片实测）</h4>
+        <p>图 4 给出四个 tile 之一、前 48 层 tier 里 6 层的测量–理想相关，以及全部前 48 层、256 个权重列的 MVM-σ。输入和权重来自合成“四象限”数据：权重和激活都有正负，权重稀疏 50%，激活稀疏 90%。MVM-σ 是测量输出与期望输出之差的标准差，再除以用来把输出缩放到 [−1, 1] 的最大期望幅度。它随输入/权重分布变化，并包含 IR drop、编程误差和量化等全部非理想。</p>
+      </div>
+      <div class="tile">
+        <h4>能效扫描（硅片实测 + 面积估算）</h4>
+        <p>图 5 上半通过缩短总 MVM 时间（含 slice 之间的建立），画出 MVM-σ 相对 TOPS/W 和 TOPS/mm² 的折中，并用了两套计数器权值（方块/圆点）。功耗是把若干种不同的 MVM 放进无限循环测的；面积按 ADC、输入驱动、SRAM 和 LC 估算为 5 mm²。作者写明：这个面积明显小于眼前这辆被电路和 pad-cage 复用放大的测试车，但又明显大于 NAND 器件本身的面积（约 0.25 mm²）。</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>网络混合推理（片上 MVM + 软件其余运算）</h4>
+        <p>WideResNet-16-8 有三组残差（17 层），通道宽度逐步增加，残差块带 ReLU。在 CIFAR-10 / 100 上训练后的 11M 权重全部部署到芯片。推理时，权重层的全部 MVM 在 NAND tiers 上执行，其余运算在软件。图 5 还标了 Conv0 放在软件或硬件的两组，以及 *MVM 积分时间 550 ns——这和 360 ns 能效点不是同一设置。</p>
+      </div>
+      <div class="tile">
+        <h4>对比表是文献对照，不是同芯片复现</h4>
+        <p>图 6 把本工作与近年 NVM AIMC 或 SRAM IMC 演示并列，口径是 8-bit 激活。SRAM 一列的能效带星号：不含周期性重新装载权重。单位约定 1K = 1024，1M = 1024×1024。不要把表里前人的 TOPS/W 读成本芯片上复测的数。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <h3>前 48 层 tier 的误差大体平稳，落在 3–4 bit 之间</h3>
+    <p>图 4 上半给出 6 层的相关图：Tier 1 / 10 / 20 / 30 / 40 / 48 的 MVM-σ 分别是 2.84%、2.33%、2.51%、2.51%、2.51%、2.69%。下半把前 48 层都画出来，噪声大体平稳，低于 8-bit 输入乘 3-bit 数字权重的量化误差 x8w3（3.79%），但还没有低到 x8w4（1.39%）。摘要写成“3 到 4 bit 之间”，指的就是这条带子，而不是每一层都精确等于 4 bit。</p>
+    <div class="callout">图 5 能效扫描里，用作参照的 x8w3 / x8w4 是 4.06% 和 1.48%，和 图 4 的 3.79% / 1.39% 不同。论文已经说明 MVM-σ 依赖输入和权重分布，两张图不要混抄。</div>
+    <h3>360 ns 时 4.2 TOPS/W，电荷保持有用，盲目四舍五入几乎没用</h3>
+    <p>每个 bit-slice 之后都保持电荷，或至少在计数器权值相同的 slice 上保持，能明显降低误差；在 slice 之间盲目“四舍五入”几乎没有帮助。时间和精度有一条平滑折中。在相当短的 360 ns MVM 时间下，能效 4.2 TOPS/W、面积效率 0.58 TOPS/mm²，误差相当于 x8w3；图 6 还给出此时峰值吞吐 2.92 TOPS（x8w3），以及 tile 级 MVM-σ 误差 4.1%。功耗来自无限循环测量，面积是 5 mm² 估算值。作者设想下一代会把 SRAM 换成更瘦的 double-buffer 并接上二维 mesh 之类的互连，删掉 ADC 和输入驱动里用不到的双向、额外校准和多余模式，再用状态机替换带大 SRAM 程序缓冲的灵活 LC，以提高面积效率。</p>
+    <h3>网络精度是混合推理，Conv0 放哪也要分开写</h3>
+    <p>图 5 下半和正文给出三组 CIFAR 精度，积分时间是 550 ns：</p>
+    <table>
+      <thead>
+        <tr><th>设置</th><th>CIFAR-10</th><th>CIFAR-100</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>浮点软件基线</td><td>96.39%</td><td>79.8%</td></tr>
+        <tr><td>片上，Conv0 在软件</td><td>96.02%</td><td>77.5%</td></tr>
+        <tr><td>片上，Conv0 在硬件</td><td>95.96%</td><td>76.57%</td></tr>
+      </tbody>
+    </table>
+    <p>摘要写的约 0.4%（CIFAR-10）和 3.23%（CIFAR-100）精度下降，图 6 写成 0.43% / 3.23%，对应的是“Conv0 在硬件”相对浮点基线：96.39 − 95.96 = 0.43，79.8 − 76.57 = 3.23。不要用“Conv0 在软件”那一组去对摘要，也不要把其余仍在软件里的运算写成整网纯硬件。</p>
+    <h3>密度是真正拉开差距的指标，4.2 TOPS/W 并不是</h3>
+    <p>图 6 的对照里，本工作的 TOPS/W 和 TOPS/mm² 与先前 NVM AIMC 演示相近，但 weights/mm² 高了几个数量级：本工作 4.8M，对照里 PCM 为 66K / 28K，ReRAM 为 3.9K，NOR Flash 为 410K，SRAM 为 137K。能效上，4.2 TOPS/W 并不高于先前 PCM（20 / 9.76）或 ReRAM（20.7）的演示，也低于带星号、不含重新装载的 SRAM IMC（62.84）。作者把这件事概括为：容量上限的变化有可能让 AIMC 承接更大的模型；这是方向判断，不是这颗宏已经在跑大模型。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 和已有近存笔记的关系</h2>
+    <p>仓库 <code>arch/pim/</code> 里已有的 PIMphony、DCC、Pimba、Tri-Stack-PIM、PIVOT、Tenon、GSPIM，以及正在开放的 PR #28 里的 Synapse、ANOR，主要是 DRAM / HBM / HBF / CXL-PNM 这一路数字近存或近存储系统；<code>arch/</code> 下还有 TOM、Raptor 和 8 栈近存大模型部署。那些笔记回答的是系统怎么切层、怎么调度、编译器怎么做数据重排，不回答“一块模拟 NVM 宏能密到什么程度、等效精度剩几 bit”。</p>
+    <p>更近的对照是 PR #28 里的 DLM-AIMC（Beyond Autoregression，DATE 2027）。两边都是模拟 CIM，也都用了混合键合，但题目不同。DLM-AIMC 用 28 nm eFlash AIMC 加 12 nm 逻辑的 16 芯片集群，关心的是扩散式语言模型能不能比自回归更扛阵列误差，评测是校准仿真加混合测量，贡献在生成范式而不在新宏电路。3D-NAND-CIM 相反：贡献在 3D NAND 宏本身的密度和键合原型，网络只演示到 WideResNet-16-8，没有做语言模型。两篇互补，不要写成同一条故事的重复。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>有利的地方很具体。3D NAND 本来就是按叠层扩容量的存储器，这篇用 Chip-on-Wafer 混合键合把 14 nm 逻辑外围接到定制 NAND 晶圆上，并在前 48 层 tier 上给出大致平稳的 MVM 误差，权重密度按他们的有效宏面积计算达到 4.8M/mm²，比图 6 里的 PCM / ReRAM / NOR / SRAM 演示高几个数量级。高压编程时断开 hybrid-bond、约 330 对 via-chain 筛查、电荷保持电路，都是工程上已经碰到并写进测量的问题，不是只停留在概念图。</p>
+    <p>要当成可用的推理宏，限制同样清楚。等效精度只有 3–4 bit，现代 CNN 已经要小心，更不要直接外推到今天的 LLM 权重。4.2 TOPS/W 不是相对先前 NVM AIMC 的能效跃迁，密度优势成立，并不等于系统能效已经更好。编程是按器件做的 Fowler–Nordheim 隧穿，论文没有把它写成产品级的高吞吐编程方案；保持特性除了电荷保持电路对积分误差的改善，也没有给出长周期保持、干扰或耐久的完整产品数据。权重写进去之后适合静止权重的推理，不适合训练中频繁更新，也不适合要把 KV cache 也放进同一块模拟阵列的生成式服务。</p>
+    <p>和已有 eFlash AIMC（如 DLM-AIMC 笔记里的 28 nm eFlash 集群）相比，3D NAND 的吸引力是容量和密度，不是已经接好的语言模型软件栈，也还不是 Wafer-on-Wafer、reticle 对齐之后的量产键合。作者自己也把 5 mm² 有效面积写成估算，并指出眼前测试车因复用而被放大、未来还要把 SRAM 和灵活 LC 收瘦。更务实的读法是：这是一条“用 3D NAND 做静态权重 AIMC 宏”的硅片证据，距离云端或边缘的完整推理系统都还早。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li>原型用 Chip-on-Wafer，四个阵列还共享同一组 1024 条 row-line hybrid-bond；这不是已经对齐 reticle 的 Wafer-on-Wafer 产品键合。</li>
+      <li>有效宏面积 5 mm² 是按外围电路估算的，不是测试车的实测 Occupied 面积，也不是 0.25 mm² 的 NAND 面积。4.8M/mm²、0.58 TOPS/mm² 都站在这个估算上。</li>
+      <li>4.2 TOPS/W 对应 360 ns、x8w3 误差；网络演示用的是 550 ns 积分时间。两组设置不要混用。</li>
+      <li>图 4 与图 5 的 x8w3 / x8w4 参照值不同，因为 MVM-σ 依赖数据分布。</li>
+      <li>网络只演示 WideResNet-16-8，CIFAR-10/100，而且 ReLU、平均池化等仍在软件。不能外推到完整 CNN 流水线，更不能外推到 LLM。</li>
+      <li>正文没有把会议录用写清楚，只有 © 2027 IEEE 版权行。当前应按预印本阅读。</li>
+      <li>保持、干扰、耐久、编程吞吐和成品率，除了原型筛查和电荷保持对积分误差的作用外，没有作为一阶指标展开。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>出处和条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>逻辑 / 存储</td><td>14 nm FinFET 逻辑芯片混合键合到 3D NAND Flash 存储晶圆</td><td>摘要、图 1；Chip-on-Wafer 原型</td></tr>
+        <tr><td>权重密度 / 宏容量</td><td>4.8M weights/mm²；24M 权重</td><td>摘要、图 6；1M = 1024×1024；密度用 5 mm² 有效宏面积</td></tr>
+        <tr><td>有效宏面积 / 存储面积</td><td>5 mm²（估算）；约 0.25 mm²</td><td>正文：ADC+输入驱动+SRAM+LC；图 6 Memory area</td></tr>
+        <tr><td>Tile / ADC / 键合</td><td>tile 512×256；4 个阵列共享 1024 条 row-line；每阵列 512 条 column-line；共 2048 个 CCO ADC；via-chain 约 330 对</td><td>正文、图 2、图 6</td></tr>
+        <tr><td>权重与输入精度</td><td>1-of-16 电导（4-bit 目标，16 档）；有符号 8-bit 输入</td><td>摘要、正文</td></tr>
+        <tr><td>LC / 读电压</td><td>约 700 MHz（片上 PLL）；标称 500 mV</td><td>正文</td></tr>
+        <tr><td>前 48 层示例 σ</td><td>2.84% / 2.33% / 2.51% / 2.51% / 2.51% / 2.69%</td><td>图 4：Tier 1 / 10 / 20 / 30 / 40 / 48；合成四象限数据，256 列</td></tr>
+        <tr><td>图 4 的 x8w3 / x8w4</td><td>3.79% / 1.39%</td><td>图 4 下半参照线；勿与图 5 混用</td></tr>
+        <tr><td>图 5 的 x8w3 / x8w4</td><td>4.06% / 1.48%</td><td>图 5 上半能效扫描参照线</td></tr>
+        <tr><td>360 ns 工作点</td><td>4.2 TOPS/W；0.58 TOPS/mm²；峰值 2.92 TOPS（x8w3）；tile MVM-σ 4.1%</td><td>正文、图 6；功耗为无限循环测量，面积为 5 mm² 估算</td></tr>
+        <tr><td>网络与积分时间</td><td>WideResNet-16-8，11M 权重全部在芯片；MVM 积分 550 ns</td><td>正文、图 5 注；其余运算在软件</td></tr>
+        <tr><td>CIFAR-10</td><td>96.39% / 96.02% / 95.96%</td><td>图 5：浮点软件 / 片上且 Conv0 在软件 / 片上且 Conv0 在硬件</td></tr>
+        <tr><td>CIFAR-100</td><td>79.8% / 77.5% / 76.57%</td><td>同上</td></tr>
+        <tr><td>摘要/表中的精度下降</td><td>约 0.4%（表为 0.43%）/ 3.23%</td><td>相对浮点基线，对应 Conv0 在硬件</td></tr>
+      </tbody>
+    </table>
+    <p class="figcap">笔记整理于 2026-11-27（Asia/Shanghai），依据 <a href="https://arxiv.org/abs/2611.27479">arXiv:2611.27479v1</a>。阅读笔记 · 3D-NAND-CIM · 不替代原文</p>
+  </section>
+
+  <footer>笔记整理于 2026-11-27（Asia/Shanghai）。阅读笔记，不替代原文。</footer>
+</div>
+</body>
+</html>

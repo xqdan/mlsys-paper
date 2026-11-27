@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReCIM-HD 论文分析 | 40 nm 超维学习与数字–ReRAM 混合 CIM</title>
+  <style>
+
+
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e0d4;
+      --accent: #9a3412;
+      --teal: #0f766e;
+      --navy: #1e3a5f;
+      --shadow: 0 12px 40px rgba(28, 25, 23, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fde68a33, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #99f6e433, transparent 45%),
+        var(--bg);
+      line-height: 1.75;
+    }
+    a { color: var(--navy); }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+    header.hero {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 42px 48px 36px; margin-bottom: 28px; position: relative; overflow: hidden;
+    }
+    header.hero::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px;
+      background: linear-gradient(180deg, #c2410c, #0f766e);
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .badge {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px;
+      background: #f5f5f4; color: var(--muted); border: 1px solid var(--line);
+    }
+    .badge.hot { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+    .badge.ok { background: #ccfbf1; color: #115e59; border-color: #5eead4; }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+    .meta {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13.5px; color: var(--muted);
+    }
+    .meta strong { color: var(--ink); }
+    nav.toc {
+      background: var(--paper); border: 1px solid var(--line); padding: 22px 28px; margin-bottom: 28px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    nav.toc ol { margin: 0; padding-left: 22px; columns: 2; font-size: 14.5px; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+      padding: 34px 42px 38px; margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 16px; font-size: 23px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    h3 { margin: 26px 0 10px; font-size: 18px; color: var(--navy); }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .lead { font-size: 17.5px; color: #292524; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .tile { background: #faf7f2; border: 1px solid var(--line); padding: 16px 16px 14px; }
+    .tile h4 { margin: 0 0 6px; font-size: 15px; }
+    .tile p { margin: 0; font-size: 14px; color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--accent); background: #fff7ed; padding: 12px 16px;
+      margin: 16px 0 18px; font-size: 15px;
+    }
+    .callout.teal { border-left-color: var(--teal); background: #f0fdfa; }
+    .callout.warn { border-left-color: #d97706; background: #fffbeb; }
+    .callout.navy { border-left-color: var(--navy); background: #f0f4f8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #f5f0e6; font-weight: 650; }
+    tr:nth-child(even) td { background: #faf8f4; }
+    footer { margin-top: 10px; color: var(--muted); font-size: 13px; text-align: center; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 8px; }
+    .kpi .n {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: "Segoe UI", sans-serif; line-height: 1.2;
+    }
+    .kpi .k { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .kpi > div { background: #fff7ed; border: 1px solid #fed7aa; padding: 12px 12px 10px; }
+    .fig {
+      margin: 18px 0 8px; background: #faf8f4; border: 1px solid var(--line);
+      padding: 16px 12px 10px; overflow-x: auto;
+    }
+    .fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .figcap {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 16px;
+    }
+    code { font-family: "Cascadia Code", Consolas, monospace; font-size: 0.92em; background: #f5f0e6; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      header.hero, section.card { padding: 24px 18px; }
+      nav.toc ol, .grid-2, .grid-3, .kpi { columns: 1; grid-template-columns: 1fr; }
+    }
+  
+  
+  
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="badge-row">
+      <span class="badge">arXiv:2611.23973v1</span>
+      <span class="badge">cs.AR · 未标注会议</span>
+      <span class="badge hot">40 nm 流片 · ReRAM CIM</span>
+      <span class="badge ok">UC San Diego × EPFL × TSMC</span>
+      <span class="badge warn">硅片实测加速器；评测是边缘 HDC 任务，不是大模型</span>
+    </div>
+    <h1>ReCIM-HD：40 nm 片上超维学习加速器，用重要性把少数维度留在数字侧</h1>
+    <p class="subtitle">无梯度超维计算做边缘增量学习，foundry 128 KB 1T1R ReRAM 存类超矢量并做模拟 CIM 相似度搜索。Hybrid 模式 44.17 TOPS/W 和 ReRAM CIM 模式 75.8 TOPS/W 不要混用；摘要里相对 SOTA 的“最高 20.1×”，用的是 75.8 去除以 Clo-hdnn 的 3.78，不是 44.17。</p>
+    <p class="meta">
+      <strong>作者：</strong>Keming Fan<sup>1,†</sup>、Chang Eun Song<sup>1,†</sup>、Soumil Jain<sup>1</sup>、Weihong Xu<sup>2</sup>、Gopabandhu Hota<sup>1</sup>、Haichao Yang<sup>1</sup>、Leo Liu<sup>3</sup>、Meng-Fan Chang<sup>3</sup>、Carlos H. Diaz<sup>3</sup>、Gert Cauwenberghs<sup>1</sup>、Tajana Rosing<sup>1</sup>、Mingu Kang<sup>1</sup>（† 共同一作）<br />
+      <strong>单位：</strong><sup>1</sup>University of California, San Diego, USA；<sup>2</sup>EPFL, Switzerland；<sup>3</sup>Taiwan Semiconductor Manufacturing Company (TSMC)<br />
+      <strong>原文：</strong><a href="https://arxiv.org/abs/2611.23973">arXiv:2611.23973</a> · 2026-11-18 提交 · 4 页 · 正文未标注录用会议<br />
+      <strong>评测口径：</strong>40 nm CMOS 硅片实测。正文写 die area 5.1 mm²，并集成 foundry 128 KB 1T1R ReRAM 宏；表 I 的面积列是 10.6 mm²，正文没有解释这两个面积如何对应，笔记不以“含 IO PAD”断言。端到端精度在 ISOLET、PAMAP2、UCIHAR 上评估，不是大模型；训练是无梯度 HDC，不是反传。
+    </p>
+  </header>
+
+  <nav class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#s1">一句话结论</a></li>
+      <li><a href="#s2">问题：边缘学习又贵、又怕掉电、模拟还不准</a></li>
+      <li><a href="#s3">做法：HDC 学习 + ReRAM CIM + 按重要性混合搜索</a></li>
+      <li><a href="#s4">实验怎么做的</a></li>
+      <li><a href="#s5">结果怎么读</a></li>
+      <li><a href="#s6">和已有近存笔记的关系</a></li>
+      <li><a href="#s7">落地可能性</a></li>
+      <li><a href="#s8">局限</a></li>
+      <li><a href="#s9">数字速查</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s1">
+    <h2>1. 一句话结论</h2>
+    <p class="lead">ReCIM-HD 是一枚 40 nm 片上学习加速器，把无梯度超维计算（HDC）和 ReRAM 模拟存内计算合在一起：数字 HD 模块做编码、训练和部分相似度搜索，foundry 128 KB 1T1R ReRAM 存放双极类超矢量，并在 CIM 模式下做模拟相似度搜索。为了对付模拟非理想，离线按重要性排出一小部分关键维度走数字通路，其余（α = 10% 时约 90%）走 ReRAM CIM。硅片实测给出 hybrid 模式最高 44.17 TOPS/W（α = 10% 的推理，HD 模块供电 0.7–1.1 V）和 ReRAM CIM 模式 75.8 TOPS/W。摘要和结论里相对 SOTA 加速器“最高 20.1×”的能效，比较对象是 VLSI 2025 的 Clo-hdnn（3.78 TOPS/W），用的是 75.8 / 3.78，不是 hybrid 的 44.17 / 3.78。正文另有相对先前工作 20.1–56.6× 能效、3.4–6.6× 面积效率的范围，并不是全部相对同一个基线。评测是 ISOLET、PAMAP2、UCIHAR 上、10 个 epoch、超维 D = 1024 的端到端系统精度，不是大模型。</p>
+    <div class="kpi">
+      <div>
+        <div class="n">44.17 TOPS/W</div>
+        <div class="k">Hybrid 模式峰值：α = 10% 推理，HD 模块 0.7–1.1 V</div>
+      </div>
+      <div>
+        <div class="n">75.8 TOPS/W</div>
+        <div class="k">ReRAM CIM 模式；图 10 中 ReRAM 模块 5.4 mW，占总功耗 11%（1.1 V、200 MHz）</div>
+      </div>
+      <div>
+        <div class="n">20.1×</div>
+        <div class="k">75.8 / 3.78，相对 VLSI 2025 Clo-hdnn；不是 44.17 对 3.78</div>
+      </div>
+      <div>
+        <div class="n">+1.91–8.46%</div>
+        <div class="k">α = 10% 相对 CIM-only 的精度提升；同时相对全数字能耗低 9.32×。正文未给绝对准确率</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 问题：边缘学习又贵、又怕掉电、模拟还不准</h2>
+    <p>片上学习（ODL）被用来在端侧持续适应环境，同时把数据留在本地。但边缘设备在算力、存储和带宽上都紧。作者把已有 ODL 加速器的困难写成三件事（图 1）：（C1）基于梯度的训练计算量大，片上内存不够时还要在处理器和存储器之间反复搬数据；（C2）DRAM / SRAM 这类易失存储，在设备因间歇输入而电源门控时，模型要重新装载；（C3）非易失 CIM 可以减轻重新装载，但模拟 CIM 和器件非理想会明显掉精度。</p>
+    <div class="callout warn">图 1 里“边缘设备大部分时间空闲、输入间歇”是对挑战的示意图，并引用了文献 [4]，不要写成这篇论文自己测到的空闲比例。</div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 做法：HDC 学习 + ReRAM CIM + 按重要性混合搜索</h2>
+    <p>对应上述三点，ReCIM-HD 的三条主技术是：用无梯度 HDC 做边缘 ODL，避免反传；用非易失 ReRAM 存类超矢量并做 CIM 相似度搜索，空闲时可电源门控而不丢模型；用混合数字–模拟推理，只把一小部分对精度关键的维度留在数字侧。此外还有 Kronecker HD 编码器（KE）降低编码开销，以及定制 ISA 以编程 HDC 和 CIM 操作。论文自称这是把 HDC 片上学习和 ReRAM CIM 推理合在一起的首个硅片原型。</p>
+    <h3>整体数据通路</h3>
+    <p>图 3 里，HD 模块用数字电路覆盖完整 HDC 流水线（编码、训练、相似度搜索）；ReRAM CIM 模块存放双极（+1 / −1）类超矢量（CHV），并在推理时做模拟相似度搜索；全局 FIFO 负责两侧的数据交换和同步。输入特征先被 KE 编成双极查询超矢量（QHV）。KE 分两相，每相都是 reshape 再做矩阵乘。相对基于随机投影的编码，KE 把存储降到 1/204.8、计算降到 1/21.3，办法是把一个大投影矩阵分解成两个小矩阵。之后用点积相似度把 QHV 和全部 CHV 比较，距离最小的类作为预测。</p>
+    <h3>重要性混合搜索</h3>
+    <p>关键维度只离线识别一次，推理时保持静态。具体做法（图 4(c)）是构造一个对所有 CHV 给出相同相似度的合成向量，再看每个维度上各 CHV 相对这个参考的偏差，取其均值 A<sub>i</sub> 和方差 V<sub>i</sub>，按 β·V<sub>i</sub> + (1−β)·A<sub>i</sub> 排序，取前 α 比例作为关键集合。数字侧把各 CHV 的关键维度放在片上 cache，每拍取出一段 CHV 的 64 个 MSB，与对应 QHV 段做 XOR 和加法树，得到部分相似度。模拟侧把其余维度（约 90%，即 1−α）放进 ReRAM，用模拟 CIM 评估。两边分数相加，写入距离表。</p>
+    <h3>训练不是反传</h3>
+    <p>HD 训练时，HD 模块用 KE 把每个样本编成双极 QHV，再把同类 QHV 累加，形成 CHV。再训练（retraining）先做一次 HD 推理：若预测正确，把该 QHV 加到对应 CHV 上以巩固；若预测错误，则从被分错的 CHV 里减去这个 QHV。没有梯度、没有反向传播。</p>
+    <h3>ReRAM 宏：读写和 CIM 用不同映射</h3>
+    <p>ReRAM 模块包含数字控制器、1k×1k 的 1T1R 阵列以及驱动和 ADC。普通读写用单差分映射，每个双极 bit 占两个单元，以尽量提高存储密度；CIM 相似度搜索改用双差分，每个双极 bit 占四个单元，以提高精度和抗噪。CIM 时每个 CHV 按列存放，维度超过行数就分段铺到多列。QHV 通过 wordline 编码；BL+ / BL− 分别偏置在 V<sub>ref</sub>+V<sub>read</sub> 和 V<sub>ref</sub>−V<sub>read</sub>，与输入无关。激活单元按极性向共享 sourceline 贡献正或负电流，稳态时 SL 电容电压表示点积相似度，再经 4-bit flash ADC 转换。每个 ADC 共享 16 条 SL。部分和在 ReRAM 控制器里累加到完整维度，再送回 HD 模块，完成端到端推理。</p>
+    <h3>定制 ISA</h3>
+    <p>指令是 20 bit：4-bit 操作码加 16-bit 操作数，覆盖数字 HDC 和 ReRAM CIM。ISA 暴露可编程的写脉冲宽度，以及 VMM 时 16 / 32 / 64 行激活和按 burst 控制的列并行。作者为每条指令提供了 C/C++ intrinsic，高层代码里的内联汇编可以直接编成对应字节码。</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 实验怎么做的</h2>
+    <div class="callout warn">这是 40 nm 流片后的硅片测量，不是宏仿真顶替芯片。但评测负载是三个边缘识别数据集上的 HDC，不是大模型，也不是通用反传训练。绝对准确率只画在图 12 的柱上，正文只给了相对 CIM-only 的提升和相对全数字的能耗比，笔记里不估计柱高。</div>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>芯片规格（图 9、正文 §III）</h4>
+        <p>40 nm CMOS，正文写 die area 5.1 mm²，集成 foundry 128 KB 1T1R ReRAM 宏。表 I 写作 34 KB SRAM + 128 KB ReRAM，面积 10.6 mm²；这两个面积数字并存于原文，正文没有说明 10.6 mm² 是否包含 IO PAD，这里不加推断。供电 0.7–1.1 V，HD 模块和 ReRAM CIM 模块频率 50–200 MHz。表 I 的精度列为 INT1–8。</p>
+      </div>
+      <div class="tile">
+        <h4>功耗与能效（图 10）</h4>
+        <p>功耗分解给在 1.1 V、200 MHz：ReRAM 模块 5.4 mW，占总功耗 11%，并在这一模式下给出 75.8 TOPS/W；HD 模块 35.1 mW（73%），Cache 6.8 mW（14%），另有 Controllers 和 Global FIFO 各 1%。Hybrid 搜索在 α = 10%、HD 模块 0.7–1.1 V 的推理中最高到 44.17 TOPS/W。</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="tile">
+        <h4>ReRAM 读出和 VMM（图 11）</h4>
+        <p>用片上 4-bit flash ADC 配成 1-bit 比较器，扫描参考电压，收集 1024 个单元读出的 CDF。图 11 给出编程后立即和一天后的二进制读出分布，以及推理时每周期激活 32 行的 VMM 输出 CDF（期望值与测量值）。这是器件和 CIM 运算的直接测量。</p>
+      </div>
+      <div class="tile">
+        <h4>端到端精度与能耗（图 12）</h4>
+        <p>三个基准：ISOLET（语音）、PAMAP2（体力活动）、UCIHAR（人体活动）。图 12 扫描不同保护比例 α，能量柱对应超维 D = 512 / 1024 / 2048，精度柱标明 10 个 epoch、HV D = 1024。这是论文在硅片结果一节里报告的端到端系统精度，不要写成大模型实测。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 结果怎么读</h2>
+    <h3>两个 TOPS/W 是两种模式，20.1× 用的是 CIM-only</h3>
+    <p>44.17 TOPS/W 是 hybrid 模式、α = 10% 推理、HD 模块 0.7–1.1 V 下的峰值；75.8 TOPS/W 是 ReRAM CIM 模式，和 图 10 里 ReRAM 模块只占 11% 功耗（5.4 mW @ 1.1 V、200 MHz）放在一起写。正文把 hybrid 峰值和 ReRAM CIM 模式写成两个不同工作点，不要混用。</p>
+    <p>摘要写 “delivering up to 20.1× higher energy efficiency than the state-of-the-art accelerator”，结论写明比较对象是 SOTA 加速器 [4]。[4] 是 Clo-hdnn（VLSI 2025），表 I 列出其峰值 3.78 TOPS/W。75.8 / 3.78 ≈ 20.1，而 44.17 / 3.78 只有约 11.7 倍。也就是说，这个“最高 20.1×”用的是精度更差的 CIM-only 能效，不是 hybrid 模式。不要把 44.17 TOPS/W 和 20.1× 直接绑在同一个工作点上。</p>
+    <p>同一段正文还有“相对先前工作 20.1–56.6× 能效、3.4–6.6× 面积效率”。这个范围不是对同一个基线：表 I 里面积效率 0.092（HDC + ReRAM）相对 VLSI’25 的 0.027 和 ESSERC’24 的 0.014，分别约是 3.4× 和 6.6×；能效范围的一端 20.1× 已如上，对应 75.8 对 3.78。表 I 中 ESSERC’24 一列的峰值能效写的是 0.78 TOPS/W，44.17 / 0.78 约等于 56.6，但论文没有在句子里点名这个端点，笔记只把它当作与表格相符的对照，不当成正文已经写死的定义。ISSCC’23 那一列的 20.84 TOPS/W 和 0.086 TOPS/mm² 还注明是按文献 [14] 缩放到 40 nm 的，不能当成 22 nm 原片上的数直接比。</p>
+    <h3>α = 10% 是精度和能量的折中，不是免费午餐</h3>
+    <p>全模拟 CIM 相对全数字处理能效高 123.87×，但精度更差。α = 10% 的 hybrid 搜索相对 CIM-only 把精度提高 1.91–8.46%，同时相对全数字把能耗降到 1/9.32。图 12 在 10 个 epoch、HV D = 1024 下标出三个数据集上相对 CIM-only 的精度增量：ISOLET +8.46%，PAMAP2 +1.91%，UCIHAR +3.71%。加大 α 还能再收回精度，但能耗也会上去。正文没有给出各柱的绝对准确率，这里不估计。</p>
+    <h3>ReRAM 读出一天后仍可分态，VMM 是 32 行/周期的测量</h3>
+    <p>图 11 左图把编程后立即和一天后的读出 CDF 叠在一起，低阻和高压态仍分开；右图是 32 行激活下期望与测量的 VMM CDF。这支持“可以做 CIM 相似度”，但一天后的读出不等于产品级长期保持，也不等于 hybrid 推理的全部误差来源都已被量化。</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 和已有近存笔记的关系</h2>
+    <p>仓库 <code>arch/pim/</code> 已有的 PIMphony、DCC、Pimba、Tri-Stack-PIM、PIVOT、Tenon、GSPIM，以及 PR #28 中尚未合入 main 的 Synapse、ANOR，讨论的是 DRAM / HBM / HBF / CXL-PNM 系统怎么承载大模型推理或编译。这篇不在那条线上：它是一枚 40 nm 边缘学习芯片，模型是超维类超矢量，不是 Transformer 权重，训练是加减超矢量，不是反传。</p>
+    <p>和今天同时写的 3D-NAND-CIM，以及 PR #28 里的 DLM-AIMC 一样，它属于模拟 CIM 这一侧，但角色不同。3D-NAND-CIM 做的是静态权重推理宏的密度；DLM-AIMC 问的是语言模型在 eFlash AIMC 误差下该用哪种生成方式；ReCIM-HD 问的是边缘 ODL 能不能用 ReRAM CIM 做相似度搜索，并用少数数字维度补回精度。三者互补，不要写成同一套“近存加速大模型”叙事的重复。</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 落地可能性</h2>
+    <p>适用面先要收窄：这是给边缘增量学习的无梯度 HDC，不是通用 LLM 训练，也不是通用 CNN 反传加速器。评测落在 ISOLET、PAMAP2、UCIHAR 这类语音或活动识别任务上，超维 D = 1024、训练 10 个 epoch，不要读成开放类别的大模型。在这个范围内，方案的好处写得很清楚——学习是累加和加减，ReRAM 非易失可以在电源门控时保住类超矢量，CIM 把相似度搜索留在阵列里，混合数字通路只保护一小部分维度。</p>
+    <p>代价也要按原文读。全 CIM 能效最高，但精度最差，20.1× 这个醒目倍数正是站在 CIM-only 的 75.8 TOPS/W 上；hybrid 把精度拉回来之后，峰值是 44.17 TOPS/W。关键维度是离线选好、推理时静态的，环境或类别分布一变，α 集合会不会过时，论文没有当作实验主线。ReRAM 非理想被图 11 的读出和 VMM 测量以及 hybrid 保护同时承认：一天后的态分离是有用的证据，但还不是长周期保持、干扰和耐久的产品数据。双差分 CIM 映射每个 bit 用四个单元，相对普通读写的双单元会牺牲密度，这是为精度付的存储开销。</p>
+    <p>工艺是 40 nm，和更先进逻辑节点上的数字加速器比面积和能效时，表 I 已经把部分对照缩放到 40 nm；不要再随手折算到 7 nm 或 5 nm。功耗门控和非易失的实际价值，取决于边缘设备是不是真的经常关机、以及重新训练或重新加载的成本——这是设计动机，不是这篇芯片上测到的系统级占空比。更务实的落点，是把 ReCIM-HD 看作“HDC + 混合 CIM”在硅片上的存在性证明，而不是可以接进现有大模型训练或推理栈的模块。</p>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 局限</h2>
+    <ul>
+      <li>评测只有 ISOLET、PAMAP2、UCIHAR，10 个 epoch、D = 1024。不能外推到大模型或通用反传训练。</li>
+      <li>正文只给相对精度变化和能耗比，没有写出绝对准确率；笔记不从图 12 柱高估计。</li>
+      <li>“最高 20.1×”用的是 ReRAM CIM 模式能效，该模式在文中被明确写成精度更差。</li>
+      <li>20.1–56.6× 和 3.4–6.6× 是对多篇先前工作的范围，不是对单一基线。</li>
+      <li>表 I 中 ESSERC’24 一列写 0.78 TOPS/W，与该文标题里出现的 5.7 TOPS/W 字面不一致，比较时应以表 I 为准，并知道这里可能有口径差别。</li>
+      <li>ISSCC’23 的面积/能效经过 40 nm 缩放；关键维度离线选定后推理期固定；保持数据只展示到编程后一天。</li>
+      <li>正文写 die area 5.1 mm²，表 I 用 10.6 mm²，正文未解释二者关系。引用面积效率时应对齐表 I 所用面积。</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 数字速查</h2>
+    <table>
+      <thead>
+        <tr><th>条目</th><th>数字</th><th>出处和条件</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>工艺与面积</td><td>40 nm CMOS；正文 die area 5.1 mm²；表 I 面积列为 10.6 mm²</td><td>§III、表 I。二者关系正文未解释</td></tr>
+        <tr><td>片上存储</td><td>foundry 128 KB 1T1R ReRAM 宏；表 I：34 KB SRAM + 128 KB ReRAM</td><td>正文、表 I</td></tr>
+        <tr><td>频率 / 电压</td><td>50–200 MHz；0.7–1.1 V</td><td>正文、表 I</td></tr>
+        <tr><td>精度格式</td><td>INT1–8</td><td>表 I Precision 列</td></tr>
+        <tr><td>KE 开销下降</td><td>存储 204.8×，计算 21.3×</td><td>正文，相对随机投影编码 [10]</td></tr>
+        <tr><td>Hybrid 能效</td><td>最高 44.17 TOPS/W</td><td>α = 10% 推理，HD 模块 0.7–1.1 V；摘要、§III</td></tr>
+        <tr><td>ReRAM CIM 能效 / 功耗</td><td>75.8 TOPS/W；ReRAM 模块 5.4 mW，占 11%</td><td>§III、图 10，1.1 V、200 MHz；同图 HD 35.1 mW（73%），Cache 6.8 mW（14%）</td></tr>
+        <tr><td>面积效率</td><td>0.092（HDC + ReRAM）；0.080（ReRAM CIM）</td><td>表 I，单位 Peak TOPS/mm²</td></tr>
+        <tr><td>相对 [4] Clo-hdnn</td><td>最高 20.1× 能效</td><td>结论明确对 [4]；[4] 表 I 为 3.78 TOPS/W，对应 75.8 / 3.78</td></tr>
+        <tr><td>相对先前工作的范围</td><td>能效 20.1–56.6×；面积效率 3.4–6.6×</td><td>§III 正文；并非同一基线</td></tr>
+        <tr><td>α = 10% 相对 CIM-only</td><td>精度 +1.91–8.46%；图 12：+8.46% / +1.91% / +3.71%</td><td>ISOLET / PAMAP2 / UCIHAR；10 epoch，D = 1024。无绝对准确率</td></tr>
+        <tr><td>能耗 / 能效对照</td><td>α = 10% 相对全数字能耗低 9.32×；全模拟相对全数字能效高 123.87×</td><td>正文、图 12（D = 1024 组标了这两个倍数）</td></tr>
+        <tr><td>ADC / 映射 / ISA</td><td>4-bit flash ADC，每 ADC 共享 16 条 SL；读写 2 单元/bit，CIM 4 单元/bit；ISA 20 bit（4+16）</td><td>正文 §II-B、§II-C</td></tr>
+        <tr><td>VMM 测量</td><td>每周期 32 行激活；读出含编程后立即和一天后</td><td>图 11，1024 个单元的 CDF</td></tr>
+      </tbody>
+    </table>
+    <p class="figcap">笔记整理于 2026-11-27（Asia/Shanghai），依据 <a href="https://arxiv.org/abs/2611.23973">arXiv:2611.23973v1</a>。阅读笔记 · ReCIM-HD · 不替代原文</p>
+  </section>
+
+  <footer>笔记整理于 2026-11-27（Asia/Shanghai）。阅读笔记，不替代原文。</footer>
+</div>
+</body>
+</html>
